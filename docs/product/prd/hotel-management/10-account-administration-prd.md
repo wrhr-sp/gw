@@ -13,13 +13,13 @@
 
 ## 2. 결론
 
-운영자는 ZITADEL 콘솔에서 사람 계정을 생성하지 않는다. 최초 회사 관리자 1명의 bootstrap을 제외한 모든 사람 계정 생성·조회·중지는 호텔관리 프로그램 안에서 수행한다.
+운영자는 ZITADEL 콘솔에서 사람 계정을 생성하지 않는다. Preview bootstrap 운영자 identity 한 명의 초기 연결을 제외한 모든 사람 계정 생성·조회·중지는 호텔관리 프로그램 안에서 수행한다. bootstrap 운영자는 최고관리자 두 명 설정을 완료한 것으로 간주하지 않는다.
 
 호텔관리 백엔드는 별도 최소권한 service credential로 ZITADEL User API를 호출해 인증 identity를 만들고, 같은 사용자에게 호텔관리 PostgreSQL의 회사·사용자유형·호텔관계·권한을 연결한다. ZITADEL은 credential과 인증 identity의 정본이고, 호텔관리 PostgreSQL은 업무 사용자·회사·호텔범위·권한·상태·감사의 정본이다.
 
 ## 3. 목표
 
-1. Preview 최초 회사 관리자 1명을 재실행에 안전하게 bootstrap한다.
+1. Preview bootstrap 운영자 identity 한 명을 재실행에 안전하게 연결하되 최고관리자 설정과 분리한다.
 2. 회사 관리자가 호텔관리 UI에서 사람 계정을 한 번에 생성한다.
 3. 사내 임직원·하우스키핑·호텔 소유주를 독립 사용자유형으로 생성한다.
 4. ZITADEL identity와 호텔관리 사용자가 서로 고아 상태로 남지 않도록 보상한다.
@@ -55,17 +55,22 @@
 - 관리자 권한 위임 UI와 임의 권한 편집
 - 사용자 삭제
 
-## 5. 최초 관리자 bootstrap
+## 5. Preview bootstrap 운영자
 
-- Preview 배포가 받는 `ZITADEL_PREVIEW_SUBJECT`를 고정 회사 관리자 사용자와 1:1 연결한다.
+- Preview 배포가 받는 `ZITADEL_PREVIEW_SUBJECT`를 고정 bootstrap 운영자 사용자와 1:1 연결한다.
 - DB 변경 전에 approved subject SHA-256을 constant-time 비교하고 ZITADEL에서 같은 ID·organization·`ACTIVE` human·`READY` MFA를 read-back한다.
 - read-back 404·redirect·timeout·schema 오류·organization 불일치·MFA 미등록은 모두 bootstrap을 중단한다.
 - bootstrap은 동일 subject·회사·사용자에 대해 재실행 가능하고 다른 사용자로의 재매핑은 실패한다.
 - 승인 참조는 protected Preview environment의 안정적인 티켓·결정 ID를 사용한다. 실행별 `run_id`는 승인 정본으로 저장하거나 재실행 일치조건에 사용하지 않는다.
-- 최초 관리자는 `INTERNAL_STAFF`, `ACTIVE`이며 회사범위 `HOTEL_MANAGE`, `USER_READ`, `USER_CREATE`, `USER_SUSPEND`를 가진다.
+- bootstrap 운영자는 `INTERNAL_STAFF`, `ACTIVE`이며 계정 bootstrap과 최초 최고관리자 쌍 초기화에만 필요한 제한 capability를 가진다. 초기화 전에는 일반 권한관리 기능을 사용할 수 없다.
+- 최초 최고관리자 설정은 bootstrap 운영자를 첫 최고관리자로 포함하고, 운영자가 선택한 서로 다른 활성 사내 임직원 한 명을 두 번째 최고관리자로 지정한다. `0명 → 2명`을 제한된 일회성 command의 한 transaction으로 처리하며 중간 1명 상태를 commit하지 않는다.
+- 초기화는 현재 최고관리자 0명·승인된 bootstrap authority·두 계정의 활성 사내 임직원 상태·중요작업 재인증·승인참조·멱등키를 검증한다. 동일키 replay는 저장결과를 반환하고 다른 재호출·부분실패·동시 패자는 차단하며 성공 후 초기화 authority를 폐기하고 전후값·행위자·승인참조를 감사한다.
+- 회사에는 초기화 성공 뒤 활성 최고관리자를 정확히 두 명 유지한다.
+- 최고관리자 한 명 또는 세 명이 되는 개별 추가·회수·계정 중지 mutation은 차단한다.
+- 최고관리자 교체는 기존 한 명 해제와 신규 한 명 지정을 중요작업 재인증 뒤 하나의 transaction으로 처리하고, 처리자는 자기 자신을 교체할 수 없다.
 - bootstrap은 일반 사용자 생성 API를 우회하는 유일한 예외다.
 - bootstrap 완료 뒤 사람 계정 생성은 호텔관리 UI/API에서만 수행한다.
-- Production 최초 관리자는 별도 명시승인 전 생성하지 않는다.
+- Production bootstrap 운영자와 최고관리자는 별도 명시승인 전 생성하지 않는다.
 
 ## 6. 사용자유형과 호텔관계
 
@@ -167,7 +172,7 @@ PENDING_SETUP → ACTIVE → INACTIVE
 - `INACTIVE`: 관리자가 중지. 신규 session·업무 접근 차단.
 - `LOCKED`: 인증 위험 또는 provider 잠금. 업무 접근 차단.
 - 물리삭제하지 않는다.
-- 자기계정 중지와 마지막 활성 `USER_SUSPEND` 관리자 중지는 차단한다.
+- 자기계정 중지와 활성 최고관리자의 일반 계정 중지는 차단한다. 최고관리자는 재인증된 원자 교체 transaction으로만 변경한다.
 - 중지 transaction은 로컬 `INACTIVE` 전환·hotel session 회수·감사·`ACCOUNT_PROVIDER_DEACTIVATE` outbox를 함께 확정한다.
 - API는 commit된 exact outbox를 즉시 claim하고 ZITADEL 비활성화를 시도한다. provider 결과와 claim-token fenced outbox `SUCCEEDED`가 확인된 뒤에만 2xx를 반환한다.
 - provider 실패는 안전 오류코드와 함께 `FAILED`로 기록하고 재시도한다. 로컬 접근 차단은 되돌리지 않으며, 같은 멱등키 재시도는 저장된 outbox ID에서 수렴한다.
@@ -191,6 +196,7 @@ PENDING_SETUP → ACTIVE → INACTIVE
 | POST   | `/api/admin/users`                    | ZITADEL identity + DB 사용자·호텔관계 생성 |
 | GET    | `/api/admin/users/:userId`            | 회사범위 사용자 상세 재조회                |
 | POST   | `/api/admin/users/:userId/deactivate` | version·사유로 중지, session 회수          |
+| POST   | `/api/admin/super-admins/initialize`  | bootstrap 운영자 + 선택한 활성 사내 임직원으로 최초 쌍 원자 초기화 |
 | POST   | `/api/account/initial-password`       | 본인 최초 비밀번호 변경                    |
 
 모든 변경 요청은 `Idempotency-Key`를 요구한다. 사용자 ID 직접조회는 같은 회사가 아니거나 존재하지 않으면 같은 `404` 계약을 사용한다.
@@ -220,7 +226,7 @@ ZITADEL 생성 후 DB 완료가 `DUPLICATE`·`FORBIDDEN`으로 명시적으로 �
 
 ## 14. 계정 중지
 
-- version·사유·권한·자기중지·마지막관리자 규칙을 검증한다.
+- version·사유·권한·자기중지·최고관리자 교체필요 규칙을 검증한다.
 - ZITADEL 비활성화와 DB 상태변경을 saga로 처리한다.
 - DB `users.status=INACTIVE` 저장, 모든 활성 `auth_sessions` 회수, 감사, `ACCOUNT_PROVIDER_DEACTIVATE` outbox를 같은 transaction에서 처리한다.
 - DB 중지·session 회수를 먼저 원자적으로 완료해 호텔 접근을 즉시 차단한다.
@@ -240,7 +246,8 @@ ZITADEL 생성 후 DB 완료가 `DUPLICATE`·`FORBIDDEN`으로 명시적으로 �
 | `ACCOUNT_NOT_FOUND`                   | 같은 회사에서 계정을 찾지 못함                      |
 | `ACCOUNT_VERSION_CONFLICT`            | 오래된 version                                      |
 | `ACCOUNT_SELF_DEACTIVATION_FORBIDDEN` | 자기계정 중지 시도                                  |
-| `LAST_ADMIN_DEACTIVATION_FORBIDDEN`   | 마지막 관리자 중지 시도                             |
+| `SUPER_ADMIN_REPLACEMENT_REQUIRED`    | 최고관리자 직접 중지 시도, 원자 교체 필요           |
+| `SUPER_ADMIN_INITIALIZATION_FORBIDDEN` | 초기화 authority·0명 상태·재인증·승인조건 불충족    |
 | `PASSWORD_CHANGE_REQUIRED`            | 최초 비밀번호 변경 전 업무 접근                     |
 | `COMPENSATION_REQUIRED`               | 외부 생성 뒤 자동 보상 미완료                       |
 
@@ -272,7 +279,9 @@ DB·migration·ZITADEL 설정이 없으면 가짜 성공·DB-only 사용자·in-
 - 권한 없는 사용자와 하우스키핑·소유주의 계정관리 API 직접호출이 차단된다.
 - 신규 사용자는 최초 비밀번호 변경 전 호텔 업무 API가 차단된다.
 - 중지 직후 기존 opaque session과 신규 로그인이 차단된다.
-- 자기계정과 마지막 활성 관리자는 중지할 수 없다.
+- 자기계정과 활성 최고관리자는 일반 계정 중지 API로 중지할 수 없다.
+- 활성 최고관리자는 항상 정확히 두 명이며 재인증된 원자 교체 전후에도 두 명을 유지한다.
+- 최초 초기화는 bootstrap 운영자와 선택한 다른 활성 사내 임직원 한 명을 한 transaction에서 지정하고, 부분 1명 상태·동시 이중초기화·성공 후 다른 재호출을 차단한다.
 - 비밀번호·token이 소스·로그·문서·감사·DB에 남지 않는다.
 - 사용자 목록·생성·상세 제목 옆에 현재 화면과 권한 계약에 맞는 `?` 기능가이드가 표시된다.
 - 계정관리 가이드는 목적·대상·기본 사용순서·필요 권한·주의사항을 짧은 한국어로 제공하며 예정 기능과 내부 기술용어를 노출하지 않는다.

@@ -33,7 +33,7 @@
 - `users`는 전역 unique index와 registry 복합 FK를 함께 사용해 claim 없는 로그인 ID 저장을 차단한다.
 - 로그인 BFF는 짧은 ID를 canonicalize한 뒤 PostgreSQL의 활성 identity mapping에서 검증된 ZITADEL subject를 해석하고 Session API에 `userId`로 전달한다.
 - Preview bootstrap은 provider username을 자동 변경하지 않고 기존 검증된 subject를 유지한 채, 승인자가 선택해 protected environment secret에 저장한 호텔관리 alias로 정렬한다. ID 원문은 repository·문서·일반 로그에 두지 않는다.
-- 최초 bootstrap 관리자 설정은 단일 초기 authority를 정렬하는 절차이며, 다른 사용자에게 관리자 권한을 부여·회수하는 후속 관리자 설정 PRD를 대체하거나 완료 처리하지 않는다.
+- Preview bootstrap 운영자 연결만으로는 최고관리자 설정이 완료되지 않는다. 최초 설정은 bootstrap 운영자를 첫 최고관리자로 포함하고 운영자가 선택한 서로 다른 활성 사내 임직원 한 명을 두 번째 최고관리자로 지정해 `0명 → 2명`을 한 transaction으로 처리한다. 성공 전 일반 권한관리는 차단하고, 이후 최고관리자 변경은 기존 한 명 해제와 신규 한 명 지정을 하나의 재인증된 transaction으로 처리한다.
 - 실제 Preview 신규 ID 로그인·이전 alias 거부·subject/권한 불변 smoke 전에는 rollout 완료로 보지 않는다.
 
 ## 확정 결정

@@ -39,21 +39,27 @@
 | 배정 | `POST /api/hotels/:id/staff-assignments` | userId·종류·기간·사유 | 배정 재조회 | `HOTEL_ASSIGNMENT_MANAGE` |
 | 배정 | `POST /api/hotels/:id/housekeeping-links` | userId·기간 | 연결 재조회 | `HOTEL_ASSIGNMENT_MANAGE` |
 | 소유주 | `POST /api/hotels/:id/owner-transfer` | 기존/신규 userId·전환시각·사유·재인증 | 활성 연결·종료 연결 | `HOTEL_OWNER_MANAGE` |
-| 객실 | `POST /api/hotels/:id/rooms` | 객실번호·층·유형·상태 | 객실 재조회 | `HOTEL_ROOM_MANAGE` |
-| 객실 | `POST /api/hotels/:id/rooms/:roomId/status` | version·상태·사유·예정재개일 | 상태이력 포함 객실 | 유효배정 사내 임직원 |
-| 템플릿 | `POST /api/hotels/:id/inspection-templates` | 항목배열·version | 새 템플릿 버전 | `HOTEL_INSPECTION_TEMPLATE_MANAGE` |
-| 점검 | `POST /api/hotels/:id/inspections` | 대상·책임자·참여자·기한 | 점검 스냅샷 | `HOTEL_INSPECTION_MANAGE` |
-| 점검 | `PATCH /api/hotels/:id/inspections/:inspectionId/results` | version·항목결과·첨부참조 | 결과 재조회 | 담당자/참여자 |
-| 점검 | `POST /api/hotels/:id/inspections/:inspectionId/complete` | version | 완료·자동이슈 | 완료책임자 |
-| 이슈 | `POST /api/hotels/:id/issues` | 객실·등급·내용·첨부 | 접수 이슈 | 유효배정자 |
-| 이슈 | `POST /api/hotels/:id/issues/:issueId/transitions` | version·전이·사유 | 상태이력 포함 이슈 | 상태별 권한 |
+| 최고관리자 | `POST /api/admin/super-admins/initialize` | bootstrap 운영자·두 번째 활성 사내 임직원·재인증·승인참조·version | 정확히 두 명·초기화 감사 재조회 | 제한된 one-shot 초기화 authority |
+| 객실 | `POST /api/hotels/:id/rooms` | 객실번호·층그룹·호텔별 객실유형 | 객실 재조회 | DB 동적 객실관리권한 |
+| 객실 | `PATCH /api/hotels/:id/rooms/:roomId` | version·기준정보 상태·변경사유 | 객실·영향 시설물 재조회 | DB 동적 객실관리권한 |
+| 시설물 | `POST /api/hotels/:id/facilities` | 유형·시설물명·객실/공용공간 위치 | 시설물 재조회 | DB 동적 시설물관리권한 |
+| 점검항목 | `POST /api/hotels/:id/inspection-items` | 대상유형 `ROOM\|FACILITY`·공통항목·객실/시설물유형별 제외/추가·version | 대상유형별 새 revision | DB 동적 항목설정권한 |
+| 루틴 | `POST /api/hotels/:id/inspection-routines` | 대상범위·회차·반복·기한 | 루틴 revision 재조회 | DB 동적 루틴관리권한 |
+| 점검 | `POST /api/hotels/:id/inspections` | 대상·유효항목·수시점검 | process·대상·항목 snapshot | DB 동적 점검등록권한 |
+| 점검 | `PATCH /api/hotels/:id/inspections/:inspectionId/results` | version·정상/주의/이상·설명·첨부 | 결과·실제 수행자 재조회 | DB 동적 점검수행권한 |
+| 점검 | `POST /api/hotels/:id/inspections/:inspectionId/transitions` | version·단계처리·사유 | process 실행·다음 단계 | 현재 단계 처리권한 |
+| 보수 | `POST /api/hotels/:id/repairs` | 출처·대상 하나·우선순위·하자증빙 | 보수·process snapshot | DB 동적 보수등록권한 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits` | 보수 건·일정명·시작/종료·수행자/업체 | 일정·outbox 재조회 | DB 동적 일정생성권한 |
+| Calendar | `POST /api/admin/calendar-sync-failures/:id/retry` | version·재시도사유 | 최신 outbox 상태 | DB 동적 Calendar관리권한 |
+| 이슈 | `POST /api/hotels/:id/issues` | 객실·등급·내용·첨부 | 접수 이슈 | 유효배정 + 현재 DB 동적 이슈등록권한 |
+| 이슈 | `POST /api/hotels/:id/issues/:issueId/transitions` | version·전이·사유 | 상태이력 포함 이슈 | 현재 DB 동적 상태처리권한 + 담당·자료상태 조건 |
 | 매출 | `POST /api/hotels/:id/daily-sales` | 업무일·내역·금액·증빙 | 임시저장 재조회 | `HOTEL_SALES_MANAGE` |
 | 매출 | `POST /api/hotels/:id/daily-sales/:salesId/confirm` | version | 확정·잠금 | `HOTEL_SALES_CONFIRM` |
 | 매출 | `POST /api/hotels/:id/daily-sales/:salesId/corrections` | version·사유·근거·새값 | 정정버전 | `HOTEL_SALES_CORRECT` |
 | 문의 | `POST /api/hotels/:id/inquiries` | 유형·제목·내용·첨부 | 라우팅된 문의 | 활성 호텔 소유주 |
 | 문의 | `POST /api/hotels/:id/inquiries/:inquiryId/transitions` | version·전이·메시지 | 상태·메시지 재조회 | 상태별 권한 |
 | 파일 | `POST /api/hotel-files/upload-init` | 호텔·부모종류·파일명·크기·MIME | 업로드 세션 | 자료 쓰기권한 |
-| 파일 | `POST /api/hotel-files/:fileId/upload-complete` | 검증값 | 검역상태 | 업로드 생성자 |
+| 파일 | `POST /api/hotel-files/:fileId/upload-complete` | 검증값·부모 version | 검역상태 | 생성자 일치 + 현재 session·회사·호텔배정·기능권한·개인회수·부모상태 재검증 |
 | 파일 | `POST /api/hotel-files/:fileId/view` | 부모자료 ID | 단기보기 URL/stream | 설정된 VIEW |
 | 파일 | `POST /api/hotel-files/:fileId/download` | 부모자료 ID | 단기 다운로드 | 설정된 DOWNLOAD |
 
@@ -70,10 +76,14 @@
 |---|---|
 | 호텔 | `(company_id, branch_id)` unique·FK, `branch_type='HOTEL'` |
 | 소유주 | 호텔당 활성 연결 1개 partial unique, 계정당 활성 호텔 1개 partial unique |
-| 객실 | `(company_id, branch_id, room_number)` unique |
+| 객실 | `(company_id, branch_id, room_number)` unique, 삭제 후 재사용은 새 내부 ID |
+| 공용공간 | 같은 호텔 정규화 이름 unique |
+| 시설물 | 같은 호텔·설치위치·시설물유형 정규화 이름 unique |
 | 배정 | 시작일 < 종료일, 같은 배정의 중복기간 방지 |
-| 점검 자동생성 | `(schedule_id, room_id, business_date)` unique |
-| 점검 책임자 | 점검당 활성 완료책임자 정확히 1명 |
+| 점검 자동생성 | `(routine_revision_id, target_type, target_id, business_date, occurrence_key)` unique; 객실·시설물 공통 중복차단 |
+| process 단계 | 현재 단계 주 검토자 1명, 선택 대리인 1명, 선착순 version 처리 |
+| 보수대상 | 객실·공용공간·시설물 중 대상유형 하나와 대상개체 하나 |
+| 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
 | 매출 | `(company_id, branch_id, business_date)` 또는 합의한 집계키 unique |
 | 파일 | 부모참조는 같은 `company_id·branch_id`, 검역통과 파일만 연결 |
 | version | 변경 가능한 모든 정본자료에 1 이상 정수 |
@@ -86,8 +96,10 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 | 도메인 | 코드 |
 |---|---|
 | 호텔 | `PREPARING`, `ACTIVE`, `SUSPENDED` |
-| 객실 | `ACTIVE`, `TEMP_SUSPENDED`, `OUT_OF_SERVICE` |
-| 점검 | `SCHEDULED`, `UNASSIGNED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED` |
+| 객실·시설물 기준정보 | `ACTIVE`, `INACTIVE`, `DELETED`; 신규 업무대상 포함 여부만 의미 |
+| 점검결과 | `NORMAL`, `CAUTION`, `ABNORMAL` |
+| 점검 실행 | 생성 당시 process revision의 현재 단계·지연·최종완료·미완료종료 |
+| 방문일정 | 예정·진행·완료·취소·삭제 감사 snapshot |
 | 매출 | `DRAFT`, `CONFIRMED`, `LOCKED`, `CORRECTED` |
 | 이슈 | `RECEIVED`, `ASSIGNED`, `IN_PROGRESS`, `ACTION_COMPLETED`, `CLOSED`, `ON_HOLD`, `CANCELLED` |
 | 문의 | `RECEIVED`, `ASSIGNED`, `ANSWERING`, `ANSWERED`, `CLOSED` |
@@ -95,7 +107,10 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 
 ## transaction 경계
 
-- 점검 완료 + 중대·긴급 이슈 자동생성 + 감사로그는 단일 transaction.
+- 점검 단계처리 + process history + 감사로그는 단일 transaction이다.
+- 최초 최고관리자 설정은 bootstrap 운영자와 선택한 다른 활성 사내 임직원 한 명을 `0명 → 2명`으로 원자 지정하고 초기화 authority 폐기·감사·멱등결과를 같은 transaction에서 확정한다.
+- process 판단으로 보수 건을 만들 때 원본 점검·대상·항목·결과·증빙 snapshot과 보수 process를 단일 transaction으로 연결한다.
+- 방문일정 생성·변경·취소·삭제와 provider outbox INSERT는 단일 transaction이고 Google 실패가 정본 일정을 rollback하지 않는다.
 - 매출 확정 + 잠금 + 증빙참조 + 감사로그는 단일 transaction.
 - 소유주 교체는 기존 연결종료 + 신규연결 + 세션회수 요청상태 + 감사를 원자적으로 기록한다.
 - R2·푸시 같은 외부작업은 DB transaction 밖에서 상태·재시도·보상으로 처리한다.
