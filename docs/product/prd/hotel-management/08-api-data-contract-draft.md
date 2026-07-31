@@ -78,7 +78,7 @@
 | 소유주 | 호텔당 활성 연결 1개 partial unique, 계정당 활성 호텔 1개 partial unique |
 | 객실 | `(company_id, branch_id, room_number)` unique, 삭제 후 재사용은 새 내부 ID |
 | 공용공간 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column, `(company_id, branch_id, normalized_name)` unique, `ACTIVE/INACTIVE/DELETED`, 물리삭제 금지 |
-| 시설물유형 | `(company_id, branch_id, id)` unique parent key, `ACTIVE/INACTIVE/DELETED`, 연결 시설물이 있으면 삭제 command 차단 |
+| 시설물유형 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column, `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용하고 `DELETED` 이름을 불변으로 유지해 삭제 후 이름 재사용 금지, 연결 시설물이 있으면 삭제 command 차단 |
 | 시설물 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column과 같은 호텔 시설물유형 composite FK; `ROOM`은 `room_id`만, `COMMON_AREA`는 `common_area_id`만 존재하는 명시적 행 CHECK와 각 위치 composite FK; `(company_id, branch_id, facility_type_id, room_id, normalized_name) WHERE location_type='ROOM'`과 `(company_id, branch_id, facility_type_id, common_area_id, normalized_name) WHERE location_type='COMMON_AREA'` partial unique |
 | 위치·유형 lifecycle | 모든 command가 후보 참조를 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID` 전역순서로 잠그고 참조·version을 재조회하며 변경 시 conflict/retry; 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 연결된 유형 삭제 차단, 이동은 같은 호텔 활성 위치만 허용 |
 | 배정 | 시작일 < 종료일, 같은 배정의 중복기간 방지 |
