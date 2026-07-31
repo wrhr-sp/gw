@@ -438,6 +438,7 @@
 ### 13.3 우선순위
 
 - 호텔별로 이름·정렬순서·표시색·사용여부를 설정한다.
+- lifecycle은 `ACTIVE/INACTIVE/DELETED`이며 물리삭제하지 않는다. `INACTIVE`·`DELETED`는 신규 보수 건에서 선택하지 않되 기존 보수 건의 생성 snapshot은 계속 유효하다.
 - 코드에 `일반`·`긴급` 같은 값을 고정하지 않는다.
 - 등록 시 활성 우선순위 한 개를 필수로 직접 선택하고 기본값을 미리 선택하지 않는다.
 - 시스템이 점검결과·설명·사진으로 자동판정하지 않는다.
@@ -505,7 +506,8 @@
 - 정본 relation은 `hotel_repair_priorities`, `hotel_repair_cases`, `hotel_repair_case_history`, `hotel_repair_visits`, `hotel_repair_visit_performers`, `hotel_repair_visit_history`다. priority·case·visit current table은 child가 참조할 `(company_id, branch_id, id)` unique parent key를 제공한다. case history와 visit은 `(company_id, branch_id, repair_case_id)`로 case를, performer와 visit history는 `(company_id, branch_id, repair_visit_id)`로 visit을 직접 composite FK 참조한다. current row와 해당 append-only history는 command transaction에서 원자 기록하고 history는 수정·물리삭제하지 않는다.
 - `INSPECTION` source는 case typed target과 동일한 회사·호텔 inspection 실행대상·항목·결과 composite FK와 생성 당시 설명·사진 snapshot을 갖고, `DIRECT` source는 inspection 참조 없이 하자설명과 현장사진 1장 이상 또는 촬영불가 사유를 갖는다. 같은 행의 명시적 CHECK가 SQL NULL 우회, 두 source 분기 혼합, inspection source target과 repair target 불일치를 차단한다.
 - case target은 `ROOM`이면 `room_id`만, `COMMON_AREA`이면 `common_area_id`만, `FACILITY`이면 `facility_id`만 non-null인 명시적 CHECK와 각 `(company_id, branch_id, typed_id)` composite FK를 사용하고 생성 당시 대상 snapshot을 보존한다.
-- 우선순위는 활성 호텔별 definition을 직접 참조하고 선택 당시 ID·version·이름·정렬순서·색상 snapshot을 case에 구조화해 저장한다. 설정변경은 기존 case에 소급하지 않고 진행 중 직접변경은 expected version·사유·전후 history를 남긴다.
+- 우선순위 이름은 앞뒤 공백을 제거하고 영문 대소문자를 구분하지 않는다. `normalized_name=lower(btrim(name))` stored generated column과 `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용한다. 물리삭제와 `DELETED` 행 이름변경을 금지해 삭제 후 같은 호텔에서 이름을 재사용하지 않고 다른 호텔에서는 같은 이름을 허용한다.
+- 우선순위는 활성 호텔별 definition을 직접 참조하고 선택 당시 ID·version·이름·정렬순서·색상 snapshot을 case에 구조화해 저장한다. 동시 생성·이름변경은 DB unique와 안정 오류로 처리한다. 설정변경은 기존 case에 소급하지 않고 진행 중 직접변경은 expected version·사유·전후 history를 남긴다.
 - case는 생성 당시 설정형 공통 process execution을 같은 tenant composite FK로 참조한다. 점검 판단 생성과 직접등록 모두 process를 우회하지 않는다.
 - case 한 건에 독립 `hotel_repair_visits` 여러 행을 두고 각 visit이 별도 version을 가진다. `hotel_repair_visit_performers`는 INTERNAL/EXTERNAL 분기별 nullable 필드를 명시적 CHECK로 제한하며, 내부 수행자는 command에서 활성 session·같은 호텔배정·보수권한을 재검증하고 외부업체는 계정 없이 승인된 snapshot만 저장한다.
 - 방문시간 중복을 위한 제약·조회·경고·차단·자동조정을 만들지 않는다. 종료시각 경과는 저장상태 mutation 없이 조회에서만 계산한다.
@@ -516,7 +518,7 @@
 ### 14.4 재사용·제외·구현 전 gate
 
 - 현재 source에는 repair relation·Contracts·Repository·Service·API·Web UI 구현이 없다. 승인된 process·inspection·facility·RLS·version·멱등·감사·비공개 파일 패턴은 Red를 통과하는 최소 hunk만 재사용한다.
-- 우선순위 이름 중복·삭제 후 재사용, 외부업체 snapshot 정확한 연락처 필드와 열람권한, 방문 내부 수행자의 단수·복수, 완료 뒤 새 보수 건의 관계명·화면표시를 제품정책으로 확정한다.
+- 외부업체 snapshot 정확한 연락처 필드와 열람권한, 방문 내부 수행자의 단수·복수, 완료 뒤 새 보수 건의 관계명·화면표시를 제품정책으로 확정한다.
 - 위 제품정책과 exact relation column·command·권한·오류계약·잠금순서를 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
 - 보수 event가 법적 정본이 되고 모든 현재상태를 replay로만 재구축하거나 여러 외부시스템의 실시간 event 정본이 필요해지면 event-stream 후보를 다시 선정한다.
 - 방문일정이 독립 자원예약·중복판정·자동배정·최적화로 확대되거나 외부업체 계정·포털·청구·계약관리 또는 PMS·자산관리 시스템이 정본이 되면 제품범위와 후보를 다시 승인받는다.
