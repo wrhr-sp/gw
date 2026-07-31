@@ -65,12 +65,84 @@
 
 | 구현영역 | 상태 | 기존 승인 재사용 여부 |
 |---|---|---|
-| 공통 process definition/revision·실행 엔진 | `unresearched` | 기존 구현 없음 |
+| 공통 process definition/revision·실행 엔진 | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수 |
 | 객실·시설물 공통 inspection 대상·결과 모델 | `unresearched` | 기존 객실 전용 계약은 자동 재사용 불가 |
 | 시설물·공용공간 기준정보 | `unresearched` | 신규 저장구조 |
 | 보수 건·우선순위·방문일정 | `unresearched` | 신규 저장구조·UI |
 | Calendar adapter·OAuth credential·outbox 재시도 | `unresearched` | 신규 외부 provider 경계 |
 | 자체 월간·주간 달력 UI | `unresearched` | 신규 UI |
+
+### 4.1 공통 process engine 후보 결정 — 2026-07-31
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 선택안: PostgreSQL 정본 + TypeScript 자체 process engine을 기반으로 하고 XState의 명시적 상태·이벤트·guard·전이행렬 개념과 Camunda의 단계 그래프 유효성검사·definition/revision·execution 분리 개념만 흡수한다.
+
+비교한 독립 후보는 정확히 다음 세 개다.
+
+| 후보 | 확인 결과 | 선택 결과 |
+|---|---|---|
+| PostgreSQL 18 정본 + TypeScript 자체 엔진 | 기존 RLS·`FORCE ROW LEVEL SECURITY`·version·멱등·감사·command transaction과 직접 결합 가능. 신규 runtime·상용 라이선스·외부 서비스 없음 | 선택 |
+| XState 5.32.5 + PostgreSQL | MIT이며 actor snapshot의 DB 저장·복구를 지원하지만 동적 권한·대리인·기한·감사·RLS는 별도 구현이 필요하고 XState snapshot과 DB 실행상태의 이중 정본 위험이 있음 | package 미도입, 모델링 개념만 흡수 |
+| Camunda 8.9 + PostgreSQL | User Task·담당후보·멀티테넌시·BPMN 운영도구를 제공하지만 SaaS 또는 별도 Self-Managed runtime이 필요하고 DB transaction과 외부 process 전이를 원자화할 수 없음. Production Self-Managed 주요 compiled component는 Enterprise Edition 경계임 | runtime·Tasklist·Modeler·SaaS 미도입, 그래프 검증 개념만 흡수 |
+
+공식 조사 근거:
+
+- [PostgreSQL 18 Row Security](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
+- [PostgreSQL 18 JSON Types](https://www.postgresql.org/docs/18/datatype-json.html)
+- [XState Persistence](https://stately.ai/docs/persistence)
+- [XState MIT License](https://github.com/statelyai/xstate/blob/main/LICENSE)
+- [Camunda 8 User Tasks](https://docs.camunda.io/docs/components/modeler/bpmn/user-tasks/)
+- [Camunda 8 Multi-tenancy](https://docs.camunda.io/docs/components/concepts/multi-tenancy/)
+- [Camunda 8 Self-Managed](https://docs.camunda.io/docs/self-managed/about-self-managed/)
+- [Camunda 8 Licenses](https://docs.camunda.io/docs/reference/licenses/)
+
+### 4.2 선택안의 정본·실행 경계
+
+- process definition·불변 revision·stage·transition·guard 입력·담당자·기한·execution·현재 stage·history·감사는 PostgreSQL 정본이다.
+- Web은 자체 shadcn/Radix/Tailwind UI만 사용하고 외부 Modeler·Tasklist를 사용자 화면에 포함하지 않는다.
+- TypeScript는 Contracts parse, 그래프 초안 검증, 사용자 응답 조립을 담당할 수 있지만 최종 transition 권한·현재 stage·version·guard·완료조건은 좁은 PostgreSQL command가 같은 transaction에서 다시 검증한다.
+- XState actor snapshot과 Camunda process instance를 업무 정본 또는 복구 정본으로 저장하지 않는다.
+- 역할명·단계명·상태명을 코드에 고정하지 않고 생성 당시 process revision snapshot을 실행 건에 보존한다.
+- Scheduled Reconciler는 기한초과·알림·중지된 실행 탐지만 담당하며 자동승인·자동반려·자동이동·임의 담당자변경을 하지 않는다.
+- PostgreSQL command는 회사·호텔 scope, RLS·`FORCE ROW LEVEL SECURITY`, 활성 session·사용자·배정·동적 기능권한·개인 회수 우선·자료상태와 현재 stage·version·guard·완료조건을 같은 transaction에서 요청마다 다시 검증한다.
+
+### 4.3 흡수하는 장점과 포기하는 장점
+
+흡수:
+
+- 상태·이벤트·guard·허용 transition을 명시적으로 분리한다.
+- 저장 전에 시작단계·최종단계·도달가능성·고립단계·유효 transition·완료경로·담당자·분기조건을 검증한다.
+- definition/revision과 execution/history를 분리하고 기존 실행은 생성 당시 revision으로만 판정한다.
+- 전이행렬·동시처리·응답유실 replay·완료잠금 테스트를 사용한다.
+
+포기:
+
+- XState package·actor runtime·persisted actor snapshot·Stately 전용 운영도구.
+- Camunda engine·Zeebe·Tasklist·Modeler·Identity·SaaS·Self-Managed cluster.
+- BPMN 전체 표준기능과 외부 workflow 대시보드.
+
+추가 부담:
+
+- 그래프 유효성검사, revision, transition command, 담당자·대리인, 기한·지연, 실행이력, 운영조회 UI를 직접 구현·테스트한다.
+- 범용 workflow 제품이 아니라 승인된 호텔 점검·보수 검토흐름에 필요한 좁은 기능만 제공한다.
+
+### 4.4 구현 전 필수 gate
+
+- 이 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델·시설물 기준정보·보수·Calendar adapter·달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
+- 구현 전 exact source snapshot에서 Contracts·DB schema/command·Repository/Service/API·Web UI·테스트 경계를 확정하고 별도 mutation 범위를 승인받는다.
+- Red 테스트는 잘못된 그래프, 도달 불가능 단계, 최종경로 부재, revision snapshot 불변, 주 검토자·대리인 동시처리, stale version, 권한회수·배정만료, 기한초과 비자동전이, 최종완료 잠금, 멱등 replay·응답유실을 포함한다.
+- 실제 PostgreSQL 18에서 회사/호텔 scope CHECK·복합 FK·RLS·`FORCE ROW LEVEL SECURITY`·non-owner/non-`BYPASSRLS` runtime·command ACL·동시 transition을 검증한다.
+- 신규 package·외부 workflow runtime·SaaS·Production·secret·provider mutation은 이 선택에 포함하지 않는다.
+
+### 4.5 재선정 조건
+
+다음 중 하나가 제품정책으로 확정되면 공통 process engine 후보를 다시 선정한다.
+
+- 비개발자가 BPMN 전체 모델러로 범용 프로세스를 직접 설계해야 한다.
+- 여러 외부 시스템의 수일·수개월 장기 saga가 핵심업무가 된다.
+- 독립 workflow 운영팀·전용 대시보드·별도 SLA가 필요하다.
+- 회사 공통플랫폼으로 Camunda Enterprise 사용이 의무화된다.
 
 후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면·Google 연동을 시작하지 않는다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인도 결과·사진·완료·프로세스·시설물·보수·Calendar에는 적용되지 않는다.
 
