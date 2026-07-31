@@ -352,7 +352,7 @@
 ### 9.5 선택안의 정본·무결성 경계
 
 - `hotel_common_areas`, `hotel_facility_types`, `hotel_facilities`는 `company_id`, `branch_id`, `id`, `version`, actor·시각과 `ACTIVE/INACTIVE/DELETED` lifecycle을 가진 호텔 정본이며 물리삭제하지 않는다. 각 테이블은 child composite FK가 참조할 `(company_id, branch_id, id)` unique parent key를 제공한다.
-- 이름은 앞뒤 공백을 제거하고 영문 대소문자를 구분하지 않는다. 공용공간·시설물의 `normalized_name`은 built-in immutable `lower(btrim(name))` stored generated column으로 계산하고 정규화 이름 unique는 삭제상태를 포함한 전체 lifecycle에 적용한다.
+- 이름은 앞뒤 공백을 제거하고 영문 대소문자를 구분하지 않는다. 공용공간·시설물유형·시설물의 `normalized_name`은 built-in immutable `lower(btrim(name))` stored generated column으로 계산한다. 공용공간·시설물유형의 호텔별 unique와 시설물의 9.5 위치·유형별 unique는 모두 삭제상태를 포함한 전체 lifecycle에 적용한다.
 - `hotel_facilities`는 같은 호텔 `facility_type_id`, `location_type`, nullable `room_id`, nullable `common_area_id`를 가진다.
 - `ROOM` 행은 `room_id`만 non-null이고 `COMMON_AREA` 행은 `common_area_id`만 non-null이어야 하며 다른 조합은 같은 행의 명시적 boolean CHECK로 차단한다. SQL NULL이 CHECK를 통과하지 않도록 각 분기에서 null/non-null을 모두 명시한다.
 - 시설물유형은 `(company_id, branch_id, facility_type_id)`, 객실은 `(company_id, branch_id, room_id)`, 공용공간은 `(company_id, branch_id, common_area_id)` composite FK로 실제 같은 호텔 기준정보에 직접 연결한다.
@@ -361,13 +361,13 @@
 - 공용공간·시설물유형·시설물과 lifecycle command는 회사·호텔 scope CHECK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다.
 - 시설물 생성·위치이동과 위치·유형 lifecycle command는 후보 참조를 먼저 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID`의 전역순서로 관련 행을 잠근다. 잠금 뒤 참조·version·같은 호텔·활성 lifecycle을 재조회하고 후보 참조가 바뀌면 conflict/retry로 처리한다. A→B와 B→A 이동도 기존·새 위치 전체를 같은 정렬순서로 잠가 deadlock과 검사 직후 신규연결을 차단한다.
 - 잠금·재검사 뒤 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 하나라도 연결된 유형 삭제를 차단하고 영향목록을 반환하며 자동이동·자동상태변경하지 않는다. 시설물 위치 이동은 version·감사를 원자 갱신하고, 과거 inspection·repair는 생성 당시 위치·이름 snapshot을 계속 사용한다.
-- 시설물유형 이름의 중복 허용 여부는 이번 저장구조 선택으로 새로 확정하지 않는다. 구현 전에 승인 PRD에서 해당 unique 정책을 명시한다.
+- 시설물유형은 `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용하고 `DELETED` 행의 이름을 불변으로 유지한다. 삭제해도 이름을 재사용하지 않고 다른 호텔에서는 같은 이름을 허용한다. 동시 생성·이름변경 충돌은 DB unique와 안정 오류로 처리하며 기존 유형·연결 시설물·과거 snapshot을 바꾸지 않는다.
 
 ### 9.6 재사용·제외·구현 전 gate
 
 - 최신 `hotel_rooms(company_id, branch_id, id)` composite key, generated normalized-name·version·actor·감사·RLS·command 패턴은 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
 - 현재 source의 객실 `ACTIVE/TEMP_SUSPENDED/OUT_OF_SERVICE` 운영상태는 최신 기준정보 `ACTIVE/INACTIVE/DELETED` lifecycle과 상충하므로 시설물 위치판정에 재사용하지 않는다.
-- 객실 lifecycle 교정, 시설물유형 이름 unique 정책, exact relation·command·권한·오류계약을 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
+- 객실 lifecycle 교정과 exact relation·command·권한·오류계약을 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
 - 별도 canonical location registry, generic polymorphic DB FK, JSONB-only 위치 정본, 신규 package·외부 서비스는 도입하지 않는다.
 - 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용하며 보수, Calendar adapter, 달력 UI의 `unresearched` 상태를 바꾸지 않는다.
 
