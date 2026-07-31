@@ -66,7 +66,7 @@
 | 구현영역 | 상태 | 기존 승인 재사용 여부 |
 |---|---|---|
 | 공통 process definition/revision·실행 엔진 | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수 |
-| 객실·시설물 공통 inspection 대상·결과 모델 | `unresearched` | 기존 객실 전용 계약은 자동 재사용 불가 |
+| 객실·시설물 공통 inspection 대상·결과 모델 | `approved` | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK |
 | 시설물·공용공간 기준정보 | `unresearched` | 신규 저장구조 |
 | 보수 건·우선순위·방문일정 | `unresearched` | 신규 저장구조·UI |
 | Calendar adapter·OAuth credential·outbox 재시도 | `unresearched` | 신규 외부 provider 경계 |
@@ -143,6 +143,59 @@
 - 여러 외부 시스템의 수일·수개월 장기 saga가 핵심업무가 된다.
 - 독립 workflow 운영팀·전용 대시보드·별도 SLA가 필요하다.
 - 회사 공통플랫폼으로 Camunda Enterprise 사용이 의무화된다.
+
+### 4.6 공통 inspection 대상·결과 모델 후보 결정 — 2026-07-31
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 선택안: 공통 `inspection_executions` aggregate 아래 `inspection_execution_targets` child를 두고 `ROOM`은 `room_id`, `FACILITY`는 `facility_id` 직접 composite FK로 연결한다.
+
+비교한 독립 후보는 정확히 다음 세 개다.
+
+| 후보 | 확인 결과 | 선택 결과 |
+|---|---|---|
+| 공통 실행대상 child + 유형별 직접 FK | 한 실행에 여러 대상을 담고 객실·시설물 존재·회사·호텔 일치를 declarative composite FK와 행 CHECK로 직접 보장할 수 있음 | 선택 |
+| 공통 inspection target registry | 실행에서는 단일 target ID를 쓸 수 있으나 객실·시설물 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택 |
+| `target_type + target_id` polymorphic 참조 | 열 추가 없이 대상유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함 | 미선택 |
+
+공식 조사 근거:
+
+- [PostgreSQL 18 Constraints](https://www.postgresql.org/docs/18/ddl-constraints.html)
+- [PostgreSQL 18 Partial Indexes](https://www.postgresql.org/docs/18/indexes-partial.html)
+- [PostgreSQL 18 CREATE TRIGGER](https://www.postgresql.org/docs/18/sql-createtrigger.html)
+- [PostgreSQL 18 Row Security](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
+- [PostgreSQL License](https://www.postgresql.org/about/licence/)
+
+### 4.7 선택안의 정본·무결성 경계
+
+- `inspection_executions`는 회사·호텔·업무일·`execution_source`·routine/process provenance·실행 lifecycle·version을 가진 공통 aggregate이며 `(company_id, branch_id, id)` unique를 제공한다.
+- `execution_source='SCHEDULED'`이면 `routine_revision_id`·`business_date`·`occurrence_key`가 모두 non-null이어야 하는 같은 행의 CHECK를 둔다. `(company_id, branch_id, routine_revision_id, business_date, occurrence_key) WHERE execution_source='SCHEDULED'` partial unique로 SQL NULL 우회 없이 같은 회차의 실행 aggregate 중복을 차단한다. 수시점검 replay는 별도 idempotency receipt로 차단한다.
+- `inspection_execution_targets`는 `company_id`, `branch_id`, `execution_id`, `target_type`, nullable `room_id`, nullable `facility_id`와 생성 당시 대상 ID·이름·위치·유형정보 snapshot을 가진다.
+- 실행대상은 `(company_id, branch_id, execution_id)` composite FK로 같은 tenant의 `inspection_executions(company_id, branch_id, id)`를 참조한다. child 자체 RLS만으로 parent tenant 일치를 대신하지 않는다.
+- `ROOM` 행은 `room_id`만 non-null이고 `FACILITY` 행은 `facility_id`만 non-null이어야 하며 다른 조합은 같은 행의 명시적 boolean CHECK로 차단한다. SQL NULL이 CHECK를 통과하지 않도록 각 분기에서 null/non-null을 모두 명시한다.
+- 객실은 `(company_id, branch_id, room_id)`, 시설물은 `(company_id, branch_id, facility_id)` composite FK로 실제 같은 호텔 기준정보에 연결한다.
+- `(company_id, branch_id, execution_id, room_id) WHERE target_type='ROOM'`과 `(company_id, branch_id, execution_id, facility_id) WHERE target_type='FACILITY'` partial unique로 실행 내 대상 중복을 차단한다.
+- 항목 snapshot은 반드시 `execution_target_id`에 연결하고 대상유형별 유효항목·표시순서·증빙조건·기본 심각도·source revision을 불변 보존한다.
+- 항목 결과는 해당 항목 snapshot에 연결하고 결과·설명·최종 심각도·실제 수행자·입력/수정 actor·시각·version을 구조화된 열로 저장한다. 대상·결과 정본을 JSONB 하나로 대체하지 않는다.
+- 사진은 검역통과 뒤 해당 항목결과 부모에 연결하고 최종완료 잠금·보존정책을 따른다.
+- Contracts는 `{ type: "ROOM", roomId } | { type: "FACILITY", facilityId }` discriminated union을 사용하지만 DB를 generic `target_id`로 약화하지 않는다.
+- 실행·대상·항목 snapshot·결과·파일연결은 모두 회사·호텔 scope CHECK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다.
+
+### 4.8 재사용·제외·구현 전 gate
+
+- 기존 dirty 객실점검 구현의 command authority·RLS·멱등 receipt·revision·lease·generation fencing·Repository/test harness는 최신 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
+- 기존 `hotel_inspections.room_id NOT NULL`, 고정 완료책임자·참여자, `SCHEDULED/UNASSIGNED`, 실행 공통 item snapshot 구조는 최신 복수대상·항목별 실제 수행자·설정형 process 모델의 완료 구현으로 재사용하지 않는다.
+- 별도 canonical target registry, generic polymorphic DB FK, JSONB-only 대상·결과 정본, 신규 package·외부 서비스는 도입하지 않는다.
+- 이 승인은 공통 inspection 대상·결과 모델에만 적용한다. 시설물·공용공간 기준정보, 보수, Calendar adapter, 달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
+- 시설물 composite FK의 실제 relation·column·lifecycle은 시설물·공용공간 기준정보 후보가 `approved`된 뒤 확정한다. 그전에는 migration·Red·코드를 시작하지 않는다.
+- 구현 전 Red는 복수대상 생성, 실행·대상 중복경쟁, 잘못된 null/FK 조합, 타 회사·타 호텔 대상, 사용중지·삭제 신규대상 차단과 기존 snapshot 지속, 대상별 항목 snapshot, 항목별 실제 수행자, 서로 다른 대상·항목 병렬수정, 같은 항목 stale version, 결과별 설명·사진조건, 최종완료 잠금을 포함한다.
+
+다음 중 하나가 제품정책으로 확정되면 공통 inspection 대상모델 후보를 다시 선정한다.
+
+- inspection 대상유형이 플러그인처럼 계속 추가된다.
+- 여러 도메인이 하나의 canonical target ID를 필수로 공유한다.
+- 객실·시설물 외 다수 대상유형을 schema 변경 없이 동적으로 운영해야 한다.
+- 공통 target registry가 별도 제품 정본으로 승인된다.
 
 후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면·Google 연동을 시작하지 않는다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인도 결과·사진·완료·프로세스·시설물·보수·Calendar에는 적용되지 않는다.
 
@@ -475,7 +528,7 @@ Google에 보내지 않는 값:
 - repair visit·status history·notification
 - calendar connection·provider event link·outbox attempt·sync failure
 
-모든 tenant table은 `company_id`를 필수로 가진다. 호텔 범위 실행·설정·일정·파일·outbox는 유효한 `hotel_id`와 `(company_id, hotel_id)` 복합 FK를 필수로 하며, 회사 공통 process·역할·권한처럼 회사 범위인 행은 `scope_type=COMPANY + hotel_id IS NULL`, 호텔 범위 행은 `scope_type=HOTEL + hotel_id IS NOT NULL` CHECK로 구분한다. sentinel 호텔 ID나 범위 우회를 금지한다.
+모든 tenant table은 `company_id`를 필수로 가진다. 호텔 범위 실행·설정·일정·파일·outbox는 호텔 지점 정본 `branch_id`와 `(company_id, branch_id)` 복합 FK를 필수로 하며, 회사 공통 process·역할·권한처럼 회사 범위인 행은 `scope_type=COMPANY + branch_id IS NULL`, 호텔 범위 행은 `scope_type=HOTEL + branch_id IS NOT NULL` CHECK로 구분한다. sentinel 호텔 지점 ID나 범위 우회를 금지한다.
 
 모든 tenant table은 RLS와 `FORCE ROW LEVEL SECURITY`를 적용한다. runtime·API·scheduled reconciler role은 table owner·superuser·`BYPASSRLS`가 될 수 없고, 회사·호텔 context 미설정·조작·타 tenant ID·직접 SQL command도 같은 정책으로 차단한다.
 

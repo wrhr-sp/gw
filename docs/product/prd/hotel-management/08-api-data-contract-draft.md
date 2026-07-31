@@ -80,7 +80,8 @@
 | 공용공간 | 같은 호텔 정규화 이름 unique |
 | 시설물 | 같은 호텔·설치위치·시설물유형 정규화 이름 unique |
 | 배정 | 시작일 < 종료일, 같은 배정의 중복기간 방지 |
-| 점검 자동생성 | `(routine_revision_id, target_type, target_id, business_date, occurrence_key)` unique; 객실·시설물 공통 중복차단 |
+| 점검 자동생성 | `execution_source='SCHEDULED'`이면 `routine_revision_id`·`business_date`·`occurrence_key` 모두 non-null인 행 CHECK; `(company_id, branch_id, routine_revision_id, business_date, occurrence_key) WHERE execution_source='SCHEDULED'` partial unique로 같은 회차의 실행 aggregate 중복차단 |
+| 점검 실행대상 | `(company_id, branch_id, execution_id)`가 같은 tenant 실행 aggregate를 참조하는 composite FK; `ROOM`은 `room_id`만, `FACILITY`는 `facility_id`만 존재하는 행 CHECK·호텔 포함 대상 composite FK; `(company_id, branch_id, execution_id, room_id)`와 `(company_id, branch_id, execution_id, facility_id)` 유형별 partial unique |
 | process 단계 | 현재 단계 주 검토자 1명, 선택 대리인 1명, 선착순 version 처리 |
 | 보수대상 | 객실·공용공간·시설물 중 대상유형 하나와 대상개체 하나 |
 | 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
