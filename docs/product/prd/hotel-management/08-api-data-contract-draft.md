@@ -89,7 +89,8 @@
 | 보수 source | `INSPECTION`은 case typed target과 동일한 inspection 실행대상·항목·결과 composite FK와 생성 당시 설명·사진 snapshot, `DIRECT`는 inspection 참조 없이 설명과 사진 또는 촬영불가 사유; 명시적 행 CHECK로 두 분기 외 조합과 inspection source/repair target 불일치 차단 |
 | 보수대상 | `ROOM`은 `room_id`만, `COMMON_AREA`는 `common_area_id`만, `FACILITY`는 `facility_id`만 존재하는 명시적 null-safe 행 CHECK와 각 `(company_id, branch_id, typed_id)` composite FK; 생성 당시 대상 snapshot 보존 |
 | 보수 우선순위·process | `hotel_repair_priorities.normalized_name=lower(btrim(name))` stored generated column과 `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용; 물리삭제와 `DELETED` 이름변경을 금지해 삭제 후 이름 재사용 차단, 다른 호텔 동일 이름 허용; 활성 호텔별 우선순위 composite FK와 ID·version·이름·정렬·색상 snapshot, 생성 당시 process execution composite FK; 설정 변경은 기존 snapshot에 소급하지 않음 |
-| 방문일정 | 보수 건 하나에 composite FK로 연결된 독립 `hotel_repair_visits` 여러 행, 각 `version`; 수행자 child는 visit composite FK와 `INTERNAL`일 때만 같은 tenant 사용자 FK, `EXTERNAL`일 때만 승인된 업체 snapshot을 갖는 명시적 CHECK; 활성·호텔배정·보수권한은 command에서 재검증, 일정중복 제약·조회·경고·자동조정 없음 |
+| 방문일정 | 보수 건 하나에 composite FK로 연결된 독립 `hotel_repair_visits` 여러 행, 각 `version`; 수행자 child는 visit composite FK와 `INTERNAL`일 때만 같은 tenant 사용자 FK, `EXTERNAL`일 때만 `contractor_name` 필수·`contact_name` 선택·`contact_phone` 필수 snapshot을 갖는 명시적 CHECK; email·주소·사업자번호·계정·계약·견적·청구 필드 금지, 활성·호텔배정·보수권한은 command에서 재검증, 일정중복 제약·조회·경고·자동조정 없음 |
+| 외부업체 연락처 | `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한이 있으면 업체명·담당자명·연락처 원문, 없으면 업체명·마스킹 연락처만 반환; 목록·상세·직접 API·history에 동일 적용하고 타 호텔 차단; 원문은 로그·오류·감사요약·검색색인·Calendar payload에 미포함 |
 | 보수 완료 | case·process expected version과 권한·필수 결과·검역통과 증빙을 transaction에서 재검증하고 최종완료 뒤 case·visit·수행자·증빙 핵심필드 mutation 차단; 후속 작업은 완료 건 수정이 아닌 새 보수 건 |
 | 보수 DB 권한 | migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 주지 않음; 승인 command `EXECUTE`와 허용 read만 부여하고 composite FK 오류로 타 tenant parent 존재여부를 구분할 수 없는 안정 오류 사용 |
 | 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
