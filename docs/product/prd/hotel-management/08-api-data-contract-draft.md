@@ -49,8 +49,8 @@
 | 점검 | `PATCH /api/hotels/:id/inspections/:inspectionId/results` | version·정상/주의/이상·설명·첨부 | 결과·실제 수행자 재조회 | DB 동적 점검수행권한 |
 | 점검 | `POST /api/hotels/:id/inspections/:inspectionId/transitions` | version·단계처리·사유 | process 실행·다음 단계 | 현재 단계 처리권한 |
 | 보수 | `POST /api/hotels/:id/repairs` | 출처·대상 하나·우선순위·하자증빙 | 보수·process snapshot | DB 동적 보수등록권한 |
-| 방문일정 | `POST /api/hotels/:id/repair-visits` | 보수 건·일정명·시작/종료·수행자/업체 | 일정·outbox 재조회 | DB 동적 일정생성권한 |
-| Calendar | `POST /api/admin/calendar-sync-failures/:id/retry` | version·재시도사유 | 최신 outbox 상태 | DB 동적 Calendar관리권한 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits` | 보수 건·일정명·시작/종료·수행자/업체 | 일정 재조회; Calendar outbox는 adapter 승인 뒤 별도 계약 | DB 동적 일정생성권한 |
+| Calendar (`unresearched`, 비계약) | — | adapter 후보 승인 뒤 exact API·권한·outbox 계약 확정 | — | 승인 전 route·outbox·provider mutation 금지 |
 | 이슈 | `POST /api/hotels/:id/issues` | 객실·등급·내용·첨부 | 접수 이슈 | 유효배정 + 현재 DB 동적 이슈등록권한 |
 | 이슈 | `POST /api/hotels/:id/issues/:issueId/transitions` | version·전이·사유 | 상태이력 포함 이슈 | 현재 DB 동적 상태처리권한 + 담당·자료상태 조건 |
 | 매출 | `POST /api/hotels/:id/daily-sales` | 업무일·내역·금액·증빙 | 임시저장 재조회 | `HOTEL_SALES_MANAGE` |
@@ -85,7 +85,13 @@
 | 점검 자동생성 | `execution_source='SCHEDULED'`이면 `routine_revision_id`·`business_date`·`occurrence_key` 모두 non-null인 행 CHECK; `(company_id, branch_id, routine_revision_id, business_date, occurrence_key) WHERE execution_source='SCHEDULED'` partial unique로 같은 회차의 실행 aggregate 중복차단 |
 | 점검 실행대상 | `(company_id, branch_id, execution_id)`가 같은 tenant 실행 aggregate를 참조하는 composite FK; `ROOM`은 `room_id`만, `FACILITY`는 `facility_id`만 존재하는 행 CHECK·호텔 포함 대상 composite FK; `(company_id, branch_id, execution_id, room_id)`와 `(company_id, branch_id, execution_id, facility_id)` 유형별 partial unique |
 | process 단계 | 현재 단계 주 검토자 1명, 선택 대리인 1명, 선착순 version 처리 |
-| 보수대상 | 객실·공용공간·시설물 중 대상유형 하나와 대상개체 하나 |
+| 보수 정본 | `hotel_repair_priorities`, `hotel_repair_cases`, `hotel_repair_visits`는 child composite FK용 `(company_id, branch_id, id)` unique parent key 제공; `hotel_repair_case_history(company_id, branch_id, repair_case_id)`→case, `hotel_repair_visits(company_id, branch_id, repair_case_id)`→case, `hotel_repair_visit_performers(company_id, branch_id, repair_visit_id)`→visit, `hotel_repair_visit_history(company_id, branch_id, repair_visit_id)`→visit composite FK; current row와 append-only history를 command transaction에서 원자 기록, 업무 정본의 JSONB-only 저장 금지 |
+| 보수 source | `INSPECTION`은 case typed target과 동일한 inspection 실행대상·항목·결과 composite FK와 생성 당시 설명·사진 snapshot, `DIRECT`는 inspection 참조 없이 설명과 사진 또는 촬영불가 사유; 명시적 행 CHECK로 두 분기 외 조합과 inspection source/repair target 불일치 차단 |
+| 보수대상 | `ROOM`은 `room_id`만, `COMMON_AREA`는 `common_area_id`만, `FACILITY`는 `facility_id`만 존재하는 명시적 null-safe 행 CHECK와 각 `(company_id, branch_id, typed_id)` composite FK; 생성 당시 대상 snapshot 보존 |
+| 보수 우선순위·process | 활성 호텔별 우선순위 composite FK와 ID·version·이름·정렬·색상 snapshot, 생성 당시 process execution composite FK; 설정 변경은 기존 snapshot에 소급하지 않음 |
+| 방문일정 | 보수 건 하나에 composite FK로 연결된 독립 `hotel_repair_visits` 여러 행, 각 `version`; 수행자 child는 visit composite FK와 `INTERNAL`일 때만 같은 tenant 사용자 FK, `EXTERNAL`일 때만 승인된 업체 snapshot을 갖는 명시적 CHECK; 활성·호텔배정·보수권한은 command에서 재검증, 일정중복 제약·조회·경고·자동조정 없음 |
+| 보수 완료 | case·process expected version과 권한·필수 결과·검역통과 증빙을 transaction에서 재검증하고 최종완료 뒤 case·visit·수행자·증빙 핵심필드 mutation 차단; 후속 작업은 완료 건 수정이 아닌 새 보수 건 |
+| 보수 DB 권한 | migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 주지 않음; 승인 command `EXECUTE`와 허용 read만 부여하고 composite FK 오류로 타 tenant parent 존재여부를 구분할 수 없는 안정 오류 사용 |
 | 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
 | 매출 | `(company_id, branch_id, business_date)` 또는 합의한 집계키 unique |
 | 파일 | 부모참조는 같은 `company_id·branch_id`, 검역통과 파일만 연결 |
@@ -113,7 +119,7 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 - 점검 단계처리 + process history + 감사로그는 단일 transaction이다.
 - 최초 최고관리자 설정은 bootstrap 운영자와 선택한 다른 활성 사내 임직원 한 명을 `0명 → 2명`으로 원자 지정하고 초기화 authority 폐기·감사·멱등결과를 같은 transaction에서 확정한다.
 - process 판단으로 보수 건을 만들 때 원본 점검·대상·항목·결과·증빙 snapshot과 보수 process를 단일 transaction으로 연결한다.
-- 방문일정 생성·변경·취소·삭제와 provider outbox INSERT는 단일 transaction이고 Google 실패가 정본 일정을 rollback하지 않는다.
+- 방문일정 생성·변경·취소·삭제는 current row·append-only history·감사를 단일 transaction으로 기록한다. Calendar adapter 승인 전 provider outbox·payload·event ID를 만들지 않으며, 승인 뒤 별도 계약에서 outbox transaction·실패정책을 확정한다.
 - 매출 확정 + 잠금 + 증빙참조 + 감사로그는 단일 transaction.
 - 소유주 교체는 기존 연결종료 + 신규연결 + 세션회수 요청상태 + 감사를 원자적으로 기록한다.
 - R2·푸시 같은 외부작업은 DB transaction 밖에서 상태·재시도·보상으로 처리한다.
