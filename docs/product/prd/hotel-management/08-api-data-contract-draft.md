@@ -42,7 +42,7 @@
 | 최고관리자 | `POST /api/admin/super-admins/initialize` | bootstrap 운영자·두 번째 활성 사내 임직원·재인증·승인참조·version | 정확히 두 명·초기화 감사 재조회 | 제한된 one-shot 초기화 authority |
 | 객실 | `POST /api/hotels/:id/rooms` | 객실번호·층그룹·호텔별 객실유형 | 객실 재조회 | DB 동적 객실관리권한 |
 | 객실 | `PATCH /api/hotels/:id/rooms/:roomId` | version·기준정보 상태·변경사유 | 객실·영향 시설물 재조회 | DB 동적 객실관리권한 |
-| 시설물 | `POST /api/hotels/:id/facilities` | 유형·시설물명·객실/공용공간 위치 | 시설물 재조회 | DB 동적 시설물관리권한 |
+| 시설물 | `POST /api/hotels/:id/facilities` | 유형·시설물명·`{ type: "ROOM", roomId } \| { type: "COMMON_AREA", commonAreaId }` 위치 | 시설물 재조회 | DB 동적 시설물관리권한 |
 | 점검항목 | `POST /api/hotels/:id/inspection-items` | 대상유형 `ROOM\|FACILITY`·공통항목·객실/시설물유형별 제외/추가·version | 대상유형별 새 revision | DB 동적 항목설정권한 |
 | 루틴 | `POST /api/hotels/:id/inspection-routines` | 대상범위·회차·반복·기한 | 루틴 revision 재조회 | DB 동적 루틴관리권한 |
 | 점검 | `POST /api/hotels/:id/inspections` | 대상·유효항목·수시점검 | process·대상·항목 snapshot | DB 동적 점검등록권한 |
@@ -77,8 +77,10 @@
 | 호텔 | `(company_id, branch_id)` unique·FK, `branch_type='HOTEL'` |
 | 소유주 | 호텔당 활성 연결 1개 partial unique, 계정당 활성 호텔 1개 partial unique |
 | 객실 | `(company_id, branch_id, room_number)` unique, 삭제 후 재사용은 새 내부 ID |
-| 공용공간 | 같은 호텔 정규화 이름 unique |
-| 시설물 | 같은 호텔·설치위치·시설물유형 정규화 이름 unique |
+| 공용공간 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column, `(company_id, branch_id, normalized_name)` unique, `ACTIVE/INACTIVE/DELETED`, 물리삭제 금지 |
+| 시설물유형 | `(company_id, branch_id, id)` unique parent key, `ACTIVE/INACTIVE/DELETED`, 연결 시설물이 있으면 삭제 command 차단 |
+| 시설물 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column과 같은 호텔 시설물유형 composite FK; `ROOM`은 `room_id`만, `COMMON_AREA`는 `common_area_id`만 존재하는 명시적 행 CHECK와 각 위치 composite FK; `(company_id, branch_id, facility_type_id, room_id, normalized_name) WHERE location_type='ROOM'`과 `(company_id, branch_id, facility_type_id, common_area_id, normalized_name) WHERE location_type='COMMON_AREA'` partial unique |
+| 위치·유형 lifecycle | 모든 command가 후보 참조를 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID` 전역순서로 잠그고 참조·version을 재조회하며 변경 시 conflict/retry; 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 연결된 유형 삭제 차단, 이동은 같은 호텔 활성 위치만 허용 |
 | 배정 | 시작일 < 종료일, 같은 배정의 중복기간 방지 |
 | 점검 자동생성 | `execution_source='SCHEDULED'`이면 `routine_revision_id`·`business_date`·`occurrence_key` 모두 non-null인 행 CHECK; `(company_id, branch_id, routine_revision_id, business_date, occurrence_key) WHERE execution_source='SCHEDULED'` partial unique로 같은 회차의 실행 aggregate 중복차단 |
 | 점검 실행대상 | `(company_id, branch_id, execution_id)`가 같은 tenant 실행 aggregate를 참조하는 composite FK; `ROOM`은 `room_id`만, `FACILITY`는 `facility_id`만 존재하는 행 CHECK·호텔 포함 대상 composite FK; `(company_id, branch_id, execution_id, room_id)`와 `(company_id, branch_id, execution_id, facility_id)` 유형별 partial unique |

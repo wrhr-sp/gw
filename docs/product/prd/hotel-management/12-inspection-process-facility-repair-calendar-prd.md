@@ -67,7 +67,7 @@
 |---|---|---|
 | 공통 process definition/revision·실행 엔진 | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수 |
 | 객실·시설물 공통 inspection 대상·결과 모델 | `approved` | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK |
-| 시설물·공용공간 기준정보 | `unresearched` | 신규 저장구조 |
+| 시설물·공용공간 기준정보 | `approved` | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK |
 | 보수 건·우선순위·방문일정 | `unresearched` | 신규 저장구조·UI |
 | Calendar adapter·OAuth credential·outbox 재시도 | `unresearched` | 신규 외부 provider 경계 |
 | 자체 월간·주간 달력 UI | `unresearched` | 신규 UI |
@@ -129,7 +129,7 @@
 
 ### 4.4 구현 전 필수 gate
 
-- 이 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델·시설물 기준정보·보수·Calendar adapter·달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
+- 이 절의 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델과 시설물·공용공간 기준정보는 이후 별도 후보선택으로 `approved`됐으며, 보수·Calendar adapter·달력 UI의 `unresearched` 상태는 유지한다.
 - 구현 전 exact source snapshot에서 Contracts·DB schema/command·Repository/Service/API·Web UI·테스트 경계를 확정하고 별도 mutation 범위를 승인받는다.
 - Red 테스트는 잘못된 그래프, 도달 불가능 단계, 최종경로 부재, revision snapshot 불변, 주 검토자·대리인 동시처리, stale version, 권한회수·배정만료, 기한초과 비자동전이, 최종완료 잠금, 멱등 replay·응답유실을 포함한다.
 - 실제 PostgreSQL 18에서 회사/호텔 scope CHECK·복합 FK·RLS·`FORCE ROW LEVEL SECURITY`·non-owner/non-`BYPASSRLS` runtime·command ACL·동시 transition을 검증한다.
@@ -186,8 +186,8 @@
 - 기존 dirty 객실점검 구현의 command authority·RLS·멱등 receipt·revision·lease·generation fencing·Repository/test harness는 최신 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
 - 기존 `hotel_inspections.room_id NOT NULL`, 고정 완료책임자·참여자, `SCHEDULED/UNASSIGNED`, 실행 공통 item snapshot 구조는 최신 복수대상·항목별 실제 수행자·설정형 process 모델의 완료 구현으로 재사용하지 않는다.
 - 별도 canonical target registry, generic polymorphic DB FK, JSONB-only 대상·결과 정본, 신규 package·외부 서비스는 도입하지 않는다.
-- 이 승인은 공통 inspection 대상·결과 모델에만 적용한다. 시설물·공용공간 기준정보, 보수, Calendar adapter, 달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
-- 시설물 composite FK의 실제 relation·column·lifecycle은 시설물·공용공간 기준정보 후보가 `approved`된 뒤 확정한다. 그전에는 migration·Red·코드를 시작하지 않는다.
+- 공통 inspection 대상·결과 모델과 시설물·공용공간 기준정보는 각각 별도 후보선택으로 `approved`됐다. 보수, Calendar adapter, 달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
+- 시설물 relation·typed composite FK·lifecycle은 9.4~9.6을 따른다. 다만 현재 source의 객실 lifecycle이 최신 정본과 다르므로 9.6의 선행조건을 닫기 전에는 시설물 migration·Red·코드를 시작하지 않는다.
 - 구현 전 Red는 복수대상 생성, 실행·대상 중복경쟁, 잘못된 null/FK 조합, 타 회사·타 호텔 대상, 사용중지·삭제 신규대상 차단과 기존 snapshot 지속, 대상별 항목 snapshot, 항목별 실제 수행자, 서로 다른 대상·항목 병렬수정, 같은 항목 stale version, 결과별 설명·사진조건, 최종완료 잠금을 포함한다.
 
 다음 중 하나가 제품정책으로 확정되면 공통 inspection 대상모델 후보를 다시 선정한다.
@@ -325,6 +325,59 @@
 
 - 적용항목은 `호텔 시설물 공통항목 - 시설물유형 제외항목 + 시설물유형 추가항목`이다.
 - 시설물점검은 객실점검과 동일한 결과·사진·수행자·프로세스·권한·공식상태·보수 연결 정책을 사용한다.
+
+### 9.4 시설물·공용공간 기준정보 후보 결정 — 2026-07-31
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 선택안: 호텔별 `hotel_common_areas`·`hotel_facility_types` 정본과 `hotel_facilities`를 두고, 시설물 설치위치는 `ROOM`의 `room_id` 또는 `COMMON_AREA`의 `common_area_id`를 직접 composite FK로 연결한다.
+
+비교한 독립 후보는 정확히 다음 세 개다.
+
+| 후보 | 확인 결과 | 선택 결과 |
+|---|---|---|
+| 시설물의 위치유형별 직접 composite FK | 실제 객실·공용공간 존재와 회사·호텔 일치를 declarative FK와 같은 행 CHECK로 직접 보장하고 별도 위치 동기화가 필요 없음 | 선택 |
+| 공통 location registry | 시설물이 단일 location ID를 쓸 수 있으나 객실·공용공간 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택 |
+| `location_type + location_id` polymorphic 참조 | 열 추가 없이 위치유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함 | 미선택 |
+
+공식 조사 근거:
+
+- [PostgreSQL 18 Constraints](https://www.postgresql.org/docs/18/ddl-constraints.html)
+- [PostgreSQL 18 Generated Columns](https://www.postgresql.org/docs/18/ddl-generated-columns.html)
+- [PostgreSQL 18 Partial Indexes](https://www.postgresql.org/docs/18/indexes-partial.html)
+- [PostgreSQL 18 Explicit Locking](https://www.postgresql.org/docs/18/explicit-locking.html)
+- [PostgreSQL 18 Row Security](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
+- [PostgreSQL License](https://www.postgresql.org/about/licence/)
+
+### 9.5 선택안의 정본·무결성 경계
+
+- `hotel_common_areas`, `hotel_facility_types`, `hotel_facilities`는 `company_id`, `branch_id`, `id`, `version`, actor·시각과 `ACTIVE/INACTIVE/DELETED` lifecycle을 가진 호텔 정본이며 물리삭제하지 않는다. 각 테이블은 child composite FK가 참조할 `(company_id, branch_id, id)` unique parent key를 제공한다.
+- 이름은 앞뒤 공백을 제거하고 영문 대소문자를 구분하지 않는다. 공용공간·시설물의 `normalized_name`은 built-in immutable `lower(btrim(name))` stored generated column으로 계산하고 정규화 이름 unique는 삭제상태를 포함한 전체 lifecycle에 적용한다.
+- `hotel_facilities`는 같은 호텔 `facility_type_id`, `location_type`, nullable `room_id`, nullable `common_area_id`를 가진다.
+- `ROOM` 행은 `room_id`만 non-null이고 `COMMON_AREA` 행은 `common_area_id`만 non-null이어야 하며 다른 조합은 같은 행의 명시적 boolean CHECK로 차단한다. SQL NULL이 CHECK를 통과하지 않도록 각 분기에서 null/non-null을 모두 명시한다.
+- 시설물유형은 `(company_id, branch_id, facility_type_id)`, 객실은 `(company_id, branch_id, room_id)`, 공용공간은 `(company_id, branch_id, common_area_id)` composite FK로 실제 같은 호텔 기준정보에 직접 연결한다.
+- `(company_id, branch_id, facility_type_id, room_id, normalized_name) WHERE location_type='ROOM'`과 `(company_id, branch_id, facility_type_id, common_area_id, normalized_name) WHERE location_type='COMMON_AREA'` partial unique로 같은 위치·유형의 시설물명 중복을 차단한다. 위치나 유형이 다르면 같은 이름을 허용한다.
+- Contracts는 `{ type: "ROOM", roomId } | { type: "COMMON_AREA", commonAreaId }` discriminated union을 사용하지만 DB를 generic `location_id`로 약화하지 않는다.
+- 공용공간·시설물유형·시설물과 lifecycle command는 회사·호텔 scope CHECK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다.
+- 시설물 생성·위치이동과 위치·유형 lifecycle command는 후보 참조를 먼저 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID`의 전역순서로 관련 행을 잠근다. 잠금 뒤 참조·version·같은 호텔·활성 lifecycle을 재조회하고 후보 참조가 바뀌면 conflict/retry로 처리한다. A→B와 B→A 이동도 기존·새 위치 전체를 같은 정렬순서로 잠가 deadlock과 검사 직후 신규연결을 차단한다.
+- 잠금·재검사 뒤 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 하나라도 연결된 유형 삭제를 차단하고 영향목록을 반환하며 자동이동·자동상태변경하지 않는다. 시설물 위치 이동은 version·감사를 원자 갱신하고, 과거 inspection·repair는 생성 당시 위치·이름 snapshot을 계속 사용한다.
+- 시설물유형 이름의 중복 허용 여부는 이번 저장구조 선택으로 새로 확정하지 않는다. 구현 전에 승인 PRD에서 해당 unique 정책을 명시한다.
+
+### 9.6 재사용·제외·구현 전 gate
+
+- 최신 `hotel_rooms(company_id, branch_id, id)` composite key, generated normalized-name·version·actor·감사·RLS·command 패턴은 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
+- 현재 source의 객실 `ACTIVE/TEMP_SUSPENDED/OUT_OF_SERVICE` 운영상태는 최신 기준정보 `ACTIVE/INACTIVE/DELETED` lifecycle과 상충하므로 시설물 위치판정에 재사용하지 않는다.
+- 객실 lifecycle 교정, 시설물유형 이름 unique 정책, exact relation·command·권한·오류계약을 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
+- 별도 canonical location registry, generic polymorphic DB FK, JSONB-only 위치 정본, 신규 package·외부 서비스는 도입하지 않는다.
+- 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용하며 보수, Calendar adapter, 달력 UI의 `unresearched` 상태를 바꾸지 않는다.
+
+다음 중 하나가 제품정책으로 확정되면 시설물 위치모델 후보를 다시 선정한다.
+
+- 객실·공용공간 외 설치위치 유형이 지속적으로 추가된다.
+- 여러 독립 업무가 하나의 canonical location ID를 필수로 공유한다.
+- 건물·동·층·구역·공간의 가변 계층이 제품범위가 된다.
+- 외부 PMS·자산관리 시스템의 location ID가 정본이 된다.
+- DB 직접 FK보다 동적 plugin 확장성을 우선하도록 보안정책이 변경된다.
 
 ## 10. 정기루틴·Scheduled Reconciler
 
@@ -515,7 +568,7 @@ Google에 보내지 않는 값:
 
 ## 18. 데이터 경계 제안
 
-후보 승인 전 논리경계이며 실제 테이블명은 확정하지 않는다.
+이 절은 전체 도메인의 논리경계를 요약한다. 실제 테이블명은 `approved` 후보 결정절에서 명시한 범위만 정본이며, 아직 `unresearched`인 보수·Calendar adapter·달력 UI의 relation 이름은 확정하지 않는다.
 
 - process definition·revision·stage·transition·assignment·execution·history
 - 공용공간·시설물유형·시설물·위치 snapshot
