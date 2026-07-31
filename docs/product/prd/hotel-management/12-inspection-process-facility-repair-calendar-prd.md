@@ -463,6 +463,7 @@
 - 보수 건 하나에 현장진단·부품교체·실제 보수·완료확인 등 여러 방문일정을 등록할 수 있다.
 - 일정명은 사용자가 구성하고 고정 단계명으로 제한하지 않는다.
 - 정확한 시작·종료일시와 사내 수행자 또는 외부업체가 확정된 뒤에만 등록한다.
+- 방문일정마다 주 수행자 사내 임직원 한 명 또는 외부업체 한 곳을 정확히 하나만 배정한다. 내부·외부 동시배정과 추가 참여자·협업자 정본은 초기 MVP에서 만들지 않는다.
 - 조율 중이면 방문일정을 만들지 않고 보수 건을 `일정 미정`으로 표시한다.
 - 잠정일정·희망기간은 달력에 표시하지 않는다.
 - 일정 중복을 조회·경고·차단·자동조정하지 않는다.
@@ -510,16 +511,16 @@
 - 우선순위 이름은 앞뒤 공백을 제거하고 영문 대소문자를 구분하지 않는다. `normalized_name=lower(btrim(name))` stored generated column과 `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용한다. 물리삭제와 `DELETED` 행 이름변경을 금지해 삭제 후 같은 호텔에서 이름을 재사용하지 않고 다른 호텔에서는 같은 이름을 허용한다.
 - 우선순위는 활성 호텔별 definition을 직접 참조하고 선택 당시 ID·version·이름·정렬순서·색상 snapshot을 case에 구조화해 저장한다. 동시 생성·이름변경은 DB unique와 안정 오류로 처리한다. 설정변경은 기존 case에 소급하지 않고 진행 중 직접변경은 expected version·사유·전후 history를 남긴다.
 - case는 생성 당시 설정형 공통 process execution을 같은 tenant composite FK로 참조한다. 점검 판단 생성과 직접등록 모두 process를 우회하지 않는다.
-- case 한 건에 독립 `hotel_repair_visits` 여러 행을 두고 각 visit이 별도 version을 가진다. `hotel_repair_visit_performers`는 INTERNAL/EXTERNAL 분기별 nullable 필드를 명시적 CHECK로 제한하며, 내부 수행자는 command에서 활성 session·같은 호텔배정·보수권한을 재검증한다. 외부업체는 계정 없이 `contractor_name` 필수·`contact_name` 선택·`contact_phone` 필수의 생성 당시 snapshot만 저장하고 업체정보 변경을 다른 일정·기존 snapshot에 소급하지 않는다. 진행 중 변경은 expected version·사유·history를 남기고 최종완료 뒤 차단한다.
+- case 한 건에 독립 `hotel_repair_visits` 여러 행을 두고 각 visit이 별도 version을 가진다. `hotel_repair_visit_performers`는 `(company_id, branch_id, repair_visit_id)` unique로 최대 한 행을 강제하고, visit·performer 양쪽 INSERT·UPDATE·DELETE를 감시하는 deferred constraint trigger가 commit 시 활성 visit마다 정확히 한 행인지 검사한다. `INTERNAL`은 같은 tenant의 활성 사내 임직원 사용자유형·유효 호텔배정·보수권한을 command에서 재검증하고, `EXTERNAL`은 `contractor_name` 필수·`contact_name` 선택·`contact_phone` 필수 snapshot만 갖도록 null-safe CHECK해 내부·외부 혼합을 차단한다. visit·performer는 승인 command transaction에서 원자 생성한다. 진행 중 교체와 최종완료는 공통 `case → process execution → visit UUID → performer UUID` 순서로 잠그고 상태·version·자격을 재조회하며, 교체는 사유·history를 원자 기록하고 완료 뒤 차단한다. 업체정보 변경은 다른 일정·기존 snapshot에 소급하지 않는다.
 - 방문시간 중복을 위한 제약·조회·경고·차단·자동조정을 만들지 않는다. 종료시각 경과는 저장상태 mutation 없이 조회에서만 계산한다.
-- 최종완료 command는 case·process expected version, 현재 단계권한, 필수 작업결과, 검역통과 증빙을 잠금·재검증해 한 번만 완료한다. 완료 뒤 case·visit·수행자·증빙 핵심필드는 수정·재개하지 않으며 추가 작업은 완료 case를 바꾸지 않는 새 보수 건으로 만든다.
+- 최종완료 command는 case·process expected version, 현재 단계권한, 필수 작업결과, 검역통과 증빙과 모든 visit·performer를 위 공통 순서로 잠금·재검증해 한 번만 완료한다. 완료 뒤 case·visit·수행자·증빙 핵심필드는 수정·재개하지 않으며 추가 작업은 완료 case를 바꾸지 않는 새 보수 건으로 만든다.
 - 모든 정본·history는 회사·호텔 scope CHECK, tenant 포함 composite FK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다. migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 부여하지 않는다. 승인 command는 권한·tenant를 FK 평가 전에 검증하고 타 tenant parent 존재여부를 구분할 수 없는 안정 오류를 반환한다. `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한 보유자만 목록·상세·직접 API·history에서 외부업체 담당자명·연락처 원문을 보고, 미보유자는 업체명과 마스킹 연락처만 본다. 원문은 로그·오류·감사요약·검색색인·Calendar payload에 포함하지 않는다.
 - 방문일정 저장은 PostgreSQL current·history 재조회까지 성공으로 본다. Calendar outbox·provider event ID·OAuth·재시도는 adapter 후보가 승인되기 전 생성하거나 구현하지 않는다.
 
 ### 14.4 재사용·제외·구현 전 gate
 
 - 현재 source에는 repair relation·Contracts·Repository·Service·API·Web UI 구현이 없다. 승인된 process·inspection·facility·RLS·version·멱등·감사·비공개 파일 패턴은 Red를 통과하는 최소 hunk만 재사용한다.
-- 방문 내부 수행자의 단수·복수, 완료 뒤 새 보수 건의 관계명·화면표시를 제품정책으로 확정한다.
+- 완료 뒤 새 보수 건의 관계명·화면표시를 제품정책으로 확정한다.
 - 위 제품정책과 exact relation column·command·권한·오류계약·잠금순서를 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
 - 보수 event가 법적 정본이 되고 모든 현재상태를 replay로만 재구축하거나 여러 외부시스템의 실시간 event 정본이 필요해지면 event-stream 후보를 다시 선정한다.
 - 방문일정이 독립 자원예약·중복판정·자동배정·최적화로 확대되거나 외부업체 계정·포털·청구·계약관리 또는 PMS·자산관리 시스템이 정본이 되면 제품범위와 후보를 다시 승인받는다.
