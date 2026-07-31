@@ -135,6 +135,12 @@ TopBar(현재 호텔·알림)
 - `PermissionMatrix`
 - `MobileTaskCard`
 - `MobileTaskActionBar`
+- `InspectionTargetCard`
+- `InspectionResultControl`
+- `ProcessStageTimeline`
+- `RepairPriorityBadge`
+- `RepairVisitCalendar`
+- `RepairVisitCard`
 - `EmptyState`
 - `ErrorState`
 - `LoadingState`
@@ -170,8 +176,34 @@ PageHeader → FilterBar → MasterList → DetailWorkspace → TaskActionBar
 ### 모바일 객실점검
 
 ```text
-HotelContext → Progress → ChecklistItem → EvidenceUpload → Validation → MobileTaskActionBar
+HotelContext → 대상 카드 → 항목별 정상·주의·이상 → 설명·사진 → 실제 수행자 → Validation → MobileTaskActionBar
 ```
+
+시설물점검도 같은 화면구조를 사용하고 대상 카드의 유형·위치정보만 시설물 기준정보로 바꾼다. PC 표를 모바일에 축소하지 않고 현재 미완료 항목과 다음 현장행동을 먼저 배치한다.
+
+### 검토 프로세스
+
+```text
+현재 단계 → 주 검토자·유효 대리인 → 처리기한·지연 → 허용 전이 → 처리사유 → 이력
+```
+
+- 단계명·버튼·이동경로를 화면에 하드코딩하지 않고 API가 반환한 생성 당시 process snapshot으로 렌더한다.
+- 처리권한이 없으면 액션을 숨기되 서버가 같은 권한을 다시 검증한다.
+- 담당자 무효화·version 충돌·지연은 색상뿐 아니라 문구와 아이콘으로 표시한다.
+
+### 하자보수·방문일정
+
+```text
+PageHeader → 호텔/전체호텔 범위 → 월간·주간 전환 → FilterBar → Calendar/List → RightDetailPanel
+```
+
+- 달력 최초 보기와 2시간 기억 만료 뒤 기본은 주간이다.
+- 현재 호텔만 기본 표시하고, 전체호텔 조회권한자가 `전체 호텔`을 직접 선택했을 때만 허용 호텔 일정을 통합한다.
+- 전체호텔 보기에서 새 일정을 만들 때 호텔을 첫 필수항목으로 직접 선택하고 자동선택하지 않는다.
+- 일정은 우선순위 배지·일정명·시간·상태를 보여주고 호텔명·대상·업체·사람정보의 노출범위는 동적 권한을 따른다.
+- 취소 일정은 원래 시간 위치에 회색·취소선·`취소` 배지로 남기고 취소사유는 별도 권한이 있을 때만 표시한다.
+- 모바일은 월간·주간 격자를 축소하지 않고 날짜별 방문 카드와 당일 현장행동으로 재배치한다.
+- Google Calendar UI·iframe·Google event ID·동기화 구현정보를 일반 사용자에게 노출하지 않는다.
 
 ### 일매출·감사
 
@@ -210,4 +242,9 @@ PageHeader → FilterBar → LedgerTable → Totals → Correction/Audit Detail
 - 가이드의 키보드·스크린리더·모바일 Sheet/Dialog·포커스 복귀 검증
 - 로딩·빈 상태·오류·저속망 상태 포함
 - 상태 변경 버튼은 실제 API와 DB 재조회에 연결
+- 정상·주의·이상 입력, 항목별 수행자, process 단계전이, 보수·방문일정이 실제 PostgreSQL 재조회와 일치
+- 주 검토자·대리인 동시처리의 version 충돌과 닫기 뒤 원래 액션 포커스 복귀 검증
+- 월간·주간 전환, 2시간 보기 기억, 로그아웃·계정변경 시 local 상태 제거 검증
+- 전체호텔 조회·생성의 호텔별 권한과 취소일정·취소사유 분리권한 검증
+- 390px 점검·사진·보수·방문일정 현장행동에서 44px 터치영역과 오류 focus 검증
 - mock·placeholder·가짜 성공 금지

@@ -23,6 +23,7 @@
 10. [수용·테스트 매트릭스](09-acceptance-test-matrix.md)
 11. [계정·사용자 관리](10-account-administration-prd.md)
 12. [호텔 운영 지식뱅크·기능 가이드](11-knowledge-bank-and-contextual-guidance-prd.md)
+13. [공통 점검 프로세스·시설물·하자보수·Calendar](12-inspection-process-facility-repair-calendar-prd.md)
 
 ## 결정 상태 표시
 
@@ -40,3 +41,4 @@
 - 제품 범위: `../../../../PRD.md`
 - 제작 규칙: `../prd-production-rules.md`
 - 삭제된 `00-policy-decision-ledger.md`는 복원하거나 근거로 사용하지 않는다.
+- 공통 점검·시설물·보수·Calendar 최신 정책은 `12-inspection-process-facility-repair-calendar-prd.md`를 정본으로 사용하고, 이전 객실점검 후보 승인을 확장범위에 재사용하지 않는다.
