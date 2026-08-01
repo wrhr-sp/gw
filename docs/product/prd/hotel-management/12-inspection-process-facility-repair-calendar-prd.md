@@ -514,13 +514,14 @@
 - case 한 건에 독립 `hotel_repair_visits` 여러 행을 두고 각 visit이 별도 version을 가진다. `hotel_repair_visit_performers`는 `(company_id, branch_id, repair_visit_id)` unique로 최대 한 행을 강제하고, visit·performer 양쪽 INSERT·UPDATE·DELETE를 감시하는 deferred constraint trigger가 commit 시 활성 visit마다 정확히 한 행인지 검사한다. `INTERNAL`은 같은 tenant의 활성 사내 임직원 사용자유형·유효 호텔배정·보수권한을 command에서 재검증하고, `EXTERNAL`은 `contractor_name` 필수·`contact_name` 선택·`contact_phone` 필수 snapshot만 갖도록 null-safe CHECK해 내부·외부 혼합을 차단한다. visit·performer는 승인 command transaction에서 원자 생성한다. 진행 중 교체와 최종완료는 공통 `case → process execution → visit UUID → performer UUID` 순서로 잠그고 상태·version·자격을 재조회하며, 교체는 사유·history를 원자 기록하고 완료 뒤 차단한다. 업체정보 변경은 다른 일정·기존 snapshot에 소급하지 않는다.
 - 방문시간 중복을 위한 제약·조회·경고·차단·자동조정을 만들지 않는다. 종료시각 경과는 저장상태 mutation 없이 조회에서만 계산한다.
 - 최종완료 command는 case·process expected version, 현재 단계권한, 필수 작업결과, 검역통과 증빙과 모든 visit·performer를 위 공통 순서로 잠금·재검증해 한 번만 완료한다. 완료 뒤 case·visit·수행자·증빙 핵심필드는 수정·재개하지 않으며 추가 작업은 완료 case를 바꾸지 않는 새 보수 건으로 만든다.
+- 추가 작업의 새 case는 nullable `follow_up_of_repair_case_id`로 직전 최종완료 case 하나를 같은 회사·호텔 composite FK 참조한다. 승인 command는 parent를 잠그고 최종완료·같은 typed target·version을 재검증한다. relation INSERT·UPDATE와 parent 상태를 감시하는 deferred constraint trigger도 commit 시 같은 tenant·최종완료·동일 target·자기참조·순환·관계불변을 강제해 직접 SQL 우회를 차단한다. source는 기존 `DIRECT` 규칙에 따라 새 설명과 사진 또는 촬영불가 사유를 저장하고 parent 완료자료를 복제하지 않는다. 완료된 후속 case에 추가 작업이 생기면 직전 case를 참조해 체인을 만든다.
+- PC의 새 case에는 `이전 보수 보기`, parent에는 권한 있는 즉시 후속만 계산한 `후속 보수 N건` 링크를 표시하고 모바일에는 같은 내용을 별도 카드로 제공한다. 전체 graph를 한 번에 펼치지 않고 링크를 따라 탐색하며, 각 case 자료권한을 다시 검사해 미허용 이전·후속의 존재·번호·건수를 노출하지 않는다.
 - 모든 정본·history는 회사·호텔 scope CHECK, tenant 포함 composite FK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다. migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 부여하지 않는다. 승인 command는 권한·tenant를 FK 평가 전에 검증하고 타 tenant parent 존재여부를 구분할 수 없는 안정 오류를 반환한다. `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한 보유자만 목록·상세·직접 API·history에서 외부업체 담당자명·연락처 원문을 보고, 미보유자는 업체명과 마스킹 연락처만 본다. 원문은 로그·오류·감사요약·검색색인·Calendar payload에 포함하지 않는다.
 - 방문일정 저장은 PostgreSQL current·history 재조회까지 성공으로 본다. Calendar outbox·provider event ID·OAuth·재시도는 adapter 후보가 승인되기 전 생성하거나 구현하지 않는다.
 
 ### 14.4 재사용·제외·구현 전 gate
 
 - 현재 source에는 repair relation·Contracts·Repository·Service·API·Web UI 구현이 없다. 승인된 process·inspection·facility·RLS·version·멱등·감사·비공개 파일 패턴은 Red를 통과하는 최소 hunk만 재사용한다.
-- 완료 뒤 새 보수 건의 관계명·화면표시를 제품정책으로 확정한다.
 - 위 제품정책과 exact relation column·command·권한·오류계약·잠금순서를 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
 - 보수 event가 법적 정본이 되고 모든 현재상태를 replay로만 재구축하거나 여러 외부시스템의 실시간 event 정본이 필요해지면 event-stream 후보를 다시 선정한다.
 - 방문일정이 독립 자원예약·중복판정·자동배정·최적화로 확대되거나 외부업체 계정·포털·청구·계약관리 또는 PMS·자산관리 시스템이 정본이 되면 제품범위와 후보를 다시 승인받는다.

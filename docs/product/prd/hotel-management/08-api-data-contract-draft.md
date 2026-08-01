@@ -48,7 +48,9 @@
 | 점검 | `POST /api/hotels/:id/inspections` | 대상·유효항목·수시점검 | process·대상·항목 snapshot | DB 동적 점검등록권한 |
 | 점검 | `PATCH /api/hotels/:id/inspections/:inspectionId/results` | version·정상/주의/이상·설명·첨부 | 결과·실제 수행자 재조회 | DB 동적 점검수행권한 |
 | 점검 | `POST /api/hotels/:id/inspections/:inspectionId/transitions` | version·단계처리·사유 | process 실행·다음 단계 | 현재 단계 처리권한 |
-| 보수 | `POST /api/hotels/:id/repairs` | 출처·대상 하나·우선순위·하자증빙 | 보수·process snapshot | DB 동적 보수등록권한 |
+| 보수 | `POST /api/hotels/:id/repairs` | 출처·대상 하나·우선순위·하자증빙·선택 `followUpOfRepairCaseId`; 지정 시 `followUpParentVersion` 필수 | 보수·process snapshot과 권한 허용 시 즉시 이전 summary | DB 동적 보수등록권한 + parent 자료권한 |
+| 보수 | `GET /api/hotels/:id/repairs/:repairId` | — | 보수 snapshot, 권한 허용 시 즉시 이전 summary와 권한필터된 즉시 후속 건수; 미허용 관계 존재·번호·건수 미포함 | DB 동적 보수자료조회권한 |
+| 보수 | `GET /api/hotels/:id/repairs/:repairId/follow-ups` | `page`·`pageSize` | 권한필터된 즉시 후속 summary 페이지·권한필터된 total; 전체 체인 재귀응답과 미허용 건수 없음 | DB 동적 보수자료조회권한 |
 | 방문일정 | `POST /api/hotels/:id/repair-visits` | 보수 건·일정명·시작/종료·수행자/업체 | 일정 재조회; Calendar outbox는 adapter 승인 뒤 별도 계약 | DB 동적 일정생성권한 |
 | Calendar (`unresearched`, 비계약) | — | adapter 후보 승인 뒤 exact API·권한·outbox 계약 확정 | — | 승인 전 route·outbox·provider mutation 금지 |
 | 이슈 | `POST /api/hotels/:id/issues` | 객실·등급·내용·첨부 | 접수 이슈 | 유효배정 + 현재 DB 동적 이슈등록권한 |
@@ -92,6 +94,7 @@
 | 방문일정 | 보수 건 하나에 composite FK로 연결된 독립 `hotel_repair_visits` 여러 행, 각 `version`; `hotel_repair_visit_performers(company_id, branch_id, repair_visit_id)` unique로 최대 한 행을 강제하고 visit·performer 양쪽 INSERT·UPDATE·DELETE를 감시하는 deferred constraint trigger가 commit 시 활성 visit당 정확히 한 행을 강제; `INTERNAL`은 같은 tenant 사내 임직원 사용자 FK만, `EXTERNAL`은 `contractor_name` 필수·`contact_name` 선택·`contact_phone` 필수 snapshot만 갖는 null-safe CHECK; visit·performer 원자생성, 교체는 visit expected version·사유·history, 완료 후 변경 금지; email·주소·사업자번호·계정·계약·견적·청구 필드와 추가 참여자 금지, 내부 활성·호텔배정·보수권한 command 재검증, 일정중복 시스템 미관여 |
 | 외부업체 연락처 | `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한이 있으면 업체명·담당자명·연락처 원문, 없으면 업체명·마스킹 연락처만 반환; 목록·상세·직접 API·history에 동일 적용하고 타 호텔 차단; 원문은 로그·오류·감사요약·검색색인·Calendar payload에 미포함 |
 | 보수 완료 | case·process expected version과 권한·필수 결과·검역통과 증빙을 transaction에서 재검증하고 최종완료 뒤 case·visit·수행자·증빙 핵심필드 mutation 차단; 후속 작업은 완료 건 수정이 아닌 새 보수 건 |
+| 후속 보수 | 새 case의 nullable `follow_up_of_repair_case_id`가 `(company_id, branch_id, id)`로 직전 case를 composite FK 참조; 승인 command가 parent를 잠그고 최종완료·같은 typed target·version을 재검증하고 relation INSERT·UPDATE를 감시하는 deferred constraint trigger가 commit 시 동일조건·자기참조·순환·관계불변을 강제; source는 `DIRECT` 필수자료를 새로 저장하고 parent 자료를 복제하지 않음; 즉시 이전과 역방향 후속목록은 각 case 자료권한으로 필터해 미허용 존재·번호·건수 비노출 |
 | 보수 DB 권한 | migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 주지 않음; 승인 command `EXECUTE`와 허용 read만 부여하고 composite FK 오류로 타 tenant parent 존재여부를 구분할 수 없는 안정 오류 사용 |
 | 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
 | 매출 | `(company_id, branch_id, business_date)` 또는 합의한 집계키 unique |
