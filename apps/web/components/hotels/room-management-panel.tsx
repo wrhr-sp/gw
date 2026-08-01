@@ -4,6 +4,7 @@ import {
   changeHotelRoomStatusRequestSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
+  deleteHotelRoomRequestSchema,
   hotelErrorResponseSchema,
   hotelRoomInternalListResponseSchema,
   hotelRoomInternalDetailResponseSchema,
@@ -52,6 +53,7 @@ type Room = HotelRoomInternal | HotelRoomOwner;
 type DialogState =
   | { kind: "room"; room?: Room }
   | { kind: "status"; room: Room }
+  | { kind: "delete"; room: Room }
   | { kind: "type"; roomType?: HotelRoomType }
   | null;
 type RequestFailure = {
@@ -67,9 +69,9 @@ const statusPresentation: Record<
   HotelRoomStatus,
   { label: string; tone: "success" | "warning" | "neutral" }
 > = {
-  ACTIVE: { label: "운영중", tone: "success" },
-  TEMP_SUSPENDED: { label: "일시중지", tone: "warning" },
-  OUT_OF_SERVICE: { label: "운영제외", tone: "neutral" },
+  ACTIVE: { label: "활성", tone: "success" },
+  INACTIVE: { label: "사용중지", tone: "warning" },
+  DELETED: { label: "삭제", tone: "neutral" },
 };
 
 async function request(url: string, init?: RequestInit): Promise<unknown> {
@@ -171,6 +173,82 @@ function latestReadFailure(subject: string): RequestFailure {
   };
 }
 
+function mutationReadbackFailure(): RequestFailure {
+  return {
+    code: "MUTATION_READBACK_FAILED",
+    fieldErrors: [],
+    message:
+      "저장 결과를 상세정보와 목록에서 확인하지 못했습니다. 입력값은 유지했습니다. 같은 내용으로 다시 저장해 확인해 주세요.",
+  };
+}
+
+function roomMaterialSnapshot(room: Room) {
+  return {
+    id: room.id,
+    hotelId: room.hotelId,
+    roomNumber: room.roomNumber,
+    floorLabel: room.floorLabel,
+    floorSortKey: room.floorSortKey,
+    roomType: {
+      id: room.roomType.id,
+      name: room.roomType.name,
+      scope: room.roomType.scope,
+    },
+    status: room.status,
+    internalNote: "internalNote" in room ? room.internalNote : undefined,
+    ownerVisibleNote: room.ownerVisibleNote,
+    version: room.version,
+    createdAt: room.createdAt,
+    updatedAt: room.updatedAt,
+  };
+}
+
+function sameRoomMaterial(actual: Room, expected: Room) {
+  return (
+    JSON.stringify(roomMaterialSnapshot(actual)) ===
+    JSON.stringify(roomMaterialSnapshot(expected))
+  );
+}
+
+async function confirmRoomMutation(
+  hotelId: string,
+  expected: HotelRoomInternal,
+): Promise<void> {
+  const latest = await fetchLatestRoom(hotelId, expected.id);
+  if (!sameRoomMaterial(latest, expected)) throw mutationReadbackFailure();
+
+  let listed: Room | undefined;
+  let page = 1;
+  let totalPages = 1;
+  do {
+    const search = new URLSearchParams({
+      page: String(page),
+      pageSize: "100",
+      q: expected.roomNumber,
+    });
+    const value = await request(`${hotelRoutes.rooms(hotelId)}?${search}`);
+    const internal = hotelRoomInternalListResponseSchema.safeParse(value);
+    const external = hotelRoomOwnerListResponseSchema.safeParse(value);
+    if (!internal.success && !external.success) throw mutationReadbackFailure();
+    const listData = internal.success
+      ? internal.data.data
+      : external.success
+        ? external.data.data
+        : null;
+    if (!listData) throw mutationReadbackFailure();
+    if (page === 1) totalPages = listData.pagination.totalPages;
+    listed = listData.rooms.find((room) => room.id === expected.id);
+    page += 1;
+  } while (!listed && page <= totalPages);
+  if (expected.status === "DELETED") {
+    if (listed) throw mutationReadbackFailure();
+    return;
+  }
+  if (!listed || !sameRoomMaterial(listed, expected)) {
+    throw mutationReadbackFailure();
+  }
+}
+
 type RoomForm = {
   floorLabel: string;
   floorSortKey: number;
@@ -195,6 +273,7 @@ function RoomEditor({
   const [version, setVersion] = useState(room?.version);
   const [isRefreshingLatest, setIsRefreshingLatest] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const form = useForm<RoomForm>({
     defaultValues: {
       floorLabel: room?.floorLabel ?? "",
@@ -234,16 +313,25 @@ function RoomEditor({
           method: room ? "PATCH" : "POST",
           headers: {
             "content-type": "application/json",
-            "idempotency-key": crypto.randomUUID(),
+            "idempotency-key": idempotencyKeyRef.current,
           },
           body: JSON.stringify(parsed.data),
         },
       );
       return hotelRoomMutationResponseSchema.parse(response).data.room;
     },
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["hotel-rooms", hotelId] });
-      onDone();
+    onSuccess: async (savedRoom) => {
+      try {
+        await confirmRoomMutation(hotelId, savedRoom);
+        await client.refetchQueries(
+          { queryKey: ["hotel-rooms", hotelId] },
+          { throwOnError: true },
+        );
+        idempotencyKeyRef.current = crypto.randomUUID();
+        onDone();
+      } catch {
+        setFailure(mutationReadbackFailure());
+      }
     },
     onError: async (error) => {
       const next = requestFailure(error);
@@ -253,9 +341,12 @@ function RoomEditor({
             fetchLatestRoom(hotelId, room.id),
             client.refetchQueries({ queryKey: ["hotel-room-types", hotelId] }),
           ]);
-          setVersion(latest.version);
+          setVersion(latest.status === "DELETED" ? undefined : latest.version);
+          idempotencyKeyRef.current = crypto.randomUUID();
           next.message =
-            "다른 사용자가 먼저 변경했습니다. 최신 객실 정보를 불러왔습니다. 입력값을 확인한 뒤 다시 저장해 주세요.";
+            latest.status === "DELETED"
+              ? "이미 삭제된 객실입니다. 목록을 새로고침해 주세요."
+              : "다른 사용자가 먼저 변경했습니다. 최신 객실 정보를 불러왔습니다. 입력값을 확인한 뒤 다시 저장해 주세요.";
         } catch {
           setVersion(undefined);
           setFailure(latestReadFailure("객실"));
@@ -273,8 +364,17 @@ function RoomEditor({
         fetchLatestRoom(hotelId, room.id),
         client.refetchQueries({ queryKey: ["hotel-room-types", hotelId] }),
       ]);
-      setVersion(latest.version);
-      setFailure(null);
+      setVersion(latest.status === "DELETED" ? undefined : latest.version);
+      idempotencyKeyRef.current = crypto.randomUUID();
+      setFailure(
+        latest.status === "DELETED"
+          ? {
+              code: "INVALID_STATE_TRANSITION",
+              fieldErrors: [],
+              message: "이미 삭제된 객실입니다. 목록을 새로고침해 주세요.",
+            }
+          : null,
+      );
     } catch {
       setFailure(latestReadFailure("객실"));
     } finally {
@@ -445,9 +545,8 @@ function RoomEditor({
 }
 
 type StatusForm = {
-  plannedResumeDate: string;
   reason: string;
-  status: HotelRoomStatus;
+  status: "ACTIVE" | "INACTIVE";
 };
 function StatusEditor({
   hotelId,
@@ -463,19 +562,17 @@ function StatusEditor({
   const [version, setVersion] = useState<number | undefined>(room.version);
   const [isRefreshingLatest, setIsRefreshingLatest] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const form = useForm<StatusForm>({
     defaultValues: {
-      plannedResumeDate: room.plannedResumeDate ?? "",
       reason: "",
-      status: room.status,
+      status: room.status === "ACTIVE" ? "INACTIVE" : "ACTIVE",
     },
   });
   const mutation = useMutation({
     mutationFn: async (value: StatusForm) => {
       const parsed = changeHotelRoomStatusRequestSchema.safeParse({
         ...value,
-        plannedResumeDate:
-          value.status === "ACTIVE" ? null : value.plannedResumeDate || null,
         version,
       });
       if (!parsed.success)
@@ -492,24 +589,43 @@ function StatusEditor({
           method: "POST",
           headers: {
             "content-type": "application/json",
-            "idempotency-key": crypto.randomUUID(),
+            "idempotency-key": idempotencyKeyRef.current,
           },
           body: JSON.stringify(parsed.data),
         }),
       ).data.room;
     },
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ["hotel-rooms", hotelId] });
-      onDone();
+    onSuccess: async (savedRoom) => {
+      try {
+        await confirmRoomMutation(hotelId, savedRoom);
+        await client.refetchQueries(
+          { queryKey: ["hotel-rooms", hotelId] },
+          { throwOnError: true },
+        );
+        idempotencyKeyRef.current = crypto.randomUUID();
+        onDone();
+      } catch {
+        setFailure(mutationReadbackFailure());
+      }
     },
     onError: async (error) => {
       const next = requestFailure(error);
       if (next.code === "VERSION_CONFLICT") {
         try {
           const latest = await fetchLatestRoom(hotelId, room.id);
-          setVersion(latest.version);
+          const nextStatus =
+            latest.status === "ACTIVE"
+              ? "INACTIVE"
+              : latest.status === "INACTIVE"
+                ? "ACTIVE"
+                : null;
+          setVersion(nextStatus ? latest.version : undefined);
+          if (nextStatus) form.setValue("status", nextStatus);
+          idempotencyKeyRef.current = crypto.randomUUID();
           next.message =
-            "다른 사용자가 먼저 변경했습니다. 최신 객실 정보를 불러왔습니다. 입력값을 확인한 뒤 다시 저장해 주세요.";
+            nextStatus === null
+              ? "이미 삭제된 객실입니다. 목록을 새로고침해 주세요."
+              : "다른 사용자가 먼저 변경했습니다. 최신 상태에서 가능한 반대 전이를 다시 계산했습니다. 사유를 확인한 뒤 저장해 주세요.";
         } catch {
           setVersion(undefined);
           setFailure(latestReadFailure("객실"));
@@ -523,8 +639,24 @@ function StatusEditor({
     setIsRefreshingLatest(true);
     try {
       const latest = await fetchLatestRoom(hotelId, room.id);
-      setVersion(latest.version);
-      setFailure(null);
+      const nextStatus =
+        latest.status === "ACTIVE"
+          ? "INACTIVE"
+          : latest.status === "INACTIVE"
+            ? "ACTIVE"
+            : null;
+      setVersion(nextStatus ? latest.version : undefined);
+      if (nextStatus) form.setValue("status", nextStatus);
+      idempotencyKeyRef.current = crypto.randomUUID();
+      setFailure(
+        nextStatus
+          ? null
+          : {
+              code: "INVALID_STATE_TRANSITION",
+              fieldErrors: [],
+              message: "이미 삭제된 객실입니다. 목록을 새로고침해 주세요.",
+            },
+      );
     } catch {
       setFailure(latestReadFailure("객실"));
     } finally {
@@ -537,7 +669,6 @@ function StatusEditor({
     if (field && Object.hasOwn(form.getValues(), field)) form.setFocus(field);
     else errorRef.current?.focus();
   }, [failure, form]);
-  const status = form.watch("status");
   return (
     <form
       noValidate
@@ -547,7 +678,7 @@ function StatusEditor({
       })}
     >
       <h3 className="text-lg font-semibold text-text">
-        {room.roomNumber} 운영상태 변경
+        {room.roomNumber} 기준정보 상태 변경
       </h3>
       {failure ? (
         <div
@@ -590,29 +721,11 @@ function StatusEditor({
               onChange: () => clearFieldError(setFailure, "status"),
             })}
           >
-            <option value="ACTIVE">운영중</option>
-            <option value="TEMP_SUSPENDED">일시중지</option>
-            <option value="OUT_OF_SERVICE">운영제외</option>
+            <option value="ACTIVE">활성</option>
+            <option value="INACTIVE">사용중지</option>
           </select>
         </label>
-        {status !== "ACTIVE" ? (
-          <label className="text-sm font-semibold text-text">
-            재개 예정일
-            <input
-              className={inputClass}
-              type="date"
-              {...fieldErrorAttributes(
-                failure,
-                "plannedResumeDate",
-                "status-editor-error",
-              )}
-              {...form.register("plannedResumeDate", {
-                onChange: () =>
-                  clearFieldError(setFailure, "plannedResumeDate"),
-              })}
-            />
-          </label>
-        ) : null}
+
         <label className="text-sm font-semibold text-text">
           변경 사유
           <textarea
@@ -630,6 +743,189 @@ function StatusEditor({
         type="submit"
       >
         상태 저장
+      </Button>
+    </form>
+  );
+}
+
+type DeleteForm = { reason: string };
+function DeleteEditor({
+  hotelId,
+  onDone,
+  room,
+}: {
+  hotelId: string;
+  onDone: () => void;
+  room: Room;
+}) {
+  const client = useQueryClient();
+  const [failure, setFailure] = useState<RequestFailure | null>(null);
+  const [version, setVersion] = useState<number | undefined>(room.version);
+  const [isRefreshingLatest, setIsRefreshingLatest] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
+  const form = useForm<DeleteForm>({ defaultValues: { reason: "" } });
+  const mutation = useMutation({
+    mutationFn: async (value: DeleteForm) => {
+      const parsed = deleteHotelRoomRequestSchema.safeParse({
+        reason: value.reason,
+        version,
+      });
+      if (!parsed.success)
+        throw {
+          code: "VALIDATION_ERROR",
+          fieldErrors: parsed.error.issues.map((issue) => ({
+            field: String(issue.path[0] ?? ""),
+            message: issue.message,
+          })),
+          message: parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요.",
+        } satisfies RequestFailure;
+      return hotelRoomMutationResponseSchema.parse(
+        await request(hotelRoutes.roomDelete(hotelId, room.id), {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": idempotencyKeyRef.current,
+          },
+          body: JSON.stringify(parsed.data),
+        }),
+      ).data.room;
+    },
+    onSuccess: async (savedRoom) => {
+      try {
+        await confirmRoomMutation(hotelId, savedRoom);
+        await client.refetchQueries(
+          { queryKey: ["hotel-rooms", hotelId] },
+          { throwOnError: true },
+        );
+        idempotencyKeyRef.current = crypto.randomUUID();
+        onDone();
+      } catch {
+        setFailure(mutationReadbackFailure());
+      }
+    },
+    onError: async (error) => {
+      const next = requestFailure(error);
+      if (next.code === "VERSION_CONFLICT") {
+        try {
+          const latest = await fetchLatestRoom(hotelId, room.id);
+          const deletable = latest.status === "INACTIVE";
+          setVersion(deletable ? latest.version : undefined);
+          idempotencyKeyRef.current = crypto.randomUUID();
+          next.message =
+            latest.status === "DELETED"
+              ? "이미 삭제된 객실입니다. 목록을 새로고침해 주세요."
+              : deletable
+                ? "다른 사용자가 먼저 변경했습니다. 최신 사용중지 상태를 불러왔습니다. 사유를 확인한 뒤 다시 시도해 주세요."
+                : "객실이 다시 활성 상태가 되어 삭제할 수 없습니다. 먼저 사용중지로 변경해 주세요.";
+        } catch {
+          setVersion(undefined);
+          setFailure(latestReadFailure("객실"));
+          return;
+        }
+      }
+      setFailure(next);
+    },
+  });
+  const refreshLatest = async () => {
+    setIsRefreshingLatest(true);
+    try {
+      const latest = await fetchLatestRoom(hotelId, room.id);
+      const deletable = latest.status === "INACTIVE";
+      setVersion(deletable ? latest.version : undefined);
+      idempotencyKeyRef.current = crypto.randomUUID();
+      setFailure(
+        latest.status === "DELETED"
+          ? {
+              code: "INVALID_STATE_TRANSITION",
+              fieldErrors: [],
+              message: "이미 삭제된 객실입니다. 목록을 새로고침해 주세요.",
+            }
+          : deletable
+            ? null
+            : {
+                code: "INVALID_STATE_TRANSITION",
+                fieldErrors: [],
+                message:
+                  "객실이 다시 활성 상태가 되어 삭제할 수 없습니다. 먼저 사용중지로 변경해 주세요.",
+              },
+      );
+    } catch {
+      setVersion(undefined);
+      setFailure(latestReadFailure("객실"));
+    } finally {
+      setIsRefreshingLatest(false);
+    }
+  };
+  useEffect(() => {
+    if (!failure) return;
+    const field = failure.fieldErrors[0]?.field as keyof DeleteForm | undefined;
+    if (field && Object.hasOwn(form.getValues(), field)) form.setFocus(field);
+    else errorRef.current?.focus();
+  }, [failure, form]);
+  return (
+    <form
+      noValidate
+      onSubmit={form.handleSubmit((value) => {
+        setFailure(null);
+        mutation.mutate(value);
+      })}
+    >
+      <h3 className="text-lg font-semibold text-text">
+        {room.roomNumber} 객실 삭제
+      </h3>
+      <p className="mt-3 rounded-control bg-red-50 p-3 text-sm text-red-800">
+        삭제하면 이 객실은 복구하거나 수정할 수 없습니다. 같은 객실번호를 다시
+        사용하려면 새 객실로 등록해야 합니다.
+      </p>
+      {failure ? (
+        <div
+          className="mt-3 rounded-control bg-red-50 p-3 text-sm text-red-700"
+          id="delete-editor-error"
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+        >
+          {failure.message}
+          {failure.fieldErrors.map((error, index) => (
+            <p
+              className="mt-1"
+              id={`delete-editor-error-${error.field}-${index}`}
+              key={`${error.field}-${index}`}
+            >
+              {error.message}
+            </p>
+          ))}
+          {failure.code === "LATEST_READ_FAILED" ? (
+            <Button
+              className="mt-3"
+              disabled={isRefreshingLatest}
+              onClick={() => void refreshLatest()}
+              type="button"
+              variant="secondary"
+            >
+              최신정보 다시 불러오기
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      <label className="mt-4 block text-sm font-semibold text-text">
+        삭제 사유
+        <textarea
+          className={textareaClass}
+          {...fieldErrorAttributes(failure, "reason", "delete-editor-error")}
+          {...form.register("reason", {
+            onChange: () => clearFieldError(setFailure, "reason"),
+          })}
+        />
+      </label>
+      <Button
+        className="mt-5 min-h-11 w-full md:w-auto"
+        disabled={mutation.isPending || version === undefined}
+        type="submit"
+        variant="danger"
+      >
+        {mutation.isPending ? "삭제 중" : "객실 삭제"}
       </Button>
     </form>
   );
@@ -655,6 +951,7 @@ function TypeEditor({
   const [version, setVersion] = useState(roomType?.version);
   const [isRefreshingLatest, setIsRefreshingLatest] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
+  const idempotencyKeyRef = useRef(crypto.randomUUID());
   const form = useForm<TypeForm>({
     defaultValues: {
       displayOrder: roomType?.displayOrder ?? 10,
@@ -696,7 +993,7 @@ function TypeEditor({
             method: roomType ? "PATCH" : "POST",
             headers: {
               "content-type": "application/json",
-              "idempotency-key": crypto.randomUUID(),
+              "idempotency-key": idempotencyKeyRef.current,
             },
             body: JSON.stringify(parsed.data),
           },
@@ -721,6 +1018,7 @@ function TypeEditor({
           const latest = refreshed.find((item) => item.id === roomType.id);
           if (!latest) throw new Error("latest room type missing");
           setVersion(latest.version);
+          idempotencyKeyRef.current = crypto.randomUUID();
           next.message =
             "다른 사용자가 먼저 변경했습니다. 최신 객실유형 정보를 불러왔습니다. 입력값을 확인한 뒤 다시 저장해 주세요.";
         } catch {
@@ -743,6 +1041,7 @@ function TypeEditor({
       const latest = refreshed.find((item) => item.id === roomType.id);
       if (!latest) throw new Error("latest room type missing");
       setVersion(latest.version);
+      idempotencyKeyRef.current = crypto.randomUUID();
       setFailure(null);
     } catch {
       setFailure(latestReadFailure("객실유형"));
@@ -949,7 +1248,7 @@ function RoomManagementContent({
             객실관리
           </h2>
           <p className="mt-1 text-sm text-muted">
-            객실번호·유형·운영상태를 확인합니다.
+            객실번호·유형·기준정보 상태를 확인합니다.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1046,7 +1345,7 @@ function RoomManagementContent({
                     <th className="px-4 py-3">객실번호</th>
                     <th className="px-4 py-3">층</th>
                     <th className="px-4 py-3">객실유형</th>
-                    <th className="px-4 py-3">상태</th>
+                    <th className="px-4 py-3">기준정보 상태</th>
                     <th className="px-4 py-3">공개 메모</th>
                     {capabilities.canManage ? (
                       <th className="px-4 py-3 text-right">작업</th>
@@ -1075,32 +1374,52 @@ function RoomManagementContent({
                       </td>
                       {capabilities.canManage ? (
                         <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              onClick={(event) =>
-                                open(
-                                  { kind: "room", room },
-                                  event.currentTarget,
-                                )
-                              }
-                              type="button"
-                              variant="secondary"
-                            >
-                              수정
-                            </Button>
-                            <Button
-                              onClick={(event) =>
-                                open(
-                                  { kind: "status", room },
-                                  event.currentTarget,
-                                )
-                              }
-                              type="button"
-                              variant="secondary"
-                            >
-                              상태변경
-                            </Button>
-                          </div>
+                          {room.status === "DELETED" ? (
+                            <span className="text-sm text-muted">
+                              수정 불가
+                            </span>
+                          ) : (
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                onClick={(event) =>
+                                  open(
+                                    { kind: "room", room },
+                                    event.currentTarget,
+                                  )
+                                }
+                                type="button"
+                                variant="secondary"
+                              >
+                                수정
+                              </Button>
+                              <Button
+                                onClick={(event) =>
+                                  open(
+                                    { kind: "status", room },
+                                    event.currentTarget,
+                                  )
+                                }
+                                type="button"
+                                variant="secondary"
+                              >
+                                상태변경
+                              </Button>
+                              {room.status === "INACTIVE" ? (
+                                <Button
+                                  onClick={(event) =>
+                                    open(
+                                      { kind: "delete", room },
+                                      event.currentTarget,
+                                    )
+                                  }
+                                  type="button"
+                                  variant="danger"
+                                >
+                                  삭제
+                                </Button>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
                       ) : null}
                     </tr>
@@ -1133,8 +1452,8 @@ function RoomManagementContent({
                     {room.ownerVisibleNote}
                   </p>
                 ) : null}
-                {capabilities.canManage ? (
-                  <div className="mt-4 grid grid-cols-2 gap-2">
+                {capabilities.canManage && room.status !== "DELETED" ? (
+                  <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
                     <Button
                       className="min-h-11"
                       onClick={(event) =>
@@ -1155,7 +1474,23 @@ function RoomManagementContent({
                     >
                       상태변경
                     </Button>
+                    {room.status === "INACTIVE" ? (
+                      <Button
+                        className="min-h-11"
+                        onClick={(event) =>
+                          open({ kind: "delete", room }, event.currentTarget)
+                        }
+                        type="button"
+                        variant="danger"
+                      >
+                        삭제
+                      </Button>
+                    ) : null}
                   </div>
+                ) : capabilities.canManage ? (
+                  <p className="mt-4 text-sm text-muted">
+                    삭제되어 수정할 수 없습니다.
+                  </p>
                 ) : null}
               </article>
             ))}
@@ -1232,8 +1567,10 @@ function RoomManagementContent({
           dialog?.kind === "room"
             ? "객실 정보"
             : dialog?.kind === "status"
-              ? "객실 운영상태"
-              : "객실유형"
+              ? "객실 기준정보 상태"
+              : dialog?.kind === "delete"
+                ? "객실 삭제"
+                : "객실유형"
         }
       >
         {dialog?.kind === "room" ? (
@@ -1245,6 +1582,8 @@ function RoomManagementContent({
           />
         ) : dialog?.kind === "status" ? (
           <StatusEditor hotelId={hotelId} onDone={close} room={dialog.room} />
+        ) : dialog?.kind === "delete" ? (
+          <DeleteEditor hotelId={hotelId} onDone={close} room={dialog.room} />
         ) : dialog?.kind === "type" ? (
           <TypeEditor
             hotelId={hotelId}

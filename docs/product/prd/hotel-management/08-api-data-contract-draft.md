@@ -41,7 +41,9 @@
 | 소유주 | `POST /api/hotels/:id/owner-transfer` | 기존/신규 userId·전환시각·사유·재인증 | 활성 연결·종료 연결 | `HOTEL_OWNER_MANAGE` |
 | 최고관리자 | `POST /api/admin/super-admins/initialize` | bootstrap 운영자·두 번째 활성 사내 임직원·재인증·승인참조·version | 정확히 두 명·초기화 감사 재조회 | 제한된 one-shot 초기화 authority |
 | 객실 | `POST /api/hotels/:id/rooms` | 객실번호·층그룹·호텔별 객실유형 | 객실 재조회 | DB 동적 객실관리권한 |
-| 객실 | `PATCH /api/hotels/:id/rooms/:roomId` | version·기준정보 상태·변경사유 | 객실·영향 시설물 재조회 | DB 동적 객실관리권한 |
+| 객실 | `PATCH /api/hotels/:id/rooms/:roomId` | version·객실번호·층·객실유형·메모 | 객실 재조회; `DELETED`는 안전 차단 | DB 동적 객실관리권한 |
+| 객실 | `POST /api/hotels/:id/rooms/:roomId/status` | `Idempotency-Key`·version·`ACTIVE\|INACTIVE`·변경사유 | 상태·version·append-only history·감사 재조회 | DB 동적 객실관리권한 |
+| 객실 | `POST /api/hotels/:id/rooms/:roomId/delete` | `Idempotency-Key`·version·삭제사유 | `DELETED` 객실·append-only history·감사 재조회 | DB 동적 객실관리권한; 현재 `INACTIVE`만 허용 |
 | 시설물 | `POST /api/hotels/:id/facilities` | 유형·시설물명·`{ type: "ROOM", roomId } \| { type: "COMMON_AREA", commonAreaId }` 위치 | 시설물 재조회 | DB 동적 시설물관리권한 |
 | 점검항목 | `POST /api/hotels/:id/inspection-items` | 대상유형 `ROOM\|FACILITY`·공통항목·객실/시설물유형별 제외/추가·version | 대상유형별 새 revision | DB 동적 항목설정권한 |
 | 루틴 | `POST /api/hotels/:id/inspection-routines` | 대상범위·회차·반복·기한 | 루틴 revision 재조회 | DB 동적 루틴관리권한 |
@@ -78,6 +80,8 @@
 | 파일 | `POST /api/hotel-files/:fileId/view` | 부모자료 ID | 단기보기 URL/stream | 설정된 VIEW |
 | 파일 | `POST /api/hotel-files/:fileId/download` | 부모자료 ID | 단기 다운로드 | 설정된 DOWNLOAD |
 
+객실 생성·정보수정·상태변경·삭제 route는 요청 cookie의 고엔트로피 opaque session token을 해당 mutation 동안만 PostgreSQL command에 전달한다. command는 원문을 즉시 SHA-256 해시해 활성 session의 저장 hash와 비교하고 최신 유효 호텔배정·개인 DENY 우선 기능권한·version·멱등·감사를 같은 transaction에서 닫는다. 회사 전체 `ALLOW`도 호텔배정을 대체하지 않는다. API runtime에는 `hotel_rooms` 직접 `INSERT/UPDATE` 권한을 주지 않고 생성·정보수정 command와 상태·삭제 command의 exact `EXECUTE`만 허용한다. token 원문은 DB·감사·멱등 snapshot·응답·로그에 저장하거나 반환하지 않으며 session ID나 저장 hash만으로 command authority를 증명하지 않는다.
+
 ## 정본 데이터모델
 
 - 호텔 지점 정본: `branches`.
@@ -91,11 +95,11 @@
 |---|---|
 | 호텔 | `(company_id, branch_id)` unique·FK, `branch_type='HOTEL'` |
 | 소유주 | 호텔당 활성 연결 1개 partial unique, 계정당 활성 호텔 1개 partial unique |
-| 객실 | `(company_id, branch_id, room_number)` unique, 삭제 후 재사용은 새 내부 ID |
+| 객실 | 앞뒤 ASCII space를 제거한 뒤 `[A-Z0-9][A-Z0-9._/-]{0,39}`로 제한하고 ASCII 대문자로 저장; `(company_id, branch_id, room_number) WHERE status <> 'DELETED'` partial unique; CONTRACT preflight는 비호환 legacy 값과 `upper(btrim(room_number))` 충돌을 안정 진단으로 mutation 전에 차단하고 승인된 별도 정리 후 재실행; `ACTIVE/INACTIVE/DELETED`; 현재 목록은 `DELETED` 제외, 물리삭제 금지, `DELETED` 핵심정보·복구 DB trigger 차단, 삭제 후 같은 번호는 새 내부 ID로만 재사용 |
 | 공용공간 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column, `(company_id, branch_id, normalized_name)` unique, `ACTIVE/INACTIVE/DELETED`, 물리삭제 금지 |
 | 시설물유형 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column, `(company_id, branch_id, normalized_name)` unique를 `ACTIVE/INACTIVE/DELETED` 전체 lifecycle에 적용하고 `DELETED` 이름을 불변으로 유지해 삭제 후 이름 재사용 금지, 연결 시설물이 있으면 삭제 command 차단 |
 | 시설물 | `(company_id, branch_id, id)` unique parent key, `normalized_name=lower(btrim(name))` stored generated column과 같은 호텔 시설물유형 composite FK; `ROOM`은 `room_id`만, `COMMON_AREA`는 `common_area_id`만 존재하는 명시적 행 CHECK와 각 위치 composite FK; `(company_id, branch_id, facility_type_id, room_id, normalized_name) WHERE location_type='ROOM'`과 `(company_id, branch_id, facility_type_id, common_area_id, normalized_name) WHERE location_type='COMMON_AREA'` partial unique |
-| 위치·유형 lifecycle | 모든 command가 후보 참조를 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID` 전역순서로 잠그고 참조·version을 재조회하며 변경 시 conflict/retry; 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 연결된 유형 삭제 차단, 이동은 같은 호텔 활성 위치만 허용 |
+| 위치·유형 lifecycle | 시설물 slice 활성화 이후 모든 command가 후보 참조를 읽은 뒤 `시설물유형 UUID → 기존·새 위치 (location_type, UUID) → 시설물 UUID` 전역순서로 잠그고 참조·version을 재조회하며 변경 시 conflict/retry; 활성 시설물이 연결된 위치의 사용중지·삭제와 시설물이 연결된 유형 삭제 차단, 이동은 같은 호텔 활성 위치만 허용. 이 관계 gate는 시설물 후속 release 전까지 구현 완료로 간주하지 않음 |
 | 배정 | 시작일 < 종료일, 같은 배정의 중복기간 방지 |
 | 점검 자동생성 | `execution_source='SCHEDULED'`이면 `routine_revision_id`·`business_date`·`occurrence_key` 모두 non-null인 행 CHECK; `(company_id, branch_id, routine_revision_id, business_date, occurrence_key) WHERE execution_source='SCHEDULED'` partial unique로 같은 회차의 실행 aggregate 중복차단 |
 | 점검 실행대상 | `(company_id, branch_id, execution_id)`가 같은 tenant 실행 aggregate를 참조하는 composite FK; `ROOM`은 `room_id`만, `FACILITY`는 `facility_id`만 존재하는 행 CHECK·호텔 포함 대상 composite FK; `(company_id, branch_id, execution_id, room_id)`와 `(company_id, branch_id, execution_id, facility_id)` 유형별 partial unique |
@@ -128,7 +132,7 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 | 도메인 | 코드 |
 |---|---|
 | 호텔 | `PREPARING`, `ACTIVE`, `SUSPENDED` |
-| 객실·시설물 기준정보 | `ACTIVE`, `INACTIVE`, `DELETED`; 신규 업무대상 포함 여부만 의미 |
+| 객실·시설물 기준정보 | `ACTIVE`, `INACTIVE`, `DELETED`; 신규 업무대상 포함 여부만 의미. 객실 일반 전이는 `ACTIVE↔INACTIVE`, 별도 삭제 command는 `INACTIVE→DELETED`, `DELETED`는 terminal |
 | 점검결과 | `NORMAL`, `CAUTION`, `ABNORMAL` |
 | 점검 실행 | 생성 당시 process revision의 현재 단계·지연·최종완료·미완료종료 |
 | 방문일정 | 예정·진행·완료·취소·삭제 감사 snapshot |

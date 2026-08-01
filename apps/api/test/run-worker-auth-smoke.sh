@@ -11,7 +11,7 @@ PORT="${WORKER_SMOKE_PORT:-8791}"
 TMP_DIR="$(mktemp -d /tmp/werehere-worker-smoke.XXXXXX)"
 LOG_FILE="$TMP_DIR/wrangler.log"
 WORKER_PID=""
-SESSION_TOKEN="BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+SESSION_TOKEN="${WORKER_SMOKE_SESSION_TOKEN:-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB}"
 RUNTIME_ROLE="werehere_worker_runtime_test"
 RUNTIME_PASSWORD="worker-runtime-test-only"
 RECONCILER_ROLE="werehere_worker_reconciler_test"
@@ -86,7 +86,7 @@ GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
 GRANT INSERT ON audit_events, branches, hotel_profiles, auth_identities,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
-  hotel_room_types, hotel_rooms, hotel_room_status_history
+  hotel_room_types
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON users, account_provisioning_attempts,
   initial_password_change_attempts TO $RUNTIME_ROLE;
@@ -99,11 +99,6 @@ GRANT UPDATE (
 TO $RUNTIME_ROLE;
 GRANT UPDATE (name, display_order, is_active, version, updated_by, updated_at)
   ON hotel_room_types TO $RUNTIME_ROLE;
-GRANT UPDATE (
-  room_number, floor_label, floor_sort_key, room_type_id, status,
-  internal_note, owner_visible_note, planned_resume_date,
-  version, updated_by, updated_at
-) ON hotel_rooms TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON idempotency_records TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE ON outbox_jobs TO $RUNTIME_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
@@ -116,6 +111,16 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.auth_revoke_session_v2(bytea, text, uuid),
   public.auth_revoke_user_sessions_v1(uuid, uuid, text),
   public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
+TO $RUNTIME_ROLE;
+GRANT EXECUTE ON FUNCTION
+  public.hotel_room_write_command_v1(
+    uuid, uuid, uuid, text, integer, jsonb, uuid, uuid,
+    text, text, text, text, text, uuid
+  ),
+  public.hotel_room_lifecycle_command_v1(
+    uuid, uuid, uuid, integer, text, text, uuid, uuid, uuid,
+    text, text, text, text, text, uuid
+  )
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
@@ -164,7 +169,13 @@ WITH protected_roles(role_name) AS (
     privilege.privilege_name
   ) IS DISTINCT FROM (
     role.role_name = :'runtime_role'
-    AND privilege.privilege_name IN ('SELECT', 'INSERT')
+    AND (
+      privilege.privilege_name = 'SELECT'
+      OR (
+        room.table_name = 'hotel_room_types'
+        AND privilege.privilege_name = 'INSERT'
+      )
+    )
   )
 ), column_privileges(privilege_name) AS (
   VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
@@ -185,29 +196,30 @@ WITH protected_roles(role_name) AS (
   ) IS DISTINCT FROM (
     role.role_name = :'runtime_role'
     AND (
-      privilege.privilege_name IN ('SELECT', 'INSERT')
+      privilege.privilege_name = 'SELECT'
+      OR (
+        room.table_name = 'hotel_room_types'
+        AND privilege.privilege_name = 'INSERT'
+      )
       OR (
         privilege.privilege_name = 'UPDATE'
-        AND (
-          (
-            room.table_name = 'hotel_room_types'
-            AND column_info.column_name = ANY (ARRAY[
-              'name', 'display_order', 'is_active', 'version',
-              'updated_by', 'updated_at'
-            ]::text[])
-          )
-          OR (
-            room.table_name = 'hotel_rooms'
-            AND column_info.column_name = ANY (ARRAY[
-              'room_number', 'floor_label', 'floor_sort_key', 'room_type_id',
-              'status', 'internal_note', 'owner_visible_note',
-              'planned_resume_date', 'version', 'updated_by', 'updated_at'
-            ]::text[])
-          )
-        )
+        AND room.table_name = 'hotel_room_types'
+        AND column_info.column_name = ANY (ARRAY[
+          'name', 'display_order', 'is_active', 'version',
+          'updated_by', 'updated_at'
+        ]::text[])
       )
     )
   )
+), command_mismatches AS (
+  SELECT 1
+  FROM protected_roles role
+  CROSS JOIN (VALUES
+    ('public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)'::text),
+    ('public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'::text)
+  ) command(signature)
+  WHERE has_function_privilege(role.role_name, command.signature, 'EXECUTE')
+    IS DISTINCT FROM (role.role_name = :'runtime_role')
 ), schema_mismatches AS (
   SELECT 1
   FROM protected_roles role
@@ -229,6 +241,7 @@ SELECT count(*)
 FROM (
   SELECT 1 FROM table_mismatches
   UNION ALL SELECT 1 FROM column_mismatches
+  UNION ALL SELECT 1 FROM command_mismatches
   UNION ALL SELECT 1 FROM schema_mismatches
   UNION ALL SELECT 1 FROM membership_mismatches
   UNION ALL SELECT 1 FROM attribute_mismatches
@@ -316,13 +329,27 @@ insert into auth_sessions (
 insert into permission_grants (
   id, company_id, subject_type, subject_id, permission_code,
   effect, valid_from, granted_by, reason
-) values (
-  '91000000-0000-4000-8000-000000000011',
-  '11000000-0000-4000-8000-000000000001',
-  'USER', '21000000-0000-4000-8000-000000000001',
-  'HOTEL_MANAGE', 'ALLOW', now(),
-  '21000000-0000-4000-8000-000000000001', 'Worker 호텔 API smoke'
-);
+) values
+  ('91000000-0000-4000-8000-000000000011',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_MANAGE', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 호텔 API smoke'),
+  ('91000000-0000-4000-8000-000000000012',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_ROOM_MANAGE', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 객실 API smoke'),
+  ('91000000-0000-4000-8000-000000000013',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_ROOM_TYPE_MANAGE', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 객실유형 API smoke'),
+  ('91000000-0000-4000-8000-000000000014',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_ROOM_READ', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 객실 조회 smoke');
 SQL
 
 pnpm --filter @werehere/api exec wrangler dev --config "$WORKER_CONFIG" --port "$PORT" \
@@ -391,6 +418,17 @@ if hotel.get("status") != "PREPARING" or hotel.get("branchCode") != "WORKER-HOTE
 (root / "hotel-id.txt").write_text(hotel["id"], encoding="utf-8")
 PY
 HOTEL_ID="$(<"$TMP_DIR/hotel-id.txt")"
+psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -v hotel_id="$HOTEL_ID" >/dev/null <<'SQL'
+insert into hotel_staff_assignments (
+  id, company_id, branch_id, user_id, assignment_type,
+  start_date, reason, created_by
+) values (
+  '92000000-0000-4000-8000-000000000001',
+  '11000000-0000-4000-8000-000000000001', :'hotel_id'::uuid,
+  '21000000-0000-4000-8000-000000000001', 'PRIMARY', current_date,
+  'Worker 객실 API smoke', '21000000-0000-4000-8000-000000000001'
+);
+SQL
 psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
   -v session_id="41000000-0000-4000-8000-000000000001" \
   -v hotel_id="$HOTEL_ID" >/dev/null <<'SQL'
@@ -444,6 +482,132 @@ then
   printf 'API runtime unexpectedly received provider identity UPDATE privilege.\n' >&2
   exit 1
 fi
+
+ROOM_TYPE_CREATE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-type-create.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-type-create-1' \
+  --data '{"scope":"HOTEL","name":"Worker 스탠다드","displayOrder":10,"isActive":true}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/room-types")"
+python - "$TMP_DIR" "$ROOM_TYPE_CREATE_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "room-type-create.json").read_text(encoding="utf-8"))
+room_type = body.get("data", {}).get("roomType", {})
+if sys.argv[2] != "201" or room_type.get("scope") != "HOTEL":
+    raise SystemExit(f"Worker room type create mismatch: {sys.argv[2]}")
+(root / "room-type-id.txt").write_text(room_type["id"], encoding="utf-8")
+PY
+ROOM_TYPE_ID="$(<"$TMP_DIR/room-type-id.txt")"
+ROOM_CREATE_PAYLOAD="$(printf '{\"roomNumber\":\"worker-b01\",\"floorLabel\":\"1층\",\"floorSortKey\":1,\"roomTypeId\":\"%s\",\"internalNote\":\"Worker 내부\",\"ownerVisibleNote\":\"Worker 공개\"}' "$ROOM_TYPE_ID")"
+ROOM_CREATE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-create.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-create-1' \
+  --data "$ROOM_CREATE_PAYLOAD" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms")"
+python - "$TMP_DIR" "$ROOM_CREATE_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "room-create.json").read_text(encoding="utf-8"))
+room = body.get("data", {}).get("room", {})
+if sys.argv[2] != "201" or room.get("roomNumber") != "WORKER-B01" or room.get("version") != 1:
+    raise SystemExit(f"Worker room create mismatch: {sys.argv[2]}")
+(root / "room-id.txt").write_text(room["id"], encoding="utf-8")
+PY
+ROOM_ID="$(<"$TMP_DIR/room-id.txt")"
+ROOM_REPLAY_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-replay.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-create-1' \
+  --data "$ROOM_CREATE_PAYLOAD" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms")"
+ROOM_UPDATE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-update.json" -w '%{http_code}' -X PATCH \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-update-1' \
+  --data '{"floorLabel":"Worker 2층","version":1}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID")"
+ROOM_STATUS_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-status.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-status-1' \
+  --data '{"status":"INACTIVE","reason":"Worker 시설 점검","version":2}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID/status")"
+ROOM_DELETE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-delete.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-delete-1' \
+  --data '{"reason":"Worker 객실 삭제","version":3}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID/delete")"
+ROOM_LIST_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-list.json" -w '%{http_code}' \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms?page=1&pageSize=20")"
+ROOM_DETAIL_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-detail.json" -w '%{http_code}' \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID")"
+WRONG_BEARER_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-wrong-bearer.json" -w '%{http_code}' \
+  -H 'Cookie: __Host-hotel_session=CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID")"
+python - "$TMP_DIR" "$ROOM_REPLAY_STATUS" "$ROOM_UPDATE_STATUS" "$ROOM_STATUS_STATUS" \
+  "$ROOM_DELETE_STATUS" "$ROOM_LIST_STATUS" "$ROOM_DETAIL_STATUS" "$WRONG_BEARER_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+replay, update, status, delete, listing, detail, wrong = sys.argv[2:]
+def load(name):
+    return json.loads((root / name).read_text(encoding="utf-8"))
+room_id = (root / "room-id.txt").read_text(encoding="utf-8")
+if replay != "200" or load("room-replay.json").get("data", {}).get("room", {}).get("id") != room_id:
+    raise SystemExit("Worker room replay mismatch")
+if update != "200" or load("room-update.json").get("data", {}).get("room", {}).get("version") != 2:
+    raise SystemExit("Worker room update mismatch")
+if status != "200" or load("room-status.json").get("data", {}).get("room", {}).get("status") != "INACTIVE":
+    raise SystemExit("Worker room status mismatch")
+if delete != "200" or load("room-delete.json").get("data", {}).get("room", {}).get("status") != "DELETED":
+    raise SystemExit("Worker room delete mismatch")
+pagination = load("room-list.json").get("data", {}).get("pagination", {})
+if listing != "200" or pagination.get("total") != 0 or pagination.get("totalPages") != 0:
+    raise SystemExit("Worker deleted room pagination mismatch")
+room = load("room-detail.json").get("data", {}).get("room", {})
+if detail != "200" or room.get("id") != room_id or room.get("status") != "DELETED" or room.get("version") != 4:
+    raise SystemExit("Worker deleted room detail mismatch")
+if wrong != "401" or load("room-wrong-bearer.json").get("error", {}).get("code") != "AUTHENTICATION_REQUIRED":
+    raise SystemExit("Worker wrong bearer rejection mismatch")
+PY
+if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" >/dev/null 2>&1 \
+  -c "insert into hotel_rooms default values"; then
+  printf 'API runtime unexpectedly received direct hotel_rooms INSERT privilege.\n' >&2
+  exit 1
+fi
+ROOM_ATOMIC_READBACK="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" \
+  -v room_id="$ROOM_ID" -v session_token="$SESSION_TOKEN" <<'SQL'
+select
+  (select count(*) from audit_events
+    where resource_type = 'HOTEL_ROOM' and resource_id = :'room_id'::uuid
+      and result = 'SUCCEEDED')::text || '|' ||
+  (select count(*) from hotel_room_status_history
+    where room_id = :'room_id'::uuid)::text || '|' ||
+  (select count(*) from idempotency_records
+    where resource_type = 'HOTEL_ROOM' and resource_id = :'room_id'::uuid
+      and status = 'COMPLETED')::text || '|' ||
+  (select count(*) from idempotency_records
+    where resource_id = :'room_id'::uuid
+      and pg_catalog.strpos(
+        coalesce(result_snapshot::text, ''), :'session_token'
+      ) > 0)::text;
+SQL
+)"
+if [[ "$ROOM_ATOMIC_READBACK" != "4|2|4|0" ]]; then
+  printf 'WORKER_ROOM_ATOMIC_READBACK_MISMATCH\n' >&2
+  exit 1
+fi
+
 HOTEL_DETAIL_STATUS="$(curl --silent --show-error -o "$TMP_DIR/hotel-detail.json" -w '%{http_code}' \
   -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID")"
 
@@ -485,3 +649,4 @@ grep -qi '^set-cookie: __Host-hotel_session=.*Max-Age=0' "$TMP_DIR/logout.header
 
 printf 'WORKER_AUTH_RUNTIME_SMOKE_OK\n'
 printf 'WORKER_HOTEL_RUNTIME_SMOKE_OK\n'
+printf 'WORKER_ROOM_RUNTIME_SMOKE_OK\n'

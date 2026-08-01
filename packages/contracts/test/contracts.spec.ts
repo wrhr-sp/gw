@@ -37,6 +37,7 @@ import {
   changeHotelRoomStatusRequestSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
+  deleteHotelRoomRequestSchema,
   hotelRoomInternalDetailResponseSchema,
   hotelRoomInternalListResponseSchema,
   hotelRoomInternalSchema,
@@ -51,6 +52,14 @@ import {
 describe("hotel platform contracts", () => {
   it("keeps room inputs strict, versioned, and reasoned", () => {
     expect(hotelRoomStatusSchema.parse("ACTIVE")).toBe("ACTIVE");
+    expect(hotelRoomStatusSchema.parse("INACTIVE")).toBe("INACTIVE");
+    expect(hotelRoomStatusSchema.parse("DELETED")).toBe("DELETED");
+    expect(hotelRoomStatusSchema.safeParse("TEMP_SUSPENDED").success).toBe(
+      false,
+    );
+    expect(hotelRoomStatusSchema.safeParse("OUT_OF_SERVICE").success).toBe(
+      false,
+    );
     expect(
       createHotelRoomTypeRequestSchema.parse({
         name: "디럭스 더블",
@@ -69,6 +78,31 @@ describe("hotel platform contracts", () => {
       }),
     ).toMatchObject({ roomNumber: "1201", floorSortKey: 12 });
     expect(
+      createHotelRoomRequestSchema.parse({
+        roomNumber: " b01 ",
+        floorLabel: "B1",
+        floorSortKey: -1,
+        roomTypeId: "70000000-0000-4000-8000-000000000001",
+        internalNote: null,
+        ownerVisibleNote: null,
+      }).roomNumber,
+    ).toBe("B01");
+    for (const roomNumber of ["\u00a0b01\u00a0", "ß01", "객실101"]) {
+      expect(
+        createHotelRoomRequestSchema.safeParse({
+          roomNumber,
+          floorLabel: "1층",
+          floorSortKey: 1,
+          roomTypeId: "70000000-0000-4000-8000-000000000001",
+          internalNote: null,
+          ownerVisibleNote: null,
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      hotelRoomListQuerySchema.safeParse({ status: "DELETED" }).success,
+    ).toBe(false);
+    expect(
       updateHotelRoomRequestSchema.safeParse({
         version: 2,
         roomNumber: "1201",
@@ -78,18 +112,38 @@ describe("hotel platform contracts", () => {
     expect(
       changeHotelRoomStatusRequestSchema.safeParse({
         version: 1,
-        status: "TEMP_SUSPENDED",
+        status: "INACTIVE",
         reason: " ",
       }).success,
     ).toBe(false);
     expect(
       changeHotelRoomStatusRequestSchema.parse({
         version: 1,
-        status: "OUT_OF_SERVICE",
+        status: "INACTIVE",
+        reason: "누수 보수",
+      }).status,
+    ).toBe("INACTIVE");
+    expect(
+      changeHotelRoomStatusRequestSchema.safeParse({
+        version: 1,
+        status: "INACTIVE",
         reason: "누수 보수",
         plannedResumeDate: "2026-08-01",
-      }).status,
-    ).toBe("OUT_OF_SERVICE");
+      }).success,
+    ).toBe(false);
+    expect(
+      changeHotelRoomStatusRequestSchema.safeParse({
+        version: 1,
+        status: "DELETED",
+        reason: "영구 종료",
+      }).success,
+    ).toBe(false);
+    expect(
+      deleteHotelRoomRequestSchema.parse({
+        version: 2,
+        reason: "객실 기준정보 삭제",
+      }),
+    ).toEqual({ version: 2, reason: "객실 기준정보 삭제" });
   });
 
   it("returns all room field issues with user-facing Korean messages", () => {
@@ -144,7 +198,6 @@ describe("hotel platform contracts", () => {
       },
       status: "ACTIVE" as const,
       ownerVisibleNote: "창가 객실",
-      plannedResumeDate: null,
       version: 1,
       createdAt: "2026-07-25T00:00:00.000Z",
       updatedAt: "2026-07-25T00:00:00.000Z",
@@ -206,6 +259,9 @@ describe("hotel platform contracts", () => {
     );
     expect(hotelRoutes.roomStatus(room.hotelId, room.id)).toBe(
       `/api/hotels/${room.hotelId}/rooms/${room.id}/status`,
+    );
+    expect(hotelRoutes.roomDelete(room.hotelId, room.id)).toBe(
+      `/api/hotels/${room.hotelId}/rooms/${room.id}/delete`,
     );
   });
 

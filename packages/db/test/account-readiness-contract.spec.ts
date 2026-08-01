@@ -59,7 +59,32 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       'roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT"',
     );
-    expect(source).toContain("policyPhase");
+    expect(source).toContain("const roomPolicyPhase =");
+    expect(source).toContain(
+      "migrationRows[0].hotel_room_contract_marker_count <= 1",
+    );
+    expect(source).toContain(
+      'labels.filter((label) => !label.startsWith("hotel_rooms:"))',
+    );
+    expect(source).toContain(
+      'candidate.startsWith("hotel_rooms:")',
+    );
+    expect(source).toContain(
+      "HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256",
+    );
+    expect(source).toContain(
+      '"21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e"',
+    );
+    expect(source).toContain(
+      '"e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50"',
+    );
+    expect(source).toContain("execute_acl_safe");
+    expect(source).toContain("name_unique");
+    expect(source).toContain(
+      "procedure_record.oid = pg_catalog.to_regprocedure(",
+    );
+    expect(provisionSource).toContain("$exact_room_command_acl$");
+    expect(provisionSource).toContain("roomLifecycleState.contracted");
     expect(provisionSource).toContain(
       "requiredRoomSchemaPhase: requiredRoomRolloutPhase",
     );
@@ -197,7 +222,7 @@ describe("account administration readiness contract", () => {
 
   it("damage-probes exact room CHECK literals, trigger columns, and PUBLIC RLS roles", () => {
     expect(foundationIntegrationSource).toContain(
-      "check (status in ('active', 'temp_suspended', 'out_of_service'))",
+      "check (status in ('ACTIVE', 'INACTIVE', 'DELETED', 'BROKEN'))",
     );
     expect(foundationIntegrationSource).toContain(
       "before update of company_id on hotel_room_types",
@@ -495,7 +520,25 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("policy_record.polroles = array[0::oid]");
     expect(source).toContain("policy.roles_public");
     expect(source).toContain(
-      "array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text]",
+      "array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text]",
+    );
+    expect(source).toContain("hotel_rooms_live_room_number_key");
+    expect(source).toContain("hotel_rooms_deleted_immutable");
+    expect(source).toContain("hotel_room_status_history_source_shape");
+    expect(source).toContain("hotel_room_status_history_insert_guard");
+    expect(source).toContain("REJECT_DELETED_HOTEL_ROOM_CHANGE_PROSRC_SHA256");
+    expect(source).toContain(
+      "ENFORCE_NEW_HOTEL_ROOM_HISTORY_INSERT_PROSRC_SHA256",
+    );
+    expect(source).toContain(
+      "(previous_status = 'ACTIVE'::text) and (next_status = 'INACTIVE'::text)",
+    );
+    expect(source).toContain('"hotel_rooms:planned_resume_date:UPDATE"');
+    expect(source).toContain(
+      'labels.filter((label) => !label.startsWith("hotel_rooms:"))',
+    );
+    expect(source).toContain(
+      'candidate.startsWith("hotel_rooms:")',
     );
     expect(source).toContain("!loginRegistryTrigger.function_acl_safe");
     expect(source).toContain("aclexplode(");

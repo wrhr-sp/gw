@@ -96,12 +96,13 @@ assert_room_constraints_exact() {
     "hotel_rooms:hotel_rooms_company_id_updated_by_fkey"
     "hotel_rooms:hotel_rooms_company_id_id_key"
     "hotel_rooms:hotel_rooms_company_branch_id_key"
-    "hotel_rooms:hotel_rooms_company_id_branch_id_room_number_key"
+
     "hotel_rooms:hotel_rooms_room_number_check"
+    "hotel_rooms:hotel_rooms_room_number_canonical_check"
     "hotel_rooms:hotel_rooms_floor_label_check"
     "hotel_rooms:hotel_rooms_floor_sort_key_check"
     "hotel_rooms:hotel_rooms_status_check"
-    "hotel_rooms:hotel_rooms_resume_shape"
+
     "hotel_rooms:hotel_rooms_internal_note_check"
     "hotel_rooms:hotel_rooms_owner_visible_note_check"
     "hotel_rooms:hotel_rooms_version_check"
@@ -114,7 +115,7 @@ assert_room_constraints_exact() {
     "hotel_room_status_history:hotel_room_status_history_next_status_check"
     "hotel_room_status_history:hotel_room_status_history_reason_check"
     "hotel_room_status_history:hotel_room_status_history_transition"
-    "hotel_room_status_history:hotel_room_status_history_resume_shape"
+    "hotel_room_status_history:hotel_room_status_history_source_shape"
   )
 
   for specification in "${constraints[@]}"; do
@@ -218,14 +219,12 @@ SQL
 )"
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
 alter table hotel_rooms drop constraint hotel_rooms_status_check;
-update hotel_rooms set status = lower(status);
 alter table hotel_rooms add constraint hotel_rooms_status_check
-  check (status in ('active', 'temp_suspended', 'out_of_service'));
+  check (status in ('ACTIVE', 'INACTIVE', 'DELETED', 'BROKEN'));
 SQL
-  probe_room_damage "lowercase hotel room status CHECK literal damage"
+  probe_room_damage "weakened hotel room status CHECK literal damage"
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -v definition="$definition" >/dev/null <<'SQL'
 alter table hotel_rooms drop constraint hotel_rooms_status_check;
-update hotel_rooms set status = upper(status);
 select format('alter table hotel_rooms add constraint hotel_rooms_status_check %s', :'definition') \gexec
 SQL
 
@@ -270,6 +269,176 @@ select format(
 select :'definition' \gexec
 SQL
   done
+
+  for trigger_name in hotel_rooms_deleted_immutable hotel_room_status_history_insert_guard; do
+    trigger_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+      -v trigger_name="$trigger_name" <<'SQL'
+select pg_get_functiondef(trigger_proc.oid)
+from pg_trigger trigger_record
+join pg_proc trigger_proc on trigger_proc.oid = trigger_record.tgfoid
+where trigger_record.tgname = :'trigger_name';
+SQL
+)"
+    if [[ "$trigger_name" == "hotel_rooms_deleted_immutable" ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.reject_deleted_hotel_room_change()
+returns trigger language plpgsql set search_path = pg_catalog
+as $$ begin return new; end $$;
+SQL
+    else
+      psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.enforce_new_hotel_room_history_insert()
+returns trigger language plpgsql set search_path = pg_catalog
+as $$ begin return new; end $$;
+SQL
+    fi
+    probe_room_damage "no-op ${trigger_name} function body damage"
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+      -v definition="$trigger_definition" >/dev/null <<'SQL'
+select :'definition' \gexec
+SQL
+  done
+
+  local lifecycle_command_definition
+  lifecycle_command_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select pg_get_functiondef(
+  'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'::regprocedure
+);
+SQL
+)"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.hotel_room_lifecycle_command_v1(
+  p_company_id uuid,
+  p_branch_id uuid,
+  p_room_id uuid,
+  p_expected_version integer,
+  p_next_status text,
+  p_reason text,
+  p_history_id uuid,
+  p_audit_event_id uuid,
+  p_idempotency_record_id uuid,
+  p_idempotency_key text,
+  p_http_method text,
+  p_operation_path text,
+  p_request_hash text,
+  p_session_token text,
+  p_trace_id uuid
+)
+returns table (command_status text, result_snapshot jsonb)
+language plpgsql security definer set search_path = pg_catalog
+as $$ begin return query select 'FORBIDDEN'::text, null::jsonb; end $$;
+SQL
+  probe_room_damage "no-op hotel room lifecycle command body damage"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -v definition="$lifecycle_command_definition" >/dev/null <<'SQL'
+select :'definition' \gexec
+SQL
+
+  local write_command_definition
+  write_command_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+select pg_get_functiondef(
+  'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)'::regprocedure
+);
+SQL
+)"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.hotel_room_write_command_v1(
+  p_company_id uuid,
+  p_branch_id uuid,
+  p_room_id uuid,
+  p_action text,
+  p_expected_version integer,
+  p_value jsonb,
+  p_audit_event_id uuid,
+  p_idempotency_record_id uuid,
+  p_idempotency_key text,
+  p_http_method text,
+  p_operation_path text,
+  p_request_hash text,
+  p_session_token text,
+  p_trace_id uuid
+)
+returns table (command_status text, result_snapshot jsonb)
+language plpgsql security definer set search_path = pg_catalog
+as $$ begin return query select 'FORBIDDEN'::text, null::jsonb; end $$;
+SQL
+  probe_room_damage "no-op hotel room write command body damage"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -v definition="$write_command_definition" >/dev/null <<'SQL'
+select :'definition' \gexec
+SQL
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $acl_damage$
+declare
+  approved_role text;
+begin
+  select role_name into strict approved_role
+    from runtime_database_capabilities
+   where capability = 'API_RUNTIME'
+   order by role_name
+   limit 1;
+  if approved_role is null then
+    raise exception 'API_RUNTIME capability fixture is missing';
+  end if;
+  if not exists (select 1 from pg_roles where rolname = 'gw_room_acl_drift') then
+    create role gw_room_acl_drift nologin;
+  end if;
+  execute format(
+    'revoke execute on function public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid) from %I',
+    approved_role
+  );
+  execute format(
+    'revoke execute on function public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid) from %I',
+    approved_role
+  );
+  grant execute on function public.hotel_room_lifecycle_command_v1(
+    uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid
+  ) to gw_room_acl_drift;
+  grant execute on function public.hotel_room_write_command_v1(
+    uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid
+  ) to gw_room_acl_drift;
+end
+$acl_damage$;
+SQL
+  probe_room_damage "same-count hotel room command ACL grantee drift"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $acl_restore$
+declare
+  approved_role text;
+begin
+  select role_name into strict approved_role
+    from runtime_database_capabilities
+   where capability = 'API_RUNTIME'
+   order by role_name
+   limit 1;
+  revoke all privileges on function public.hotel_room_lifecycle_command_v1(
+    uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid
+  ) from gw_room_acl_drift;
+  revoke all privileges on function public.hotel_room_write_command_v1(
+    uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid
+  ) from gw_room_acl_drift;
+  execute format(
+    'grant execute on function public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid) to %I',
+    approved_role
+  );
+  execute format(
+    'grant execute on function public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid) to %I',
+    approved_role
+  );
+end
+$acl_restore$;
+drop role gw_room_acl_drift;
+SQL
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create function public.hotel_room_lifecycle_command_v1()
+returns void language sql as 'select';
+SQL
+  probe_room_damage "hotel room lifecycle command overload drift"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop function public.hotel_room_lifecycle_command_v1();
+SQL
 
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
 alter policy hotel_rooms_company_isolation on hotel_rooms to gw_runtime_probe;
@@ -447,6 +616,7 @@ HOTEL_RELATIONSHIP_INTEGRITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0017_ho
 HOTEL_SUPPORT_OVERLAP_MIGRATION="$ROOT_DIR/packages/db/migrations/0018_hotel_support_assignment_overlap.sql"
 HOTEL_ROOM_MIGRATION="$ROOT_DIR/packages/db/migrations/0019_hotel_room_management.sql"
 HOTEL_ROOM_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql"
+HOTEL_ROOM_LIFECYCLE_MIGRATION="$ROOT_DIR/packages/db/migrations/0025_hotel_room_reference_lifecycle.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -548,6 +718,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_LIFECYCLE_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -579,6 +753,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_LIFECYCLE_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -728,6 +903,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_ROOM_LIFECYCLE_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
