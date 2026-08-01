@@ -51,8 +51,21 @@
 | 보수 | `POST /api/hotels/:id/repairs` | 출처·대상 하나·우선순위·하자증빙·선택 `followUpOfRepairCaseId`; 지정 시 `followUpParentVersion` 필수 | 보수·process snapshot과 권한 허용 시 즉시 이전 summary | DB 동적 보수등록권한 + parent 자료권한 |
 | 보수 | `GET /api/hotels/:id/repairs/:repairId` | — | 보수 snapshot, 권한 허용 시 즉시 이전 summary와 권한필터된 즉시 후속 건수; 미허용 관계 존재·번호·건수 미포함 | DB 동적 보수자료조회권한 |
 | 보수 | `GET /api/hotels/:id/repairs/:repairId/follow-ups` | `page`·`pageSize` | 권한필터된 즉시 후속 summary 페이지·권한필터된 total; 전체 체인 재귀응답과 미허용 건수 없음 | DB 동적 보수자료조회권한 |
-| 방문일정 | `POST /api/hotels/:id/repair-visits` | 보수 건·일정명·시작/종료·수행자/업체 | 일정 재조회; Calendar outbox는 adapter 승인 뒤 별도 계약 | DB 동적 일정생성권한 |
-| Calendar (`unresearched`, 비계약) | — | adapter 후보 승인 뒤 exact API·권한·outbox 계약 확정 | — | 승인 전 route·outbox·provider mutation 금지 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits` | `Idempotency-Key`·보수 건·일정명·시작/종료·수행자/업체 | 일정·Calendar projection 상태 재조회 | DB 동적 일정생성권한 |
+| 방문일정 | `PATCH /api/hotels/:id/repair-visits/:visitId` | version·변경필드·사유 | 일정·새 source version·`NOT_CONNECTED\|PENDING\|SYNCED\|ACTION_REQUIRED` projection 상태 | DB 동적 일정변경권한 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits/:visitId/cancel` | version·사유 | 취소 일정·append-only history·projection 상태 | DB 동적 일정변경권한 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits/:visitId/restore` | version·사유 | 복구 일정·append-only history·projection 상태 | DB 동적 일정변경권한 |
+| 방문일정 | `POST /api/hotels/:id/repair-visits/:visitId/delete` | version·사유 | 논리삭제 일정·append-only history·projection 상태 | DB 동적 일정삭제권한 |
+| Calendar | `POST /api/admin/calendar-connections/oauth/start` | 중요작업 재인증·안전한 return path·기존 연결이면 expected connection version | 10분 만료 state hash·PKCE·browser binding과 Google authorization URL | DB 동적 Calendar 연동설정권한 + 회사범위, 기존 연결이면 영향호텔 전체권한 |
+| Calendar | `GET /api/admin/calendar-connections/oauth/callback` | exact-one non-empty `state` + (`code` xor provider `error`), duplicate·empty·혼합 금지 | 외부 fetch 전 single-use claim, server-side 교환·scope/refresh token 검증, first credential 활성화 또는 candidate 저장 뒤 cookie 삭제·query 없는 안전한 admin 경로로 303; 일반 변경 API 멱등키 예외는 one-time claim이 대체 | 최초 요청 actor·활성 session·재인증·현재 권한·최초 start의 회사/영향호텔 범위 |
+| Calendar | `GET /api/admin/calendar-connections` | `page`·`pageSize` | 회사 연결과 권한 있는 호텔 link·안전상태·fingerprint만, token·provider ID 없음 | DB 동적 Calendar 연동설정권한 |
+| Calendar | `POST /api/admin/calendar-connections/:connectionId/credential-candidates/:credentialId/promote` | connection/candidate version·사유·중요작업 재인증 | `ACCESS_VERIFIED` candidate 승격·기존 hotel link 유지 재조회 | DB 동적 Calendar 연동설정권한 + 회사범위·영향호텔 전체권한 |
+| Calendar | `POST /api/admin/calendar-connections/:connectionId/credential-candidates/:credentialId/confirm-switch` | connection/candidate version·사유·중요작업 재인증 | candidate 승격·기존 link generation 중지·호텔별 calendar resource job 재조회 | DB 동적 Calendar 연동설정권한 + 회사범위·영향호텔 전체권한 |
+| Calendar | `POST /api/admin/calendar-connections/:connectionId/hotel-calendars` | branchId·connection version·중요작업 재인증 | 호텔별 `PENDING_CREATE` link와 calendar resource projection job 재조회; 요청 thread provider 호출 없음 | DB 동적 Calendar 연동설정권한 + 현재 호텔범위 |
+| Calendar | `POST /api/admin/calendar-connections/:connectionId/hotel-calendars/:branchId/disconnect` | link·connection version·사유·중요작업 재인증 | 호텔 link 중지·신규 projection 차단 재조회; provider calendar 자동삭제 없음 | DB 동적 Calendar 연동설정권한 + 현재 호텔범위 |
+| Calendar | `POST /api/admin/calendar-connections/:connectionId/disconnect` | version·사유·중요작업 재인증 | 연결 중지·credential 폐기상태·영향 호텔수 재조회; provider calendar 자동삭제 없음 | DB 동적 Calendar 연동설정권한 + 회사범위·영향호텔 전체권한 |
+| Calendar | `GET /api/admin/calendar-sync-failures` | `page`·`pageSize`·허용 호텔 filter | 권한필터된 안전 오류·마지막시도·시도수·조치상태, credential·provider ID 없음 | DB 동적 Calendar 연동설정권한 + 현재 호텔범위 |
+| Calendar | `POST /api/admin/calendar-sync-failures/:failureId/retry` | version·사유·중요작업 재인증 | 최신 일정·연결·권한 재검증 후 새 projection job 재조회 | DB 동적 Calendar 연동설정권한 + 현재 호텔범위 |
 | 이슈 | `POST /api/hotels/:id/issues` | 객실·등급·내용·첨부 | 접수 이슈 | 유효배정 + 현재 DB 동적 이슈등록권한 |
 | 이슈 | `POST /api/hotels/:id/issues/:issueId/transitions` | version·전이·사유 | 상태이력 포함 이슈 | 현재 DB 동적 상태처리권한 + 담당·자료상태 조건 |
 | 매출 | `POST /api/hotels/:id/daily-sales` | 업무일·내역·금액·증빙 | 임시저장 재조회 | `HOTEL_SALES_MANAGE` |
@@ -95,6 +108,11 @@
 | 외부업체 연락처 | `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한이 있으면 업체명·담당자명·연락처 원문, 없으면 업체명·마스킹 연락처만 반환; 목록·상세·직접 API·history에 동일 적용하고 타 호텔 차단; 원문은 로그·오류·감사요약·검색색인·Calendar payload에 미포함 |
 | 보수 완료 | case·process expected version과 권한·필수 결과·검역통과 증빙을 transaction에서 재검증하고 최종완료 뒤 case·visit·수행자·증빙 핵심필드 mutation 차단; 후속 작업은 완료 건 수정이 아닌 새 보수 건 |
 | 후속 보수 | 새 case의 nullable `follow_up_of_repair_case_id`가 `(company_id, branch_id, id)`로 직전 case를 composite FK 참조; 승인 command가 parent를 잠그고 최종완료·같은 typed target·version을 재검증하고 relation INSERT·UPDATE를 감시하는 deferred constraint trigger가 commit 시 동일조건·자기참조·순환·관계불변을 강제; source는 `DIRECT` 필수자료를 새로 저장하고 parent 자료를 복제하지 않음; 즉시 이전과 역방향 후속목록은 각 case 자료권한으로 필터해 미허용 존재·번호·건수 비노출 |
+| Calendar 연결 | 회사범위 `calendar_connections`와 `(company_id, connection_id)` composite FK의 `calendar_connection_credentials`를 분리하고 발급된 token provenance·credential version은 불변, lifecycle·암호화 envelope는 expected row version·append-only history로 변경하며 active·candidate 각각 최대 하나를 partial unique로 강제; raw access/refresh token 열 금지, account identity 대신 기존 encrypted calendar ID 접근능력으로 candidate 검증, account switch는 명시적 confirm command만 허용 |
+| Calendar 호텔 link | `calendar_hotel_links`는 `(company_id, branch_id)`→호텔, `(company_id, connection_id)`→connection composite FK·호텔/용도별 active generation unique·encrypted provider calendar ID·상태/version/catch-up cutoff를 갖고 타 호텔 fallback 금지; `calendar_catch_up_items`는 hotel link·visit tenant composite FK와 generation/source version unique로 활성화 snapshot 중복을 차단 |
+| Calendar event link | `calendar_event_links(company_id, branch_id, hotel_link_id, visit_id)`는 hotel link와 visit을 각각 tenant 포함 composite FK 참조하고 link generation·stable base32hex provider event ID·desired/applied source version을 구조화 저장; 다른 호텔 parent 연결은 직접 SQL에서도 차단 |
+| Calendar projection | `calendar_projection_jobs`는 `HOTEL_CALENDAR\|VISIT_EVENT` typed target 중 정확히 하나를 tenant composite FK 참조하고 aggregate당 claimable head 하나·desired/attempted source/connection version·claim token·lease·replay flag·attempt/backoff·`SUPERSEDED/DEAD_LETTER`를 갖는 transactional outbox; `calendar_projection_attempts`와 `calendar_sync_failures`는 `(company_id, branch_id, job_id)` 및 즉시 link parent를 composite FK 참조; JSONB는 비민감 dispatch metadata만 허용 |
+| Calendar credential | OAuth client ID·secret, versioned AES-GCM keyring, 별도 versioned fingerprint HMAC keyring은 Worker secret; credential AAD는 purpose/company/connection/credential version, provider calendar ID AAD는 immutable purpose/company/branch/link generation을 포함하고 각 random 96-bit nonce로 암호화; access token은 호출 메모리에서만 사용, scope는 우선 `https://www.googleapis.com/auth/calendar.app.created` 정확 일치, 더 넓거나 다른 scope는 안전 실패 |
 | 보수 DB 권한 | migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 주지 않음; 승인 command `EXECUTE`와 허용 read만 부여하고 composite FK 오류로 타 tenant parent 존재여부를 구분할 수 없는 안정 오류 사용 |
 | 최고관리자 | 회사별 활성 최고관리자 정확히 2명, 교체 transaction |
 | 매출 | `(company_id, branch_id, business_date)` 또는 합의한 집계키 unique |
@@ -113,6 +131,7 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 | 점검결과 | `NORMAL`, `CAUTION`, `ABNORMAL` |
 | 점검 실행 | 생성 당시 process revision의 현재 단계·지연·최종완료·미완료종료 |
 | 방문일정 | 예정·진행·완료·취소·삭제 감사 snapshot |
+| Calendar projection | `NOT_CONNECTED`, `PENDING`, `SYNCED`, `ACTION_REQUIRED`; job 내부상태 `PENDING`, `PROCESSING`, `SUCCEEDED`, `SUPERSEDED`, `DEAD_LETTER` |
 | 매출 | `DRAFT`, `CONFIRMED`, `LOCKED`, `CORRECTED` |
 | 이슈 | `RECEIVED`, `ASSIGNED`, `IN_PROGRESS`, `ACTION_COMPLETED`, `CLOSED`, `ON_HOLD`, `CANCELLED` |
 | 문의 | `RECEIVED`, `ASSIGNED`, `ANSWERING`, `ANSWERED`, `CLOSED` |
@@ -123,7 +142,7 @@ PostgreSQL에서 기간중복을 직접 막기 어려운 관계는 transaction �
 - 점검 단계처리 + process history + 감사로그는 단일 transaction이다.
 - 최초 최고관리자 설정은 bootstrap 운영자와 선택한 다른 활성 사내 임직원 한 명을 `0명 → 2명`으로 원자 지정하고 초기화 authority 폐기·감사·멱등결과를 같은 transaction에서 확정한다.
 - process 판단으로 보수 건을 만들 때 원본 점검·대상·항목·결과·증빙 snapshot과 보수 process를 단일 transaction으로 연결한다.
-- 방문일정 생성·변경·취소·삭제는 current row·append-only history·감사를 단일 transaction으로 기록한다. Calendar adapter 승인 전 provider outbox·payload·event ID를 만들지 않으며, 승인 뒤 별도 계약에서 outbox transaction·실패정책을 확정한다.
+- 방문일정 생성·변경·취소·복구·논리삭제는 current row·append-only history·감사·stable provider event link·단조증가 source version의 aggregate-head Calendar projection signal을 단일 transaction으로 기록한다. 연결이 없으면 provider job을 만들지 않고 명시적 `NOT_CONNECTED` 상태로 재조회하며 provider 장애는 일정 transaction을 실패시키지 않고 `PENDING/ACTION_REQUIRED`로 분리한다. 연결 fallback·가짜 provider 성공·물리삭제는 없다.
 - 매출 확정 + 잠금 + 증빙참조 + 감사로그는 단일 transaction.
 - 소유주 교체는 기존 연결종료 + 신규연결 + 세션회수 요청상태 + 감사를 원자적으로 기록한다.
 - R2·푸시 같은 외부작업은 DB transaction 밖에서 상태·재시도·보상으로 처리한다.
