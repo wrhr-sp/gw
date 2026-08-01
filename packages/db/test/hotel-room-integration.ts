@@ -14,6 +14,8 @@ const housekeepingUserId = "a3000000-0000-4000-8000-000000000001";
 const housekeepingSessionId = "a4000000-0000-4000-8000-000000000001";
 const scopedUserId = "a3000000-0000-4000-8000-000000000002";
 const scopedSessionId = "a4000000-0000-4000-8000-000000000002";
+const sessionToken = "A".repeat(43);
+const scopedSessionToken = "B".repeat(43);
 
 const repository = createPostgresRoomRepository(databaseUrl);
 const testSql = postgres(databaseUrl, { max: 1, prepare: false });
@@ -33,6 +35,7 @@ const identity = (suffix: string, method: "PATCH" | "POST" = "POST") => ({
   idempotencyRecordId: `a6000000-0000-4000-8000-${suffix}`,
   operationPath: `/api/hotels/${hotelId}/rooms/${suffix}`,
   requestHash: `room-request-${suffix}`,
+  sessionToken,
   traceId: `a7000000-0000-4000-8000-${suffix}`,
 });
 
@@ -44,7 +47,7 @@ async function waitForBlockedStatusQueries(expected: number) {
        where pid <> pg_backend_pid()
          and state = 'active'
          and wait_event_type = 'Lock'
-         and query ilike '%select status, version from hotel_rooms%'
+         and query ilike '%hotel_room_lifecycle_command_v1%'
     `;
     if ((row?.blocked_count ?? 0) >= expected) return;
     await new Promise((resolve) => setTimeout(resolve, 20));
@@ -53,6 +56,11 @@ async function waitForBlockedStatusQueries(expected: number) {
 }
 
 try {
+  await testSql`
+    update auth_sessions
+       set token_hash = sha256(convert_to(${sessionToken}, 'UTF8'))
+     where id = ${sessionId}
+  `;
   await testSql`
     insert into permission_grants (
       id, company_id, subject_type, subject_id, permission_code,
@@ -64,6 +72,15 @@ try {
        'HOTEL_ROOM_MANAGE', 'ALLOW', now(), ${actorUserId}, '객실 통합 관리'),
       ('a8000000-0000-4000-8000-000000000003', ${companyId}, 'USER', ${actorUserId},
        'HOTEL_ROOM_TYPE_MANAGE', 'ALLOW', now(), ${actorUserId}, '객실유형 통합 관리')
+  `;
+  await testSql`
+    insert into hotel_staff_assignments (
+      id, company_id, branch_id, user_id, assignment_type,
+      start_date, reason, created_by
+    ) values (
+      'a3200000-0000-4000-8000-000000000001', ${companyId}, ${hotelId},
+      ${actorUserId}, 'PRIMARY', current_date, '객실 통합 유효배정', ${actorUserId}
+    )
   `;
 
   const createdType = await repository.createRoomType({
@@ -261,6 +278,167 @@ try {
   if (duplicate.status !== "DUPLICATE")
     throw new Error("duplicate room number was accepted in one hotel");
 
+  const activeDelete = await repository.deleteRoom({
+    ...identity("000000000010", "POST"),
+    historyId: "a9000000-0000-4000-8000-000000000000",
+    operationPath: `/api/hotels/${hotelId}/rooms/${roomId}/delete`,
+    roomId,
+    value: { reason: "활성 객실 직접 삭제 금지", version: 1 },
+  });
+  if (activeDelete.status !== "INVALID_STATE_TRANSITION")
+    throw new Error("active room was deletable through the repository");
+
+  let activeDirectDeleteRejected = false;
+  try {
+    await testSql`
+      update hotel_rooms set status = 'DELETED'
+       where company_id = ${companyId} and branch_id = ${hotelId} and id = ${roomId}
+    `;
+  } catch (error) {
+    activeDirectDeleteRejected =
+      typeof error === "object" && error !== null && "code" in error
+        ? error.code === "55000"
+        : false;
+  }
+  if (!activeDirectDeleteRejected)
+    throw new Error("active room was deletable through direct SQL");
+
+  const wrongBearer = await repository.changeRoomStatus({
+    ...identity("000000000099", "POST"),
+    sessionToken: "B".repeat(43),
+    historyId: "a9000000-0000-4000-8000-000000000099",
+    roomId,
+    value: {
+      status: "INACTIVE",
+      reason: "잘못된 bearer 차단",
+      version: 1,
+    },
+  });
+  if (wrongBearer.status !== "FORBIDDEN")
+    throw new Error("wrong session bearer reached the lifecycle command");
+  const [wrongBearerDamage] = await testSql<
+    { audit_count: number; history_count: number; version: number }[]
+  >`
+    select room.version,
+           (select count(*)::integer from hotel_room_status_history history
+             where history.company_id = room.company_id
+               and history.branch_id = room.branch_id
+               and history.room_id = room.id) as history_count,
+           (select count(*)::integer from audit_events audit
+             where audit.company_id = room.company_id
+               and audit.resource_id = room.id
+               and audit.event_code = 'HOTEL_ROOM_STATUS_CHANGED') as audit_count
+      from hotel_rooms room
+     where room.company_id = ${companyId}
+       and room.branch_id = ${hotelId}
+       and room.id = ${roomId}
+  `;
+  if (
+    wrongBearerDamage?.version !== 1 ||
+    wrongBearerDamage.history_count !== 0 ||
+    wrongBearerDamage.audit_count !== 0
+  )
+    throw new Error("wrong bearer attempt persisted lifecycle siblings");
+
+  const [reasonBoundary] = await testSql<
+    { reason_length: number; source_has_guard: boolean }[]
+  >`
+    select pg_catalog.char_length(pg_catalog.btrim(${"A"}))::integer as reason_length,
+           pg_catalog.strpos(
+             (
+               select procedure_record.prosrc
+                 from pg_catalog.pg_proc procedure_record
+                where procedure_record.oid = pg_catalog.to_regprocedure(
+                  'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'
+                )
+             ),
+             'pg_catalog.char_length(pg_catalog.btrim(p_reason)) < 2'
+           ) > 0 as source_has_guard
+  `;
+  if (reasonBoundary?.reason_length !== 1 || !reasonBoundary.source_has_guard)
+    throw new Error(
+      `lifecycle reason DB boundary mismatch: length=${String(reasonBoundary?.reason_length)}, source=${String(reasonBoundary?.source_has_guard)}`,
+    );
+
+  const oneCharacterReason = await repository.changeRoomStatus({
+    ...identity("000000000098", "POST"),
+    historyId: "a9000000-0000-4000-8000-000000000098",
+    roomId,
+    value: { status: "INACTIVE", reason: "A", version: 1 },
+  });
+  if (oneCharacterReason.status !== "INVALID_STATE_TRANSITION")
+    throw new Error(
+      `one-character lifecycle reason bypassed the DB command: ${oneCharacterReason.status}`,
+    );
+  const [shortReasonDamage] = await testSql<
+    { audit_count: number; history_count: number; version: number }[]
+  >`
+    select room.version,
+           (select count(*)::integer from hotel_room_status_history history
+             where history.room_id = room.id) as history_count,
+           (select count(*)::integer from audit_events audit
+             where audit.resource_id = room.id
+               and audit.event_code = 'HOTEL_ROOM_STATUS_CHANGED') as audit_count
+      from hotel_rooms room
+     where room.company_id = ${companyId}
+       and room.branch_id = ${hotelId}
+       and room.id = ${roomId}
+  `;
+  if (
+    shortReasonDamage?.version !== 1 ||
+    shortReasonDamage.history_count !== 0 ||
+    shortReasonDamage.audit_count !== 0
+  )
+    throw new Error("one-character reason persisted lifecycle siblings");
+
+  const timezoneSnapshot = await testSql.begin(async (transaction) => {
+    await transaction.unsafe("set local timezone = 'Asia/Seoul'");
+    await transaction`select pg_catalog.set_config('app.session_id', ${sessionId}, true)`;
+    const [result] = await transaction<
+      { command_status: string; result_snapshot: Record<string, unknown> }[]
+    >`
+      select command_status, result_snapshot
+        from hotel_room_lifecycle_command_v1(
+          ${companyId}, ${hotelId}, ${"a2000000-0000-4000-8000-000000000010"},
+          2, 'INACTIVE', '비 UTC 시간대 검증',
+          ${"a9000000-0000-4000-8000-000000000097"},
+          ${"a5000000-0000-4000-8000-000000000097"},
+          ${"a6000000-0000-4000-8000-000000000097"},
+          'room-000000000097', 'POST',
+          ${`/api/hotels/${hotelId}/rooms/a2000000-0000-4000-8000-000000000010/status-timezone`},
+          'room-request-000000000097', ${sessionToken},
+          ${"a7000000-0000-4000-8000-000000000097"}
+        )
+    `;
+    const [stored] = await transaction<
+      { created_at: string; updated_at: string }[]
+    >`
+      select pg_catalog.to_char(
+               room.created_at at time zone 'UTC',
+               'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+             ) as created_at,
+             pg_catalog.to_char(
+               room.updated_at at time zone 'UTC',
+               'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
+             ) as updated_at
+        from hotel_rooms room
+       where room.company_id = ${companyId}
+         and room.branch_id = ${hotelId}
+         and room.id = ${"a2000000-0000-4000-8000-000000000010"}
+    `;
+    return { result, stored };
+  });
+  const storedTimezoneRoom = timezoneSnapshot.stored;
+  if (
+    timezoneSnapshot.result?.command_status !== "STATUS_CHANGED" ||
+    !storedTimezoneRoom ||
+    timezoneSnapshot.result.result_snapshot.createdAt !==
+      storedTimezoneRoom.created_at ||
+    timezoneSnapshot.result.result_snapshot.updatedAt !==
+      storedTimezoneRoom.updated_at
+  )
+    throw new Error("room command snapshot mislabeled a non-UTC local time as UTC");
+
   let releaseBarrier!: () => void;
   let barrierLocked!: () => void;
   const barrierRelease = new Promise<void>((resolve) => {
@@ -284,9 +462,8 @@ try {
     historyId: "a9000000-0000-4000-8000-000000000001",
     roomId,
     value: {
-      status: "OUT_OF_SERVICE",
+      status: "INACTIVE",
       reason: "배관 보수",
-      plannedResumeDate: "2026-08-01",
       version: 1,
     },
   });
@@ -296,9 +473,8 @@ try {
     historyId: "a9000000-0000-4000-8000-000000000002",
     roomId,
     value: {
-      status: "TEMP_SUSPENDED",
+      status: "INACTIVE",
       reason: "전기 점검",
-      plannedResumeDate: "2026-08-02",
       version: 1,
     },
   });
@@ -379,6 +555,172 @@ try {
   if (!safeAudit?.safe)
     throw new Error("room audit summary retained note or reason text");
 
+  const currentPageBeforeDelete = await repository.listRooms(actor, hotelId, {
+    page: 1,
+    pageSize: 1,
+  });
+  if (currentPageBeforeDelete.status !== "OK")
+    throw new Error("room pagination baseline failed before delete");
+
+  const deleted = await repository.deleteRoom({
+    ...identity("000000000007", "POST"),
+    historyId: "a9000000-0000-4000-8000-000000000003",
+    operationPath: `/api/hotels/${hotelId}/rooms/${roomId}/delete`,
+    roomId,
+    value: { reason: "객실 기준정보 삭제", version: 2 },
+  });
+  if (
+    deleted.status !== "STATUS_CHANGED" ||
+    deleted.room.status !== "DELETED" ||
+    deleted.room.version !== 3
+  )
+    throw new Error("terminal room delete did not return committed read-back");
+
+  const currentRoomsAfterDelete = await repository.listRooms(actor, hotelId, {
+    page: 1,
+    pageSize: 100,
+  });
+  if (
+    currentRoomsAfterDelete.status !== "OK" ||
+    currentRoomsAfterDelete.rooms.some((room) => room.id === roomId) ||
+    currentRoomsAfterDelete.pagination.total !==
+      currentPageBeforeDelete.pagination.total - 1 ||
+    currentRoomsAfterDelete.pagination.totalPages !==
+      Math.ceil(currentRoomsAfterDelete.pagination.total / 100)
+  )
+    throw new Error("deleted room remained in current list or pagination total");
+  const deletedDetail = await repository.getRoom(actor, hotelId, roomId);
+  if (deletedDetail.status !== "OK" || deletedDetail.room.status !== "DELETED")
+    throw new Error("deleted room detail was not preserved by immutable id");
+
+  const deleteReplay = await repository.deleteRoom({
+    ...identity("000000000007", "POST"),
+    historyId: "a9000000-0000-4000-8000-000000000004",
+    operationPath: `/api/hotels/${hotelId}/rooms/${roomId}/delete`,
+    roomId,
+    value: { reason: "객실 기준정보 삭제", version: 2 },
+  });
+  if (
+    deleteReplay.status !== "REPLAYED" ||
+    deleteReplay.room.status !== "DELETED"
+  )
+    throw new Error("room delete response-loss replay was not stable");
+
+  const deletedUpdate = await repository.updateRoom({
+    ...identity("000000000008", "PATCH"),
+    roomId,
+    value: { version: 3, floorLabel: "삭제 후 변경 금지" },
+  });
+  if (deletedUpdate.status !== "INVALID_STATE_TRANSITION")
+    throw new Error("deleted room was editable through the repository");
+
+  let deletedDirectUpdateRejected = false;
+  try {
+    await testSql`
+      update hotel_rooms set floor_label = '삭제 후 직접변경'
+       where company_id = ${companyId} and branch_id = ${hotelId} and id = ${roomId}
+    `;
+  } catch (error) {
+    deletedDirectUpdateRejected =
+      typeof error === "object" && error !== null && "code" in error
+        ? error.code === "55000"
+        : false;
+  }
+  if (!deletedDirectUpdateRejected)
+    throw new Error("deleted room was editable through direct SQL");
+
+  const reuseAttempts = await Promise.all([
+    repository.createRoom({
+      ...identity("000000000009"),
+      roomId: "a2000000-0000-4000-8000-000000000009",
+      value: {
+        roomNumber: "101",
+        floorLabel: "1층",
+        floorSortKey: 1,
+        roomTypeId,
+        internalNote: null,
+        ownerVisibleNote: null,
+      },
+    }),
+    repository.createRoom({
+      ...identity("000000000015"),
+      roomId: "a2000000-0000-4000-8000-000000000011",
+      value: {
+        roomNumber: "101",
+        floorLabel: "1층",
+        floorSortKey: 1,
+        roomTypeId,
+        internalNote: null,
+        ownerVisibleNote: null,
+      },
+    }),
+  ]);
+  const reuseWinners = reuseAttempts.filter(
+    (attempt) => attempt.status === "CREATED",
+  );
+  const reuseLosers = reuseAttempts.filter(
+    (attempt) => attempt.status === "DUPLICATE",
+  );
+  if (
+    reuseWinners.length !== 1 ||
+    reuseLosers.length !== 1 ||
+    reuseWinners[0]?.status !== "CREATED" ||
+    reuseWinners[0].room.id === roomId
+  )
+    throw new Error(
+      "concurrent room-number reuse did not select one new identity",
+    );
+  const [numberReuse] = await testSql<
+    { active_count: number; deleted_count: number }[]
+  >`
+    select
+      count(*) filter (where status = 'ACTIVE')::integer as active_count,
+      count(*) filter (where status = 'DELETED')::integer as deleted_count
+      from hotel_rooms
+     where company_id = ${companyId} and branch_id = ${hotelId} and room_number = '101'
+  `;
+  if (numberReuse?.active_count !== 1 || numberReuse.deleted_count !== 1)
+    throw new Error("room number reuse merged deleted and current identities");
+
+  const canonicalAttempts = await Promise.all([
+    repository.createRoom({
+      ...identity("000000000016"),
+      roomId: "a2000000-0000-4000-8000-000000000016",
+      value: {
+        roomNumber: "b01",
+        floorLabel: "지하1층",
+        floorSortKey: -1,
+        roomTypeId,
+        internalNote: null,
+        ownerVisibleNote: null,
+      },
+    }),
+    repository.createRoom({
+      ...identity("000000000017"),
+      roomId: "a2000000-0000-4000-8000-000000000017",
+      value: {
+        roomNumber: "B01",
+        floorLabel: "지하1층",
+        floorSortKey: -1,
+        roomTypeId,
+        internalNote: null,
+        ownerVisibleNote: null,
+      },
+    }),
+  ]);
+  const canonicalWinner = canonicalAttempts.find(
+    (attempt) => attempt.status === "CREATED",
+  );
+  if (
+    canonicalAttempts.filter((attempt) => attempt.status === "CREATED").length !==
+      1 ||
+    canonicalAttempts.filter((attempt) => attempt.status === "DUPLICATE").length !==
+      1 ||
+    canonicalWinner?.status !== "CREATED" ||
+    canonicalWinner.room.roomNumber !== "B01"
+  )
+    throw new Error("case-insensitive canonical room number was not atomic");
+
   await testSql`
     insert into users (id, company_id, user_type, display_name)
     values (${scopedUserId}, ${companyId}, 'INTERNAL_STAFF', '호텔 한정 객실유형 관리자')
@@ -394,10 +736,56 @@ try {
       idle_expires_at, absolute_expires_at, auth_time, authentication_method
     ) values (
       ${scopedSessionId}, ${companyId}, ${scopedUserId},
-      'a3100000-0000-4000-8000-000000000002', decode(repeat('34', 32), 'hex'),
+      'a3100000-0000-4000-8000-000000000002', sha256(convert_to(${scopedSessionToken}, 'UTF8')),
       now() + interval '8 hours', now() + interval '24 hours', now(), 'integration'
     )
   `;
+  await testSql`
+    insert into permission_grants (
+      id, company_id, subject_type, subject_id, permission_code,
+      effect, valid_from, granted_by, reason
+    ) values (
+      'a8000000-0000-4000-8000-000000000090', ${companyId}, 'USER',
+      ${scopedUserId}, 'HOTEL_ROOM_MANAGE', 'ALLOW', now(), ${actorUserId},
+      '회사 전체 권한도 유효 호텔배정 필수'
+    )
+  `;
+  const scopedActor = {
+    companyId,
+    sessionId: scopedSessionId,
+    userId: scopedUserId,
+    userType: "INTERNAL_STAFF" as const,
+  };
+  const unassignedMutation = await repository.createRoom({
+    actor: scopedActor,
+    auditEventId: "b5000000-0000-4000-8000-000000000090",
+    hotelId,
+    httpMethod: "POST",
+    idempotencyKey: "unassigned-global-room-manage",
+    idempotencyRecordId: "b6000000-0000-4000-8000-000000000090",
+    operationPath: `/api/hotels/${hotelId}/rooms`,
+    requestHash: "unassigned-global-room-manage",
+    roomId: "a2000000-0000-4000-8000-000000000090",
+    sessionToken: scopedSessionToken,
+    traceId: "b7000000-0000-4000-8000-000000000090",
+    value: {
+      roomNumber: "NO-ASSIGNMENT",
+      floorLabel: "1층",
+      floorSortKey: 1,
+      roomTypeId,
+      internalNote: null,
+      ownerVisibleNote: null,
+    },
+  });
+  if (unassignedMutation.status !== "FORBIDDEN")
+    throw new Error("company-wide room allow bypassed active hotel assignment");
+  await testSql`
+    update permission_grants
+       set valid_until = clock_timestamp(), version = version + 1,
+           updated_at = clock_timestamp()
+     where id = 'a8000000-0000-4000-8000-000000000090'
+  `;
+
   await testSql`
     insert into hotel_staff_assignments (
       id, company_id, branch_id, user_id, assignment_type, start_date, reason, created_by
@@ -416,12 +804,6 @@ try {
       '호텔 범위 유형 관리'
     )
   `;
-  const scopedActor = {
-    companyId,
-    sessionId: scopedSessionId,
-    userId: scopedUserId,
-    userType: "INTERNAL_STAFF" as const,
-  };
   const scopedTypeAttempt = (targetRoomTypeId: string, suffix: string) =>
     repository.updateRoomType({
       actor: scopedActor,
@@ -553,15 +935,9 @@ try {
       "external housekeeping DENY did not override relationship access",
     );
 
-  const housekeepingActor = {
-    companyId,
-    sessionId: housekeepingSessionId,
-    userId: housekeepingUserId,
-    userType: "HOUSEKEEPING" as const,
-  };
   const deniedMutation = (targetRoomId: string, suffix: string) =>
     repository.updateRoom({
-      actor: housekeepingActor,
+      actor: scopedActor,
       auditEventId: `c5000000-0000-4000-8000-${suffix}`,
       hotelId,
       httpMethod: "PATCH",
@@ -570,6 +946,7 @@ try {
       operationPath: `/api/hotels/${hotelId}/rooms/${targetRoomId}`,
       requestHash: `denied-room-request-${suffix}`,
       roomId: targetRoomId,
+      sessionToken: scopedSessionToken,
       traceId: `c7000000-0000-4000-8000-${suffix}`,
       value: { version: 2, internalNote: "거부 감사에 남으면 안 되는 원문" },
     });

@@ -5,6 +5,7 @@ import {
   type ChangeHotelRoomStatusRequest,
   type CreateHotelRoomRequest,
   type CreateHotelRoomTypeRequest,
+  type DeleteHotelRoomRequest,
   type HotelRoomInternal,
   type HotelRoomListQuery,
   type HotelRoomOwner,
@@ -31,6 +32,7 @@ type MutationIdentity = {
   idempotencyRecordId: string;
   operationPath: string;
   requestHash: string;
+  sessionToken?: string;
   traceId: string;
 };
 
@@ -54,6 +56,11 @@ export type ChangeRoomStatusInput = MutationIdentity & {
   historyId: string;
   roomId: string;
   value: ChangeHotelRoomStatusRequest;
+};
+export type DeleteRoomInput = MutationIdentity & {
+  historyId: string;
+  roomId: string;
+  value: DeleteHotelRoomRequest;
 };
 
 export type RoomTypeMutationResult =
@@ -135,6 +142,7 @@ export interface RoomRepository {
   createRoom(input: CreateRoomInput): Promise<RoomMutationResult>;
   updateRoom(input: UpdateRoomInput): Promise<RoomMutationResult>;
   changeRoomStatus(input: ChangeRoomStatusInput): Promise<RoomMutationResult>;
+  deleteRoom(input: DeleteRoomInput): Promise<RoomMutationResult>;
 }
 
 type RoomTypeRow = {
@@ -157,15 +165,22 @@ type RoomRow = {
   id: string;
   internal_note: string | null;
   owner_visible_note: string | null;
-  planned_resume_date: string | null;
   room_number: string;
   room_type_id: string;
   room_type_name: string;
   room_type_scope: "COMPANY" | "HOTEL";
-  status: HotelRoomInternal["status"];
+  status: HotelRoomInternal["status"] | "OUT_OF_SERVICE" | "TEMP_SUSPENDED";
   updated_at: Date;
   version: number;
 };
+
+function normalizeRoomStatus(
+  status: RoomRow["status"],
+): HotelRoomInternal["status"] {
+  return status === "OUT_OF_SERVICE" || status === "TEMP_SUSPENDED"
+    ? "INACTIVE"
+    : status;
+}
 
 function mapRoomType(row: RoomTypeRow): HotelRoomType {
   return hotelRoomTypeSchema.parse({
@@ -193,10 +208,9 @@ function mapInternalRoom(row: RoomRow): HotelRoomInternal {
       name: row.room_type_name,
       scope: row.room_type_scope,
     },
-    status: row.status,
+    status: normalizeRoomStatus(row.status),
     internalNote: row.internal_note,
     ownerVisibleNote: row.owner_visible_note,
-    plannedResumeDate: row.planned_resume_date,
     version: row.version,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
@@ -213,7 +227,7 @@ function mapOwnerRoom(row: RoomRow): HotelRoomOwner {
 const roomSelect = `
   select room.id, room.branch_id, room.room_number, room.floor_label,
          room.floor_sort_key, room.status, room.internal_note,
-         room.owner_visible_note, room.planned_resume_date::text,
+         room.owner_visible_note,
          room.version, room.created_at, room.updated_at,
          room_type.id as room_type_id, room_type.name as room_type_name,
          room_type.scope as room_type_scope
@@ -259,6 +273,7 @@ export function createPostgresRoomRepository(
         explicit_denied: boolean;
         global_allowed: boolean;
         scoped_allowed: boolean;
+        staff_assigned: boolean;
         external_related: boolean;
       }[]
     >`
@@ -343,6 +358,7 @@ export function createPostgresRoomRepository(
                and not exists(select 1 from permission_effects where effect = 'DENY')
                and (${companyOnly} or exists(select 1 from active_staff_scope)) as scoped_allowed,
              exists(select 1 from permission_effects where effect = 'DENY') as explicit_denied,
+             exists(select 1 from active_staff_scope) as staff_assigned,
              exists(select 1 from active_external_scope) as external_related
     `;
     return {
@@ -352,7 +368,8 @@ export function createPostgresRoomRepository(
       internalAllowed:
         row?.actor_valid === true &&
         actor.userType === "INTERNAL_STAFF" &&
-        (row?.global_allowed === true || row?.scoped_allowed === true),
+        (row?.global_allowed === true || row?.scoped_allowed === true) &&
+        (permissionCode !== "HOTEL_ROOM_MANAGE" || row?.staff_assigned === true),
       externalAllowed:
         row?.actor_valid === true &&
         row?.external_related === true &&
@@ -475,6 +492,105 @@ export function createPostgresRoomRepository(
       if (!rows[0]) throw new Error("committed hotel room read-back failed");
       return mapInternalRoom(rows[0]);
     });
+  }
+
+  async function lifecycleContracted(
+    transaction: postgres.TransactionSql,
+  ): Promise<boolean> {
+    const [state] = await transaction<{ contracted: boolean }[]>`
+      select exists (
+        select 1 from schema_migrations
+         where version = '0025_hotel_room_reference_lifecycle'
+      ) as contracted
+    `;
+    return state?.contracted === true;
+  }
+
+  async function executeWriteCommand(
+    transaction: postgres.TransactionSql,
+    input: CreateRoomInput | UpdateRoomInput,
+    action: "CREATE" | "UPDATE",
+  ): Promise<RoomMutationResult> {
+    const sessionToken = input.sessionToken;
+    if (!sessionToken) return { status: "FORBIDDEN" };
+    const value =
+      action === "UPDATE"
+        ? (() => {
+            const { version, ...fields } = (input as UpdateRoomInput).value;
+            void version;
+            return fields;
+          })()
+        : input.value;
+    const expectedVersion =
+      action === "UPDATE" ? (input as UpdateRoomInput).value.version : null;
+    const [result] = await transaction<
+      {
+        command_status: RoomMutationResult["status"];
+        result_snapshot: unknown;
+      }[]
+    >`
+      select command_status, result_snapshot
+        from hotel_room_write_command_v1(
+          ${input.actor.companyId}, ${input.hotelId}, ${input.roomId},
+          ${action}, ${expectedVersion}, ${transaction.json(value)},
+          ${input.auditEventId}, ${input.idempotencyRecordId},
+          ${input.idempotencyKey}, ${input.httpMethod}, ${input.operationPath},
+          ${input.requestHash}, ${sessionToken}, ${input.traceId}
+        )
+    `;
+    if (!result) throw new Error("hotel room write command returned no result");
+    if (result.command_status === "CREATED" || result.command_status === "UPDATED") {
+      return {
+        status: result.command_status,
+        room: hotelRoomInternalSchema.parse(result.result_snapshot),
+      };
+    }
+    if (result.command_status === "REPLAYED") {
+      return {
+        status: "REPLAYED",
+        room: hotelRoomInternalSchema.parse(result.result_snapshot),
+      };
+    }
+    return { status: result.command_status } as RoomMutationResult;
+  }
+
+  async function executeLifecycleCommand(
+    transaction: postgres.TransactionSql,
+    input: ChangeRoomStatusInput | DeleteRoomInput,
+    nextStatus: HotelRoomInternal["status"],
+  ): Promise<RoomMutationResult> {
+    const sessionToken = input.sessionToken;
+    if (!sessionToken) return { status: "FORBIDDEN" };
+    const [result] = await transaction<
+      {
+        command_status: RoomMutationResult["status"];
+        result_snapshot: unknown;
+      }[]
+    >`
+      select command_status, result_snapshot
+        from hotel_room_lifecycle_command_v1(
+          ${input.actor.companyId}, ${input.hotelId}, ${input.roomId},
+          ${input.value.version}, ${nextStatus}, ${input.value.reason},
+          ${input.historyId}, ${input.auditEventId}, ${input.idempotencyRecordId},
+          ${input.idempotencyKey}, ${input.httpMethod}, ${input.operationPath},
+          ${input.requestHash}, ${sessionToken}, ${input.traceId}
+        )
+    `;
+    if (!result)
+      throw new Error("hotel room lifecycle command returned no result");
+    if (result.command_status === "STATUS_CHANGED") {
+      return {
+        status: "STATUS_CHANGED",
+        room: hotelRoomInternalSchema.parse(result.result_snapshot),
+      };
+    }
+    if (result.command_status === "REPLAYED") {
+      return {
+        status: "REPLAYED",
+        room: hotelRoomInternalSchema.parse(result.result_snapshot),
+      };
+    }
+    return { status: result.command_status } as RoomMutationResult;
   }
 
   return {
@@ -677,8 +793,12 @@ export function createPostgresRoomRepository(
           `select count(*)::int as total_count
              from hotel_rooms room
             where room.company_id = $1 and room.branch_id = $2
+              and room.status <> 'DELETED'
               and ($3::text is null or room.room_number ilike '%' || $3 || '%' or room.floor_label ilike '%' || $3 || '%')
-              and ($4::text is null or room.status = $4)
+              and ($4::text is null or case
+                 when room.status in ('TEMP_SUSPENDED', 'OUT_OF_SERVICE') then 'INACTIVE'
+                 else room.status
+               end = $4)
               and ($5::uuid is null or room.room_type_id = $5)`,
           [
             actor.companyId,
@@ -691,7 +811,7 @@ export function createPostgresRoomRepository(
         const rows = await transaction.unsafe<RoomRow[]>(
           `select room.id, room.branch_id, room.room_number, room.floor_label,
                   room.floor_sort_key, room.status, room.internal_note,
-                  room.owner_visible_note, room.planned_resume_date::text,
+                  room.owner_visible_note,
                   room.version, room.created_at, room.updated_at,
                   room_type.id as room_type_id, room_type.name as room_type_name,
                   room_type.scope as room_type_scope
@@ -699,8 +819,12 @@ export function createPostgresRoomRepository(
              join hotel_room_types room_type
                on room_type.company_id = room.company_id and room_type.id = room.room_type_id
             where room.company_id = $1 and room.branch_id = $2
+               and room.status <> 'DELETED'
                and ($3::text is null or room.room_number ilike '%' || $3 || '%' or room.floor_label ilike '%' || $3 || '%')
-               and ($4::text is null or room.status = $4)
+               and ($4::text is null or case
+                 when room.status in ('TEMP_SUSPENDED', 'OUT_OF_SERVICE') then 'INACTIVE'
+                 else room.status
+               end = $4)
                and ($5::uuid is null or room.room_type_id = $5)
              order by room.floor_sort_key, room.room_number, room.id
              limit $6 offset $7`,
@@ -771,6 +895,9 @@ export function createPostgresRoomRepository(
       try {
         const result = await sql.begin(async (transaction) => {
           await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+          if (await lifecycleContracted(transaction)) {
+            return executeWriteCommand(transaction, input, "CREATE");
+          }
           await lockIdempotencyTuple(transaction, input);
           const permission = await access(
             transaction,
@@ -833,10 +960,7 @@ export function createPostgresRoomRepository(
         }
         return result;
       } catch (error) {
-        if (
-          constraint(error) ===
-          "hotel_rooms_company_id_branch_id_room_number_key"
-        )
+        if (constraint(error) === "hotel_rooms_live_room_number_key")
           return { status: "DUPLICATE" };
         if (["23503", "23514"].includes(databaseCode(error)))
           return { status: "ROOM_TYPE_UNAVAILABLE" };
@@ -848,6 +972,9 @@ export function createPostgresRoomRepository(
       try {
         const result = await sql.begin(async (transaction) => {
           await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+          if (await lifecycleContracted(transaction)) {
+            return executeWriteCommand(transaction, input, "UPDATE");
+          }
           await lockIdempotencyTuple(transaction, input);
           const permission = await access(
             transaction,
@@ -868,6 +995,19 @@ export function createPostgresRoomRepository(
           if (replay === "IDEMPOTENCY_CONFLICT")
             return { status: replay } as const;
           if (replay) return { status: "REPLAYED", room: replay } as const;
+          const [current] = await transaction<
+            { status: HotelRoomInternal["status"]; version: number }[]
+          >`
+            select status, version from hotel_rooms
+             where company_id = ${input.actor.companyId}
+               and branch_id = ${input.hotelId} and id = ${input.roomId}
+             for update
+          `;
+          if (!current) return { status: "NOT_FOUND" } as const;
+          if (current.version !== input.value.version)
+            return { status: "VERSION_CONFLICT" } as const;
+          if (current.status === "DELETED")
+            return { status: "INVALID_STATE_TRANSITION" } as const;
           if (input.value.roomTypeId) {
             const [roomType] = await transaction<{ id: string }[]>`
               select id from hotel_room_types
@@ -923,10 +1063,7 @@ export function createPostgresRoomRepository(
         }
         return result;
       } catch (error) {
-        if (
-          constraint(error) ===
-          "hotel_rooms_company_id_branch_id_room_number_key"
-        )
+        if (constraint(error) === "hotel_rooms_live_room_number_key")
           return { status: "DUPLICATE" };
         if (["23503", "23514"].includes(databaseCode(error)))
           return { status: "ROOM_TYPE_UNAVAILABLE" };
@@ -937,6 +1074,100 @@ export function createPostgresRoomRepository(
     async changeRoomStatus(input) {
       const result = await sql.begin(async (transaction) => {
         await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        if (await lifecycleContracted(transaction)) {
+          return executeLifecycleCommand(
+            transaction,
+            input,
+            input.value.status,
+          );
+        }
+        await lockIdempotencyTuple(transaction, input);
+        const permission = await access(
+          transaction,
+          input.actor,
+          input.hotelId,
+          "HOTEL_ROOM_MANAGE",
+        );
+        if (!permission.actorValid) return { status: "FORBIDDEN" } as const;
+        if (!permission.branchExists || !permission.internalAllowed) {
+          await recordDenied(transaction, input, "HOTEL_ROOM", input.roomId);
+          return { status: "FORBIDDEN" } as const;
+        }
+        const replay = await completedReplay(
+          transaction,
+          input,
+          hotelRoomInternalSchema,
+        );
+        if (replay === "IDEMPOTENCY_CONFLICT")
+          return { status: replay } as const;
+        if (replay) return { status: "REPLAYED", room: replay } as const;
+        const [current] = await transaction<
+          { status: RoomRow["status"]; version: number }[]
+        >`
+          select status, version from hotel_rooms
+           where company_id = ${input.actor.companyId}
+             and branch_id = ${input.hotelId} and id = ${input.roomId}
+           for update
+        `;
+        if (!current) return { status: "NOT_FOUND" } as const;
+        if (current.version !== input.value.version)
+          return { status: "VERSION_CONFLICT" } as const;
+        const currentStatus = normalizeRoomStatus(current.status);
+        if (currentStatus === input.value.status)
+          return { status: "INVALID_STATE_TRANSITION" } as const;
+        const storedNextStatus =
+          input.value.status === "INACTIVE" ? "TEMP_SUSPENDED" : "ACTIVE";
+        const [updated] = await transaction<{ id: string }[]>`
+          update hotel_rooms
+             set status = ${storedNextStatus},
+                 version = version + 1,
+                 updated_by = ${input.actor.userId}, updated_at = now()
+           where company_id = ${input.actor.companyId}
+             and branch_id = ${input.hotelId} and id = ${input.roomId}
+             and version = ${input.value.version}
+           returning id
+        `;
+        if (!updated) return { status: "VERSION_CONFLICT" } as const;
+        await transaction`
+          insert into hotel_room_status_history (
+            id, company_id, branch_id, room_id, previous_status,
+            next_status, reason, changed_by
+          ) values (
+            ${input.historyId}, ${input.actor.companyId}, ${input.hotelId},
+            ${input.roomId}, ${current.status}, ${storedNextStatus},
+            ${input.value.reason}, ${input.actor.userId}
+          )
+        `;
+        const rows = await transaction.unsafe<RoomRow[]>(
+          `${roomSelect} where room.company_id = $1 and room.branch_id = $2 and room.id = $3`,
+          [input.actor.companyId, input.hotelId, input.roomId],
+        );
+        const room = mapInternalRoom(rows[0]!);
+        await recordMutation(
+          transaction,
+          input,
+          "HOTEL_ROOM",
+          input.roomId,
+          "HOTEL_ROOM_STATUS_CHANGED",
+          room,
+        );
+        return { status: "STATUS_CHANGED", room } as const;
+      });
+      if (result.status === "STATUS_CHANGED") {
+        return {
+          ...result,
+          room: await readCommittedRoom(input, input.roomId),
+        };
+      }
+      return result;
+    },
+
+    async deleteRoom(input) {
+      const result = await sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.actor.sessionId}, true)`;
+        if (await lifecycleContracted(transaction)) {
+          return executeLifecycleCommand(transaction, input, "DELETED");
+        }
         await lockIdempotencyTuple(transaction, input);
         const permission = await access(
           transaction,
@@ -968,13 +1199,11 @@ export function createPostgresRoomRepository(
         if (!current) return { status: "NOT_FOUND" } as const;
         if (current.version !== input.value.version)
           return { status: "VERSION_CONFLICT" } as const;
-        if (current.status === input.value.status)
+        if (current.status !== "INACTIVE")
           return { status: "INVALID_STATE_TRANSITION" } as const;
         const [updated] = await transaction<{ id: string }[]>`
           update hotel_rooms
-             set status = ${input.value.status},
-                 planned_resume_date = ${input.value.plannedResumeDate ?? null},
-                 version = version + 1,
+             set status = 'DELETED', version = version + 1,
                  updated_by = ${input.actor.userId}, updated_at = now()
            where company_id = ${input.actor.companyId}
              and branch_id = ${input.hotelId} and id = ${input.roomId}
@@ -985,12 +1214,11 @@ export function createPostgresRoomRepository(
         await transaction`
           insert into hotel_room_status_history (
             id, company_id, branch_id, room_id, previous_status,
-            next_status, reason, planned_resume_date, changed_by
+            next_status, reason, changed_by
           ) values (
             ${input.historyId}, ${input.actor.companyId}, ${input.hotelId},
-            ${input.roomId}, ${current.status}, ${input.value.status},
-            ${input.value.reason}, ${input.value.plannedResumeDate ?? null},
-            ${input.actor.userId}
+            ${input.roomId}, ${current.status}, 'DELETED',
+            ${input.value.reason}, ${input.actor.userId}
           )
         `;
         const rows = await transaction.unsafe<RoomRow[]>(
@@ -1003,7 +1231,7 @@ export function createPostgresRoomRepository(
           input,
           "HOTEL_ROOM",
           input.roomId,
-          "HOTEL_ROOM_STATUS_CHANGED",
+          "HOTEL_ROOM_DELETED",
           room,
         );
         return { status: "STATUS_CHANGED", room } as const;

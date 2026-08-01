@@ -14,7 +14,7 @@
 
 | 필드     | 필수 | 규칙                                      |
 | -------- | ---- | ----------------------------------------- |
-| 객실번호 | Y    | 같은 호텔에서 유일, 다른 호텔은 중복 가능 |
+| 객실번호 | Y    | `upper(btrim(value))`로 저장·검색·표시, 같은 호텔의 현재 객실에서 대소문자와 무관하게 유일, 다른 호텔은 중복 가능 |
 | 층       | Y    | 호텔별 층 그룹 기준정보                    |
 | 객실유형 | Y    | 호텔별 독립 기준정보                       |
 | 기준정보 상태 | Y | 활성·사용중지·삭제, 신규 업무대상 포함 여부 |
@@ -34,7 +34,7 @@
 
 객실 운영상태 제거, 호텔별 독립 객실유형, 층 그룹, 삭제·snapshot 정책으로 제품범위와 저장구조가 변경됐으므로 이 과거 후보 승인은 현재 구현에 재사용하지 않는다. 최신 공통 process engine, 객실·시설물 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델과 Calendar adapter는 12 PRD에서 `approved`이며, 자체 월간·주간 달력 UI만 `unresearched`로 관리한다.
 
-시설물 설치위치는 최신 객실 기준정보의 `ACTIVE/INACTIVE/DELETED` lifecycle을 전제로 한다. 현재 source의 `ACTIVE/TEMP_SUSPENDED/OUT_OF_SERVICE` 객실 운영상태를 시설물 command에 재사용하지 않으며, 객실 lifecycle을 최신 정본으로 교정할 exact 구현계획이 승인되기 전에는 시설물 migration·Red·코드를 시작하지 않는다.
+시설물 설치위치는 구현된 객실 기준정보 `ACTIVE/INACTIVE/DELETED` lifecycle을 전제로 한다. 판매·투숙·공실·청소·보수중·사용불가 같은 운영상태는 객실 command·시설물 위치판정에 재사용하지 않는다.
 
 동일 기능 구현 후보와 선택 결과:
 
@@ -62,12 +62,22 @@
 
 ### 객실 기준정보 상태
 
+- 정본 상태는 `ACTIVE`, `INACTIVE`, `DELETED`다.
+- 일반 상태변경 command는 `ACTIVE → INACTIVE`, `INACTIVE → ACTIVE`만 허용한다.
+- 삭제는 일반 상태변경과 분리된 명시적 command이며 `INACTIVE → DELETED`만 허용한다. `ACTIVE`에서 직접 삭제할 수 없다.
+- `DELETED`는 영구 종료다. 정보수정·상태변경·복구·물리삭제를 금지하고 과거 점검·보수·감사·상태이력 조회만 유지한다.
+- 기본 객실 목록·검색·pagination total에는 `DELETED`를 포함하지 않는다. 삭제 row의 immutable ID 상세와 과거 이력은 내부 감사·과거업무 조회를 위해 보존한다.
 - 활성 객실만 신규 점검·보수 대상으로 선택한다.
 - 사용중지·삭제 객실은 다음 미생성 루틴부터 제외한다.
 - 사용중지·삭제 전에 생성된 점검과 과거 이력은 당시 객실번호·층·객실타입 snapshot으로 계속 수행·조회한다.
 - 객실점검·보수·방문일정·완료가 객실 기준정보 상태를 자동 또는 수동으로 변경하지 않는다.
-- 활성 시설물이 연결된 객실은 사용중지·삭제를 차단하고 시설물을 다른 활성 위치로 옮기거나 먼저 사용중지·삭제해야 한다.
+- 시설물 slice가 활성화된 뒤에는 활성 시설물이 연결된 객실의 사용중지·삭제를 차단하고 시설물을 다른 활성 위치로 옮기거나 먼저 사용중지·삭제해야 한다. 해당 후속 release gate에서 객실·연결 시설물 잠금, 재검사, 오류코드, 실제 PostgreSQL 동시성 검증을 함께 구현하며 그 전까지 이 관계 gate를 구현 완료로 간주하지 않는다.
 - 삭제된 객실번호는 재사용할 수 있지만 새 내부 객실 ID를 만들고 이전 이력과 합치지 않는다.
+- current 객실 모델·API·UI에는 `plannedResumeDate`를 두지 않으며 날짜 기반 자동 활성화도 없다. migration 전 append-only 상태이력의 과거 재개 예정일만 감사 snapshot으로 보존한다.
+- forward migration은 `ACTIVE → ACTIVE`, `TEMP_SUSPENDED → INACTIVE`, `OUT_OF_SERVICE → INACTIVE`로 변환하고 legacy 행을 자동 `DELETED`로 만들지 않는다. current 변환은 version 증가와 시스템 migration history로 남긴다.
+- 객실번호는 앞뒤 ASCII space만 제거한 뒤 ASCII `A-Z`, `0-9`, `.`, `_`, `/`, `-` 1~40자로 제한하고 ASCII 대문자로 저장한다. CONTRACT 전 legacy 값이 이 문자계약을 벗어나거나 같은 호텔에서 `upper(btrim(room_number))`가 충돌하면 migration은 `HOTEL_ROOM_NUMBER_UNSUPPORTED` 또는 `HOTEL_ROOM_CANONICAL_COLLISION`로 mutation 전에 안전 중단한다. 운영자는 충돌 row를 임의 병합하지 않고 객실·연결 이력 영향과 유지할 번호를 확인해 승인된 별도 정리 후 migration을 재실행한다.
+- 객실 생성·정보수정·상태변경·삭제는 모두 원본 opaque session bearer를 PostgreSQL command에 전달하고 최신 session·유효 호텔배정·개인 DENY 우선 권한·version·멱등·감사를 같은 transaction에서 검증한다. 회사 전체 `ALLOW`도 유효 호텔배정을 대체하지 않는다. API runtime의 `hotel_rooms` 직접 `INSERT/UPDATE`는 금지한다.
+- Web은 mutation 응답을 parse한 뒤 같은 객실 ID 상세와 현재 목록을 재조회해 material 결과가 일치할 때만 성공 종료한다. 응답유실로 동일 payload를 재전송할 때는 같은 멱등키를 유지하고, version conflict 뒤 최신 version·가능 전이로 body가 바뀌면 입력·사유를 보존한 채 새 멱등키를 사용한다.
 
 ## 객실 점검항목
 
@@ -152,6 +162,8 @@
 | --------- | ---------------------------------------------------------- |
 | GET/POST  | `/api/hotels/:hotelId/rooms`                               |
 | GET/PATCH | `/api/hotels/:hotelId/rooms/:roomId`                       |
+| POST      | `/api/hotels/:hotelId/rooms/:roomId/status`                |
+| POST      | `/api/hotels/:hotelId/rooms/:roomId/delete`                |
 | GET/POST  | `/api/hotels/:hotelId/room-types`                          |
 | GET/POST  | `/api/hotels/:hotelId/inspection-items?targetType=ROOM`     |
 | GET/POST  | `/api/hotels/:hotelId/inspection-routines`                 |

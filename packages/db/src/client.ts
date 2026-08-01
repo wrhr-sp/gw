@@ -6,6 +6,10 @@ export type DatabaseReadiness =
   | { status: "SCHEMA_NOT_READY" }
   | { status: "UNAVAILABLE" };
 
+const HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256 =
+  "21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e";
+const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
+  "e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50";
 const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
   "57926aacd5232ddbf118b6614bf7dc6679d9d9dc2cdb5672ebb3d5026e3f986f";
 const AUTH_CREATE_SESSION_V2_EXPAND_PROSRC_SHA256 =
@@ -32,6 +36,10 @@ const REJECT_HOTEL_ROOM_DELETE_PROSRC_SHA256 =
   "b74c7a7235f0854bc8793be2e0d56b2e6156813b45b0ca2e5f81331c303e6a1b";
 const REJECT_HOTEL_ROOM_HISTORY_CHANGE_PROSRC_SHA256 =
   "d009a84452fcd3b15d40a4297249ac6bffb48a12aeed053481e5c5dfeb189949";
+const REJECT_DELETED_HOTEL_ROOM_CHANGE_PROSRC_SHA256 =
+  "d8f18be4464a2bbfd81baa9aa10a031358ce4f045d647264649dcf3ada12a0a7";
+const ENFORCE_NEW_HOTEL_ROOM_HISTORY_INSERT_PROSRC_SHA256 =
+  "ce02e9fb2a6342d573b8bb6b0762f3a159ccffcb55d33e1a37921fd5efbe3513";
 const RUNTIME_IS_SCHEMA_OWNER_EXPAND_PROSRC_SHA256 =
   "1b51d38556502816e9d57b8f254a7b9c892dc873ea0ac4cbbc946ad1d2add221";
 const TENANT_AUTHORITY_PROSRC_SHA256 = new Map([
@@ -452,11 +460,6 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
     name: "hotel_rooms_company_branch_id_key",
     table: "hotel_rooms",
   },
-  {
-    definition: "unique (company_id, branch_id, room_number)",
-    name: "hotel_rooms_company_id_branch_id_room_number_key",
-    table: "hotel_rooms",
-  },
 ] as const;
 
 const REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK =
@@ -579,6 +582,12 @@ const REQUIRED_CHECK_CONSTRAINTS = [
   },
   {
     table: "hotel_rooms",
+    name: "hotel_rooms_room_number_canonical_check",
+    definition:
+      "check (((room_number = upper(btrim(room_number))) and (room_number ~ '^[A-Z0-9][A-Z0-9._/-]{0,39}$'::text)))",
+  },
+  {
+    table: "hotel_rooms",
     name: "hotel_rooms_floor_label_check",
     definition:
       "check (((btrim(floor_label) <> ''::text) and (char_length(floor_label) <= 40)))",
@@ -593,13 +602,7 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     table: "hotel_rooms",
     name: "hotel_rooms_status_check",
     definition:
-      "check ((status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
-  },
-  {
-    table: "hotel_rooms",
-    name: "hotel_rooms_resume_shape",
-    definition:
-      "check (((status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
+      "check ((status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text])))",
   },
   {
     table: "hotel_rooms",
@@ -622,13 +625,13 @@ const REQUIRED_CHECK_CONSTRAINTS = [
     table: "hotel_room_status_history",
     name: "hotel_room_status_history_previous_status_check",
     definition:
-      "check ((previous_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+      "check ((previous_status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
   },
   {
     table: "hotel_room_status_history",
     name: "hotel_room_status_history_next_status_check",
     definition:
-      "check ((next_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+      "check ((next_status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
   },
   {
     table: "hotel_room_status_history",
@@ -643,10 +646,11 @@ const REQUIRED_CHECK_CONSTRAINTS = [
   },
   {
     table: "hotel_room_status_history",
-    name: "hotel_room_status_history_resume_shape",
+    name: "hotel_room_status_history_source_shape",
     definition:
-      "check (((next_status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
+      "check ((((change_source = 'LEGACY_USER'::text) and (changed_by is not null) and (previous_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])) and (next_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text]))) or ((change_source = 'SYSTEM_LIFECYCLE_MIGRATION'::text) and (changed_by is null) and (previous_status = any (array['TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])) and (next_status = 'INACTIVE'::text)) or ((change_source = 'USER'::text) and (changed_by is not null) and (((previous_status = 'ACTIVE'::text) and (next_status = 'INACTIVE'::text)) or ((previous_status = 'INACTIVE'::text) and (next_status = any (array['ACTIVE'::text, 'DELETED'::text])))) and (planned_resume_date is null))))",
   },
+
   {
     table: "idempotency_records",
     name: "idempotency_records_completed_result_check",
@@ -753,6 +757,59 @@ const REQUIRED_SECURITY_CHECK_CONSTRAINTS = [
   },
 ] as const;
 
+const ROOM_LIFECYCLE_CHECK_CONSTRAINT_NAMES = new Set([
+  "hotel_rooms_status_check",
+  "hotel_rooms_room_number_canonical_check",
+  "hotel_room_status_history_previous_status_check",
+  "hotel_room_status_history_next_status_check",
+  "hotel_room_status_history_source_shape",
+]);
+
+const ROOM_EXPAND_CHECK_CONSTRAINTS = [
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_status_check",
+    definition:
+      "check ((status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_rooms",
+    name: "hotel_rooms_resume_shape",
+    definition:
+      "check (((status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_previous_status_check",
+    definition:
+      "check ((previous_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_next_status_check",
+    definition:
+      "check ((next_status = any (array['ACTIVE'::text, 'TEMP_SUSPENDED'::text, 'OUT_OF_SERVICE'::text])))",
+  },
+  {
+    table: "hotel_room_status_history",
+    name: "hotel_room_status_history_resume_shape",
+    definition:
+      "check (((next_status <> 'ACTIVE'::text) or (planned_resume_date is null)))",
+  },
+] as const;
+
+const ROOM_EXPAND_UNIQUE_CONSTRAINT = {
+  definition: "unique (company_id, branch_id, room_number)",
+  name: "hotel_rooms_company_id_branch_id_room_number_key",
+  table: "hotel_rooms",
+} as const;
+
+const ROOM_CONTRACT_INDEX_NAMES = new Set(["hotel_rooms_live_room_number_key"]);
+const ROOM_CONTRACT_TRIGGER_NAMES = new Set([
+  "hotel_rooms_deleted_immutable",
+  "hotel_room_status_history_insert_guard",
+]);
+
 const REQUIRED_INDEXES = [
   {
     name: "branches_active_hotel_name_unique_idx",
@@ -833,6 +890,11 @@ const REQUIRED_INDEXES = [
     name: "hotel_rooms_hotel_status_idx",
     definition:
       "create index hotel_rooms_hotel_status_idx on public.hotel_rooms using btree (company_id, branch_id, status, floor_sort_key, room_number)",
+  },
+  {
+    name: "hotel_rooms_live_room_number_key",
+    definition:
+      "create unique index hotel_rooms_live_room_number_key on public.hotel_rooms using btree (company_id, branch_id, room_number) where (status <> 'DELETED'::text)",
   },
   {
     name: "hotel_room_status_history_room_idx",
@@ -977,7 +1039,9 @@ const EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES = [
 ] as const;
 
 const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
-  ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
+  ...EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES.filter(
+    (label) => !label.startsWith("hotel_rooms:"),
+  ),
 ] as const;
 
 const REQUIRED_TRIGGERS = [
@@ -1065,6 +1129,16 @@ const REQUIRED_TRIGGERS = [
     name: "hotel_rooms_no_delete",
     table: "hotel_rooms",
     functionName: "reject_hotel_room_delete",
+  },
+  {
+    name: "hotel_rooms_deleted_immutable",
+    table: "hotel_rooms",
+    functionName: "reject_deleted_hotel_room_change",
+  },
+  {
+    name: "hotel_room_status_history_insert_guard",
+    table: "hotel_room_status_history",
+    functionName: "enforce_new_hotel_room_history_insert",
   },
   {
     name: "hotel_room_status_history_no_update",
@@ -1256,6 +1330,7 @@ export async function probeDatabaseReadiness(
         hotel_support_overlap_marker_count: number;
         hotel_room_marker_count: number;
         hotel_room_contract_marker_count: number;
+        hotel_room_lifecycle_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1299,7 +1374,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_room_contract_marker_count,
              count(*) filter (
                where version = '0023_login_id_registry_history_contract'
-             )::integer as login_id_history_contract_marker_count
+             )::integer as login_id_history_contract_marker_count,
+             count(*) filter (
+               where version = '0025_hotel_room_reference_lifecycle'
+             )::integer as hotel_room_lifecycle_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1322,7 +1400,8 @@ export async function probeDatabaseReadiness(
         '0018_hotel_support_assignment_overlap',
         '0019_hotel_room_management',
         '0022_hotel_room_contract_hardening',
-        '0023_login_id_registry_history_contract'
+        '0023_login_id_registry_history_contract',
+        '0025_hotel_room_reference_lifecycle'
       )
     `;
     const schemaPhase =
@@ -1335,10 +1414,19 @@ export async function probeDatabaseReadiness(
           : null;
     const roomSchemaPhase =
       migrationRows[0]?.hotel_room_marker_count === 1 &&
-      migrationRows[0].hotel_room_contract_marker_count === 1
+      migrationRows[0].hotel_room_contract_marker_count === 1 &&
+      migrationRows[0].hotel_room_lifecycle_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_room_marker_count === 1 &&
-            migrationRows[0].hotel_room_contract_marker_count === 0
+            migrationRows[0].hotel_room_contract_marker_count >= 0 &&
+            migrationRows[0].hotel_room_contract_marker_count <= 1 &&
+            migrationRows[0].hotel_room_lifecycle_marker_count === 0
+          ? "EXPAND"
+          : null;
+    const roomPolicyPhase =
+      migrationRows[0]?.hotel_room_contract_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_room_contract_marker_count === 0
           ? "EXPAND"
           : null;
     const loginIdHistoryPhase =
@@ -1350,7 +1438,16 @@ export async function probeDatabaseReadiness(
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
+      !roomPolicyPhase ||
       !loginIdHistoryPhase ||
+      (roomSchemaPhase === "EXPAND" &&
+        !columns.has("hotel_rooms.planned_resume_date")) ||
+      (roomSchemaPhase === "CONTRACT" &&
+        columns.has("hotel_rooms.planned_resume_date")) ||
+      (roomSchemaPhase === "EXPAND" &&
+        columns.has("hotel_room_status_history.change_source")) ||
+      (roomSchemaPhase === "CONTRACT" &&
+        !columns.has("hotel_room_status_history.change_source")) ||
       (roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (loginIdHistoryPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (options.requiredRoomSchemaPhase !== undefined &&
@@ -1362,6 +1459,279 @@ export async function probeDatabaseReadiness(
       migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
+    }
+    if (roomSchemaPhase === "CONTRACT") {
+      const [roomCommand] = await sql<
+        {
+          executable: boolean;
+          execute_acl_safe: boolean;
+          grantable_execute_count: number;
+          metadata_safe: boolean;
+          name_unique: boolean;
+          owner_safe: boolean;
+          public_execute: boolean;
+          return_signature_safe: boolean;
+          source: string;
+        }[]
+      >`
+        select has_function_privilege(
+                 current_user, procedure_record.oid, 'EXECUTE'
+               ) as executable,
+               procedure_record.prosrc as source,
+               pg_get_function_result(procedure_record.oid) =
+                 'TABLE(command_status text, result_snapshot jsonb)'
+                 as return_signature_safe,
+               procedure_record.prosecdef
+                 and procedure_language.lanname = 'plpgsql'
+                 and procedure_record.provolatile = 'v'
+                 and procedure_record.proparallel = 'u'
+                 and not procedure_record.proleakproof
+                 and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
+                 and pg_get_function_identity_arguments(procedure_record.oid) =
+                   'p_company_id uuid, p_branch_id uuid, p_room_id uuid, p_expected_version integer, p_next_status text, p_reason text, p_history_id uuid, p_audit_event_id uuid, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_session_token text, p_trace_id uuid'
+                 as metadata_safe,
+               procedure_record.proowner = migration_table.relowner as owner_safe,
+               (
+                 select pg_catalog.count(*) = 1
+                   from pg_proc named_procedure
+                   join pg_namespace named_namespace
+                     on named_namespace.oid = named_procedure.pronamespace
+                  where named_namespace.nspname = 'public'
+                    and named_procedure.proname =
+                      'hotel_room_lifecycle_command_v1'
+               ) as name_unique,
+               (
+                 not exists (
+                   select 1
+                     from aclexplode(coalesce(
+                       procedure_record.proacl,
+                       acldefault('f', procedure_record.proowner)
+                     )) actual_acl
+                    where actual_acl.privilege_type = 'EXECUTE'
+                      and actual_acl.grantee <> procedure_record.proowner
+                      and (
+                        actual_acl.is_grantable
+                        or not exists (
+                          select 1
+                            from runtime_database_capabilities capability_record
+                            join pg_roles capability_role
+                              on capability_role.rolname = capability_record.role_name
+                           where capability_record.capability = 'API_RUNTIME'
+                             and capability_role.oid = actual_acl.grantee
+                             and capability_role.oid <> procedure_record.proowner
+                        )
+                      )
+                 )
+                 and not exists (
+                   select 1
+                     from runtime_database_capabilities capability_record
+                     join pg_roles capability_role
+                       on capability_role.rolname = capability_record.role_name
+                    where capability_record.capability = 'API_RUNTIME'
+                      and capability_role.oid <> procedure_record.proowner
+                      and not exists (
+                        select 1
+                          from aclexplode(coalesce(
+                            procedure_record.proacl,
+                            acldefault('f', procedure_record.proowner)
+                          )) actual_acl
+                         where actual_acl.privilege_type = 'EXECUTE'
+                           and actual_acl.grantee = capability_role.oid
+                           and not actual_acl.is_grantable
+                      )
+                 )
+               ) as execute_acl_safe,
+               exists (
+                 select 1 from aclexplode(coalesce(
+                   procedure_record.proacl,
+                   acldefault('f', procedure_record.proowner)
+                 )) acl
+                 where acl.privilege_type = 'EXECUTE' and acl.grantee = 0::oid
+               ) as public_execute,
+               (
+                 select count(*)::integer
+                   from aclexplode(coalesce(
+                     procedure_record.proacl,
+                     acldefault('f', procedure_record.proowner)
+                   )) acl
+                  where acl.privilege_type = 'EXECUTE'
+                    and acl.grantee <> procedure_record.proowner
+                    and acl.is_grantable
+               ) as grantable_execute_count
+          from pg_proc procedure_record
+          join pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          join pg_language procedure_language
+            on procedure_language.oid = procedure_record.prolang
+          join pg_class migration_table
+            on migration_table.relname = 'schema_migrations'
+          join pg_namespace migration_namespace
+            on migration_namespace.oid = migration_table.relnamespace
+         where procedure_namespace.nspname = 'public'
+           and migration_namespace.nspname = 'public'
+           and procedure_record.oid = pg_catalog.to_regprocedure(
+             'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'
+           )
+      `;
+      if (
+        !roomCommand?.metadata_safe ||
+        !roomCommand.owner_safe ||
+        !roomCommand.return_signature_safe ||
+        !roomCommand.name_unique ||
+        !roomCommand.execute_acl_safe ||
+        roomCommand.public_execute ||
+        roomCommand.grantable_execute_count !== 0 ||
+        roomCommand.executable !== (options.capability === "API_RUNTIME") ||
+        (await sourceSha256(roomCommand.source)) !==
+          HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+      const [roomWriteCommand] = await sql<
+        {
+          executable: boolean;
+          execute_acl_safe: boolean;
+          grantable_execute_count: number;
+          metadata_safe: boolean;
+          name_unique: boolean;
+          owner_safe: boolean;
+          public_execute: boolean;
+          return_signature_safe: boolean;
+          source: string;
+        }[]
+      >`
+        select has_function_privilege(
+                 current_user, procedure_record.oid, 'EXECUTE'
+               ) as executable,
+               procedure_record.prosrc as source,
+               pg_get_function_result(procedure_record.oid) =
+                 'TABLE(command_status text, result_snapshot jsonb)'
+                 as return_signature_safe,
+               procedure_record.prosecdef
+                 and procedure_language.lanname = 'plpgsql'
+                 and procedure_record.provolatile = 'v'
+                 and procedure_record.proparallel = 'u'
+                 and not procedure_record.proleakproof
+                 and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
+                 and pg_get_function_identity_arguments(procedure_record.oid) =
+                   'p_company_id uuid, p_branch_id uuid, p_room_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_audit_event_id uuid, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_session_token text, p_trace_id uuid'
+                 as metadata_safe,
+               procedure_record.proowner = migration_table.relowner as owner_safe,
+               (
+                 select pg_catalog.count(*) = 1
+                   from pg_proc named_procedure
+                   join pg_namespace named_namespace
+                     on named_namespace.oid = named_procedure.pronamespace
+                  where named_namespace.nspname = 'public'
+                    and named_procedure.proname =
+                      'hotel_room_write_command_v1'
+               ) as name_unique,
+               (
+                 not exists (
+                   select 1
+                     from aclexplode(coalesce(
+                       procedure_record.proacl,
+                       acldefault('f', procedure_record.proowner)
+                     )) actual_acl
+                    where actual_acl.privilege_type = 'EXECUTE'
+                      and actual_acl.grantee <> procedure_record.proowner
+                      and (
+                        actual_acl.is_grantable
+                        or not exists (
+                          select 1
+                            from runtime_database_capabilities capability_record
+                            join pg_roles capability_role
+                              on capability_role.rolname = capability_record.role_name
+                           where capability_record.capability = 'API_RUNTIME'
+                             and capability_role.oid = actual_acl.grantee
+                             and capability_role.oid <> procedure_record.proowner
+                        )
+                      )
+                 )
+                 and not exists (
+                   select 1
+                     from runtime_database_capabilities capability_record
+                     join pg_roles capability_role
+                       on capability_role.rolname = capability_record.role_name
+                    where capability_record.capability = 'API_RUNTIME'
+                      and capability_role.oid <> procedure_record.proowner
+                      and not exists (
+                        select 1
+                          from aclexplode(coalesce(
+                            procedure_record.proacl,
+                            acldefault('f', procedure_record.proowner)
+                          )) actual_acl
+                         where actual_acl.privilege_type = 'EXECUTE'
+                           and actual_acl.grantee = capability_role.oid
+                           and not actual_acl.is_grantable
+                      )
+                 )
+               ) as execute_acl_safe,
+               exists (
+                 select 1 from aclexplode(coalesce(
+                   procedure_record.proacl,
+                   acldefault('f', procedure_record.proowner)
+                 )) acl
+                 where acl.privilege_type = 'EXECUTE' and acl.grantee = 0::oid
+               ) as public_execute,
+               (
+                 select count(*)::integer
+                   from aclexplode(coalesce(
+                     procedure_record.proacl,
+                     acldefault('f', procedure_record.proowner)
+                   )) acl
+                  where acl.privilege_type = 'EXECUTE'
+                    and acl.grantee <> procedure_record.proowner
+                    and acl.is_grantable
+               ) as grantable_execute_count
+          from pg_proc procedure_record
+          join pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          join pg_language procedure_language
+            on procedure_language.oid = procedure_record.prolang
+          join pg_class migration_table
+            on migration_table.relname = 'schema_migrations'
+          join pg_namespace migration_namespace
+            on migration_namespace.oid = migration_table.relnamespace
+         where procedure_namespace.nspname = 'public'
+           and migration_namespace.nspname = 'public'
+           and procedure_record.oid = pg_catalog.to_regprocedure(
+             'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)'
+           )
+      `;
+      if (
+        !roomWriteCommand?.metadata_safe ||
+        !roomWriteCommand.owner_safe ||
+        !roomWriteCommand.return_signature_safe ||
+        !roomWriteCommand.name_unique ||
+        !roomWriteCommand.execute_acl_safe ||
+        roomWriteCommand.public_execute ||
+        roomWriteCommand.grantable_execute_count !== 0 ||
+        roomWriteCommand.executable !==
+          (options.capability === "API_RUNTIME") ||
+        (await sourceSha256(roomWriteCommand.source)) !==
+          HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+    } else {
+      const [legacyRoomCommand] = await sql<
+        { exists: boolean; write_exists: boolean }[]
+      >`
+        select to_regprocedure(
+          'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'
+        ) is not null as exists,
+        to_regprocedure(
+          'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)'
+        ) is not null as write_exists
+      `;
+      if (
+        !legacyRoomCommand ||
+        legacyRoomCommand.exists ||
+        legacyRoomCommand.write_exists
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
     }
     if (loginIdHistoryPhase === "CONTRACT") {
       const operationColumns = await sql<
@@ -2388,6 +2758,22 @@ export async function probeDatabaseReadiness(
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
+    const expandRoomNumberConstraint = constraints.find(
+      (constraint) =>
+        constraint.table === ROOM_EXPAND_UNIQUE_CONSTRAINT.table &&
+        constraint.name === ROOM_EXPAND_UNIQUE_CONSTRAINT.name,
+    );
+    if (
+      (roomSchemaPhase === "EXPAND" &&
+        (!expandRoomNumberConstraint ||
+          !expandRoomNumberConstraint.validated ||
+          expandRoomNumberConstraint.definition !==
+            ROOM_EXPAND_UNIQUE_CONSTRAINT.definition)) ||
+      (roomSchemaPhase === "CONTRACT" &&
+        expandRoomNumberConstraint !== undefined)
+    ) {
+      return { status: "SCHEMA_NOT_READY" };
+    }
     const legacyLoginIdTargetConstraint = constraints.find(
       (constraint) =>
         constraint.table === LEGACY_LOGIN_ID_TARGET_UNIQUE_CONSTRAINT.table &&
@@ -2433,8 +2819,20 @@ export async function probeDatabaseReadiness(
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
+    const requiredRoomCheckConstraints =
+      roomSchemaPhase === "CONTRACT"
+        ? REQUIRED_CHECK_CONSTRAINTS.filter((required) =>
+            ROOM_LIFECYCLE_CHECK_CONSTRAINT_NAMES.has(required.name),
+          )
+        : ROOM_EXPAND_CHECK_CONSTRAINTS;
+    const requiredCheckConstraints = [
+      ...REQUIRED_CHECK_CONSTRAINTS.filter(
+        (required) => !ROOM_LIFECYCLE_CHECK_CONSTRAINT_NAMES.has(required.name),
+      ),
+      ...requiredRoomCheckConstraints,
+    ];
     if (
-      REQUIRED_CHECK_CONSTRAINTS.some(
+      requiredCheckConstraints.some(
         (required) =>
           !constraints.some(
             (constraint) =>
@@ -2443,7 +2841,19 @@ export async function probeDatabaseReadiness(
               constraint.validated &&
               constraint.definition === required.definition,
           ),
-      )
+      ) ||
+      (roomSchemaPhase === "EXPAND" &&
+        constraints.some(
+          (constraint) =>
+            constraint.name === "hotel_room_status_history_source_shape",
+        )) ||
+      (roomSchemaPhase === "CONTRACT" &&
+        constraints.some((constraint) =>
+          [
+            "hotel_rooms_resume_shape",
+            "hotel_room_status_history_resume_shape",
+          ].includes(constraint.name),
+        ))
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -2482,15 +2892,25 @@ export async function probeDatabaseReadiness(
       from pg_indexes
       where schemaname = 'public'
     `;
+    const requiredIndexes =
+      roomSchemaPhase === "CONTRACT"
+        ? REQUIRED_INDEXES
+        : REQUIRED_INDEXES.filter(
+            (required) => !ROOM_CONTRACT_INDEX_NAMES.has(required.name),
+          );
     if (
-      REQUIRED_INDEXES.some(
+      requiredIndexes.some(
         (required) =>
           !indexRows.some(
             (index) =>
               index.index_name === required.name &&
               normalizeDefinition(index.definition) === required.definition,
           ),
-      )
+      ) ||
+      (roomSchemaPhase === "EXPAND" &&
+        indexRows.some((index) =>
+          ROOM_CONTRACT_INDEX_NAMES.has(index.index_name),
+        ))
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -2561,12 +2981,17 @@ export async function probeDatabaseReadiness(
     };
     for (const role of capabilityRoleRows) {
       if (role.role_name === migrationOwner.role_name) continue;
-      addExpectedTablePrivileges(
-        role.role_name,
+      const roleTablePrivileges =
         role.capability === "API_RUNTIME"
-          ? EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
-          : EXPECTED_RECONCILER_TABLE_PRIVILEGES,
-      );
+          ? roomSchemaPhase === "CONTRACT"
+            ? EXPECTED_API_RUNTIME_TABLE_PRIVILEGES.filter(
+                (label) =>
+                  label !== "hotel_room_status_history:INSERT" &&
+                  label !== "hotel_rooms:INSERT",
+              )
+            : EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
+          : EXPECTED_RECONCILER_TABLE_PRIVILEGES;
+      addExpectedTablePrivileges(role.role_name, roleTablePrivileges);
     }
     addExpectedTablePrivileges("werehere_auth_session_definer", [
       "auth_identities:SELECT",
@@ -2627,18 +3052,43 @@ export async function probeDatabaseReadiness(
         and not column_record.attisdropped
         and acl.grantee <> table_record.relowner
     `;
+    const roomPhaseColumnPrivileges = (
+      labels: readonly string[],
+      columnPhase: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK",
+    ) => {
+      if (roomSchemaPhase === "CONTRACT") {
+        return labels.filter((label) => !label.startsWith("hotel_rooms:"));
+      }
+      if (columnPhase !== "CONTRACT") return labels;
+      const legacyLabels = [...labels];
+      for (const label of EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES.filter(
+        (candidate) => candidate.startsWith("hotel_rooms:"),
+      )) {
+        if (!legacyLabels.includes(label)) legacyLabels.push(label);
+      }
+      return legacyLabels;
+    };
     const columnPhaseDefinitions = [
       {
         phase: "EXPAND" as const,
-        labels: EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
+        labels: roomPhaseColumnPrivileges(
+          EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES,
+          "EXPAND",
+        ),
       },
       {
         phase: "EXPAND_IDENTITY_LOCK" as const,
-        labels: EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
+        labels: roomPhaseColumnPrivileges(
+          EXPECTED_API_RUNTIME_IDENTITY_LOCK_COLUMN_PRIVILEGES,
+          "EXPAND_IDENTITY_LOCK",
+        ),
       },
       {
         phase: "CONTRACT" as const,
-        labels: EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES,
+        labels: roomPhaseColumnPrivileges(
+          EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES,
+          "CONTRACT",
+        ),
       },
     ];
     const expectedColumnPrivilegeCandidates = columnPhaseDefinitions.map(
@@ -2771,8 +3221,14 @@ export async function probeDatabaseReadiness(
       where trigger_namespace.nspname = 'public'
         and not trigger_record.tgisinternal
     `;
+    const requiredTriggers =
+      roomSchemaPhase === "CONTRACT"
+        ? REQUIRED_TRIGGERS
+        : REQUIRED_TRIGGERS.filter(
+            (required) => !ROOM_CONTRACT_TRIGGER_NAMES.has(required.name),
+          );
     if (
-      REQUIRED_TRIGGERS.some(
+      requiredTriggers.some(
         (required) =>
           !triggerRows.some(
             (trigger) =>
@@ -2781,7 +3237,11 @@ export async function probeDatabaseReadiness(
               trigger.function_name === required.functionName &&
               trigger.enabled === "O",
           ),
-      )
+      ) ||
+      (roomSchemaPhase === "EXPAND" &&
+        triggerRows.some((trigger) =>
+          ROOM_CONTRACT_TRIGGER_NAMES.has(trigger.trigger_name),
+        ))
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -2820,7 +3280,10 @@ export async function probeDatabaseReadiness(
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
-    const roomTriggerContracts = new Map([
+    const roomTriggerContracts = new Map<
+      string,
+      { digest: string; protectedColumns: string[]; type: number }
+    >([
       [
         "hotel_room_types_scope_immutable",
         {
@@ -2870,6 +3333,18 @@ export async function probeDatabaseReadiness(
         },
       ],
     ]);
+    if (roomSchemaPhase === "CONTRACT") {
+      roomTriggerContracts.set("hotel_rooms_deleted_immutable", {
+        digest: REJECT_DELETED_HOTEL_ROOM_CHANGE_PROSRC_SHA256,
+        protectedColumns: [],
+        type: 19,
+      });
+      roomTriggerContracts.set("hotel_room_status_history_insert_guard", {
+        digest: ENFORCE_NEW_HOTEL_ROOM_HISTORY_INSERT_PROSRC_SHA256,
+        protectedColumns: [],
+        type: 7,
+      });
+    }
     for (const [triggerName, expected] of roomTriggerContracts) {
       const trigger = triggerRows.find(
         (candidate) => candidate.trigger_name === triggerName,
@@ -2930,11 +3405,11 @@ export async function probeDatabaseReadiness(
       REQUIRED_RLS_POLICIES.some(
         (required) =>
           !rlsRows.some((policy) => {
-            const policyPhase =
+            const requiredPolicyPhase =
               required.table === "hotel_room_types" ||
               required.table === "hotel_rooms" ||
               required.table === "hotel_room_status_history"
-                ? roomSchemaPhase
+                ? roomPolicyPhase
                 : schemaPhase;
             return (
               policy.policy_name === required.policy &&
@@ -2948,12 +3423,12 @@ export async function probeDatabaseReadiness(
               isExactTenantPolicyExpression(
                 policy.using_expression,
                 required.table === "companies" ? "id" : "company_id",
-                policyPhase,
+                requiredPolicyPhase,
               ) &&
               isExactTenantPolicyExpression(
                 policy.check_expression,
                 required.table === "companies" ? "id" : "company_id",
-                policyPhase,
+                requiredPolicyPhase,
               )
             );
           }),

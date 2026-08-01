@@ -366,8 +366,9 @@
 ### 9.6 재사용·제외·구현 전 gate
 
 - 최신 `hotel_rooms(company_id, branch_id, id)` composite key, generated normalized-name·version·actor·감사·RLS·command 패턴은 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
-- 현재 source의 객실 `ACTIVE/TEMP_SUSPENDED/OUT_OF_SERVICE` 운영상태는 최신 기준정보 `ACTIVE/INACTIVE/DELETED` lifecycle과 상충하므로 시설물 위치판정에 재사용하지 않는다.
-- 객실 lifecycle 교정과 exact relation·command·권한·오류계약을 구현계획에 명시하고 별도 mutation 승인을 받기 전에는 migration·Red·코드를 시작하지 않는다.
+- 객실 기준정보는 구현된 `ACTIVE/INACTIVE/DELETED` lifecycle을 사용한다. 일반 전이는 `ACTIVE↔INACTIVE`, 별도 삭제 command는 `INACTIVE→DELETED`이며 `DELETED`는 수정·복구·물리삭제가 불가능한 terminal 상태다.
+- legacy `TEMP_SUSPENDED/OUT_OF_SERVICE`는 forward migration에서 `INACTIVE`로 변환하고 자동 `DELETED` 변환은 하지 않는다. current `planned_resume_date`는 제거하되 append-only 과거 이력 값은 보존하며 날짜 기반 자동 활성화는 없다.
+- 살아 있는 객실번호에만 partial unique를 적용해 삭제 번호 재사용 시 새 room ID를 만들고, 이전 점검·보수·감사·snapshot은 이전 ID에 유지한다. lifecycle command는 company/hotel scope, RLS·`FORCE ROW LEVEL SECURITY`, 활성 사용자·배정, 동적권한·개인회수, expected version, 멱등키, 현재 상태를 transaction에서 재검증한다.
 - 별도 canonical location registry, generic polymorphic DB FK, JSONB-only 위치 정본, 신규 package·외부 서비스는 도입하지 않는다.
 - 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용한다. 보수 건·우선순위·방문일정 모델과 Calendar adapter는 이후 별도 후보선택으로 `approved`됐으며 자체 달력 UI는 계속 `unresearched`다.
 

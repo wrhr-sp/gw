@@ -137,6 +137,7 @@ EXPAND_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select count(*) from schema_migrations where version = '0008_remove_legacy_company_id_fallback';
 select count(*) from schema_migrations where version = '0019_hotel_room_management';
 select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening';
+select count(*) from schema_migrations where version = '0025_hotel_room_reference_lifecycle';
 select (
   has_schema_privilege('werehere_preview_runtime', 'public', 'USAGE')
   and has_table_privilege('werehere_preview_runtime', 'public.branches', 'SELECT')
@@ -190,7 +191,7 @@ select (
 )::int;
 SQL
 )"
-if [[ "$EXPAND_RESULT" != $'0\n1\n0\n1' ]]; then
+if [[ "$EXPAND_RESULT" != $'0\n1\n0\n0\n1' ]]; then
   printf '%s\n' 'Expand provisioning did not preserve compatibility or revoke stale ACLs.' >&2
   exit 1
 fi
@@ -491,11 +492,282 @@ if [[ "$NEON_CREATOR_MEMBERSHIP_RESULT" != "2" ]]; then
   exit 1
 fi
 
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+  -f "$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0010_global_login_id_contract.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0023_login_id_registry_history_contract.sql" \
+  -f "$ROOT_DIR/packages/db/migrations/0024_preview_bootstrap_session_revocations.sql" \
+  >/dev/null
+run_provision EXPAND >/dev/null
+LEGACY_ROOM_CONTRACT_EXPAND="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations
+where version = '0022_hotel_room_contract_hardening';
+select count(*) from schema_migrations
+where version = '0025_hotel_room_reference_lifecycle';
+SQL
+)"
+if [[ "$LEGACY_ROOM_CONTRACT_EXPAND" != $'1\n0' ]]; then
+  printf '%s\n' 'Existing room CONTRACT was not accepted as lifecycle EXPAND.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" >/dev/null <<'SQL'
+insert into users (id, company_id, user_type, display_name)
+values (
+  '76000000-0000-4000-8000-000000000001',
+  '70000000-0000-4000-8000-000000000001',
+  'INTERNAL_STAFF', 'Pre-contract Worker'
+);
+insert into login_id_registry (login_id, company_id, target_user_id)
+values (
+  'precontractworker',
+  '70000000-0000-4000-8000-000000000001',
+  '76000000-0000-4000-8000-000000000001'
+);
+update users set login_name = 'precontractworker'
+where id = '76000000-0000-4000-8000-000000000001';
+insert into auth_identities (id, company_id, user_id, provider, provider_subject)
+values (
+  '7e000000-0000-4000-8000-000000000001',
+  '70000000-0000-4000-8000-000000000001',
+  '76000000-0000-4000-8000-000000000001',
+  'ZITADEL', 'pre-contract-compatibility'
+);
+with actor_identity as (
+  select id, user_id from auth_identities
+   where id = '7e000000-0000-4000-8000-000000000001'
+)
+insert into auth_sessions (
+  id, company_id, user_id, identity_id, token_hash,
+  idle_expires_at, absolute_expires_at, auth_time, authentication_method
+)
+select '7c000000-0000-4000-8000-000000000001',
+       '70000000-0000-4000-8000-000000000001', user_id, id,
+       decode(repeat('7c', 32), 'hex'), now() + interval '1 hour',
+       now() + interval '8 hours', now(), 'pre-contract-integration'
+  from actor_identity;
+
+insert into branches (id, company_id, branch_type, branch_code, name)
+values (
+  '7d000000-0000-4000-8000-000000000001',
+  '70000000-0000-4000-8000-000000000001',
+  'HOTEL', 'PRECONTRACT-01', 'Pre-contract Hotel'
+);
+insert into hotel_profiles (
+  company_id, branch_id, road_address, detail_address, representative_phone,
+  contract_start_date, contract_end_date
+) values (
+  '70000000-0000-4000-8000-000000000001',
+  '7d000000-0000-4000-8000-000000000001',
+  'Pre-contract Road 1', '', '02-0000-0000', current_date, current_date + 30
+);
+
+insert into permission_grants (
+  id, company_id, subject_type, subject_id, permission_code,
+  effect, valid_from, granted_by, reason
+)
+select '77000000-0000-4000-8000-000000000001',
+       '70000000-0000-4000-8000-000000000001', 'USER', user_id,
+       'HOTEL_ROOM_MANAGE', 'ALLOW', now(), user_id,
+       'pre-contract compatibility'
+  from auth_sessions where id = '7c000000-0000-4000-8000-000000000001';
+insert into permission_grants (
+  id, company_id, subject_type, subject_id, permission_code,
+  effect, valid_from, granted_by, reason
+)
+select '77000000-0000-4000-8000-000000000002',
+       '70000000-0000-4000-8000-000000000001', 'USER', user_id,
+       'HOTEL_ROOM_READ', 'ALLOW', now(), user_id,
+       'pre-contract compatibility'
+  from auth_sessions where id = '7c000000-0000-4000-8000-000000000001';
+
+insert into hotel_staff_assignments (
+  id, company_id, branch_id, user_id, assignment_type,
+  start_date, reason, created_by
+)
+select '77100000-0000-4000-8000-000000000001',
+       '70000000-0000-4000-8000-000000000001',
+       '7d000000-0000-4000-8000-000000000001', user_id,
+       'PRIMARY', current_date, 'pre-contract compatibility', user_id
+  from auth_sessions where id = '7c000000-0000-4000-8000-000000000001';
+
+insert into hotel_room_types (
+  id, company_id, scope, branch_id, name, display_order,
+  is_active, created_by, updated_by
+)
+select '7e100000-0000-4000-8000-000000000001',
+       '70000000-0000-4000-8000-000000000001', 'HOTEL',
+       '7d000000-0000-4000-8000-000000000001', 'Legacy Type', 10,
+       true, user_id, user_id
+  from auth_sessions where id = '7c000000-0000-4000-8000-000000000001';
+insert into hotel_rooms (
+  id, company_id, branch_id, room_number, floor_label, floor_sort_key,
+  room_type_id, status, created_by, updated_by
+)
+select room_id, '70000000-0000-4000-8000-000000000001',
+       '7d000000-0000-4000-8000-000000000001', room_number,
+       '1F', floor_sort_key, '7e100000-0000-4000-8000-000000000001',
+       room_status, user_id, user_id
+  from auth_sessions
+  cross join (values
+    ('7f000000-0000-4000-8000-000000000001'::uuid, '101', 1, 'TEMP_SUSPENDED'),
+    ('7f000000-0000-4000-8000-000000000002'::uuid, '102', 2, 'OUT_OF_SERVICE')
+  ) fixture(room_id, room_number, floor_sort_key, room_status)
+ where auth_sessions.id = '7c000000-0000-4000-8000-000000000001';
+SQL
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$PREVIEW_URL" \
+    pnpm exec tsx packages/db/test/hotel-room-precontract-compatibility.ts
+) >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+insert into hotel_rooms (
+  id, company_id, branch_id, room_number, floor_label, floor_sort_key,
+  room_type_id, status, created_by, updated_by
+)
+select fixture.room_id, '70000000-0000-4000-8000-000000000001',
+       '7d000000-0000-4000-8000-000000000001', fixture.room_number,
+       'B1', -1, '7e100000-0000-4000-8000-000000000001',
+       'ACTIVE', session_record.user_id, session_record.user_id
+  from auth_sessions session_record
+  cross join (values
+    ('7f000000-0000-4000-8000-000000000091'::uuid, 'b01'),
+    ('7f000000-0000-4000-8000-000000000092'::uuid, 'B01')
+  ) fixture(room_id, room_number)
+ where session_record.id = '7c000000-0000-4000-8000-000000000001';
+SQL
+COLLISION_LOG="$(mktemp /tmp/werehere-room-collision.XXXXXX)"
+if run_provision CONTRACT >"$COLLISION_LOG" 2>&1; then
+  printf '%s\n' 'Room canonical collision unexpectedly passed CONTRACT preflight.' >&2
+  rm -f "$COLLISION_LOG"
+  exit 1
+fi
+if ! grep -q 'HOTEL_ROOM_CANONICAL_COLLISION' "$COLLISION_LOG"; then
+  printf '%s\n' 'Room canonical collision did not return the stable preflight diagnostic.' >&2
+  rm -f "$COLLISION_LOG"
+  exit 1
+fi
+rm -f "$COLLISION_LOG"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+update hotel_rooms
+   set room_number = case id
+     when '7f000000-0000-4000-8000-000000000091'::uuid
+       then pg_catalog.convert_from(
+         pg_catalog.decode('c2a0', 'hex'), 'UTF8'
+       ) || 'B01'
+     else 'PREFLIGHT-92'
+   end
+ where id in (
+   '7f000000-0000-4000-8000-000000000091',
+   '7f000000-0000-4000-8000-000000000092'
+ );
+SQL
+UNSUPPORTED_BEFORE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select pg_catalog.encode(room_number::bytea, 'hex')
+       || '|' || version::text || '|' || status || '|'
+       || (select count(*)::text from schema_migrations
+            where version = '0025_hotel_room_reference_lifecycle')
+  from hotel_rooms
+ where id = '7f000000-0000-4000-8000-000000000091';
+SQL
+)"
+UNSUPPORTED_LOG="$(mktemp /tmp/werehere-room-unsupported.XXXXXX)"
+if run_provision CONTRACT >"$UNSUPPORTED_LOG" 2>&1; then
+  printf '%s\n' 'Unsupported legacy room number unexpectedly passed CONTRACT preflight.' >&2
+  rm -f "$UNSUPPORTED_LOG"
+  exit 1
+fi
+if ! grep -q 'HOTEL_ROOM_NUMBER_UNSUPPORTED' "$UNSUPPORTED_LOG"; then
+  printf '%s\n' 'Unsupported room number did not return the stable preflight diagnostic.' >&2
+  rm -f "$UNSUPPORTED_LOG"
+  exit 1
+fi
+rm -f "$UNSUPPORTED_LOG"
+UNSUPPORTED_AFTER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select pg_catalog.encode(room_number::bytea, 'hex')
+       || '|' || version::text || '|' || status || '|'
+       || (select count(*)::text from schema_migrations
+            where version = '0025_hotel_room_reference_lifecycle')
+  from hotel_rooms
+ where id = '7f000000-0000-4000-8000-000000000091';
+SQL
+)"
+if [[ "$UNSUPPORTED_BEFORE" != "$UNSUPPORTED_AFTER" ||
+      "$UNSUPPORTED_AFTER" != "c2a0423031|1|ACTIVE|0" ]]; then
+  printf '%s\n' 'Unsupported room preflight mutated legacy data or migration marker.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+update hotel_rooms set room_number = 'PREFLIGHT-91'
+ where id = '7f000000-0000-4000-8000-000000000091';
+SQL
 run_provision CONTRACT >/dev/null
 ROOM_CONTRACT_MARKER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
   -c "select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening'")"
 if [[ "$ROOM_CONTRACT_MARKER" != "1" ]]; then
   printf '%s\n' 'Room CONTRACT policy hardening marker is missing.' >&2
+  exit 1
+fi
+ROOM_LIFECYCLE_CONTRACT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from schema_migrations
+where version = '0025_hotel_room_reference_lifecycle';
+select not exists (
+  select 1 from information_schema.columns
+  where table_schema = 'public' and table_name = 'hotel_rooms'
+    and column_name = 'planned_resume_date'
+);
+select to_regclass('public.hotel_rooms_live_room_number_key') is not null;
+select count(*) from pg_trigger
+where not tgisinternal and tgname in (
+  'hotel_rooms_deleted_immutable',
+  'hotel_room_status_history_insert_guard'
+);
+select not has_table_privilege(
+         'werehere_preview_api_runtime', 'public.hotel_rooms', 'INSERT'
+       )
+  and not has_any_column_privilege(
+         'werehere_preview_api_runtime', 'public.hotel_rooms', 'UPDATE'
+       )
+  and not has_table_privilege(
+         'werehere_preview_api_runtime', 'public.hotel_room_status_history', 'INSERT'
+       )
+  and has_function_privilege(
+         'werehere_preview_api_runtime',
+         'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       )
+  and has_function_privilege(
+         'werehere_preview_api_runtime',
+         'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       )
+  and not has_function_privilege(
+         'werehere_preview_reconciler',
+         'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       )
+  and not has_function_privilege(
+         'werehere_preview_reconciler',
+         'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       )
+  and not has_function_privilege(
+         'public',
+         'public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       )
+  and not has_function_privilege(
+         'public',
+         'public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)',
+         'EXECUTE'
+       );
+SQL
+)"
+if [[ "$ROOM_LIFECYCLE_CONTRACT" != $'1\nt\nt\n2\nt' ]]; then
+  printf '%s\n' 'Room lifecycle CONTRACT schema is incomplete.' >&2
   exit 1
 fi
 CONTRACT_RUNTIME_OWNER_HASH="$(
@@ -1792,90 +2064,25 @@ if [[ "$BOOTSTRAP_REPLAY_RESULT" != "$BOOTSTRAP_VERSION_AFTER"$'\n'"$BOOTSTRAP_A
 fi
 BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 
-psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
-delete from schema_migrations
-where version = '0022_hotel_room_contract_hardening';
-do $room_expand_policies$
-declare
-  tenant_table text;
-begin
-  foreach tenant_table in array array[
-    'hotel_room_types',
-    'hotel_rooms',
-    'hotel_room_status_history'
-  ]
-  loop
-    execute format(
-      'drop policy if exists %I_company_isolation on public.%I',
-      tenant_table,
-      tenant_table
-    );
-    execute format(
-      'create policy %I_company_isolation on public.%I using (
-        case
-          when public.runtime_is_schema_owner() then true
-          when current_user = ''werehere_auth_session_definer'' then true
-          when current_user = ''werehere_tenant_authority_definer'' then true
-          when public.runtime_has_capability(''API_RUNTIME'') then company_id = public.api_current_company_id()
-          when public.runtime_has_capability(''RECONCILER'') then company_id = public.reconciler_current_company_id()
-          when not public.runtime_has_capability(''API_RUNTIME'')
-            and not public.runtime_has_capability(''RECONCILER'')
-            then company_id = nullif(current_setting(''app.company_id'', true), '''')::uuid
-          else false
-        end
-      ) with check (
-        case
-          when public.runtime_is_schema_owner() then true
-          when current_user = ''werehere_auth_session_definer'' then true
-          when current_user = ''werehere_tenant_authority_definer'' then true
-          when public.runtime_has_capability(''API_RUNTIME'') then company_id = public.api_current_company_id()
-          when public.runtime_has_capability(''RECONCILER'') then company_id = public.reconciler_current_company_id()
-          when not public.runtime_has_capability(''API_RUNTIME'')
-            and not public.runtime_has_capability(''RECONCILER'')
-            then company_id = nullif(current_setting(''app.company_id'', true), '''')::uuid
-          else false
-        end
-      )',
-      tenant_table,
-      tenant_table
-    );
-  end loop;
-end
-$room_expand_policies$;
-SQL
-MIXED_PHASE_EXPAND_LOG="$(run_provision EXPAND)"
-if ! grep -Fxq 'PREVIEW_DATABASE_CONTRACT_COMPATIBLE_EXPAND' <<<"$MIXED_PHASE_EXPAND_LOG"; then
-  printf '%s\n' 'Contracted base with room EXPAND was not recognized.' >&2
-  exit 1
-fi
-MIXED_PHASE_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
-select count(*) from schema_migrations where version in (
-  '0008_remove_legacy_company_id_fallback',
-  '0010_global_login_id_contract',
-  '0012_account_provider_exact_dispatch_contract',
-  '0015_neon_definer_contract_hardening'
-);
-select count(*) from schema_migrations where version = '0019_hotel_room_management';
-select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening';
-select count(*)
-from pg_policy policy_record
-join pg_class policy_table on policy_table.oid = policy_record.polrelid
-join pg_namespace policy_namespace on policy_namespace.oid = policy_table.relnamespace
-where policy_namespace.nspname = 'public'
-  and policy_table.relname in (
-    'hotel_room_types', 'hotel_rooms', 'hotel_room_status_history'
-  )
-  and pg_get_expr(policy_record.polqual, policy_record.polrelid) like '%current_setting%';
-SQL
-)"
-if [[ "$MIXED_PHASE_STATE" != $'4\n1\n0\n3' ]]; then
-  printf '%s\n' 'Mixed base CONTRACT and room EXPAND state was not preserved.' >&2
-  exit 1
-fi
-
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
-  -f "$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql" \
+  -c "delete from schema_migrations where version = '0022_hotel_room_contract_hardening'" \
   >/dev/null
+set +e
+PARTIAL_ROOM_EXPAND_LOG="$(run_provision EXPAND 2>&1)"
+PARTIAL_ROOM_EXPAND_STATUS=$?
+set -e
+if [[ "$PARTIAL_ROOM_EXPAND_STATUS" -eq 0 ]] ||
+  ! grep -Fq 'Preview API runtime readiness failed in EXPAND: SCHEMA_NOT_READY' \
+    <<<"$PARTIAL_ROOM_EXPAND_LOG"; then
+  printf '%s\n' 'Irreversible room CONTRACT marker loss did not fail safely.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into schema_migrations (version) values ('0022_hotel_room_contract_hardening')" \
+  >/dev/null
+run_provision CONTRACT >/dev/null
+API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
+RECONCILER_URL="$(<"$RECONCILER_URL_FILE")"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 delete from schema_migrations where version in (
   '0008_remove_legacy_company_id_fallback',

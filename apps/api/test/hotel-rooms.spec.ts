@@ -47,7 +47,6 @@ const internalRoom: HotelRoomInternal = {
   status: "ACTIVE",
   internalNote: "내부 메모",
   ownerVisibleNote: "공개 메모",
-  plannedResumeDate: null,
   version: 1,
   createdAt: "2026-07-25T00:00:00.000Z",
   updatedAt: "2026-07-25T00:00:00.000Z",
@@ -100,7 +99,11 @@ function roomService(overrides: Partial<RoomService> = {}): RoomService {
     })),
     changeRoomStatus: vi.fn(async () => ({
       status: "STATUS_CHANGED",
-      room: { ...internalRoom, status: "OUT_OF_SERVICE", version: 2 },
+      room: { ...internalRoom, status: "INACTIVE", version: 2 },
+    })),
+    deleteRoom: vi.fn(async () => ({
+      status: "STATUS_CHANGED",
+      room: { ...internalRoom, status: "DELETED", version: 2 },
     })),
     ...overrides,
   } as RoomService;
@@ -130,7 +133,7 @@ describe("HOTEL-MVP-020 room API", () => {
       createRoom,
     } as unknown as RoomRepository);
     await service.createRoom(
-      principal,
+      { ...principal, sessionToken: "opaque-session-token" },
       hotelId,
       createRoomBody,
       "service-idempotency-key",
@@ -247,7 +250,7 @@ describe("HOTEL-MVP-020 room API", () => {
     );
     expect(response.status).toBe(201);
     expect(createRoom).toHaveBeenCalledWith(
-      principal,
+      { ...principal, sessionToken: "opaque-session-token" },
       hotelId,
       createRoomBody,
       headers["idempotency-key"],
@@ -265,7 +268,7 @@ describe("HOTEL-MVP-020 room API", () => {
     expect(createRoom).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects an ACTIVE status with planned resume date before service", async () => {
+  it("rejects legacy lifecycle fields before the status service", async () => {
     const changeRoomStatus = vi.fn();
     const response = await app(roomService({ changeRoomStatus })).request(
       `/api/hotels/${hotelId}/rooms/${roomId}/status`,
@@ -273,8 +276,8 @@ describe("HOTEL-MVP-020 room API", () => {
         method: "POST",
         headers,
         body: JSON.stringify({
-          status: "ACTIVE",
-          reason: "운영 재개",
+          status: "INACTIVE",
+          reason: "사용중지",
           plannedResumeDate: "2026-08-01",
           version: 1,
         }),
@@ -282,6 +285,44 @@ describe("HOTEL-MVP-020 room API", () => {
     );
     expect(response.status).toBe(400);
     expect(changeRoomStatus).not.toHaveBeenCalled();
+  });
+
+  it("strict-validates and forwards the terminal room delete command", async () => {
+    const deleteRoom = vi.fn(async () => ({
+      status: "STATUS_CHANGED" as const,
+      room: { ...internalRoom, status: "DELETED" as const, version: 2 },
+    }));
+    const response = await app(roomService({ deleteRoom })).request(
+      `/api/hotels/${hotelId}/rooms/${roomId}/delete`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ version: 1, reason: "객실 기준정보 삭제" }),
+      },
+    );
+    expect(response.status).toBe(200);
+    expect(deleteRoom).toHaveBeenCalledWith(
+      { ...principal, sessionToken: "opaque-session-token" },
+      hotelId,
+      roomId,
+      { version: 1, reason: "객실 기준정보 삭제" },
+      headers["idempotency-key"],
+    );
+
+    const invalid = await app(roomService({ deleteRoom })).request(
+      `/api/hotels/${hotelId}/rooms/${roomId}/delete`,
+      {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          version: 1,
+          reason: "객실 기준정보 삭제",
+          status: "DELETED",
+        }),
+      },
+    );
+    expect(invalid.status).toBe(400);
+    expect(deleteRoom).toHaveBeenCalledTimes(1);
   });
 
   it.each([

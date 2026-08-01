@@ -124,7 +124,6 @@ describe("hotel list and detail views", () => {
               status: "ACTIVE",
               internalNote: "목록 비노출 내부메모",
               ownerVisibleNote: "엘리베이터 인접",
-              plannedResumeDate: null,
               version: 1,
               createdAt: "2026-07-25T00:00:00.000Z",
               updatedAt: "2026-07-25T00:00:00.000Z",
@@ -146,6 +145,8 @@ describe("hotel list and detail views", () => {
     expect(html).toContain("객실 등록");
     expect(html).toContain("객실유형 관리");
     expect(html).toContain("101");
+    expect(html).toContain("활성");
+    expect(html).not.toContain("운영중");
     expect(html).not.toContain("목록 비노출 내부메모");
     expect(html).toContain('aria-label="호텔 상세 도움말"');
     expect(html).not.toContain('type="text" name="userId"');

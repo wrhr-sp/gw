@@ -509,11 +509,7 @@ export const authSessionResponseSchema = z
 export const hotelRoomTypeScopeSchema = z.enum(["COMPANY", "HOTEL"]);
 export type HotelRoomTypeScope = z.infer<typeof hotelRoomTypeScopeSchema>;
 
-export const hotelRoomStatusSchema = z.enum([
-  "ACTIVE",
-  "TEMP_SUSPENDED",
-  "OUT_OF_SERVICE",
-]);
+export const hotelRoomStatusSchema = z.enum(["ACTIVE", "INACTIVE", "DELETED"]);
 export type HotelRoomStatus = z.infer<typeof hotelRoomStatusSchema>;
 
 const roomTypeNameSchema = z
@@ -582,9 +578,23 @@ export type HotelRoomType = z.infer<typeof hotelRoomTypeSchema>;
 const hotelRoomInputFields = {
   roomNumber: z
     .string()
-    .trim()
     .min(1, { error: "객실번호를 입력해 주세요." })
-    .max(40, { error: "객실번호는 40자 이하여야 합니다." }),
+    .max(80, { error: "객실번호는 앞뒤 공백을 포함해 80자 이하여야 합니다." })
+    .refine(
+      (value) =>
+        value.replace(/^ +| +$/gu, "").length === 0 ||
+        /^ *[A-Za-z0-9][A-Za-z0-9._/-]* *$/u.test(value),
+      {
+        error: "객실번호는 영문, 숫자, 점, 밑줄, 빗금, 붙임표만 입력해 주세요.",
+      },
+    )
+    .transform((value) => value.replace(/^ +| +$/gu, "").toUpperCase())
+    .pipe(
+      z
+        .string()
+        .min(1, { error: "객실번호를 입력해 주세요." })
+        .max(40, { error: "객실번호는 40자 이하여야 합니다." }),
+    ),
   floorLabel: z
     .string()
     .trim()
@@ -632,38 +642,37 @@ export type UpdateHotelRoomRequest = z.infer<
   typeof updateHotelRoomRequestSchema
 >;
 
+const hotelRoomLifecycleReasonSchema = z
+  .string()
+  .trim()
+  .min(2, { error: "변경 사유를 2자 이상 입력해 주세요." })
+  .max(500, { error: "변경 사유는 500자 이하여야 합니다." });
+
 export const changeHotelRoomStatusRequestSchema = z
   .object({
-    status: hotelRoomStatusSchema,
-    reason: z
-      .string()
-      .trim()
-      .min(2, { error: "변경 사유를 2자 이상 입력해 주세요." })
-      .max(500, { error: "변경 사유는 500자 이하여야 합니다." }),
-    plannedResumeDate: z.iso
-      .date({ error: "재개 예정일을 올바르게 입력해 주세요." })
-      .nullable()
-      .optional(),
+    status: z.enum(["ACTIVE", "INACTIVE"]),
+    reason: hotelRoomLifecycleReasonSchema,
     version: z.number().int().positive(),
   })
-  .strict()
-  .superRefine((value, context) => {
-    if (value.status === "ACTIVE" && value.plannedResumeDate) {
-      context.addIssue({
-        code: "custom",
-        path: ["plannedResumeDate"],
-        message: "운영중 객실에는 예정 재개일을 설정할 수 없습니다.",
-      });
-    }
-  });
+  .strict();
 export type ChangeHotelRoomStatusRequest = z.infer<
   typeof changeHotelRoomStatusRequestSchema
+>;
+
+export const deleteHotelRoomRequestSchema = z
+  .object({
+    reason: hotelRoomLifecycleReasonSchema,
+    version: z.number().int().positive(),
+  })
+  .strict();
+export type DeleteHotelRoomRequest = z.infer<
+  typeof deleteHotelRoomRequestSchema
 >;
 
 export const hotelRoomListQuerySchema = z
   .object({
     q: z.string().trim().min(1).max(100).optional(),
-    status: hotelRoomStatusSchema.optional(),
+    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
     roomTypeId: z.uuid().optional(),
     page: z.coerce.number().int().min(1).default(1),
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -680,7 +689,6 @@ const hotelRoomResponseFields = {
   roomType: hotelRoomTypeSchema.pick({ id: true, name: true, scope: true }),
   status: hotelRoomStatusSchema,
   ownerVisibleNote: roomNoteSchema,
-  plannedResumeDate: z.iso.date().nullable(),
   version: z.number().int().positive(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),
@@ -809,6 +817,8 @@ export const hotelRoutes = {
     `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}` as const,
   roomStatus: (hotelId: string, roomId: string) =>
     `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/status` as const,
+  roomDelete: (hotelId: string, roomId: string) =>
+    `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/delete` as const,
   inspections: (hotelId: string) =>
     `${hotelPath(hotelId)}/inspections` as const,
   issues: (hotelId: string) => `${hotelPath(hotelId)}/issues` as const,

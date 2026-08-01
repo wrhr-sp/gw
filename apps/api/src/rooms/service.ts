@@ -4,12 +4,15 @@ import {
   type ChangeHotelRoomStatusRequest,
   type CreateHotelRoomRequest,
   type CreateHotelRoomTypeRequest,
+  type DeleteHotelRoomRequest,
   type HotelRoomListQuery,
   type UpdateHotelRoomRequest,
   type UpdateHotelRoomTypeRequest,
 } from "@werehere/contracts";
 import type { RoomRepository } from "@werehere/db";
 import { sha256 } from "../auth/crypto";
+
+type RoomMutationPrincipal = AuthenticatedPrincipal & { sessionToken: string };
 
 export class RoomServiceError extends Error {
   constructor(
@@ -51,25 +54,32 @@ export interface RoomService {
     roomId: string,
   ): ReturnType<RoomRepository["getRoom"]>;
   createRoom(
-    principal: AuthenticatedPrincipal,
+    principal: RoomMutationPrincipal,
     hotelId: string,
     value: CreateHotelRoomRequest,
     idempotencyKey: string,
   ): ReturnType<RoomRepository["createRoom"]>;
   updateRoom(
-    principal: AuthenticatedPrincipal,
+    principal: RoomMutationPrincipal,
     hotelId: string,
     roomId: string,
     value: UpdateHotelRoomRequest,
     idempotencyKey: string,
   ): ReturnType<RoomRepository["updateRoom"]>;
   changeRoomStatus(
-    principal: AuthenticatedPrincipal,
+    principal: RoomMutationPrincipal,
     hotelId: string,
     roomId: string,
     value: ChangeHotelRoomStatusRequest,
     idempotencyKey: string,
   ): ReturnType<RoomRepository["changeRoomStatus"]>;
+  deleteRoom(
+    principal: RoomMutationPrincipal,
+    hotelId: string,
+    roomId: string,
+    value: DeleteHotelRoomRequest,
+    idempotencyKey: string,
+  ): ReturnType<RoomRepository["deleteRoom"]>;
 }
 
 function actor(principal: AuthenticatedPrincipal) {
@@ -89,12 +99,13 @@ async function requestHash(value: unknown): Promise<string> {
 }
 
 function mutationIdentity(
-  principal: AuthenticatedPrincipal,
+  principal: AuthenticatedPrincipal & { sessionToken?: string },
   hotelId: string,
   idempotencyKey: string,
   httpMethod: "PATCH" | "POST",
   operationPath: string,
 ) {
+  const sessionToken = principal.sessionToken;
   return {
     actor: actor(principal),
     auditEventId: crypto.randomUUID(),
@@ -103,6 +114,7 @@ function mutationIdentity(
     idempotencyKey,
     idempotencyRecordId: crypto.randomUUID(),
     operationPath,
+    ...(sessionToken ? { sessionToken } : {}),
     traceId: crypto.randomUUID(),
   };
 }
@@ -191,6 +203,21 @@ export function createRoomService(repository: RoomRepository): RoomService {
           idempotencyKey,
           "POST",
           hotelRoutes.roomStatus(hotelId, roomId),
+        ),
+        historyId: crypto.randomUUID(),
+        requestHash: await requestHash(value),
+        roomId,
+        value,
+      });
+    },
+    async deleteRoom(principal, hotelId, roomId, value, idempotencyKey) {
+      return repository.deleteRoom({
+        ...mutationIdentity(
+          principal,
+          hotelId,
+          idempotencyKey,
+          "POST",
+          hotelRoutes.roomDelete(hotelId, roomId),
         ),
         historyId: crypto.randomUUID(),
         requestHash: await requestHash(value),

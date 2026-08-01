@@ -449,6 +449,10 @@ try {
       "0024_preview_bootstrap_session_revocations",
       "0024_preview_bootstrap_session_revocations.sql",
     ],
+    [
+      "0025_hotel_room_reference_lifecycle",
+      "0025_hotel_room_reference_lifecycle.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -458,6 +462,7 @@ try {
     "0022_hotel_room_contract_hardening",
     "0023_login_id_registry_history_contract",
     "0024_preview_bootstrap_session_revocations",
+    "0025_hotel_room_reference_lifecycle",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1397,6 +1402,12 @@ try {
       set capability = excluded.capability,
           provisioned_at = now()
     `;
+    if (contractCompatibleAclPhase) {
+      await sql`
+        delete from runtime_database_capabilities
+        where role_name = 'werehere_preview_runtime'
+      `;
+    }
     capabilityRows = await sql<{ capability: string; role_name: string }[]>`
       select role_name::text, capability
       from runtime_database_capabilities
@@ -1430,18 +1441,27 @@ try {
            ) as compatible_capability
   `;
   const legacyCompatibilityGrant =
-    !contractPhase &&
+    !contractCompatibleAclPhase &&
     legacyRuntimeState?.exists &&
     legacyRuntimeState.compatible_capability
       ? ", werehere_preview_runtime"
       : "";
   const legacyPolicyGrant =
-    contractPhase && legacyRuntimeState?.exists
+    contractCompatibleAclPhase && legacyRuntimeState?.exists
       ? ", werehere_preview_runtime"
       : "";
   const apiRuntimeTableGrantees = `${apiRuntimeRole}${legacyCompatibilityGrant}`;
+  const [roomLifecycleState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0025_hotel_room_reference_lifecycle'
+    ) as contracted
+  `;
+  if (!roomLifecycleState) {
+    fail("Preview room lifecycle marker state is unavailable");
+  }
 
-  if (contractPhase && legacyRuntimeState?.exists) {
+  if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
       revoke all privileges on all tables in schema public from werehere_preview_runtime;
       revoke all privileges on all sequences in schema public from werehere_preview_runtime;
@@ -1671,15 +1691,25 @@ try {
 
     grant insert on audit_events, branches, hotel_profiles, auth_identities,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
-      hotel_room_types, hotel_rooms, hotel_room_status_history
+      hotel_room_types${roomLifecycleState.contracted ? "" : ", hotel_rooms"}
+      ${roomLifecycleState.contracted ? "" : ", hotel_room_status_history"}
     to ${apiRuntimeTableGrantees};
     grant update (name, display_order, is_active, version, updated_by, updated_at)
       on hotel_room_types to ${apiRuntimeTableGrantees};
-    grant update (
+    ${
+      roomLifecycleState.contracted
+        ? `
+    revoke insert on hotel_rooms from ${apiRuntimeRole}${legacyPolicyGrant};
+    revoke update (
       room_number, floor_label, floor_sort_key, room_type_id, status,
-      internal_note, owner_visible_note, planned_resume_date,
+      internal_note, owner_visible_note, version, updated_by, updated_at
+    ) on hotel_rooms from ${apiRuntimeRole}${legacyPolicyGrant};`
+        : `grant update (
+      room_number, floor_label, floor_sort_key, room_type_id,
+      status, internal_note, owner_visible_note, planned_resume_date,
       version, updated_by, updated_at
-    ) on hotel_rooms to ${apiRuntimeTableGrantees};
+    ) on hotel_rooms to ${apiRuntimeTableGrantees};`
+    }
     grant insert, update on users, account_provisioning_attempts,
       initial_password_change_attempts to ${apiRuntimeTableGrantees};
     grant insert on login_id_registry to ${apiRuntimeTableGrantees};
@@ -1705,6 +1735,68 @@ try {
     }
     grant insert, update, delete on idempotency_records to ${apiRuntimeTableGrantees};
     grant insert, update on outbox_jobs to ${apiRuntimeTableGrantees};
+    ${
+      roomLifecycleState.contracted
+        ? `
+    do $exact_room_command_acl$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select procedure_record.oid::regprocedure::text as signature,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+          left join pg_catalog.pg_roles grantee_role
+            on grantee_role.oid = acl.grantee
+         where procedure_namespace.nspname = 'public'
+           and procedure_record.proname in (
+             'hotel_room_lifecycle_command_v1',
+             'hotel_room_write_command_v1'
+           )
+           and acl.privilege_type = 'EXECUTE'
+           and acl.grantee <> procedure_record.proowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from public cascade',
+            acl_record.signature
+          );
+        else
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from %I cascade',
+            acl_record.signature,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $exact_room_command_acl$;
+    revoke all privileges on function public.hotel_room_lifecycle_command_v1(
+      uuid, uuid, uuid, integer, text, text, uuid, uuid, uuid,
+      text, text, text, text, text, uuid
+    ) from public, ${reconcilerRole}${legacyPolicyGrant};
+    grant execute on function public.hotel_room_lifecycle_command_v1(
+      uuid, uuid, uuid, integer, text, text, uuid, uuid, uuid,
+      text, text, text, text, text, uuid
+    ) to ${apiRuntimeRole};
+    revoke all privileges on function public.hotel_room_write_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, uuid, uuid,
+      text, text, text, text, text, uuid
+    ) from public, ${reconcilerRole}${legacyPolicyGrant};
+    grant execute on function public.hotel_room_write_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, uuid, uuid,
+      text, text, text, text, text, uuid
+    ) to ${apiRuntimeRole};
+    `
+        : ""
+    }
 
     grant select on
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
@@ -1806,7 +1898,7 @@ try {
       revoke execute on function public.auth_revoke_hotel_owner_sessions_v1(uuid, uuid)
         from ${reconcilerRole}${legacyPolicyGrant};
       ${
-        contractPhase && legacyRuntimeState?.exists
+        contractCompatibleAclPhase && legacyRuntimeState?.exists
           ? `
       revoke execute on function public.auth_create_session_v2(
         uuid, bytea, text, integer, integer, timestamptz, uuid
@@ -1897,7 +1989,7 @@ try {
       grant execute on function public.reconciliation_company_ids() to ${reconcilerRole};
       revoke execute on function public.reconciliation_company_ids() from ${apiRuntimeRole};
       ${
-        contractPhase && legacyRuntimeState?.exists
+        contractCompatibleAclPhase && legacyRuntimeState?.exists
           ? `
       revoke execute on function public.runtime_is_schema_owner(),
         public.runtime_has_capability(text),
@@ -1915,7 +2007,7 @@ try {
     await sql.unsafe(tenantDefinerCommands.revoke_membership);
   });
 
-  if (contractPhase && legacyRuntimeState?.exists) {
+  if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
     const [legacyAccess] = await owner<
       { capability: boolean; schema_access: boolean; object_acl: boolean }[]
     >`
@@ -2097,16 +2189,8 @@ try {
   const requiredRolloutPhase = contractCompatibleAclPhase
     ? "CONTRACT"
     : provisionPhase;
-  const [roomRolloutState] = await owner<{ contracted: boolean }[]>`
-    select exists (
-      select 1 from public.schema_migrations
-      where version = '0022_hotel_room_contract_hardening'
-    ) as contracted
-  `;
-  if (!roomRolloutState)
-    fail("Preview room rollout marker state is unavailable");
   const requiredRoomRolloutPhase: "CONTRACT" | "EXPAND" =
-    roomRolloutState.contracted
+    roomLifecycleState.contracted
       ? "CONTRACT"
       : provisionPhase === "CONTRACT"
         ? "CONTRACT"

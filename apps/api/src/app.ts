@@ -9,6 +9,7 @@ import {
   customLoginRequestSchema,
   createHotelRequestSchema,
   deactivateAccountRequestSchema,
+  deleteHotelRoomRequestSchema,
   endHotelAssignmentRequestSchema,
   hotelCandidateQuerySchema,
   hotelEligibleCandidatesResponseSchema,
@@ -415,6 +416,16 @@ export function createApp(options: CreateAppOptions = {}) {
     )
       throw new AccountServiceError("PASSWORD_CHANGE_REQUIRED", 403, false);
     return principal;
+  }
+
+  function roomMutationPrincipal(
+    context: Context<{ Bindings: Bindings }>,
+    principal: AuthenticatedPrincipal,
+  ) {
+    const sessionToken = readUniqueCookie(context, SESSION_COOKIE_NAME);
+    if (!sessionToken)
+      throw new AuthServiceError("AUTHENTICATION_REQUIRED", 401, false);
+    return { ...principal, sessionToken };
   }
 
   function validationFailure(
@@ -1724,7 +1735,12 @@ export function createApp(options: CreateAppOptions = {}) {
       if (!parsed.success)
         return validationFailure(context, zodFieldErrors(parsed.error.issues));
       const result = await withRoomService(context.env, (service) =>
-        service.createRoom(principal, hotelId.data, parsed.data, key),
+        service.createRoom(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          parsed.data,
+          key,
+        ),
       );
       if (!("room" in result))
         return mutationFailure(
@@ -1816,7 +1832,7 @@ export function createApp(options: CreateAppOptions = {}) {
         return validationFailure(context, zodFieldErrors(parsed.error.issues));
       const result = await withRoomService(context.env, (service) =>
         service.updateRoom(
-          principal,
+          roomMutationPrincipal(context, principal),
           hotelId.data,
           roomId.data,
           parsed.data,
@@ -1879,7 +1895,67 @@ export function createApp(options: CreateAppOptions = {}) {
           );
         const result = await withRoomService(context.env, (service) =>
           service.changeRoomStatus(
-            principal,
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            roomId.data,
+            parsed.data,
+            key,
+          ),
+        );
+        if (!("room" in result)) return mutationFailure(context, result.status);
+        return context.json(
+          hotelRoomMutationResponseSchema.parse({
+            ok: true,
+            data: { room: result.room },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.post(
+    "/api/hotels/:hotelId/rooms/:roomId/delete",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const roomId = HOTEL_ID_SCHEMA.safeParse(context.req.param("roomId"));
+        if (!hotelId.success || !roomId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        const key = idempotencyKey(context);
+        if (!key)
+          return validationFailure(context, [
+            {
+              field: "idempotencyKey",
+              message: "Idempotency-Key 헤더가 필요합니다.",
+            },
+          ]);
+        const parsed = deleteHotelRoomRequestSchema.safeParse(
+          await context.req.json().catch(() => undefined),
+        );
+        if (!parsed.success)
+          return validationFailure(
+            context,
+            zodFieldErrors(parsed.error.issues),
+          );
+        const result = await withRoomService(context.env, (service) =>
+          service.deleteRoom(
+            roomMutationPrincipal(context, principal),
             hotelId.data,
             roomId.data,
             parsed.data,
