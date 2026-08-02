@@ -7,6 +7,7 @@ import {
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
   createInspectionChecklistRevisionRequestSchema,
+  createInspectionRoutineRequestSchema,
   createManualInspectionRequestSchema,
   createProcessDefinitionRequestSchema,
   customLoginRequestSchema,
@@ -33,6 +34,8 @@ import {
   hotelRoomTypeMutationResponseSchema,
   inspectionChecklistResponseSchema,
   inspectionExecutionResponseSchema,
+  inspectionRoutineListResponseSchema,
+  inspectionRoutineResponseSchema,
   processDefinitionListResponseSchema,
   processDefinitionResponseSchema,
   processDefaultResponseSchema,
@@ -2700,6 +2703,151 @@ export function createApp(options: CreateAppOptions = {}) {
       return hotelFailure(context, error);
     }
   });
+
+  hotelApp.get("/api/hotels/:hotelId/inspection-routines", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const routines = await withInspectionService(context.env, (service) =>
+        service.listRoutines(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+        ),
+      );
+      return context.json(
+        inspectionRoutineListResponseSchema.parse({
+          ok: true,
+          data: { routines },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get(
+    "/api/hotels/:hotelId/inspection-routines/:routineId",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const routineId = HOTEL_ID_SCHEMA.safeParse(
+          context.req.param("routineId"),
+        );
+        if (!hotelId.success || !routineId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        const routine = await withInspectionService(context.env, (service) =>
+          service.getRoutine(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            routineId.data,
+          ),
+        );
+        return context.json(
+          inspectionRoutineResponseSchema.parse({
+            ok: true,
+            data: { routine },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  const saveInspectionRoutineRoute = async (
+    context: Context,
+    routineId: string | null,
+  ) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = createInspectionRoutineRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const routine = await withInspectionService(context.env, (service) =>
+        service.saveRoutine(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          routineId,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        inspectionRoutineResponseSchema.parse({
+          ok: true,
+          data: { routine },
+          error: null,
+        }),
+        routineId ? 200 : 201,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  };
+
+  hotelApp.post("/api/hotels/:hotelId/inspection-routines", (context) =>
+    saveInspectionRoutineRoute(context, null),
+  );
+  hotelApp.put(
+    "/api/hotels/:hotelId/inspection-routines/:routineId",
+    (context) => {
+      const routineId = HOTEL_ID_SCHEMA.safeParse(
+        context.req.param("routineId"),
+      );
+      if (!routineId.success) return mutationFailure(context, "NOT_FOUND");
+      return saveInspectionRoutineRoute(context, routineId.data);
+    },
+  );
 
   hotelApp.post("/api/hotels/:hotelId/inspections/manual", async (context) => {
     context.header("Cache-Control", "no-store");

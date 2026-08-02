@@ -33,8 +33,16 @@ export default async function InspectionSettingsPage({
     <InspectionConfigurationPanel
       hotelId={hotelId}
       initialChecklist={configuration.checklist}
+      initialRoutines={configuration.routines}
       processDefinitions={configuration.definitions}
       reviewerCandidates={configuration.reviewerCandidates}
+      rooms={roomData.data.rooms.map((room) => ({
+        floorLabel: room.floorLabel,
+        id: room.id,
+        roomNumber: room.roomNumber,
+        roomTypeId: room.roomType.id,
+        status: room.status,
+      }))}
       roomTypes={roomData.data.roomTypes}
     />
   );

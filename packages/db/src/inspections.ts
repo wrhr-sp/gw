@@ -35,6 +35,7 @@ export type ProcessMutationInput = Omit<
   action: "SAVE_DEFINITION" | "SET_DEFAULT";
   hotelId: string | null;
 };
+export type RoutineMutationInput = Omit<InspectionCommandInput, "action">;
 
 export interface InspectionRepository {
   close(): Promise<void>;
@@ -81,6 +82,16 @@ export interface InspectionRepository {
   processMutation?(
     input: ProcessMutationInput,
   ): Promise<InspectionCommandResult>;
+  routineRead?(input: {
+    companyId: string;
+    hotelId: string;
+    routineId: string | null;
+    sessionId: string;
+    sessionToken: string;
+  }): Promise<InspectionCommandResult>;
+  routineMutation?(
+    input: RoutineMutationInput,
+  ): Promise<InspectionCommandResult>;
 
   readInspection(input: {
     companyId: string;
@@ -100,6 +111,8 @@ export type InspectionApiRepository = Pick<
   | "processDefaultRead"
   | "processReviewerCandidates"
   | "processMutation"
+  | "routineRead"
+  | "routineMutation"
   | "readInspection"
 >;
 
@@ -209,6 +222,41 @@ export function createPostgresInspectionRepository(
               ${input.sessionToken}::text, null::uuid, null::text,
               'POST'::text, '/api/read-only'::text, null::text,
               null::uuid, null::uuid
+            )
+          `,
+        );
+      });
+    },
+    async routineRead(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_routines_read_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.routineId}::uuid, ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
+    async routineMutation(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_routine_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId}::uuid, ${input.expectedVersion}::integer,
+              ${transaction.json(input.value as never)}::jsonb,
+              ${input.sessionToken}::text, ${input.idempotencyKey}::text,
+              ${input.httpMethod}::text, ${input.operationPath}::text,
+              ${input.requestHash}::text, ${input.idempotencyRecordId}::uuid,
+              ${input.auditEventId}::uuid, ${input.traceId}::uuid
             )
           `,
         );

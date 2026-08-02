@@ -35,6 +35,21 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
+    digest: "860058d8d96c8512490c1d1e065aa30ced3ae74586f91156d14084ac0c59c3a4",
+    name: "hotel_inspection_routines_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_inspection_routines_read_v1(uuid,uuid,uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "a220c9d3366847cec3a2e3697a088384aa1d3edb793cf4fca803f375797de07e",
+    name: "hotel_inspection_routine_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_routine_command_v1(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
     digest: "666cf1980fb1bb629097e96c2a0ddaa0f3e349f9cdb833cf042e4e305cb1b010",
     name: "hotel_inspection_command_v1",
     result: "TABLE(command_status text, result_snapshot jsonb)",
@@ -68,7 +83,7 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "RECONCILER",
-    digest: "a92d38909edf2003148cf61b71c96abe2497b1bf9258e87081b6a0fe5a699ea5",
+    digest: "937af566b927a8820c421dc2a5e678bc318ac9c1c6400648a9a7b621a7f6d193",
     name: "hotel_inspection_complete_materialization_v1",
     result: "TABLE(result_status text, created_count integer)",
     signature:
@@ -1447,6 +1462,7 @@ export async function probeDatabaseReadiness(
         hotel_file_finalizer_recovery_marker_count: number;
         hotel_process_default_read_marker_count: number;
         hotel_process_reviewer_candidates_marker_count: number;
+        hotel_inspection_routine_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1505,7 +1521,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_process_default_read_marker_count,
              count(*) filter (
                where version = '0029_hotel_process_reviewer_candidates'
-             )::integer as hotel_process_reviewer_candidates_marker_count
+             )::integer as hotel_process_reviewer_candidates_marker_count,
+             count(*) filter (
+               where version = '0030_hotel_inspection_routine_contract'
+             )::integer as hotel_inspection_routine_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1533,7 +1552,8 @@ export async function probeDatabaseReadiness(
         '0026_hotel_inspection_process_and_files',
         '0027_hotel_file_finalizer_recovery',
         '0028_hotel_process_default_read_contract',
-        '0029_hotel_process_reviewer_candidates'
+        '0029_hotel_process_reviewer_candidates',
+        '0030_hotel_inspection_routine_contract'
       )
     `;
     const schemaPhase =
@@ -1571,13 +1591,15 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_inspection_process_marker_count === 1 &&
       migrationRows[0].hotel_file_finalizer_recovery_marker_count === 1 &&
       migrationRows[0].hotel_process_default_read_marker_count === 1 &&
-      migrationRows[0].hotel_process_reviewer_candidates_marker_count === 1
+      migrationRows[0].hotel_process_reviewer_candidates_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_routine_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
             migrationRows[0].hotel_file_finalizer_recovery_marker_count === 0 &&
             migrationRows[0].hotel_process_default_read_marker_count === 0 &&
             migrationRows[0].hotel_process_reviewer_candidates_marker_count ===
-              0
+              0 &&
+            migrationRows[0].hotel_inspection_routine_marker_count === 0
           ? "EXPAND"
           : null;
     if (
@@ -1586,6 +1608,10 @@ export async function probeDatabaseReadiness(
       !roomPolicyPhase ||
       !loginIdHistoryPhase ||
       !inspectionProcessPhase ||
+      (inspectionProcessPhase === "CONTRACT" &&
+        !columns.has("inspection_routine_revisions.checklist_revision_id")) ||
+      (inspectionProcessPhase === "EXPAND" &&
+        columns.has("inspection_routine_revisions.checklist_revision_id")) ||
       (roomSchemaPhase === "EXPAND" &&
         !columns.has("hotel_rooms.planned_resume_date")) ||
       (roomSchemaPhase === "CONTRACT" &&
