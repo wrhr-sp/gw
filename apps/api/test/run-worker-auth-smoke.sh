@@ -80,7 +80,16 @@ GRANT SELECT ON
   branches, hotel_profiles, idempotency_records, outbox_jobs,
   account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
-  hotel_room_types, hotel_rooms, hotel_room_status_history
+  hotel_room_types, hotel_rooms, hotel_room_status_history,
+  process_definitions, process_definition_revisions,
+  process_stage_snapshots, process_transition_snapshots, hotel_process_defaults,
+  process_executions, process_execution_history,
+  inspection_checklist_revisions, inspection_checklist_items,
+  inspection_checklist_item_exclusions, inspection_routines,
+  inspection_routine_revisions, inspection_routine_rounds,
+  hotel_inspections, inspection_item_snapshots, inspection_item_results,
+  inspection_item_result_history, hotel_file_uploads, hotel_file_versions,
+  hotel_file_links, hotel_file_finalizer_capabilities
 TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_login_transactions TO $RUNTIME_ROLE;
 GRANT INSERT, UPDATE, DELETE ON auth_credential_rate_limits TO $RUNTIME_ROLE;
@@ -120,6 +129,18 @@ GRANT EXECUTE ON FUNCTION
   public.hotel_room_lifecycle_command_v1(
     uuid, uuid, uuid, integer, text, text, uuid, uuid, uuid,
     text, text, text, text, text, uuid
+  ),
+  public.hotel_process_command_v1(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
+  ),
+  public.hotel_inspection_command_v1(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
+  ),
+  public.hotel_file_command_v1(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
   )
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
@@ -130,7 +151,8 @@ GRANT SELECT ON
   schema_migrations, companies, permissions, users, auth_identities, branches,
   hotel_profiles, runtime_database_capabilities, outbox_jobs,
   account_provisioning_attempts, hotel_staff_assignments,
-  housekeeping_hotel_links, hotel_owner_assignments
+  housekeeping_hotel_links, hotel_owner_assignments,
+  hotel_file_finalizer_capabilities
 TO $RECONCILER_ROLE;
 GRANT INSERT ON users, auth_identities, audit_events, outbox_jobs,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
@@ -139,7 +161,10 @@ GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO $RECONCILER_ROLE;
 GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.runtime_is_schema_owner(), public.runtime_has_capability(text),
   public.api_current_company_id(), public.reconciler_current_company_id(),
-  public.reconciliation_company_ids()
+  public.reconciliation_company_ids(),
+  public.hotel_file_scan_command_v1(uuid, text, text, bigint, jsonb, uuid),
+  public.hotel_inspection_claim_materialization_v1(uuid, bytea, integer),
+  public.hotel_inspection_complete_materialization_v1(uuid, bigint, bytea, uuid)
 TO $RECONCILER_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RECONCILER_ROLE', 'RECONCILER')
