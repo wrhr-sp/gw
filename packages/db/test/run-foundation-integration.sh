@@ -963,7 +963,7 @@ if (ready.status !== "READY") throw new Error(`expected READY, received ${ready.
 NODE
   )
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
-    -c "grant update (description) on public.inspection_item_results to gw_api_probe" >/dev/null
+    -c "grant update (description) on public.inspection_item_results to gw_runtime_probe" >/dev/null
   (
     cd "$ROOT_DIR"
     TEST_READY_URL="$PROBE_URL" pnpm exec tsx <<'NODE'
@@ -976,7 +976,7 @@ if (damaged.status !== "SCHEMA_NOT_READY") {
 NODE
   )
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
-    -c "revoke update (description) on public.inspection_item_results from gw_api_probe" >/dev/null
+    -c "revoke update (description) on public.inspection_item_results from gw_runtime_probe" >/dev/null
   (
     cd "$ROOT_DIR"
     TEST_READY_URL="$PROBE_URL" pnpm exec tsx <<'NODE'
