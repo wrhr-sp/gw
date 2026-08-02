@@ -41,6 +41,7 @@ import {
   createInspectionRoutineRequestSchema,
   createManualInspectionRequestSchema,
   createProcessDefinitionRequestSchema,
+  processDefaultResponseSchema,
   deleteHotelRoomRequestSchema,
   hotelFileRoutes,
   hotelFileUploadCompleteRequestSchema,
@@ -1074,6 +1075,30 @@ describe("hotel platform contracts", () => {
         reason: "현장점검 완료",
       }),
     ).toEqual({ version: 2, reason: "현장점검 완료" });
+  });
+
+  it("requires a versioned canonical hotel process default snapshot", () => {
+    expect(
+      processDefaultResponseSchema.parse({
+        ok: true,
+        data: { default: null },
+        error: null,
+      }).data.default,
+    ).toBeNull();
+    expect(
+      processDefaultResponseSchema.safeParse({
+        ok: true,
+        data: {
+          default: {
+            hotelId: "82000000-0000-4000-8000-000000000001",
+            applicationType: "ROOM_INSPECTION",
+            definition: {},
+            updatedAt: "2026-08-02T00:00:00.000Z",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("validates manual targets and process transition events", () => {

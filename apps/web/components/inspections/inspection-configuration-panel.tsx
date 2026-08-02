@@ -5,11 +5,13 @@ import {
   inspectionChecklistResponseSchema,
   inspectionChecklistRevisionSchema,
   inspectionRoutes,
+  processDefaultResponseSchema,
   processDefinitionSchema,
+  processRoutes,
   type HotelRoomType,
 } from "@werehere/contracts";
 import { Button, PageHeader, StatusBadge } from "@werehere/ui";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { z } from "zod";
 
@@ -43,7 +45,82 @@ export function InspectionConfigurationPanel({
   const [saved, setSaved] = useState(initialChecklist);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selectedDefaultId, setSelectedDefaultId] = useState("");
+  const [defaultVersion, setDefaultVersion] = useState(0);
+  const [savingDefault, setSavingDefault] = useState(false);
   const idempotencyKey = useRef(crypto.randomUUID());
+  const defaultIdempotencyKey = useRef(crypto.randomUUID());
+
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      const response = await fetch(processRoutes.hotelDefault(hotelId), {
+        cache: "no-store",
+      });
+      const parsed = processDefaultResponseSchema.safeParse(
+        await response.json().catch(() => undefined),
+      );
+      if (!active || !response.ok || !parsed.success) return;
+      setSelectedDefaultId(parsed.data.data.default?.definition.id ?? "");
+      setDefaultVersion(parsed.data.data.default?.version ?? 0);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [hotelId]);
+
+  async function saveDefaultProcess() {
+    if (!selectedDefaultId) {
+      setMessage("기본 프로세스를 선택해 주세요.");
+      return;
+    }
+    setSavingDefault(true);
+    setMessage(null);
+    try {
+      const response = await fetch(processRoutes.hotelDefault(hotelId), {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": defaultIdempotencyKey.current,
+        },
+        body: JSON.stringify({
+          processDefinitionId: selectedDefaultId,
+          version: defaultVersion,
+        }),
+      });
+      const mutation = processDefaultResponseSchema.safeParse(
+        await response.json().catch(() => undefined),
+      );
+      if (!response.ok || !mutation.success || !mutation.data.data.default)
+        throw new Error("기본 프로세스를 저장하지 못했습니다.");
+      const readResponse = await fetch(processRoutes.hotelDefault(hotelId), {
+        cache: "no-store",
+      });
+      const read = processDefaultResponseSchema.safeParse(
+        await readResponse.json().catch(() => undefined),
+      );
+      if (
+        !readResponse.ok ||
+        !read.success ||
+        !read.data.data.default ||
+        read.data.data.default.definition.id !== selectedDefaultId ||
+        read.data.data.default.version !== mutation.data.data.default.version
+      )
+        throw new Error("기본 프로세스 저장 결과를 다시 확인하지 못했습니다.");
+      setDefaultVersion(read.data.data.default.version);
+      defaultIdempotencyKey.current = crypto.randomUUID();
+      setMessage("기본 프로세스를 저장하고 다시 확인했습니다.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "기본 프로세스를 저장하지 못했습니다.",
+      );
+    } finally {
+      setSavingDefault(false);
+    }
+  }
+
   const { control, handleSubmit, register, reset, setValue, watch } =
     useForm<FormValue>({
       defaultValues: {
@@ -150,6 +227,32 @@ export function InspectionConfigurationPanel({
             <li className="text-sm text-muted">등록된 프로세스가 없습니다.</li>
           ) : null}
         </ul>
+        <div className="mt-5 grid gap-3 border-t border-border pt-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+          <label className="text-sm font-semibold" htmlFor="default-process">
+            호텔 기본 프로세스
+            <select
+              className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+              id="default-process"
+              onChange={(event) => setSelectedDefaultId(event.target.value)}
+              value={selectedDefaultId}
+            >
+              <option value="">선택</option>
+              {processDefinitions.map((definition) => (
+                <option key={definition.id} value={definition.id}>
+                  {definition.name} · v{definition.version}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            className="min-h-11"
+            disabled={!selectedDefaultId || savingDefault}
+            onClick={() => void saveDefaultProcess()}
+            type="button"
+          >
+            {savingDefault ? "저장 중…" : "기본 프로세스 저장"}
+          </Button>
+        </div>
       </section>
       <form className="space-y-4" onSubmit={submit}>
         <section className="rounded-panel border border-border bg-surface p-5 md:p-6">

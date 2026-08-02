@@ -43,6 +43,7 @@ export const hotelErrorCodeSchema = z.enum([
   "DEPENDENT_WORK_REASSIGNMENT_REQUIRED",
   "REAUTHENTICATION_REQUIRED",
   "PROCESS_GRAPH_INVALID",
+  "PROCESS_ASSIGNEE_INVALID",
   "PROCESS_DEFAULT_REQUIRED",
   "PROCESS_VERSION_CONFLICT",
   "INSPECTION_CHECKLIST_EMPTY",
@@ -1331,6 +1332,27 @@ export const setDefaultProcessRequestSchema = z
 export type SetDefaultProcessRequest = z.infer<
   typeof setDefaultProcessRequestSchema
 >;
+export const processDefaultSnapshotSchema = z
+  .object({
+    hotelId: z.uuid(),
+    applicationType: processApplicationTypeSchema,
+    definition: processDefinitionSchema,
+    version: z.number().int().positive(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type ProcessDefaultSnapshot = z.infer<
+  typeof processDefaultSnapshotSchema
+>;
+export const processDefaultResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ default: processDefaultSnapshotSchema.nullable() })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
 
 export const inspectionItemSourceSchema = z.enum([
   "HOTEL_COMMON",
