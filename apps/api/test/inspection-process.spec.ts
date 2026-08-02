@@ -32,8 +32,10 @@ describe("inspection process service", () => {
     const readInspection = vi.fn().mockResolvedValue({
       status: "OK",
       payload: {
-        id: "c3000000-0000-4000-8000-000000000001",
-        hotelId: "50000000-0000-4000-8000-000000000001",
+        inspection: {
+          id: "c3000000-0000-4000-8000-000000000001",
+          hotelId: "50000000-0000-4000-8000-000000000001",
+        },
       },
     });
     const service = createInspectionService({
@@ -73,7 +75,7 @@ describe("inspection process service", () => {
       sessionToken: principal.sessionToken,
     });
     const readResult = await readInspection.mock.results[0]!.value;
-    expect(result).toEqual(readResult.payload);
+    expect(result).toEqual(readResult.payload.inspection);
   });
 
   it("adds server-owned IDs and expected version to an abnormal result mutation", async () => {
@@ -83,7 +85,9 @@ describe("inspection process service", () => {
     });
     const readInspection = vi.fn().mockResolvedValue({
       status: "OK",
-      payload: { id: "c3000000-0000-4000-8000-000000000001" },
+      payload: {
+        inspection: { id: "c3000000-0000-4000-8000-000000000001" },
+      },
     });
     const service = createInspectionService({
       close: vi.fn(),
@@ -144,6 +148,7 @@ describe("inspection HTTP API", () => {
         state: "PENDING_INPUT",
         version: 1,
       },
+      rooms: [],
       items: [],
       createdAt: "2026-08-02T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",

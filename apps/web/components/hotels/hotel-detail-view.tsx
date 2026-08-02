@@ -94,6 +94,12 @@ export function HotelDetailView({
             </a>
             <a
               className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
+              href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections`}
+            >
+              점검수행
+            </a>
+            <a
+              className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
               href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections/settings`}
             >
               점검설정

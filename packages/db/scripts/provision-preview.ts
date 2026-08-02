@@ -473,6 +473,10 @@ try {
       "0030_hotel_inspection_routine_contract",
       "0030_hotel_inspection_routine_contract.sql",
     ],
+    [
+      "0031_hotel_inspection_execution_contract",
+      "0031_hotel_inspection_execution_contract.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -488,6 +492,7 @@ try {
     "0028_hotel_process_default_read_contract",
     "0029_hotel_process_reviewer_candidates",
     "0030_hotel_inspection_routine_contract",
+    "0031_hotel_inspection_execution_contract",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1501,6 +1506,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0030_hotel_inspection_routine_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0031_hotel_inspection_execution_contract'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1889,6 +1897,7 @@ try {
              'hotel_process_reviewer_candidates_v1',
              'hotel_inspection_routines_read_v1',
              'hotel_inspection_routine_command_v1',
+             'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v1',
              'hotel_file_command_v1', 'hotel_file_scan_command_v1',
              'hotel_inspection_claim_materialization_v1',
@@ -1929,6 +1938,9 @@ try {
     grant execute on function public.hotel_inspection_routine_command_v1(
       uuid, uuid, uuid, integer, jsonb, text, text, text, text, text,
       uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_executions_read_v1(
+      uuid, uuid, uuid, jsonb, text
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inspection_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
@@ -2378,6 +2390,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0030_hotel_inspection_routine_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0031_hotel_inspection_execution_contract'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {

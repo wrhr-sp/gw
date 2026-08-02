@@ -1,6 +1,8 @@
 import {
   hotelErrorResponseSchema,
   inspectionChecklistResponseSchema,
+  inspectionExecutionListResponseSchema,
+  inspectionExecutionResponseSchema,
   inspectionRoutineListResponseSchema,
   inspectionRoutes,
   processDefinitionListResponseSchema,
@@ -21,6 +23,90 @@ async function request(path: string) {
   } catch {
     return new Response(null, { status: 503 });
   }
+}
+
+export async function fetchInspectionExecutions(hotelId: string) {
+  const firstResponse = await request(
+    `${inspectionRoutes.list(hotelId)}?page=1&pageSize=100&status=PENDING_INPUT`,
+  );
+  if (firstResponse.status === 401) redirect("/login");
+  if (!firstResponse.ok) {
+    const parsed = hotelErrorResponseSchema.safeParse(
+      await firstResponse.json().catch(() => undefined),
+    );
+    return {
+      ok: false as const,
+      error: parsed.success
+        ? parsed.data.error.message
+        : "점검 수행 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    };
+  }
+  const first = inspectionExecutionListResponseSchema.safeParse(
+    await firstResponse.json().catch(() => undefined),
+  );
+  if (!first.success || first.data.data.pagination.totalPages > 100)
+    return {
+      ok: false as const,
+      error:
+        "점검 수행 목록을 안전하게 불러오지 못했습니다. 관리자에게 문의해 주세요.",
+    };
+
+  const inspections = [...first.data.data.inspections];
+  for (let page = 2; page <= first.data.data.pagination.totalPages; page += 1) {
+    const pageResponse = await request(
+      `${inspectionRoutes.list(hotelId)}?page=${page}&pageSize=100&status=PENDING_INPUT`,
+    );
+    if (pageResponse.status === 401) redirect("/login");
+    if (!pageResponse.ok)
+      return {
+        ok: false as const,
+        error:
+          "점검 수행 목록을 모두 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      };
+    const parsedPage = inspectionExecutionListResponseSchema.safeParse(
+      await pageResponse.json().catch(() => undefined),
+    );
+    if (
+      !parsedPage.success ||
+      parsedPage.data.data.pagination.page !== page ||
+      parsedPage.data.data.pagination.totalPages !==
+        first.data.data.pagination.totalPages
+    )
+      return {
+        ok: false as const,
+        error: "점검 수행 목록이 변경되었습니다. 페이지를 새로고침해 주세요.",
+      };
+    inspections.push(...parsedPage.data.data.inspections);
+  }
+
+  const selectedSummary = inspections[0];
+  if (!selectedSummary)
+    return {
+      ok: true as const,
+      inspections,
+      pagination: first.data.data.pagination,
+      selectedInspection: null,
+    };
+  const detailResponse = await request(
+    inspectionRoutes.detail(hotelId, selectedSummary.id),
+  );
+  if (detailResponse.status === 401) redirect("/login");
+  if (detailResponse.ok) {
+    const detail = inspectionExecutionResponseSchema.safeParse(
+      await detailResponse.json().catch(() => undefined),
+    );
+    if (detail.success)
+      return {
+        ok: true as const,
+        inspections,
+        pagination: first.data.data.pagination,
+        selectedInspection: detail.data.data.inspection,
+      };
+  }
+  return {
+    ok: false as const,
+    error: "점검 수행 상세를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  };
 }
 
 export async function fetchInspectionConfiguration(hotelId: string) {

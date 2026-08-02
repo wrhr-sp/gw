@@ -8,6 +8,7 @@ import {
   type CreateInspectionRoutineRequest,
   type CreateManualInspectionRequest,
   type CreateProcessDefinitionRequest,
+  type InspectionExecutionListQuery,
   type SaveInspectionItemResultRequest,
   type SetDefaultProcessRequest,
 } from "@werehere/contracts";
@@ -98,6 +99,16 @@ export interface InspectionService {
     routineId: string | null,
     value: CreateInspectionRoutineRequest,
     idempotencyKey: string,
+  ): Promise<unknown>;
+  listInspections(
+    principal: MutationPrincipal,
+    hotelId: string,
+    query: InspectionExecutionListQuery,
+  ): Promise<unknown>;
+  getInspection(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
   ): Promise<unknown>;
   createManualInspection(
     principal: MutationPrincipal,
@@ -216,8 +227,13 @@ export function createInspectionService(
       sessionToken: input.principal.sessionToken,
     });
     if (read.status !== "OK") failure(read.status);
-    if (!read.payload) throw new InspectionServiceError("INTERNAL_ERROR", 500);
-    return read.payload;
+    if (
+      !read.payload ||
+      typeof read.payload !== "object" ||
+      !("inspection" in read.payload)
+    )
+      throw new InspectionServiceError("INTERNAL_ERROR", 500);
+    return read.payload.inspection;
   }
 
   return {
@@ -490,6 +506,45 @@ export function createInspectionService(
       if (!result.payload)
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload;
+    },
+    async listInspections(principal, hotelId, query) {
+      const listInspections = repository.listInspections;
+      if (!listInspections)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await listInspections({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId: null,
+        query,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("inspections" in result.payload) ||
+        !("pagination" in result.payload)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async getInspection(principal, hotelId, inspectionId) {
+      const result = await repository.readInspection({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("inspection" in result.payload)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.inspection;
     },
     createManualInspection(principal, hotelId, value, idempotencyKey) {
       const inspectionId = crypto.randomUUID();

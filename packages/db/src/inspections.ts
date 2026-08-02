@@ -36,6 +36,14 @@ export type ProcessMutationInput = Omit<
   hotelId: string | null;
 };
 export type RoutineMutationInput = Omit<InspectionCommandInput, "action">;
+export type InspectionExecutionReadInput = {
+  companyId: string;
+  hotelId: string;
+  inspectionId: string | null;
+  query: unknown;
+  sessionId: string;
+  sessionToken: string;
+};
 
 export interface InspectionRepository {
   close(): Promise<void>;
@@ -92,6 +100,9 @@ export interface InspectionRepository {
   routineMutation?(
     input: RoutineMutationInput,
   ): Promise<InspectionCommandResult>;
+  listInspections?(
+    input: InspectionExecutionReadInput,
+  ): Promise<InspectionCommandResult>;
 
   readInspection(input: {
     companyId: string;
@@ -113,6 +124,7 @@ export type InspectionApiRepository = Pick<
   | "processMutation"
   | "routineRead"
   | "routineMutation"
+  | "listInspections"
   | "readInspection"
 >;
 
@@ -262,6 +274,23 @@ export function createPostgresInspectionRepository(
         );
       });
     },
+    async listInspections(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_executions_read_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.inspectionId}::uuid,
+              ${transaction.json(input.query as never)}::jsonb,
+              ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
     async processCommand(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -339,12 +368,10 @@ export function createPostgresInspectionRepository(
         `;
         return one(
           await transaction<CommandRow[]>`
-            select * from public.hotel_inspection_command_v1(
+            select * from public.hotel_inspection_executions_read_v1(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
-              ${input.inspectionId}::uuid, 'READ_INSPECTION'::text, 0,
-              '{}'::jsonb, ${input.sessionToken}::text,
-              null::uuid, null::text, 'POST'::text,
-              '/api/read-only'::text, null::text, null::uuid, null::uuid
+              ${input.inspectionId}::uuid, '{}'::jsonb,
+              ${input.sessionToken}::text
             )
           `,
         );

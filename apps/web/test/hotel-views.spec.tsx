@@ -142,6 +142,9 @@ describe("hotel list and detail views", () => {
     expect(html).toContain('href="#hotel-relationships-title"');
     expect(html).toContain('href="#hotel-rooms-title"');
     expect(html).toContain("객실관리");
+    expect(html).toContain("점검수행");
+    expect(html).toContain(`/hotels/${hotel.id}/inspections`);
+    expect(html).toContain("점검설정");
     expect(html).toContain("객실 등록");
     expect(html).toContain("객실유형 관리");
     expect(html).toContain("101");

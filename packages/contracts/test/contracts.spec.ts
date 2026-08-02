@@ -49,6 +49,7 @@ import {
   hotelFileUploadCompleteRequestSchema,
   hotelFileUploadInitRequestSchema,
   hotelFileUploadStatusResponseSchema,
+  inspectionExecutionListQuerySchema,
   inspectionRoutes,
   processRoutes,
   saveInspectionItemResultRequestSchema,
@@ -1075,7 +1076,7 @@ describe("hotel platform contracts", () => {
     ).toHaveLength(1);
   });
 
-  it("requires evidence only for abnormal results and locks submissions to versions", () => {
+  it("allows abnormal drafts without evidence and validates execution list filters", () => {
     const itemSnapshotId = "81000000-0000-4000-8000-000000000001";
     expect(
       saveInspectionItemResultRequestSchema.parse({
@@ -1098,7 +1099,7 @@ describe("hotel platform contracts", () => {
         fileVersionIds: [],
         changeReason: null,
       }).success,
-    ).toBe(false);
+    ).toBe(true);
     expect(
       saveInspectionItemResultRequestSchema.parse({
         itemSnapshotId,
@@ -1127,6 +1128,19 @@ describe("hotel platform contracts", () => {
         reason: "현장점검 완료",
       }),
     ).toEqual({ version: 2, reason: "현장점검 완료" });
+    expect(
+      inspectionExecutionListQuerySchema.parse({
+        page: "2",
+        pageSize: "20",
+        status: "PENDING_INPUT",
+        source: "ROUTINE",
+      }),
+    ).toEqual({
+      page: 2,
+      pageSize: 20,
+      source: "ROUTINE",
+      status: "PENDING_INPUT",
+    });
   });
 
   it("accepts only minimal process reviewer candidate fields", () => {
