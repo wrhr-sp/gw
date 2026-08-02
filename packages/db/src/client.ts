@@ -1574,8 +1574,8 @@ export async function probeDatabaseReadiness(
       (options.requiredLoginIdHistoryPhase !== undefined &&
         loginIdHistoryPhase !== options.requiredLoginIdHistoryPhase) ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
-      migrationRows[0]?.hotel_integrity_marker_count !== 1 ||
-      migrationRows[0]?.hotel_support_overlap_marker_count !== 1
+      migrationRows[0].hotel_integrity_marker_count !== 1 ||
+      migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
