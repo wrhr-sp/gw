@@ -27,6 +27,8 @@ function repository() {
     processDefaultRead: vi.fn(),
     processReviewerCandidates: vi.fn(),
     processMutation: vi.fn(),
+    routineRead: vi.fn(),
+    routineMutation: vi.fn(),
     readInspection: vi.fn(),
   };
 }
@@ -127,6 +129,52 @@ describe("inspection configuration service", () => {
         }),
       }),
     );
+  });
+
+  it("saves a routine through the dedicated canonical authority", async () => {
+    const repo = repository();
+    const routine = {
+      id: "83000000-0000-4000-8000-000000000001",
+      hotelId,
+      name: "월간 객실점검",
+      version: 1,
+    };
+    repo.routineMutation.mockResolvedValue({ status: "OK", payload: routine });
+    repo.routineRead.mockResolvedValue({
+      status: "OK",
+      payload: { routines: [routine] },
+    });
+    const service = createInspectionService(repo);
+    const value = {
+      name: routine.name,
+      status: "ACTIVE" as const,
+      version: 0,
+      mode: "FIXED" as const,
+      recurrence: { type: "MONTHLY" as const, dayOfMonth: 31 },
+      startDate: "2026-08-01",
+      endDate: null,
+      localDueTime: "15:00",
+      processDefinitionId: null,
+      rounds: [{ order: 1, target: { type: "HOTEL" as const } }],
+    };
+
+    await expect(
+      service.saveRoutine(principal, hotelId, null, value, "routine-save-1"),
+    ).resolves.toEqual(routine);
+    expect(repo.routineMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: principal.companyId,
+        expectedVersion: 0,
+        hotelId,
+        httpMethod: "POST",
+        operationPath: `/api/hotels/${hotelId}/inspection-routines`,
+        sessionToken: principal.sessionToken,
+        value,
+      }),
+    );
+    await expect(service.listRoutines(principal, hotelId)).resolves.toEqual([
+      routine,
+    ]);
   });
 
   it("saves server-owned process graph IDs and reads back a versioned default", async () => {
@@ -291,6 +339,83 @@ describe("inspection configuration HTTP API", () => {
     expect(getDefaultProcess).toHaveBeenCalledWith(
       expect.objectContaining({ sessionToken: "opaque-session-token" }),
       hotelId,
+    );
+  });
+
+  it("creates and returns a canonical inspection routine", async () => {
+    const routine = {
+      id: "83000000-0000-4000-8000-000000000001",
+      hotelId,
+      name: "월간 객실점검",
+      status: "ACTIVE" as const,
+      version: 1,
+      nextDueDate: "2026-08-31",
+      materializedThroughDate: null,
+      revision: {
+        id: "84000000-0000-4000-8000-000000000001",
+        version: 1,
+        mode: "FIXED" as const,
+        recurrence: { type: "MONTHLY" as const, dayOfMonth: 31 },
+        startDate: "2026-08-01",
+        endDate: null,
+        localDueTime: "15:00",
+        processDefinitionId: "85000000-0000-4000-8000-000000000001",
+        processRevisionId: "86000000-0000-4000-8000-000000000001",
+        checklistRevisionId: "87000000-0000-4000-8000-000000000001",
+        rounds: [
+          {
+            id: "88000000-0000-4000-8000-000000000001",
+            order: 1,
+            target: { type: "HOTEL" as const },
+          },
+        ],
+      },
+      createdAt: "2026-08-02T00:00:00.000Z",
+      updatedAt: "2026-08-02T00:00:00.000Z",
+    };
+    const saveRoutine = vi.fn(async () => routine);
+    const app = createApp({
+      authService: {
+        resolvePrincipal: vi.fn(async () => principal),
+      } as unknown as AuthService,
+      inspectionService: { saveRoutine } as unknown as InspectionService,
+    });
+    const request = {
+      name: routine.name,
+      status: "ACTIVE",
+      version: 0,
+      mode: "FIXED",
+      recurrence: { type: "MONTHLY", dayOfMonth: 31 },
+      startDate: "2026-08-01",
+      endDate: null,
+      localDueTime: "15:00",
+      processDefinitionId: null,
+      rounds: [{ order: 1, target: { type: "HOTEL" } }],
+    };
+    const response = await app.request(
+      `/api/hotels/${hotelId}/inspection-routines`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: "__Host-hotel_session=opaque-session-token",
+          "idempotency-key": "routine-http-1",
+        },
+        body: JSON.stringify(request),
+      },
+    );
+    expect(response.status).toBe(201);
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { routine },
+      error: null,
+    });
+    expect(saveRoutine).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      hotelId,
+      null,
+      request,
+      "routine-http-1",
     );
   });
 });

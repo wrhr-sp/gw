@@ -1594,10 +1594,69 @@ export const createInspectionRoutineRequestSchema = z
         message: "회차 순서는 중복될 수 없습니다.",
       });
     }
+    if (orders.some((order, index) => order !== index + 1)) {
+      context.addIssue({
+        code: "custom",
+        path: ["rounds"],
+        message: "회차 순서는 1부터 연속되어야 합니다.",
+      });
+    }
   });
 export type CreateInspectionRoutineRequest = z.infer<
   typeof createInspectionRoutineRequestSchema
 >;
+
+export const inspectionRoutineRoundSchema = z
+  .object({
+    id: z.uuid(),
+    order: z.number().int().min(1).max(100),
+    target: inspectionRoutineTargetSchema,
+  })
+  .strict();
+export const inspectionRoutineRevisionSchema = z
+  .object({
+    id: z.uuid(),
+    version: z.number().int().positive(),
+    mode: z.enum(["FIXED", "ROTATING"]),
+    recurrence: inspectionRecurrenceSchema,
+    startDate: z.iso.date(),
+    endDate: z.iso.date().nullable(),
+    localDueTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u),
+    processDefinitionId: z.uuid(),
+    processRevisionId: z.uuid(),
+    checklistRevisionId: z.uuid(),
+    rounds: z.array(inspectionRoutineRoundSchema).min(1).max(100),
+  })
+  .strict();
+export const inspectionRoutineSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    name: z.string().trim().min(1).max(100),
+    status: z.enum(["ACTIVE", "INACTIVE"]),
+    version: z.number().int().positive(),
+    nextDueDate: z.iso.date().nullable(),
+    materializedThroughDate: z.iso.date().nullable(),
+    revision: inspectionRoutineRevisionSchema,
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type InspectionRoutine = z.infer<typeof inspectionRoutineSchema>;
+export const inspectionRoutineListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ routines: z.array(inspectionRoutineSchema) }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const inspectionRoutineResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ routine: inspectionRoutineSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
 
 export const createManualInspectionRequestSchema = z
   .object({

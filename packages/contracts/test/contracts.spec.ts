@@ -39,6 +39,7 @@ import {
   createHotelRoomTypeRequestSchema,
   createInspectionChecklistRevisionRequestSchema,
   createInspectionRoutineRequestSchema,
+  inspectionRoutineListResponseSchema,
   createManualInspectionRequestSchema,
   createProcessDefinitionRequestSchema,
   processDefaultResponseSchema,
@@ -1022,6 +1023,56 @@ describe("hotel platform contracts", () => {
         },
       }).success,
     ).toBe(false);
+    expect(
+      createInspectionRoutineRequestSchema.safeParse({
+        ...routine,
+        mode: "ROTATING",
+        rounds: [
+          { order: 1, target: { type: "HOTEL" } },
+          { order: 3, target: { type: "HOTEL" } },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      inspectionRoutineListResponseSchema.parse({
+        ok: true,
+        data: {
+          routines: [
+            {
+              id: "83000000-0000-4000-8000-000000000001",
+              hotelId: "50000000-0000-4000-8000-000000000001",
+              name: routine.name,
+              status: "ACTIVE",
+              version: 1,
+              nextDueDate: "2026-08-31",
+              materializedThroughDate: null,
+              revision: {
+                id: "84000000-0000-4000-8000-000000000001",
+                version: 1,
+                mode: "FIXED",
+                recurrence: routine.recurrence,
+                startDate: routine.startDate,
+                endDate: null,
+                localDueTime: routine.localDueTime,
+                processDefinitionId: "85000000-0000-4000-8000-000000000001",
+                processRevisionId: "86000000-0000-4000-8000-000000000001",
+                checklistRevisionId: "87000000-0000-4000-8000-000000000001",
+                rounds: [
+                  {
+                    id: "88000000-0000-4000-8000-000000000001",
+                    order: 1,
+                    target: routine.rounds[0]!.target,
+                  },
+                ],
+              },
+              createdAt: "2026-08-02T00:00:00.000Z",
+              updatedAt: "2026-08-02T00:00:00.000Z",
+            },
+          ],
+        },
+        error: null,
+      }).data.routines,
+    ).toHaveLength(1);
   });
 
   it("requires evidence only for abnormal results and locks submissions to versions", () => {

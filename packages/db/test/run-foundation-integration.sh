@@ -1,8 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Keep SQL current_date aligned with the hotel-local materializer clock,
+# including CI runs that cross Korean midnight while the database defaults to UTC.
+export PGTZ="Asia/Seoul"
+
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+
+configure_test_database_timezone() {
+  local admin_url="$1"
+  local alter_database_sql
+  alter_database_sql="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+    -c "select pg_catalog.format('alter database %I set timezone to ''Asia/Seoul''', pg_catalog.current_database())")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "$alter_database_sql" >/dev/null
+}
 
 configure_runtime_probe_role() {
   local admin_url="$1"
@@ -68,6 +80,8 @@ GRANT EXECUTE ON FUNCTION
   hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_process_default_read_v1(uuid,uuid,text),
   hotel_process_reviewer_candidates_v1(uuid,uuid,text),
+  hotel_inspection_routines_read_v1(uuid,uuid,uuid,text),
+  hotel_inspection_routine_command_v1(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid),
   hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)
   TO gw_api_probe;
@@ -120,6 +134,10 @@ select
     'public.hotel_process_default_read_v1(uuid,uuid,text)', 'EXECUTE')
   and not has_function_privilege(current_user,
     'public.hotel_process_reviewer_candidates_v1(uuid,uuid,text)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_inspection_routines_read_v1(uuid,uuid,uuid,text)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_inspection_routine_command_v1(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid)', 'EXECUTE')
   and not has_function_privilege(current_user,
     'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
   and not has_function_privilege(current_user,
@@ -746,6 +764,7 @@ HOTEL_INSPECTION_PROCESS_MIGRATION="$ROOT_DIR/packages/db/migrations/0026_hotel_
 HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION="$ROOT_DIR/packages/db/migrations/0027_hotel_file_finalizer_recovery.sql"
 HOTEL_PROCESS_DEFAULT_READ_MIGRATION="$ROOT_DIR/packages/db/migrations/0028_hotel_process_default_read_contract.sql"
 HOTEL_PROCESS_REVIEWER_CANDIDATES_MIGRATION="$ROOT_DIR/packages/db/migrations/0029_hotel_process_reviewer_candidates.sql"
+HOTEL_INSPECTION_ROUTINE_MIGRATION="$ROOT_DIR/packages/db/migrations/0030_hotel_inspection_routine_contract.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -753,6 +772,7 @@ GLOBAL_LOGIN_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0010_global_lo
 TEST_SQL="$ROOT_DIR/packages/db/test/foundation-integration.sql"
 HOTEL_INSPECTION_PROCESS_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-process-integration.sql"
 HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-process-reviewer-candidates-integration.sql"
+HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-finalizer-recovery-integration.sql"
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
@@ -870,6 +890,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -879,6 +903,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     exit "$reset_status"
   }
   trap cleanup_external_database EXIT
+  configure_test_database_timezone "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_MIGRATION" >/dev/null
@@ -906,6 +931,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_PROCESS_DEFAULT_READ_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -956,6 +982,11 @@ NODE
     exit 1
   fi
   run_actual_inspection_api_probe "$TEST_DATABASE_URL"
+  ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
+  if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
+    printf '%s\n' "$ROUTINE_RESULT" >&2
+    exit 1
+  fi
   assert_room_constraints_exact "$TEST_DATABASE_URL" "$PROBE_URL"
   assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
@@ -1026,6 +1057,8 @@ trap cleanup EXIT
 
 createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_test
 createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_blank
+configure_test_database_timezone "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
+configure_test_database_timezone "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_blank"
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
@@ -1077,6 +1110,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_PROCESS_DEFAULT_READ_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_INSPECTION_ROUTINE_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -1148,6 +1183,11 @@ if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
   exit 1
 fi
 run_actual_inspection_api_probe "$ADMIN_URL"
+ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
+if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
+  printf '%s\n' "$ROUTINE_RESULT" >&2
+  exit 1
+fi
 assert_room_constraints_exact "$ADMIN_URL" "$PROBE_URL"
 assert_room_fingerprint_damage "$ADMIN_URL" "$PROBE_URL"
 

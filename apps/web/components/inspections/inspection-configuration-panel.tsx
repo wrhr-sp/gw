@@ -9,6 +9,7 @@ import {
   processDefinitionSchema,
   processRoutes,
   type HotelRoomType,
+  type InspectionRoutine,
   type ProcessReviewerCandidate,
 } from "@werehere/contracts";
 import { Button, PageHeader, StatusBadge } from "@werehere/ui";
@@ -16,6 +17,10 @@ import React, { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { z } from "zod";
 import { ProcessDefinitionEditor } from "./process-definition-editor";
+import {
+  InspectionRoutineEditor,
+  type RoomOption,
+} from "./inspection-routine-editor";
 
 type Checklist = z.infer<typeof inspectionChecklistRevisionSchema>;
 type Definition = z.infer<typeof processDefinitionSchema>;
@@ -36,14 +41,18 @@ const emptyItem = () => ({
 export function InspectionConfigurationPanel({
   hotelId,
   initialChecklist,
+  initialRoutines = [],
   processDefinitions: initialDefinitions,
   reviewerCandidates = [],
+  rooms = [],
   roomTypes,
 }: {
   hotelId: string;
   initialChecklist: Checklist | null;
+  initialRoutines?: InspectionRoutine[];
   processDefinitions: Definition[];
   reviewerCandidates?: ProcessReviewerCandidate[];
+  rooms?: RoomOption[];
   roomTypes: HotelRoomType[];
 }) {
   const [definitions, setDefinitions] = useState(initialDefinitions);
@@ -397,6 +406,14 @@ export function InspectionConfigurationPanel({
           </Button>
         </div>
       </form>
+      <InspectionRoutineEditor
+        checklistRevisionId={saved?.id ?? null}
+        definitions={definitions}
+        hotelId={hotelId}
+        initialRoutines={initialRoutines}
+        rooms={rooms}
+        roomTypes={roomTypes}
+      />
     </div>
   );
 }

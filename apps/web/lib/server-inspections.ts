@@ -1,6 +1,7 @@
 import {
   hotelErrorResponseSchema,
   inspectionChecklistResponseSchema,
+  inspectionRoutineListResponseSchema,
   inspectionRoutes,
   processDefinitionListResponseSchema,
   processDefaultResponseSchema,
@@ -28,6 +29,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     definitionsResponse,
     defaultResponse,
     candidatesResponse,
+    routinesResponse,
   ] = await Promise.all([
     request(inspectionRoutes.checklist(hotelId)),
     request(
@@ -35,19 +37,22 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     ),
     request(processRoutes.hotelDefault(hotelId)),
     request(processRoutes.reviewerCandidates(hotelId)),
+    request(inspectionRoutes.routines(hotelId)),
   ]);
   if (
     checklistResponse.status === 401 ||
     definitionsResponse.status === 401 ||
     defaultResponse.status === 401 ||
-    candidatesResponse.status === 401
+    candidatesResponse.status === 401 ||
+    routinesResponse.status === 401
   )
     redirect("/login");
   if (
     checklistResponse.ok &&
     definitionsResponse.ok &&
     defaultResponse.ok &&
-    candidatesResponse.ok
+    candidatesResponse.ok &&
+    routinesResponse.ok
   ) {
     const checklist = inspectionChecklistResponseSchema.safeParse(
       await checklistResponse.json().catch(() => undefined),
@@ -62,11 +67,15 @@ export async function fetchInspectionConfiguration(hotelId: string) {
       processReviewerCandidatesResponseSchema.safeParse(
         await candidatesResponse.json().catch(() => undefined),
       );
+    const routines = inspectionRoutineListResponseSchema.safeParse(
+      await routinesResponse.json().catch(() => undefined),
+    );
     if (
       checklist.success &&
       definitions.success &&
       currentDefault.success &&
-      reviewerCandidates.success
+      reviewerCandidates.success &&
+      routines.success
     )
       return {
         ok: true as const,
@@ -74,6 +83,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
         definitions: definitions.data.data.definitions,
         currentDefault: currentDefault.data.data.default,
         reviewerCandidates: reviewerCandidates.data.data.candidates,
+        routines: routines.data.data.routines,
       };
   }
   const response = !checklistResponse.ok
@@ -82,7 +92,9 @@ export async function fetchInspectionConfiguration(hotelId: string) {
       ? definitionsResponse
       : !defaultResponse.ok
         ? defaultResponse
-        : candidatesResponse;
+        : !candidatesResponse.ok
+          ? candidatesResponse
+          : routinesResponse;
   const parsed = hotelErrorResponseSchema.safeParse(
     await response.json().catch(() => undefined),
   );

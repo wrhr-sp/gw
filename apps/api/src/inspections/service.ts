@@ -5,6 +5,7 @@ import {
   transitionProcessExecutionRequestSchema,
   type AuthenticatedPrincipal,
   type CreateInspectionChecklistRevisionRequest,
+  type CreateInspectionRoutineRequest,
   type CreateManualInspectionRequest,
   type CreateProcessDefinitionRequest,
   type SaveInspectionItemResultRequest,
@@ -26,12 +27,14 @@ type InspectionServiceCode =
   | "IDEMPOTENCY_CONFLICT"
   | "INSPECTION_FINAL_LOCKED"
   | "INSPECTION_RESULT_EVIDENCE_REQUIRED"
+  | "INSPECTION_CHECKLIST_EMPTY"
   | "INTERNAL_ERROR"
   | "INVALID_STATE_TRANSITION"
   | "PROCESS_DEFAULT_REQUIRED"
   | "PROCESS_ASSIGNEE_INVALID"
   | "PROCESS_GRAPH_INVALID"
   | "RESOURCE_NOT_FOUND"
+  | "VALIDATION_ERROR"
   | "VERSION_CONFLICT";
 
 export class InspectionServiceError extends Error {
@@ -78,6 +81,22 @@ export interface InspectionService {
     principal: MutationPrincipal,
     hotelId: string,
     value: CreateInspectionChecklistRevisionRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
+  listRoutines(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown[]>;
+  getRoutine(
+    principal: MutationPrincipal,
+    hotelId: string,
+    routineId: string,
+  ): Promise<unknown>;
+  saveRoutine(
+    principal: MutationPrincipal,
+    hotelId: string,
+    routineId: string | null,
+    value: CreateInspectionRoutineRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
   createManualInspection(
@@ -128,7 +147,10 @@ function failure(status: string): never {
       "INSPECTION_RESULT_EVIDENCE_REQUIRED",
       422,
     ],
+    INSPECTION_CHECKLIST_EMPTY: ["INSPECTION_CHECKLIST_EMPTY", 422],
+    INSPECTION_ROUTINE_VERSION_CONFLICT: ["VERSION_CONFLICT", 409],
     INVALID_STATE_TRANSITION: ["INVALID_STATE_TRANSITION", 409],
+    INVALID_TARGET: ["VALIDATION_ERROR", 422],
     NOT_FOUND: ["RESOURCE_NOT_FOUND", 404],
     PROCESS_DEFAULT_REQUIRED: ["PROCESS_DEFAULT_REQUIRED", 422],
     PROCESS_ASSIGNEE_INVALID: ["PROCESS_ASSIGNEE_INVALID", 422],
@@ -390,6 +412,81 @@ export function createInspectionService(
       });
       if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
         failure(result.status);
+      if (!result.payload)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async listRoutines(principal, hotelId) {
+      const routineRead = repository.routineRead;
+      if (!routineRead)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await routineRead({
+        companyId: principal.companyId,
+        hotelId,
+        routineId: null,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("routines" in result.payload) ||
+        !Array.isArray(result.payload.routines)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.routines;
+    },
+    async getRoutine(principal, hotelId, routineId) {
+      const routineRead = repository.routineRead;
+      if (!routineRead)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await routineRead({
+        companyId: principal.companyId,
+        hotelId,
+        routineId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("routine" in result.payload)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.routine;
+    },
+    async saveRoutine(principal, hotelId, routineId, value, idempotencyKey) {
+      const routineMutation = repository.routineMutation;
+      if (!routineMutation)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const resourceId = routineId ?? crypto.randomUUID();
+      const operationPath = routineId
+        ? inspectionRoutes.routine(hotelId, routineId)
+        : inspectionRoutes.routines(hotelId);
+      const httpMethod = routineId ? "PUT" : "POST";
+      const result = await routineMutation({
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod,
+        idempotencyKey,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({
+          method: httpMethod,
+          path: operationPath,
+          value,
+        }),
+        resourceId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
+        value,
+      });
+      if (!["OK", "REPLAYED"].includes(result.status)) failure(result.status);
       if (!result.payload)
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload;
