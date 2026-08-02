@@ -473,6 +473,10 @@ try {
       "0030_hotel_inspection_routine_contract",
       "0030_hotel_inspection_routine_contract.sql",
     ],
+    [
+      "0031_hotel_inspection_execution_contract",
+      "0031_hotel_inspection_execution_contract.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -488,6 +492,7 @@ try {
     "0028_hotel_process_default_read_contract",
     "0029_hotel_process_reviewer_candidates",
     "0030_hotel_inspection_routine_contract",
+    "0031_hotel_inspection_execution_contract",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1501,6 +1506,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0030_hotel_inspection_routine_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0031_hotel_inspection_execution_contract'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1631,6 +1639,50 @@ try {
       end loop;
     end
     $migration_owned_table_acl_reset$;
+
+    do $migration_owned_column_acl_reset$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select distinct table_namespace.nspname as schema_name,
+               table_record.relname as table_name,
+               column_record.attname as column_name,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+        from pg_class table_record
+        join pg_namespace table_namespace
+          on table_namespace.oid = table_record.relnamespace
+        join pg_attribute column_record
+          on column_record.attrelid = table_record.oid
+         and column_record.attnum > 0
+         and not column_record.attisdropped
+        cross join lateral aclexplode(column_record.attacl) acl
+        left join pg_roles grantee_role on grantee_role.oid = acl.grantee
+        where table_namespace.nspname = 'public'
+          and table_record.relkind in ('r', 'p')
+          and table_record.relowner = current_user::regrole::oid
+          and acl.grantee <> table_record.relowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute format(
+            'revoke all privileges (%I) on table %I.%I from public cascade',
+            acl_record.column_name,
+            acl_record.schema_name,
+            acl_record.table_name
+          );
+        else
+          execute format(
+            'revoke all privileges (%I) on table %I.%I from %I cascade',
+            acl_record.column_name,
+            acl_record.schema_name,
+            acl_record.table_name,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $migration_owned_column_acl_reset$;
 
     revoke create on schema public from public;
     ${contractCompatibleAclPhase ? "revoke usage on schema public from public;" : "grant usage on schema public to public;"}
@@ -1889,6 +1941,7 @@ try {
              'hotel_process_reviewer_candidates_v1',
              'hotel_inspection_routines_read_v1',
              'hotel_inspection_routine_command_v1',
+             'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v1',
              'hotel_file_command_v1', 'hotel_file_scan_command_v1',
              'hotel_inspection_claim_materialization_v1',
@@ -1929,6 +1982,9 @@ try {
     grant execute on function public.hotel_inspection_routine_command_v1(
       uuid, uuid, uuid, integer, jsonb, text, text, text, text, text,
       uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_executions_read_v1(
+      uuid, uuid, uuid, jsonb, text
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inspection_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
@@ -2378,6 +2434,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0030_hotel_inspection_routine_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0031_hotel_inspection_execution_contract'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {

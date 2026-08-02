@@ -8,6 +8,7 @@ import {
   type CreateInspectionRoutineRequest,
   type CreateManualInspectionRequest,
   type CreateProcessDefinitionRequest,
+  type InspectionExecutionListQuery,
   type SaveInspectionItemResultRequest,
   type SetDefaultProcessRequest,
 } from "@werehere/contracts";
@@ -99,6 +100,16 @@ export interface InspectionService {
     value: CreateInspectionRoutineRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
+  listInspections(
+    principal: MutationPrincipal,
+    hotelId: string,
+    query: InspectionExecutionListQuery,
+  ): Promise<unknown>;
+  getInspection(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
+  ): Promise<unknown>;
   createManualInspection(
     principal: MutationPrincipal,
     hotelId: string,
@@ -164,6 +175,41 @@ function failure(status: string): never {
   throw new InspectionServiceError("INTERNAL_ERROR", 500);
 }
 
+function savedResultMatches(
+  snapshot: unknown,
+  itemSnapshotId: string,
+  expected: SaveInspectionItemResultRequest,
+) {
+  if (!snapshot || typeof snapshot !== "object" || !("items" in snapshot))
+    return false;
+  const items = snapshot.items;
+  if (!Array.isArray(items)) return false;
+  const item = items.find(
+    (candidate) =>
+      candidate &&
+      typeof candidate === "object" &&
+      "id" in candidate &&
+      candidate.id === itemSnapshotId,
+  );
+  if (!item || typeof item !== "object" || !("result" in item)) return false;
+  const result = item.result;
+  if (!result || typeof result !== "object") return false;
+  const files = "fileVersionIds" in result ? result.fileVersionIds : null;
+  return (
+    "version" in result &&
+    result.version === expected.version + 1 &&
+    "result" in result &&
+    result.result === expected.result &&
+    "description" in result &&
+    result.description === expected.description &&
+    "severity" in result &&
+    result.severity === expected.severity &&
+    Array.isArray(files) &&
+    files.length === expected.fileVersionIds.length &&
+    files.every((file, index) => file === expected.fileVersionIds[index])
+  );
+}
+
 export function createInspectionService(
   repository: InspectionApiRepository,
 ): InspectionService {
@@ -176,6 +222,11 @@ export function createInspectionService(
     inspectionId: string;
     operationPath: string;
     principal: MutationPrincipal;
+    requestValue: unknown;
+    resultExpectation?: {
+      itemSnapshotId: string;
+      value: SaveInspectionItemResultRequest;
+    };
     value: unknown;
   }) {
     const result = await repository.command({
@@ -191,7 +242,7 @@ export function createInspectionService(
       requestHash: await hash({
         method: input.httpMethod,
         path: input.operationPath,
-        value: input.value,
+        value: input.requestValue,
       }),
       resourceId: input.inspectionId,
       sessionId: input.principal.sessionId,
@@ -201,6 +252,15 @@ export function createInspectionService(
     });
     if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
       failure(result.status);
+    if (
+      input.resultExpectation &&
+      !savedResultMatches(
+        result.payload,
+        input.resultExpectation.itemSnapshotId,
+        input.resultExpectation.value,
+      )
+    )
+      throw new InspectionServiceError("VERSION_CONFLICT", 409);
     const resourceId =
       result.payload &&
       typeof result.payload === "object" &&
@@ -216,8 +276,23 @@ export function createInspectionService(
       sessionToken: input.principal.sessionToken,
     });
     if (read.status !== "OK") failure(read.status);
-    if (!read.payload) throw new InspectionServiceError("INTERNAL_ERROR", 500);
-    return read.payload;
+    if (
+      !read.payload ||
+      typeof read.payload !== "object" ||
+      !("inspection" in read.payload)
+    )
+      throw new InspectionServiceError("INTERNAL_ERROR", 500);
+    const inspection = read.payload.inspection;
+    if (
+      input.resultExpectation &&
+      !savedResultMatches(
+        inspection,
+        input.resultExpectation.itemSnapshotId,
+        input.resultExpectation.value,
+      )
+    )
+      throw new InspectionServiceError("VERSION_CONFLICT", 409);
+    return inspection;
   }
 
   return {
@@ -491,6 +566,45 @@ export function createInspectionService(
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload;
     },
+    async listInspections(principal, hotelId, query) {
+      const listInspections = repository.listInspections;
+      if (!listInspections)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await listInspections({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId: null,
+        query,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("inspections" in result.payload) ||
+        !("pagination" in result.payload)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async getInspection(principal, hotelId, inspectionId) {
+      const result = await repository.readInspection({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("inspection" in result.payload)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.inspection;
+    },
     createManualInspection(principal, hotelId, value, idempotencyKey) {
       const inspectionId = crypto.randomUUID();
       return mutateAndRead({
@@ -502,6 +616,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.createManual(hotelId),
         principal,
+        requestValue: value,
         value: {
           ...value,
           processExecutionId: crypto.randomUUID(),
@@ -530,6 +645,8 @@ export function createInspectionService(
           itemSnapshotId,
         ),
         principal,
+        requestValue: value,
+        resultExpectation: { itemSnapshotId, value },
         value: {
           ...value,
           historyId: crypto.randomUUID(),
@@ -548,6 +665,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.submit(hotelId, inspectionId),
         principal,
+        requestValue: value,
         value: { historyId: crypto.randomUUID(), reason: value.reason },
       });
     },
@@ -561,6 +679,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.transition(hotelId, inspectionId),
         principal,
+        requestValue: value,
         value: { ...value, historyId: crypto.randomUUID() },
       });
     },

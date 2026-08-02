@@ -32,8 +32,10 @@ describe("inspection process service", () => {
     const readInspection = vi.fn().mockResolvedValue({
       status: "OK",
       payload: {
-        id: "c3000000-0000-4000-8000-000000000001",
-        hotelId: "50000000-0000-4000-8000-000000000001",
+        inspection: {
+          id: "c3000000-0000-4000-8000-000000000001",
+          hotelId: "50000000-0000-4000-8000-000000000001",
+        },
       },
     });
     const service = createInspectionService({
@@ -73,17 +75,32 @@ describe("inspection process service", () => {
       sessionToken: principal.sessionToken,
     });
     const readResult = await readInspection.mock.results[0]!.value;
-    expect(result).toEqual(readResult.payload);
+    expect(result).toEqual(readResult.payload.inspection);
   });
 
   it("adds server-owned IDs and expected version to an abnormal result mutation", async () => {
+    const savedInspection = {
+      id: "c3000000-0000-4000-8000-000000000001",
+      items: [
+        {
+          id: "c5000000-0000-4000-8000-000000000001",
+          result: {
+            version: 3,
+            result: "ABNORMAL",
+            description: "욕실 배관 누수가 확인되었습니다.",
+            severity: "MAJOR",
+            fileVersionIds: ["c6000000-0000-4000-8000-000000000001"],
+          },
+        },
+      ],
+    };
     const command = vi.fn().mockResolvedValue({
       status: "CREATED",
-      payload: { id: "c3000000-0000-4000-8000-000000000001" },
+      payload: savedInspection,
     });
     const readInspection = vi.fn().mockResolvedValue({
       status: "OK",
-      payload: { id: "c3000000-0000-4000-8000-000000000001" },
+      payload: { inspection: savedInspection },
     });
     const service = createInspectionService({
       close: vi.fn(),
@@ -123,6 +140,112 @@ describe("inspection process service", () => {
     expect(input.value.resultId).toMatch(/^[0-9a-f-]{36}$/u);
     expect(input.value.historyId).toMatch(/^[0-9a-f-]{36}$/u);
   });
+
+  it("keeps the request hash stable when a committed manual creation is retried", async () => {
+    const inspectionId = "c3000000-0000-4000-8000-000000000001";
+    const command = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "CREATED",
+        payload: { id: inspectionId },
+      })
+      .mockResolvedValueOnce({
+        status: "REPLAYED",
+        payload: { id: inspectionId },
+      });
+    const readInspection = vi.fn().mockResolvedValue({
+      status: "OK",
+      payload: { inspection: { id: inspectionId } },
+    });
+    const service = createInspectionService({
+      close: vi.fn(),
+      command,
+      readInspection,
+    });
+    const value = {
+      processDefinitionId: null,
+      targets: [
+        {
+          roomId: "bc000000-0000-4000-8000-000000000001",
+          selectedItemIds: ["c5000000-0000-4000-8000-000000000001"],
+        },
+      ],
+    };
+
+    await service.createManualInspection(
+      principal,
+      inspectionHotelId,
+      value,
+      "committed-response-lost",
+    );
+    await service.createManualInspection(
+      principal,
+      inspectionHotelId,
+      value,
+      "committed-response-lost",
+    );
+
+    expect(command).toHaveBeenCalledTimes(2);
+    expect(command.mock.calls[0]?.[0].requestHash).toBe(
+      command.mock.calls[1]?.[0].requestHash,
+    );
+    expect(command.mock.calls[0]?.[0].value.processExecutionId).not.toBe(
+      command.mock.calls[1]?.[0].value.processExecutionId,
+    );
+  });
+
+  it("rejects a stale canonical read that differs from the saved result", async () => {
+    const expectedResult = {
+      version: 1,
+      result: "NORMAL",
+      description: null,
+      severity: null,
+      fileVersionIds: [] as string[],
+    };
+    const itemId = "c5000000-0000-4000-8000-000000000001";
+    const command = vi.fn().mockResolvedValue({
+      status: "CREATED",
+      payload: {
+        id: "c3000000-0000-4000-8000-000000000001",
+        items: [{ id: itemId, result: expectedResult }],
+      },
+    });
+    const readInspection = vi.fn().mockResolvedValue({
+      status: "OK",
+      payload: {
+        inspection: {
+          id: "c3000000-0000-4000-8000-000000000001",
+          items: [
+            { id: itemId, result: { ...expectedResult, result: "ATTENTION" } },
+          ],
+        },
+      },
+    });
+    const service = createInspectionService({
+      close: vi.fn(),
+      command,
+      readInspection,
+    });
+
+    await expect(
+      service.saveResult(
+        principal,
+        inspectionHotelId,
+        "c3000000-0000-4000-8000-000000000001",
+        itemId,
+        {
+          itemSnapshotId: itemId,
+          version: 0,
+          result: "NORMAL",
+          description: null,
+          severity: null,
+          fileVersionIds: [],
+          changeReason: null,
+        },
+        "stale-canonical-read",
+      ),
+    ).rejects.toMatchObject({ code: "VERSION_CONFLICT", httpStatus: 409 });
+  });
 });
 
 describe("inspection HTTP API", () => {
@@ -144,6 +267,7 @@ describe("inspection HTTP API", () => {
         state: "PENDING_INPUT",
         version: 1,
       },
+      rooms: [],
       items: [],
       createdAt: "2026-08-02T00:00:00.000Z",
       updatedAt: "2026-08-02T00:00:00.000Z",

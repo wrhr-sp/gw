@@ -66,12 +66,8 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       'labels.filter((label) => !label.startsWith("hotel_rooms:"))',
     );
-    expect(source).toContain(
-      'candidate.startsWith("hotel_rooms:")',
-    );
-    expect(source).toContain(
-      "HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256",
-    );
+    expect(source).toContain('candidate.startsWith("hotel_rooms:")');
+    expect(source).toContain("HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256");
     expect(source).toContain(
       '"21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e"',
     );
@@ -537,11 +533,16 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       'labels.filter((label) => !label.startsWith("hotel_rooms:"))',
     );
-    expect(source).toContain(
-      'candidate.startsWith("hotel_rooms:")',
-    );
+    expect(source).toContain('candidate.startsWith("hotel_rooms:")');
     expect(source).toContain("!loginRegistryTrigger.function_acl_safe");
     expect(source).toContain("aclexplode(");
+    expect(source).toContain("direct_column_mutation_acl_count");
+    expect(source).toContain("protected_column.attacl");
+    expect(source).toContain("pg_catalog.pg_attribute protected_column");
+    expect(provisionSource).toContain("$migration_owned_column_acl_reset$");
+    expect(provisionSource).toContain(
+      "revoke all privileges (%I) on table %I.%I from %I cascade",
+    );
     expect(source).not.toContain(
       "grantee_role.rolname <> 'werehere_preview_runtime'",
     );

@@ -16,6 +16,51 @@ const principal = {
   userType: "INTERNAL_STAFF" as const,
 };
 const hotelId = "50000000-0000-4000-8000-000000000001";
+const inspectionId = "91000000-0000-4000-8000-000000000001";
+
+function inspectionFixture() {
+  return {
+    id: inspectionId,
+    hotelId,
+    source: "ROUTINE" as const,
+    businessDate: "2026-08-03",
+    dueAt: "2026-08-03T14:59:59.999Z",
+    status: "PENDING_INPUT" as const,
+    version: 1,
+    process: {
+      executionId: "92000000-0000-4000-8000-000000000001",
+      definitionId: "93000000-0000-4000-8000-000000000001",
+      revisionId: "94000000-0000-4000-8000-000000000001",
+      currentStageKey: null,
+      currentStageName: null,
+      state: "PENDING_INPUT" as const,
+      version: 1,
+    },
+    rooms: [
+      {
+        id: "52000000-0000-4000-8000-000000000001",
+        roomNumber: "703",
+        floorLabel: "7층",
+        roomTypeName: "스탠다드 더블",
+      },
+    ],
+    items: [
+      {
+        id: "95000000-0000-4000-8000-000000000001",
+        roomId: "52000000-0000-4000-8000-000000000001",
+        itemId: "96000000-0000-4000-8000-000000000001",
+        name: "욕실 청결",
+        description: "배수와 누수를 확인합니다.",
+        isRequired: true,
+        displayOrder: 10,
+        defaultSeverity: "MAJOR" as const,
+        result: null,
+      },
+    ],
+    createdAt: "2026-08-03T00:00:00.000Z",
+    updatedAt: "2026-08-03T00:00:00.000Z",
+  };
+}
 
 function repository() {
   return {
@@ -29,6 +74,7 @@ function repository() {
     processMutation: vi.fn(),
     routineRead: vi.fn(),
     routineMutation: vi.fn(),
+    listInspections: vi.fn(),
     readInspection: vi.fn(),
   };
 }
@@ -248,6 +294,50 @@ describe("inspection configuration service", () => {
       }),
     );
   });
+
+  it("lists and reads canonical inspection execution envelopes", async () => {
+    const repo = repository();
+    const inspection = inspectionFixture();
+    const { items: _items, ...summary } = inspection;
+    void _items;
+    const listPayload = {
+      inspections: [summary],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    };
+    repo.listInspections.mockResolvedValue({
+      status: "OK",
+      payload: listPayload,
+    });
+    repo.readInspection.mockResolvedValue({
+      status: "OK",
+      payload: { inspection },
+    });
+    const service = createInspectionService(repo);
+    const query = { page: 1, pageSize: 20, status: "PENDING_INPUT" as const };
+
+    await expect(
+      service.listInspections(principal, hotelId, query),
+    ).resolves.toEqual(listPayload);
+    await expect(
+      service.getInspection(principal, hotelId, inspectionId),
+    ).resolves.toEqual(inspection);
+    expect(repo.listInspections).toHaveBeenCalledWith({
+      companyId: principal.companyId,
+      hotelId,
+      inspectionId: null,
+      query,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+    });
+    expect(repo.readInspection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId,
+        sessionToken: principal.sessionToken,
+      }),
+    );
+  });
 });
 
 describe("inspection configuration HTTP API", () => {
@@ -339,6 +429,56 @@ describe("inspection configuration HTTP API", () => {
     expect(getDefaultProcess).toHaveBeenCalledWith(
       expect.objectContaining({ sessionToken: "opaque-session-token" }),
       hotelId,
+    );
+  });
+
+  it("returns canonical inspection execution list and detail", async () => {
+    const inspection = inspectionFixture();
+    const { items: _items, ...summary } = inspection;
+    void _items;
+    const listInspections = vi.fn(async () => ({
+      inspections: [summary],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }));
+    const getInspection = vi.fn(async () => inspection);
+    const app = createApp({
+      authService: {
+        resolvePrincipal: vi.fn(async () => principal),
+      } as unknown as AuthService,
+      inspectionService: {
+        getInspection,
+        listInspections,
+      } as unknown as InspectionService,
+    });
+
+    const listResponse = await app.request(
+      `/api/hotels/${hotelId}/inspections?page=1&pageSize=20&status=PENDING_INPUT`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(listResponse.status).toBe(200);
+    expect(await listResponse.json()).toMatchObject({
+      ok: true,
+      data: { inspections: [{ id: inspectionId, rooms: summary.rooms }] },
+    });
+    expect(listInspections).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      hotelId,
+      { page: 1, pageSize: 20, status: "PENDING_INPUT" },
+    );
+
+    const detailResponse = await app.request(
+      `/api/hotels/${hotelId}/inspections/${inspectionId}`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      ok: true,
+      data: { inspection: { id: inspectionId, items: inspection.items } },
+    });
+    expect(getInspection).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      hotelId,
+      inspectionId,
     );
   });
 

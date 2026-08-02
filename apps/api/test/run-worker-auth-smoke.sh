@@ -143,6 +143,9 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, uuid, integer, jsonb, text, text, text,
     text, text, uuid, uuid, uuid
   ),
+  public.hotel_inspection_executions_read_v1(
+    uuid, uuid, uuid, jsonb, text
+  ),
   public.hotel_inspection_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid

@@ -1736,14 +1736,10 @@ export const saveInspectionItemResultRequestSchema = z
           message: "주의 결과에는 설명만 입력해야 합니다.",
         });
       }
-    } else if (
-      value.description === null ||
-      value.severity === null ||
-      value.fileVersionIds.length < 1
-    ) {
+    } else if (value.description === null || value.severity === null) {
       context.addIssue({
         code: "custom",
-        message: "이상 결과에는 설명, 심각도, 검역 통과 사진이 필요합니다.",
+        message: "이상 결과 초안에는 설명과 심각도가 필요합니다.",
       });
     }
     if (value.version > 0 !== (value.changeReason !== null)) {
@@ -1811,6 +1807,24 @@ const inspectionItemSnapshotSchema = z
       .nullable(),
   })
   .strict();
+export const inspectionExecutionStatusSchema = z.enum([
+  "PENDING_INPUT",
+  "IN_REVIEW",
+  "COMPLETED",
+  "CANCELLED",
+  "UNFINISHED_CLOSED",
+]);
+export const inspectionExecutionListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    source: z.enum(["MANUAL", "ROUTINE"]).optional(),
+    status: inspectionExecutionStatusSchema.optional(),
+  })
+  .strict();
+export type InspectionExecutionListQuery = z.infer<
+  typeof inspectionExecutionListQuerySchema
+>;
 export const inspectionExecutionSchema = z
   .object({
     id: z.uuid(),
@@ -1818,13 +1832,7 @@ export const inspectionExecutionSchema = z
     source: z.enum(["MANUAL", "ROUTINE"]),
     businessDate: z.iso.date(),
     dueAt: z.iso.datetime(),
-    status: z.enum([
-      "PENDING_INPUT",
-      "IN_REVIEW",
-      "COMPLETED",
-      "CANCELLED",
-      "UNFINISHED_CLOSED",
-    ]),
+    status: inspectionExecutionStatusSchema,
     version: z.number().int().positive(),
     process: z
       .object({
@@ -1843,6 +1851,16 @@ export const inspectionExecutionSchema = z
         version: z.number().int().positive(),
       })
       .strict(),
+    rooms: z.array(
+      z
+        .object({
+          floorLabel: z.string().min(1),
+          id: z.uuid(),
+          roomNumber: z.string().min(1),
+          roomTypeName: z.string().min(1),
+        })
+        .strict(),
+    ),
     items: z.array(inspectionItemSnapshotSchema),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
