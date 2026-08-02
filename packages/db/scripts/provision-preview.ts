@@ -461,6 +461,10 @@ try {
       "0027_hotel_file_finalizer_recovery",
       "0027_hotel_file_finalizer_recovery.sql",
     ],
+    [
+      "0028_hotel_process_default_read_contract",
+      "0028_hotel_process_default_read_contract.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -473,6 +477,7 @@ try {
     "0025_hotel_room_reference_lifecycle",
     "0026_hotel_inspection_process_and_files",
     "0027_hotel_file_finalizer_recovery",
+    "0028_hotel_process_default_read_contract",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1477,6 +1482,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0027_hotel_file_finalizer_recovery'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0028_hotel_process_default_read_contract'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -2328,6 +2336,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0027_hotel_file_finalizer_recovery'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0028_hotel_process_default_read_contract'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {
