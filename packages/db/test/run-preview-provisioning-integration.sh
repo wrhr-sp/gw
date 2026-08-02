@@ -705,6 +705,74 @@ update hotel_rooms set room_number = 'PREFLIGHT-91'
  where id = '7f000000-0000-4000-8000-000000000091';
 SQL
 run_provision CONTRACT >/dev/null
+INSPECTION_PROCESS_CONTRACT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select (
+  (select count(*) = 1 from schema_migrations
+    where version = '0026_hotel_inspection_process_and_files')
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_inspection_claim_materialization_v1(uuid,bytea,integer)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_table_privilege(
+    'werehere_preview_api_runtime', 'public.process_definitions', 'SELECT'
+  )
+  and not has_table_privilege(
+    'werehere_preview_api_runtime', 'public.process_definitions', 'INSERT'
+  )
+  and not has_table_privilege(
+    'werehere_preview_api_runtime', 'public.hotel_file_scan_jobs', 'SELECT'
+  )
+  and exists (
+    select 1 from hotel_file_finalizer_capabilities
+    where role_name = 'werehere_preview_reconciler'
+  )
+  and not exists (
+    select 1 from hotel_file_finalizer_capabilities
+    where role_name <> 'werehere_preview_reconciler'
+  )
+)::text;
+SQL
+)"
+if [[ "$INSPECTION_PROCESS_CONTRACT" != "true" ]]; then
+  printf '%s\n' 'Inspection process CONTRACT marker or exact runtime ACL is invalid.' >&2
+  exit 1
+fi
 ROOM_CONTRACT_MARKER="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
   -c "select count(*) from schema_migrations where version = '0022_hotel_room_contract_hardening'")"
 if [[ "$ROOM_CONTRACT_MARKER" != "1" ]]; then

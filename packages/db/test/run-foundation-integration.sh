@@ -25,6 +25,7 @@ GRANT EXECUTE ON FUNCTION reconciliation_company_ids(), runtime_is_schema_owner(
 REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM gw_runtime_probe;
 REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM gw_runtime_probe;
 GRANT SELECT ON account_provisioning_attempts, auth_identities, branches, companies,
+  hotel_file_finalizer_capabilities,
   hotel_owner_assignments, hotel_profiles, hotel_staff_assignments,
   housekeeping_hotel_links, outbox_jobs, permissions,
   runtime_database_capabilities, schema_migrations, users
@@ -33,11 +34,111 @@ GRANT INSERT ON audit_events, auth_identities, hotel_owner_assignments,
   hotel_staff_assignments, housekeeping_hotel_links, outbox_jobs, users
   TO gw_runtime_probe;
 GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO gw_runtime_probe;
+GRANT EXECUTE ON FUNCTION hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid),
+  hotel_inspection_claim_materialization_v1(uuid,bytea,integer),
+  hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)
+  TO gw_runtime_probe;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('gw_runtime_probe', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
+INSERT INTO hotel_file_finalizer_capabilities (role_name)
+VALUES ('gw_runtime_probe')
+ON CONFLICT (role_name) DO NOTHING;
 SQL
   node -e "const u=new URL(process.argv[1]);u.username='gw_runtime_probe';u.password=process.argv[2];console.log(u.toString())" "$admin_url" "$probe_password"
+}
+
+configure_api_probe_role() {
+  local admin_url="$1"
+  local probe_password
+  probe_password="$(openssl rand -hex 24)"
+  psql -X -v ON_ERROR_STOP=1 -v probe_password="$probe_password" -d "$admin_url" >/dev/null <<'SQL'
+DO $role$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'gw_api_probe') THEN
+    CREATE ROLE gw_api_probe LOGIN;
+  END IF;
+END
+$role$;
+ALTER ROLE gw_api_probe NOSUPERUSER NOBYPASSRLS NOINHERIT PASSWORD :'probe_password';
+GRANT USAGE ON SCHEMA public TO gw_api_probe;
+REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM gw_api_probe;
+REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM gw_api_probe;
+GRANT EXECUTE ON FUNCTION
+  hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)
+  TO gw_api_probe;
+INSERT INTO runtime_database_capabilities (role_name, capability)
+VALUES ('gw_api_probe', 'API_RUNTIME')
+ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
+SQL
+  node -e "const u=new URL(process.argv[1]);u.username='gw_api_probe';u.password=process.argv[2];console.log(u.toString())" "$admin_url" "$probe_password"
+}
+
+cleanup_api_probe_role() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+DELETE FROM runtime_database_capabilities WHERE role_name = 'gw_api_probe';
+DROP OWNED BY gw_api_probe;
+DROP ROLE IF EXISTS gw_api_probe;
+SQL
+}
+
+run_actual_inspection_api_probe() {
+  local admin_url="$1"
+  local api_probe_url probe_status
+  api_probe_url="$(configure_api_probe_role "$admin_url")"
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$api_probe_url" INSPECTION_SQL="$HOTEL_INSPECTION_PROCESS_TEST_SQL" \
+      pnpm exec tsx apps/api/test/inspection-process-actual-api-integration.ts
+  )
+  probe_status=$?
+  set -e
+  cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+assert_inspection_runtime_acl() {
+  local probe_url="$1"
+  local result
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$probe_url" <<'SQL'
+select
+  has_function_privilege(current_user,
+    'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)', 'EXECUTE')
+  and has_function_privilege(current_user,
+    'public.hotel_inspection_claim_materialization_v1(uuid,bytea,integer)', 'EXECUTE')
+  and has_function_privilege(current_user,
+    'public.hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
+  and exists (
+    select 1 from public.hotel_file_finalizer_capabilities
+     where role_name = current_user
+  )
+  and not exists (
+    select 1
+      from (values
+        ('process_definitions'), ('process_executions'), ('hotel_inspections'),
+        ('inspection_item_results'), ('hotel_file_uploads'),
+        ('hotel_file_scan_jobs'), ('hotel_file_versions'), ('hotel_file_links')
+      ) protected(table_name)
+     where has_table_privilege(current_user, 'public.' || protected.table_name, 'INSERT')
+        or has_table_privilege(current_user, 'public.' || protected.table_name, 'UPDATE')
+        or has_table_privilege(current_user, 'public.' || protected.table_name, 'DELETE')
+  );
+SQL
+)"
+  if [[ "$result" != "t" ]]; then
+    printf 'Inspection runtime ACL is not exact.\n' >&2
+    return 1
+  fi
 }
 
 register_owner_api_capability() {
@@ -74,7 +175,9 @@ assert_room_constraints_exact() {
   local admin_url="$1"
   local probe_url="$2"
   local specification table_name constraint_name definition
-  local dependent_table dependent_constraint dependent_definition
+  local dependent_specification dependent_table dependent_constraint dependent_definition
+  local -a dependent_specifications dependent_definitions
+  local dependent_index
   local constraints=(
     "hotel_room_types:hotel_room_types_pkey"
     "hotel_room_types:hotel_room_types_company_id_fkey"
@@ -121,14 +224,19 @@ assert_room_constraints_exact() {
   for specification in "${constraints[@]}"; do
     table_name="${specification%%:*}"
     constraint_name="${specification#*:}"
-    dependent_table=""
-    dependent_constraint=""
+    dependent_specifications=()
+    dependent_definitions=()
     if [[ "$constraint_name" == "hotel_room_types_company_id_id_key" ]]; then
-      dependent_table="hotel_rooms"
-      dependent_constraint="hotel_rooms_company_id_room_type_id_fkey"
+      dependent_specifications=(
+        "hotel_rooms:hotel_rooms_company_id_room_type_id_fkey"
+        "inspection_checklist_items:inspection_checklist_items_company_id_room_type_id_fkey"
+        "inspection_checklist_item_exclusions:inspection_checklist_item_exclusio_company_id_room_type_id_fkey"
+      )
     elif [[ "$constraint_name" == "hotel_rooms_company_branch_id_key" ]]; then
-      dependent_table="hotel_room_status_history"
-      dependent_constraint="hotel_room_status_history_room_hotel_fkey"
+      dependent_specifications=(
+        "hotel_room_status_history:hotel_room_status_history_room_hotel_fkey"
+        "inspection_item_snapshots:inspection_item_snapshots_company_id_branch_id_room_id_fkey"
+      )
     fi
     definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
       -v constraint_name="$constraint_name" <<'SQL'
@@ -141,7 +249,9 @@ SQL
       printf 'Missing room constraint before damage probe: %s\n' "$constraint_name" >&2
       return 1
     fi
-    if [[ -n "$dependent_constraint" ]]; then
+    for dependent_specification in "${dependent_specifications[@]}"; do
+      dependent_table="${dependent_specification%%:*}"
+      dependent_constraint="${dependent_specification#*:}"
       dependent_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
         -v constraint_name="$dependent_constraint" <<'SQL'
 select pg_get_constraintdef(oid, true)
@@ -149,11 +259,16 @@ from pg_constraint
 where conname = :'constraint_name';
 SQL
 )"
+      if [[ -z "$dependent_definition" ]]; then
+        printf 'Missing dependent room constraint before damage probe: %s\n' "$dependent_constraint" >&2
+        return 1
+      fi
+      dependent_definitions+=("$dependent_definition")
       psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
         -v table_name="$dependent_table" -v constraint_name="$dependent_constraint" >/dev/null <<'SQL'
 select format('alter table %I drop constraint %I', :'table_name', :'constraint_name') \gexec
 SQL
-    fi
+    done
     psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
       -v table_name="$table_name" -v constraint_name="$constraint_name" >/dev/null <<'SQL'
 select format('alter table %I drop constraint %I', :'table_name', :'constraint_name') \gexec
@@ -177,7 +292,11 @@ select format(
   :'table_name', :'constraint_name', :'definition'
 ) \gexec
 SQL
-    if [[ -n "$dependent_constraint" ]]; then
+    for dependent_index in "${!dependent_specifications[@]}"; do
+      dependent_specification="${dependent_specifications[$dependent_index]}"
+      dependent_table="${dependent_specification%%:*}"
+      dependent_constraint="${dependent_specification#*:}"
+      dependent_definition="${dependent_definitions[$dependent_index]}"
       psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
         -v table_name="$dependent_table" -v constraint_name="$dependent_constraint" \
         -v definition="$dependent_definition" >/dev/null <<'SQL'
@@ -186,7 +305,7 @@ select format(
   :'table_name', :'constraint_name', :'definition'
 ) \gexec
 SQL
-    fi
+    done
   done
 }
 
@@ -617,11 +736,15 @@ HOTEL_SUPPORT_OVERLAP_MIGRATION="$ROOT_DIR/packages/db/migrations/0018_hotel_sup
 HOTEL_ROOM_MIGRATION="$ROOT_DIR/packages/db/migrations/0019_hotel_room_management.sql"
 HOTEL_ROOM_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0022_hotel_room_contract_hardening.sql"
 HOTEL_ROOM_LIFECYCLE_MIGRATION="$ROOT_DIR/packages/db/migrations/0025_hotel_room_reference_lifecycle.sql"
+HOTEL_INSPECTION_PROCESS_MIGRATION="$ROOT_DIR/packages/db/migrations/0026_hotel_inspection_process_and_files.sql"
+HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION="$ROOT_DIR/packages/db/migrations/0027_hotel_file_finalizer_recovery.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
 GLOBAL_LOGIN_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0010_global_login_id_contract.sql"
 TEST_SQL="$ROOT_DIR/packages/db/test/foundation-integration.sql"
+HOTEL_INSPECTION_PROCESS_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-process-integration.sql"
+HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-finalizer-recovery-integration.sql"
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   if [[ "${ALLOW_DESTRUCTIVE_TEST_DATABASE:-}" != "1" ]]; then
@@ -722,6 +845,14 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_PROCESS_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -754,10 +885,13 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$NEON_DEFINER_CONTRACT_HARDENING_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_ROOM_LIFECYCLE_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_PROCESS_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
   PROBE_URL="$(configure_runtime_probe_role "$TEST_DATABASE_URL")"
+  assert_inspection_runtime_acl "$PROBE_URL"
   register_owner_api_capability "$TEST_DATABASE_URL"
   RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$TEST_SQL")"
   if [[ "$RESULT" != *"PLATFORM_FOUNDATION_INTEGRATION_OK"* ]]; then
@@ -792,6 +926,17 @@ NODE
     TEST_READY_URL="$TEST_DATABASE_URL" TEST_PROBE_URL="$PROBE_URL" \
       pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
   )
+  INSPECTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_PROCESS_TEST_SQL")"
+  if [[ "$INSPECTION_RESULT" != *"INSPECTION_FILE_PROCESS_JOURNEY_OK"* ]]; then
+    printf '%s\n' "$INSPECTION_RESULT" >&2
+    exit 1
+  fi
+  RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
+  if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
+    printf '%s\n' "$RECOVERY_RESULT" >&2
+    exit 1
+  fi
+  run_actual_inspection_api_probe "$TEST_DATABASE_URL"
   assert_room_constraints_exact "$TEST_DATABASE_URL" "$PROBE_URL"
   assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
@@ -905,12 +1050,17 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_ROOM_CONTRACT_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_ROOM_LIFECYCLE_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_INSPECTION_PROCESS_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_FILE_FINALIZER_RECOVERY_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
 ADMIN_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 assert_legacy_auth_removed "$ADMIN_URL"
 PROBE_URL="$(configure_runtime_probe_role "$ADMIN_URL")"
+assert_inspection_runtime_acl "$PROBE_URL"
 register_owner_api_capability "$ADMIN_URL"
 RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$TEST_SQL")"
@@ -959,6 +1109,17 @@ NODE
   TEST_READY_URL="$ADMIN_URL" TEST_PROBE_URL="$PROBE_URL" \
     pnpm exec tsx packages/db/test/hotel-readiness-damage-integration.ts
 )
+INSPECTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_PROCESS_TEST_SQL")"
+if [[ "$INSPECTION_RESULT" != *"INSPECTION_FILE_PROCESS_JOURNEY_OK"* ]]; then
+  printf '%s\n' "$INSPECTION_RESULT" >&2
+  exit 1
+fi
+RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
+if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
+  printf '%s\n' "$RECOVERY_RESULT" >&2
+  exit 1
+fi
+run_actual_inspection_api_probe "$ADMIN_URL"
 assert_room_constraints_exact "$ADMIN_URL" "$PROBE_URL"
 assert_room_fingerprint_damage "$ADMIN_URL" "$PROBE_URL"
 

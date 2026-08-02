@@ -6,6 +6,7 @@ import {
   createHotelAssignmentRequestSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
+  createManualInspectionRequestSchema,
   customLoginRequestSchema,
   createHotelRequestSchema,
   deactivateAccountRequestSchema,
@@ -14,6 +15,10 @@ import {
   hotelCandidateQuerySchema,
   hotelEligibleCandidatesResponseSchema,
   hotelIdempotencyKeySchema,
+  hotelFileUploadCompleteRequestSchema,
+  hotelFileUploadInitRequestSchema,
+  hotelFileUploadInitResponseSchema,
+  hotelFileUploadStatusResponseSchema,
   hotelListQuerySchema,
   hotelOwnerRelationshipsResponseSchema,
   hotelRoomInternalDetailResponseSchema,
@@ -24,6 +29,10 @@ import {
   hotelRoomOwnerListResponseSchema,
   hotelRoomTypeListResponseSchema,
   hotelRoomTypeMutationResponseSchema,
+  inspectionExecutionResponseSchema,
+  saveInspectionItemResultRequestSchema,
+  submitInspectionRequestSchema,
+  transitionProcessExecutionRequestSchema,
   ownerTransferRequestSchema,
   passwordPolicySchema,
   initialPasswordRequestSchema,
@@ -56,6 +65,16 @@ import {
   type HotelBindings,
 } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
+import { FileStorageError, type HotelFileService } from "./files/r2";
+import {
+  createHotelFileServiceFromBindings,
+  createInspectionServiceFromBindings,
+  type InspectionBindings,
+} from "./inspections/factory";
+import {
+  InspectionServiceError,
+  type InspectionService,
+} from "./inspections/service";
 import {
   createRoomServiceFromBindings,
   type RoomBindings,
@@ -63,7 +82,11 @@ import {
 import { RoomServiceError, type RoomService } from "./rooms/service";
 import { resolveDatabaseUrl } from "./database";
 
-type Bindings = AccountBindings & AuthBindings & HotelBindings & RoomBindings;
+type Bindings = AccountBindings &
+  AuthBindings &
+  HotelBindings &
+  InspectionBindings &
+  RoomBindings;
 
 type ReadinessProbe = (
   databaseUrl: string | undefined,
@@ -79,6 +102,8 @@ type CreateAppOptions = {
   authService?: InjectedAuthService;
   databaseUrl?: string;
   hotelService?: HotelService;
+  hotelFileService?: HotelFileService;
+  inspectionService?: InspectionService;
   roomService?: RoomService;
   readinessProbe?: ReadinessProbe;
 };
@@ -189,6 +214,18 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.roomService ?? createRoomServiceFromBindings(bindings);
   }
 
+  function getInspectionService(bindings: Bindings | undefined) {
+    return (
+      options.inspectionService ?? createInspectionServiceFromBindings(bindings)
+    );
+  }
+
+  function getHotelFileService(bindings: Bindings | undefined) {
+    return (
+      options.hotelFileService ?? createHotelFileServiceFromBindings(bindings)
+    );
+  }
+
   async function withAuthService<T>(
     bindings: Bindings | undefined,
     operation: (service: InjectedAuthService) => Promise<T>,
@@ -234,6 +271,30 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.roomService) await service.close?.();
+    }
+  }
+
+  async function withInspectionService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: InspectionService) => Promise<T>,
+  ): Promise<T> {
+    const service = getInspectionService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.inspectionService) await service.close?.();
+    }
+  }
+
+  async function withHotelFileService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: HotelFileService) => Promise<T>,
+  ): Promise<T> {
+    const service = getHotelFileService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.hotelFileService) await service.close?.();
     }
   }
 
@@ -344,7 +405,9 @@ export function createApp(options: CreateAppOptions = {}) {
     error: unknown,
   ) {
     if (
+      error instanceof FileStorageError ||
       error instanceof HotelServiceError ||
+      error instanceof InspectionServiceError ||
       error instanceof RoomServiceError
     ) {
       return context.json(
@@ -2307,6 +2370,426 @@ export function createApp(options: CreateAppOptions = {}) {
           })),
         ),
         409,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/hotels/:hotelId/inspections/manual", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = createManualInspectionRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const inspection = await withInspectionService(context.env, (service) =>
+        service.createManualInspection(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        inspectionExecutionResponseSchema.parse({
+          ok: true,
+          data: { inspection },
+          error: null,
+        }),
+        201,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.put(
+    "/api/hotels/:hotelId/inspections/:inspectionId/items/:itemSnapshotId/result",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const inspectionId = z
+          .uuid()
+          .safeParse(context.req.param("inspectionId"));
+        const itemSnapshotId = z
+          .uuid()
+          .safeParse(context.req.param("itemSnapshotId"));
+        if (
+          !hotelId.success ||
+          !inspectionId.success ||
+          !itemSnapshotId.success
+        )
+          return mutationFailure(context, "NOT_FOUND");
+        const key = idempotencyKey(context);
+        if (!key)
+          return validationFailure(context, [
+            {
+              field: "idempotencyKey",
+              message: "Idempotency-Key 헤더가 필요합니다.",
+            },
+          ]);
+        const parsed = saveInspectionItemResultRequestSchema.safeParse(
+          await context.req.json().catch(() => undefined),
+        );
+        if (!parsed.success)
+          return validationFailure(
+            context,
+            zodFieldErrors(parsed.error.issues),
+          );
+        const inspection = await withInspectionService(context.env, (service) =>
+          service.saveResult(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            inspectionId.data,
+            itemSnapshotId.data,
+            parsed.data,
+            key,
+          ),
+        );
+        return context.json(
+          inspectionExecutionResponseSchema.parse({
+            ok: true,
+            data: { inspection },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.post(
+    "/api/hotels/:hotelId/inspections/:inspectionId/submit",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const inspectionId = z
+          .uuid()
+          .safeParse(context.req.param("inspectionId"));
+        if (!hotelId.success || !inspectionId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        const key = idempotencyKey(context);
+        if (!key)
+          return validationFailure(context, [
+            {
+              field: "idempotencyKey",
+              message: "Idempotency-Key 헤더가 필요합니다.",
+            },
+          ]);
+        const parsed = submitInspectionRequestSchema.safeParse(
+          await context.req.json().catch(() => undefined),
+        );
+        if (!parsed.success)
+          return validationFailure(
+            context,
+            zodFieldErrors(parsed.error.issues),
+          );
+        const inspection = await withInspectionService(context.env, (service) =>
+          service.submit(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            inspectionId.data,
+            parsed.data,
+            key,
+          ),
+        );
+        return context.json(
+          inspectionExecutionResponseSchema.parse({
+            ok: true,
+            data: { inspection },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.post(
+    "/api/hotels/:hotelId/inspections/:inspectionId/process/transition",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const inspectionId = z
+          .uuid()
+          .safeParse(context.req.param("inspectionId"));
+        if (!hotelId.success || !inspectionId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        const key = idempotencyKey(context);
+        if (!key)
+          return validationFailure(context, [
+            {
+              field: "idempotencyKey",
+              message: "Idempotency-Key 헤더가 필요합니다.",
+            },
+          ]);
+        const parsed = transitionProcessExecutionRequestSchema.safeParse(
+          await context.req.json().catch(() => undefined),
+        );
+        if (!parsed.success)
+          return validationFailure(
+            context,
+            zodFieldErrors(parsed.error.issues),
+          );
+        const inspection = await withInspectionService(context.env, (service) =>
+          service.transition(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            inspectionId.data,
+            parsed.data,
+            key,
+          ),
+        );
+        return context.json(
+          inspectionExecutionResponseSchema.parse({
+            ok: true,
+            data: { inspection },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.post("/api/hotels/:hotelId/files/upload-init", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = hotelFileUploadInitRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const data = await withHotelFileService(context.env, (service) =>
+        service.init(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        hotelFileUploadInitResponseSchema.parse({
+          ok: true,
+          data,
+          error: null,
+        }),
+        201,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.put("/api/files/uploads/:uploadId/body", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
+      const hotelId = z.uuid().safeParse(context.req.query("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const mimeType = context.req.header("content-type");
+      if (!mimeType || context.req.header("if-none-match") !== "*")
+        return validationFailure(context, [
+          { field: "headers", message: "업로드 필수 헤더를 확인해 주세요." },
+        ]);
+      const bytes = new Uint8Array(await context.req.arrayBuffer());
+      const stored = await withHotelFileService(context.env, (service) =>
+        service.authorizeAndPut(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          uploadId.data,
+          bytes,
+          mimeType,
+        ),
+      );
+      context.header("ETag", stored.etag);
+      return context.body(null, 204);
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.post("/api/files/uploads/:uploadId/complete", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
+      const hotelId = z.uuid().safeParse(context.req.query("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = hotelFileUploadCompleteRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const upload = await withHotelFileService(context.env, (service) =>
+        service.complete(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          uploadId.data,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        hotelFileUploadStatusResponseSchema.parse({
+          ok: true,
+          data: { upload },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/files/uploads/:uploadId", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
+      if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
+      const hotelId = z.uuid().safeParse(context.req.query("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const upload = await withHotelFileService(context.env, (service) =>
+        service.status(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          uploadId.data,
+        ),
+      );
+      return context.json(
+        hotelFileUploadStatusResponseSchema.parse({
+          ok: true,
+          data: { upload },
+          error: null,
+        }),
       );
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);

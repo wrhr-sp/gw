@@ -453,6 +453,14 @@ try {
       "0025_hotel_room_reference_lifecycle",
       "0025_hotel_room_reference_lifecycle.sql",
     ],
+    [
+      "0026_hotel_inspection_process_and_files",
+      "0026_hotel_inspection_process_and_files.sql",
+    ],
+    [
+      "0027_hotel_file_finalizer_recovery",
+      "0027_hotel_file_finalizer_recovery.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -463,6 +471,8 @@ try {
     "0023_login_id_registry_history_contract",
     "0024_preview_bootstrap_session_revocations",
     "0025_hotel_room_reference_lifecycle",
+    "0026_hotel_inspection_process_and_files",
+    "0027_hotel_file_finalizer_recovery",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1460,6 +1470,25 @@ try {
   if (!roomLifecycleState) {
     fail("Preview room lifecycle marker state is unavailable");
   }
+  const [inspectionProcessState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0026_hotel_inspection_process_and_files'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0027_hotel_file_finalizer_recovery'
+    ) as contracted
+  `;
+  if (!inspectionProcessState) {
+    fail("Preview inspection process marker state is unavailable");
+  }
+  if (inspectionProcessState.contracted) {
+    await owner`
+      insert into public.hotel_file_finalizer_capabilities (role_name)
+      values (${reconcilerRole})
+      on conflict (role_name) do nothing
+    `;
+  }
 
   if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
@@ -1685,6 +1714,19 @@ try {
       hotel_staff_assignments,
       housekeeping_hotel_links, hotel_owner_assignments,
       hotel_room_types, hotel_rooms, hotel_room_status_history
+      ${
+        inspectionProcessState.contracted
+          ? `, process_definitions, process_definition_revisions,
+      process_stage_snapshots, process_transition_snapshots, hotel_process_defaults,
+      process_executions, process_execution_history,
+      inspection_checklist_revisions, inspection_checklist_items,
+      inspection_checklist_item_exclusions, inspection_routines,
+      inspection_routine_revisions, inspection_routine_rounds,
+      hotel_inspections, inspection_item_snapshots, inspection_item_results,
+      inspection_item_result_history, hotel_file_uploads, hotel_file_versions,
+      hotel_file_links, hotel_file_finalizer_capabilities`
+          : ""
+      }
     to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_login_transactions to ${apiRuntimeTableGrantees};
     grant insert, update, delete on auth_credential_rate_limits to ${apiRuntimeTableGrantees};
@@ -1797,11 +1839,82 @@ try {
     `
         : ""
     }
+    ${
+      inspectionProcessState.contracted
+        ? `
+    do $exact_inspection_command_acl$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select procedure_record.oid::regprocedure::text as signature,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+          left join pg_catalog.pg_roles grantee_role
+            on grantee_role.oid = acl.grantee
+         where procedure_namespace.nspname = 'public'
+           and procedure_record.proname in (
+             'hotel_process_command_v1', 'hotel_inspection_command_v1',
+             'hotel_file_command_v1', 'hotel_file_scan_command_v1',
+             'hotel_inspection_claim_materialization_v1',
+             'hotel_inspection_complete_materialization_v1'
+           )
+           and acl.privilege_type = 'EXECUTE'
+           and acl.grantee <> procedure_record.proowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from public cascade',
+            acl_record.signature
+          );
+        else
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from %I cascade',
+            acl_record.signature,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $exact_inspection_command_acl$;
+
+    grant execute on function public.hotel_process_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_file_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_file_scan_command_v1(
+      uuid, text, text, bigint, jsonb, uuid
+    ) to ${reconcilerRole};
+    grant execute on function public.hotel_inspection_claim_materialization_v1(
+      uuid, bytea, integer
+    ) to ${reconcilerRole};
+    grant execute on function public.hotel_inspection_complete_materialization_v1(
+      uuid, bigint, bytea, uuid
+    ) to ${reconcilerRole};
+    `
+        : ""
+    }
 
     grant select on
       schema_migrations, companies, permissions, users, auth_identities, branches, hotel_profiles,
       runtime_database_capabilities, outbox_jobs, account_provisioning_attempts,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
+      ${inspectionProcessState.contracted ? ", hotel_file_finalizer_capabilities" : ""}
     to ${reconcilerRole};
     grant insert on users, auth_identities, audit_events, outbox_jobs,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
@@ -2206,8 +2319,25 @@ try {
   }
   const requiredLoginIdHistoryRolloutPhase: "CONTRACT" | "EXPAND" =
     loginIdHistoryRolloutState.contracted ? "CONTRACT" : "EXPAND";
+  const [inspectionProcessRolloutState] = await owner<
+    { contracted: boolean }[]
+  >`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0026_hotel_inspection_process_and_files'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0027_hotel_file_finalizer_recovery'
+    ) as contracted
+  `;
+  if (!inspectionProcessRolloutState) {
+    fail("Preview inspection process rollout marker state is unavailable");
+  }
+  const requiredInspectionProcessPhase: "CONTRACT" | "EXPAND" =
+    inspectionProcessRolloutState.contracted ? "CONTRACT" : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    requiredInspectionProcessPhase,
     requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
     requiredRoomSchemaPhase: requiredRoomRolloutPhase,
     requiredSchemaPhase: requiredRolloutPhase,
@@ -2221,6 +2351,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      requiredInspectionProcessPhase,
       requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
       requiredRoomSchemaPhase: requiredRoomRolloutPhase,
       requiredSchemaPhase: requiredRolloutPhase,
