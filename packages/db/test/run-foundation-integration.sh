@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Keep SQL current_date aligned with the hotel-local materializer clock,
+# including CI runs that cross Korean midnight while the database defaults to UTC.
+export PGTZ="Asia/Seoul"
+
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
@@ -969,6 +973,11 @@ NODE
     exit 1
   fi
   run_actual_inspection_api_probe "$TEST_DATABASE_URL"
+  ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
+  if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
+    printf '%s\n' "$ROUTINE_RESULT" >&2
+    exit 1
+  fi
   assert_room_constraints_exact "$TEST_DATABASE_URL" "$PROBE_URL"
   assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
@@ -1157,17 +1166,17 @@ if [[ "$REVIEWER_CANDIDATES_RESULT" != *"HOTEL_PROCESS_REVIEWER_CANDIDATES_OK"* 
   printf '%s\n' "$REVIEWER_CANDIDATES_RESULT" >&2
   exit 1
 fi
-ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
-if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
-  printf '%s\n' "$ROUTINE_RESULT" >&2
-  exit 1
-fi
 RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
 if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
   printf '%s\n' "$RECOVERY_RESULT" >&2
   exit 1
 fi
 run_actual_inspection_api_probe "$ADMIN_URL"
+ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
+if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
+  printf '%s\n' "$ROUTINE_RESULT" >&2
+  exit 1
+fi
 assert_room_constraints_exact "$ADMIN_URL" "$PROBE_URL"
 assert_room_fingerprint_damage "$ADMIN_URL" "$PROBE_URL"
 

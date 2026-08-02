@@ -201,24 +201,27 @@ begin
   select * into v_result from public.hotel_inspection_command_v1(
     v_company, v_hotel, v_new_checklist, 'SAVE_CHECKLIST', 1,
     jsonb_build_object(
+      'revisionId', v_new_checklist,
       'reason', '고정 검증용 새 체크리스트',
       'items', jsonb_build_array(jsonb_build_object(
-        'itemId', null, 'source', 'HOTEL_COMMON', 'roomTypeId', null,
+        'itemId', 'ef400000-0000-4000-8000-000000000002',
+        'snapshotId', 'ef400000-0000-4000-8000-000000000003',
+        'source', 'HOTEL_COMMON', 'roomTypeId', null,
         'excludedRoomTypeIds', jsonb_build_array(), 'name', '새 기준 항목',
         'description', null, 'isRequired', true, 'displayOrder', 10,
         'defaultSeverity', 'OBSERVATION'
       ))
     ),
     v_token,
-    'routine-new-checklist',
     'ef500000-0000-4000-8000-000000000001',
+    'routine-new-checklist',
     'PUT',
     '/api/hotels/50000000-0000-4000-8000-000000000001/inspection-checklist',
-    'hash-routine-new-checklist', 'INSPECTION_CHECKLIST',
+    'hash-routine-new-checklist',
     'ef600000-0000-4000-8000-000000000001',
     'ef700000-0000-4000-8000-000000000001'
   );
-  if v_result.command_status <> 'OK' then
+  if v_result.command_status <> 'UPDATED' then
     raise exception 'new checklist revision setup failed: %', v_result.command_status;
   end if;
 
@@ -244,17 +247,25 @@ begin
   if v_complete.result_status <> 'COMPLETED'
      or v_complete.created_count <> 1
      or not exists (
-       select 1 from public.hotel_inspections inspection
+       select 1
+         from public.hotel_inspections inspection
+         join public.inspection_item_snapshots item
+           on item.company_id = inspection.company_id
+          and item.inspection_id = inspection.id
         where inspection.company_id = v_company
           and inspection.branch_id = v_hotel
           and inspection.routine_revision_id = v_routine_revision
-          and inspection.checklist_revision_id = v_checklist
+          and item.checklist_revision_id = v_checklist
      )
      or exists (
-       select 1 from public.hotel_inspections inspection
+       select 1
+         from public.hotel_inspections inspection
+         join public.inspection_item_snapshots item
+           on item.company_id = inspection.company_id
+          and item.inspection_id = inspection.id
         where inspection.company_id = v_company
           and inspection.routine_revision_id = v_routine_revision
-          and inspection.checklist_revision_id = v_new_checklist
+          and item.checklist_revision_id = v_new_checklist
      ) then
     raise exception 'materializer did not preserve pinned checklist: % %',
       v_complete.result_status, v_complete.created_count;
