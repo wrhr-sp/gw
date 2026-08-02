@@ -40,6 +40,24 @@ export interface InspectionRepository {
     sessionToken: string;
     uploadId: string;
   }): Promise<InspectionCommandResult>;
+  inspectionQuery?(input: {
+    action: "LIST_INSPECTIONS" | "LIST_ROUTINES" | "READ_CHECKLIST";
+    companyId: string;
+    hotelId: string;
+    resourceId?: string | null;
+    sessionId: string;
+    sessionToken: string;
+    value?: unknown;
+  }): Promise<InspectionCommandResult>;
+  processCommand?(input: {
+    action: "LIST_DEFINITIONS" | "READ_DEFAULT";
+    companyId: string;
+    hotelId: string | null;
+    resourceId: string | null;
+    sessionId: string;
+    sessionToken: string;
+    value: unknown;
+  }): Promise<InspectionCommandResult>;
 
   readInspection(input: {
     companyId: string;
@@ -52,7 +70,7 @@ export interface InspectionRepository {
 
 export type InspectionApiRepository = Pick<
   InspectionRepository,
-  "close" | "command" | "readInspection"
+  "close" | "command" | "inspectionQuery" | "processCommand" | "readInspection"
 >;
 
 type CommandRow = {
@@ -141,6 +159,45 @@ export function createPostgresInspectionRepository(
               ${input.uploadId}::uuid, ${input.action}::text, 0, '{}'::jsonb,
               ${input.sessionToken}::text, null::uuid, null::text, 'POST'::text,
               '/api/read-only'::text, null::text, null::uuid, null::uuid
+            )
+          `,
+        );
+      });
+    },
+
+    async inspectionQuery(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId ?? null}::uuid, ${input.action}::text, 0,
+              ${transaction.json((input.value ?? {}) as never)}::jsonb,
+              ${input.sessionToken}::text, null::uuid, null::text,
+              'POST'::text, '/api/read-only'::text, null::text,
+              null::uuid, null::uuid
+            )
+          `,
+        );
+      });
+    },
+    async processCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_process_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId}::uuid, ${input.action}::text, 0,
+              ${transaction.json(input.value as never)}::jsonb,
+              ${input.sessionToken}::text, null::uuid, null::text,
+              'POST'::text, '/api/read-only'::text, null::text,
+              null::uuid, null::uuid
             )
           `,
         );

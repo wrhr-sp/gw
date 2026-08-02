@@ -3,6 +3,7 @@ import {
   submitInspectionRequestSchema,
   transitionProcessExecutionRequestSchema,
   type AuthenticatedPrincipal,
+  type CreateInspectionChecklistRevisionRequest,
   type CreateManualInspectionRequest,
   type SaveInspectionItemResultRequest,
 } from "@werehere/contracts";
@@ -40,6 +41,20 @@ export class InspectionServiceError extends Error {
 
 export interface InspectionService {
   close?(): Promise<void>;
+  listProcessDefinitions(
+    principal: MutationPrincipal,
+    hotelId: string | null,
+  ): Promise<unknown[]>;
+  getChecklist(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown | null>;
+  saveChecklist(
+    principal: MutationPrincipal,
+    hotelId: string,
+    value: CreateInspectionChecklistRevisionRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
   createManualInspection(
     principal: MutationPrincipal,
     hotelId: string,
@@ -157,6 +172,77 @@ export function createInspectionService(
 
   return {
     close: () => repository.close(),
+    async listProcessDefinitions(principal, hotelId) {
+      const processCommand = repository.processCommand;
+      if (!processCommand)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await processCommand({
+        action: "LIST_DEFINITIONS",
+        companyId: principal.companyId,
+        hotelId,
+        resourceId: null,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        value: {},
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("definitions" in result.payload) ||
+        !Array.isArray(result.payload.definitions)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.definitions;
+    },
+    async getChecklist(principal, hotelId) {
+      const inspectionQuery = repository.inspectionQuery;
+      if (!inspectionQuery)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await inspectionQuery({
+        action: "READ_CHECKLIST",
+        companyId: principal.companyId,
+        hotelId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      return result.payload;
+    },
+    async saveChecklist(principal, hotelId, value, idempotencyKey) {
+      const operationPath = inspectionRoutes.checklist(hotelId);
+      const revisionId = crypto.randomUUID();
+      const commandValue = {
+        ...value,
+        revisionId,
+        items: value.items.map((item) => ({
+          ...item,
+          itemId: item.itemId ?? crypto.randomUUID(),
+        })),
+      };
+      const result = await repository.command({
+        action: "SAVE_CHECKLIST",
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod: "PUT",
+        idempotencyKey,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({ method: "PUT", path: operationPath, value }),
+        resourceId: revisionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
+        value: commandValue,
+      });
+      if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
+        failure(result.status);
+      if (!result.payload)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
     createManualInspection(principal, hotelId, value, idempotencyKey) {
       const inspectionId = crypto.randomUUID();
       return mutateAndRead({

@@ -92,6 +92,12 @@ export function HotelDetailView({
             >
               객실관리
             </a>
+            <a
+              className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
+              href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections/settings`}
+            >
+              점검설정
+            </a>
           </div>
           <section className="rounded-panel border border-border bg-surface p-5 md:p-6">
             <h2 className="text-base font-semibold text-text">호텔 기본정보</h2>

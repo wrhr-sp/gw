@@ -6,6 +6,7 @@ import {
   createHotelAssignmentRequestSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
+  createInspectionChecklistRevisionRequestSchema,
   createManualInspectionRequestSchema,
   customLoginRequestSchema,
   createHotelRequestSchema,
@@ -29,7 +30,9 @@ import {
   hotelRoomOwnerListResponseSchema,
   hotelRoomTypeListResponseSchema,
   hotelRoomTypeMutationResponseSchema,
+  inspectionChecklistResponseSchema,
   inspectionExecutionResponseSchema,
+  processDefinitionListResponseSchema,
   saveInspectionItemResultRequestSchema,
   submitInspectionRequestSchema,
   transitionProcessExecutionRequestSchema,
@@ -2370,6 +2373,126 @@ export function createApp(options: CreateAppOptions = {}) {
           })),
         ),
         409,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/admin/process-definitions", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelIdValue = context.req.query("hotelId");
+      const hotelId = hotelIdValue
+        ? HOTEL_ID_SCHEMA.safeParse(hotelIdValue)
+        : { success: true as const, data: null };
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const definitions = await withInspectionService(context.env, (service) =>
+        service.listProcessDefinitions(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+        ),
+      );
+      return context.json(
+        processDefinitionListResponseSchema.parse({
+          ok: true,
+          data: { definitions },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/inspection-checklist", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const checklist = await withInspectionService(context.env, (service) =>
+        service.getChecklist(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+        ),
+      );
+      return context.json(
+        inspectionChecklistResponseSchema.parse({
+          ok: true,
+          data: { checklist },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.put("/api/hotels/:hotelId/inspection-checklist", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = createInspectionChecklistRevisionRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const checklist = await withInspectionService(context.env, (service) =>
+        service.saveChecklist(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        inspectionChecklistResponseSchema.parse({
+          ok: true,
+          data: { checklist },
+          error: null,
+        }),
       );
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);
