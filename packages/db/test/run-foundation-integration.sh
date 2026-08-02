@@ -962,6 +962,32 @@ const ready = await probeDatabaseReadiness(process.env.TEST_READY_URL);
 if (ready.status !== "READY") throw new Error(`expected READY, received ${ready.status}`);
 NODE
   )
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
+    -c "grant update (description) on public.inspection_item_results to gw_api_probe" >/dev/null
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$PROBE_URL" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const damaged = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (damaged.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY after inspection column ACL damage, received ${damaged.status}`);
+}
+NODE
+  )
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
+    -c "revoke update (description) on public.inspection_item_results from gw_api_probe" >/dev/null
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$PROBE_URL" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const restored = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (restored.status !== "READY") {
+  throw new Error(`expected READY after inspection column ACL repair, received ${restored.status}`);
+}
+NODE
+  )
   (
     cd "$ROOT_DIR"
     TEST_READY_URL="$TEST_DATABASE_URL" \

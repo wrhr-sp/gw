@@ -186,6 +186,104 @@ test("네트워크 실패 시 입력과 동일 저장 operation을 유지한다"
   expect(bodies[1]).toBe(bodies[0]);
 });
 
+test("stale 저장 응답은 입력과 동일 operation을 유지한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const keys: string[] = [];
+  await page.route("**/items/*/result", async (route) => {
+    keys.push(route.request().headers()["idempotency-key"] ?? "");
+    const staleInspection = {
+      ...inspection,
+      items: inspection.items.map((item) => ({
+        ...item,
+        result:
+          item.id === "95000000-0000-4000-8000-000000000002"
+            ? {
+                version: 2,
+                result: "ABNORMAL" as const,
+                description: "다른 사용자의 결과",
+                severity: "CRITICAL" as const,
+                fileVersionIds: [],
+              }
+            : item.result
+              ? {
+                  version: item.result.version,
+                  result: item.result.result,
+                  description: item.result.description,
+                  severity: item.result.severity,
+                  fileVersionIds: item.result.fileVersionIds,
+                }
+              : null,
+      })),
+    };
+    await route.fulfill({
+      contentType: "application/json",
+      status: 200,
+      body: JSON.stringify({
+        ok: true,
+        data: { inspection: staleInspection },
+        error: null,
+      }),
+    });
+  });
+  const workspace = await mountWorkspace(mount);
+  await workspace.getByLabel("점검항목 이동").selectOption("1");
+  await workspace.getByRole("button", { name: "주의" }).click();
+  await workspace.getByLabel("설명").fill("내가 확인한 잠금 문제");
+  await workspace.getByRole("button", { name: "저장하고 다음" }).click();
+  await expect(workspace.getByRole("status")).toContainText(
+    "저장 응답이 요청값과 달라",
+  );
+  await expect(workspace.getByLabel("설명")).toHaveValue(
+    "내가 확인한 잠금 문제",
+  );
+  await workspace.getByRole("button", { name: "저장하고 다음" }).click();
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).toBe(keys[0]);
+});
+
+test("commit 여부가 불확정한 수시점검 생성은 같은 key로 재시도한다", async ({
+  mount,
+  page,
+}) => {
+  const keys: string[] = [];
+  const bodies: string[] = [];
+  await page.route("**/inspections/manual", async (route) => {
+    keys.push(route.request().headers()["idempotency-key"] ?? "");
+    bodies.push(route.request().postData() ?? "");
+    await route.fulfill({
+      contentType: "application/json",
+      status: 503,
+      body: JSON.stringify({
+        ok: false,
+        data: null,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "생성 응답 유실",
+          retryable: true,
+          fieldErrors: [],
+        },
+      }),
+    });
+  });
+  const workspace = await mountWorkspace(mount);
+  await workspace.getByRole("button", { name: "수시점검 시작" }).click();
+  await workspace.getByLabel("객실").selectOption(roomId);
+  await workspace.getByRole("checkbox", { name: "욕실 청결" }).check();
+  await workspace.getByRole("button", { name: "점검 생성" }).click();
+  await expect(workspace.getByRole("status")).toContainText(
+    "요청을 처리하지 못했습니다",
+  );
+  await expect(workspace.getByLabel("객실")).toHaveValue(roomId);
+  await workspace.getByRole("button", { name: "점검 생성" }).click();
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBeTruthy();
+  expect(keys[1]).toBe(keys[0]);
+  expect(bodies[1]).toBe(bodies[0]);
+});
+
 test("모바일 점검 수행 한 항목 집중 흐름", async ({ mount, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const workspace = await mountWorkspace(mount);

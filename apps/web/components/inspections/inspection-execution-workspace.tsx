@@ -28,6 +28,7 @@ type Draft = {
 };
 type DraftForm = { drafts: Record<string, Draft> };
 type ManualForm = { roomId: string; selectedItemIds: string[] };
+type SaveResultRequest = z.infer<typeof saveInspectionItemResultRequestSchema>;
 
 type RoomOption = {
   floorLabel: string;
@@ -61,6 +62,25 @@ function draftFromItem(item: Item): Draft {
     result: item.result?.result ?? null,
     severity: item.result?.severity ?? null,
   };
+}
+
+function savedResultMatches(
+  item: Item | undefined,
+  expected: SaveResultRequest,
+) {
+  const result = item?.result;
+  return Boolean(
+    result &&
+    result.version === expected.version + 1 &&
+    result.result === expected.result &&
+    result.description === expected.description &&
+    result.severity === expected.severity &&
+    result.fileVersionIds.length === expected.fileVersionIds.length &&
+    result.fileVersionIds.every(
+      (fileVersionId, index) =>
+        fileVersionId === expected.fileVersionIds[index],
+    ),
+  );
 }
 
 function draftsFromInspection(inspection: Inspection | null) {
@@ -149,6 +169,7 @@ export function InspectionExecutionWorkspace({
   const saveOperations = useRef<
     Record<string, { body: string; key: string } | undefined>
   >({});
+  const manualOperation = useRef<{ body: string; key: string } | null>(null);
   const { getValues, register, reset, setValue, watch } = useForm<DraftForm>({
     defaultValues: { drafts: draftsFromInspection(initialSelectedInspection) },
   });
@@ -285,10 +306,19 @@ export function InspectionExecutionWorkspace({
     );
     if (!mutation.success)
       throw new Error("저장 응답이 올바르지 않아 완료로 처리하지 않았습니다.");
+    const mutationItem = mutation.data.data.inspection.items.find(
+      (candidate) => candidate.id === itemId,
+    );
+    if (!savedResultMatches(mutationItem, parsedRequest.data))
+      throw new Error(
+        "저장 응답이 요청값과 달라 충돌로 처리했습니다. 입력값은 유지됩니다.",
+      );
     const read = await readBack(canonical.id);
     const saved = read.items.find((candidate) => candidate.id === itemId);
-    if (!saved?.result)
-      throw new Error("저장한 항목 결과가 재조회되지 않았습니다.");
+    if (!saved || !savedResultMatches(saved, parsedRequest.data))
+      throw new Error(
+        "저장 후 재조회 값이 요청값과 달라 충돌로 처리했습니다. 입력값은 유지됩니다.",
+      );
     delete saveOperations.current[itemId];
     setDirtyIds((current) => {
       const next = new Set(current);
@@ -373,13 +403,16 @@ export function InspectionExecutionWorkspace({
     setSaving(true);
     setMessage("수시점검을 생성하고 서버에서 다시 확인하는 중입니다.");
     const body = JSON.stringify(request.data);
-    const key = crypto.randomUUID();
+    const previous = manualOperation.current;
+    const operation =
+      previous?.body === body ? previous : { body, key: crypto.randomUUID() };
+    manualOperation.current = operation;
     try {
       const response = await fetch(inspectionRoutes.createManual(hotelId), {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "idempotency-key": key,
+          "idempotency-key": operation.key,
         },
         body,
       });
@@ -390,6 +423,7 @@ export function InspectionExecutionWorkspace({
       if (!parsed.success)
         throw new Error("수시점검 생성 응답이 올바르지 않습니다.");
       const inspection = await readBack(parsed.data.data.inspection.id);
+      manualOperation.current = null;
       applyCanonical(inspection);
       setActiveIndex(0);
       manualForm.reset();
@@ -419,7 +453,12 @@ export function InspectionExecutionWorkspace({
         actions={
           <Button
             className="min-h-11"
-            onClick={() => setManualOpen((current) => !current)}
+            onClick={() =>
+              setManualOpen((current) => {
+                if (current) manualOperation.current = null;
+                return !current;
+              })
+            }
             type="button"
           >
             {manualOpen ? "수시점검 닫기" : "수시점검 시작"}

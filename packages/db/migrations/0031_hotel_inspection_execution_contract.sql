@@ -1,5 +1,144 @@
 begin;
 
+alter table public.inspection_item_snapshots
+  add column room_number_snapshot text,
+  add column floor_label_snapshot text,
+  add column floor_sort_key_snapshot integer,
+  add column room_type_name_snapshot text;
+
+alter table public.inspection_item_snapshots
+  disable trigger inspection_item_snapshots_append_only;
+
+update public.inspection_item_snapshots item
+   set room_number_snapshot = room.room_number,
+       floor_label_snapshot = room.floor_label,
+       floor_sort_key_snapshot = room.floor_sort_key,
+       room_type_name_snapshot = room_type.name
+  from public.hotel_rooms room
+  join public.hotel_room_types room_type
+    on room_type.company_id = room.company_id
+   and room_type.id = room.room_type_id
+ where room.company_id = item.company_id
+   and room.branch_id = item.branch_id
+   and room.id = item.room_id;
+
+alter table public.inspection_item_snapshots
+  enable trigger inspection_item_snapshots_append_only;
+
+alter table public.inspection_item_snapshots
+  alter column room_number_snapshot set not null,
+  alter column floor_label_snapshot set not null,
+  alter column floor_sort_key_snapshot set not null,
+  alter column room_type_name_snapshot set not null;
+
+create function public.inspection_item_room_snapshot_capture_v1()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog
+as $function$
+begin
+  select room.room_number, room.floor_label, room.floor_sort_key, room_type.name
+    into new.room_number_snapshot, new.floor_label_snapshot,
+         new.floor_sort_key_snapshot, new.room_type_name_snapshot
+    from public.hotel_rooms room
+    join public.hotel_room_types room_type
+      on room_type.company_id = room.company_id
+     and room_type.id = room.room_type_id
+   where room.company_id = new.company_id
+     and room.branch_id = new.branch_id
+     and room.id = new.room_id;
+  if not found then
+    raise check_violation using message = 'inspection room snapshot source is invalid';
+  end if;
+  return new;
+end
+$function$;
+revoke all on function public.inspection_item_room_snapshot_capture_v1() from public;
+
+create trigger inspection_item_room_snapshot_capture
+before insert on public.inspection_item_snapshots
+for each row execute function public.inspection_item_room_snapshot_capture_v1();
+
+create or replace function public.inspection_execution_snapshot_v1(
+  p_company_id uuid,
+  p_branch_id uuid,
+  p_inspection_id uuid
+)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path = pg_catalog
+as $function$
+  select pg_catalog.jsonb_build_object(
+    'id', inspection.id,
+    'hotelId', inspection.branch_id,
+    'source', inspection.source,
+    'businessDate', inspection.business_date,
+    'dueAt', pg_catalog.to_char(inspection.due_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'status', inspection.status,
+    'version', inspection.version,
+    'process', pg_catalog.jsonb_build_object(
+      'executionId', execution.id,
+      'definitionId', execution.definition_id,
+      'revisionId', execution.revision_id,
+      'currentStageKey', execution.current_stage_key,
+      'currentStageName', execution.current_stage_name,
+      'state', execution.state,
+      'version', execution.version
+    ),
+    'items', coalesce((
+      select pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'id', snapshot.id,
+          'roomId', snapshot.room_id,
+          'itemId', snapshot.source_item_id,
+          'name', snapshot.name,
+          'description', snapshot.description,
+          'isRequired', snapshot.is_required,
+          'displayOrder', snapshot.display_order,
+          'defaultSeverity', snapshot.default_severity,
+          'result', case when result_record.id is null then null else
+            pg_catalog.jsonb_build_object(
+              'result', result_record.result,
+              'description', result_record.description,
+              'severity', result_record.severity,
+              'fileVersionIds', coalesce((
+                select pg_catalog.jsonb_agg(link.file_version_id order by link.linked_at)
+                  from public.hotel_file_links link
+                 where link.company_id = snapshot.company_id
+                   and link.result_id = result_record.id
+                   and link.result_version = result_record.version
+              ), '[]'::jsonb),
+              'version', result_record.version
+            ) end
+        ) order by snapshot.floor_sort_key_snapshot,
+                   snapshot.room_number_snapshot, snapshot.room_id,
+                   snapshot.display_order, snapshot.id
+      )
+        from public.inspection_item_snapshots snapshot
+        left join public.inspection_item_results result_record
+          on result_record.company_id = snapshot.company_id
+         and result_record.inspection_id = snapshot.inspection_id
+         and result_record.item_snapshot_id = snapshot.id
+       where snapshot.company_id = inspection.company_id
+         and snapshot.branch_id = inspection.branch_id
+         and snapshot.inspection_id = inspection.id
+    ), '[]'::jsonb),
+    'createdAt', pg_catalog.to_char(inspection.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'updatedAt', pg_catalog.to_char(inspection.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+  )
+    from public.hotel_inspections inspection
+    join public.process_executions execution
+      on execution.company_id = inspection.company_id
+     and execution.id = inspection.process_execution_id
+   where inspection.company_id = p_company_id
+     and inspection.branch_id = p_branch_id
+     and inspection.id = p_inspection_id
+$function$;
+revoke all on function public.inspection_execution_snapshot_v1(uuid, uuid, uuid) from public;
+
 create function public.inspection_execution_read_snapshot_v1(
   p_company_id uuid,
   p_branch_id uuid,
@@ -8,32 +147,28 @@ create function public.inspection_execution_read_snapshot_v1(
 returns jsonb
 language sql
 stable
-security definer
+security invoker
 set search_path = pg_catalog
 as $function$
   select case when snapshot.value is null then null::jsonb else
     snapshot.value || pg_catalog.jsonb_build_object(
       'rooms', coalesce((
         select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
-          'id', room.id,
-          'roomNumber', room.room_number,
-          'floorLabel', room.floor_label,
-          'roomTypeName', room_type.name
-        ) order by room.floor_sort_key, room.room_number, room.id)
+          'id', selected_room.room_id,
+          'roomNumber', selected_room.room_number_snapshot,
+          'floorLabel', selected_room.floor_label_snapshot,
+          'roomTypeName', selected_room.room_type_name_snapshot
+        ) order by selected_room.floor_sort_key_snapshot,
+                   selected_room.room_number_snapshot, selected_room.room_id)
           from (
-            select distinct item.room_id
+            select distinct item.room_id, item.room_number_snapshot,
+                   item.floor_label_snapshot, item.floor_sort_key_snapshot,
+                   item.room_type_name_snapshot
               from public.inspection_item_snapshots item
              where item.company_id = p_company_id
                and item.branch_id = p_branch_id
                and item.inspection_id = p_inspection_id
           ) selected_room
-          join public.hotel_rooms room
-            on room.company_id = p_company_id
-           and room.branch_id = p_branch_id
-           and room.id = selected_room.room_id
-          join public.hotel_room_types room_type
-            on room_type.company_id = room.company_id
-           and room_type.id = room.room_type_id
       ), '[]'::jsonb)
     ) end
     from (select public.inspection_execution_snapshot_v1(

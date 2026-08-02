@@ -1924,6 +1924,7 @@ export async function probeDatabaseReadiness(
     if (inspectionProcessPhase === "CONTRACT") {
       const [inspectionTables] = await sql<
         {
+          direct_column_mutation_acl_count: number;
           direct_mutation_acl_count: number;
           force_rls_count: number;
           owner_safe_count: number;
@@ -1965,7 +1966,39 @@ export async function probeDatabaseReadiness(
                     )
                     and acl.grantee <> protected_table.relowner
                     and acl.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
-               ) as direct_mutation_acl_count
+               ) as direct_mutation_acl_count,
+               (
+                 select count(*)::integer
+                   from pg_catalog.pg_class protected_table
+                   join pg_catalog.pg_namespace protected_namespace
+                     on protected_namespace.oid = protected_table.relnamespace
+                   join pg_catalog.pg_attribute protected_column
+                     on protected_column.attrelid = protected_table.oid
+                    and protected_column.attnum > 0
+                    and not protected_column.attisdropped
+                   cross join lateral pg_catalog.aclexplode(
+                     protected_column.attacl
+                   ) acl
+                   join pg_catalog.pg_roles grantee_role
+                     on grantee_role.oid = acl.grantee
+                   join public.runtime_database_capabilities capability
+                     on capability.role_name = grantee_role.rolname
+                  where protected_namespace.nspname = 'public'
+                    and protected_table.relname in (
+                      'process_definitions', 'process_definition_revisions',
+                      'process_stage_snapshots', 'process_transition_snapshots',
+                      'hotel_process_defaults', 'process_executions',
+                      'process_execution_history', 'inspection_checklist_revisions',
+                      'inspection_checklist_items', 'inspection_checklist_item_exclusions',
+                      'inspection_routines', 'inspection_routine_revisions',
+                      'inspection_routine_rounds', 'hotel_inspections',
+                      'inspection_item_snapshots', 'inspection_item_results',
+                      'inspection_item_result_history', 'hotel_file_uploads',
+                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+                    )
+                    and acl.grantee <> protected_table.relowner
+                    and acl.privilege_type in ('INSERT', 'UPDATE', 'REFERENCES')
+               ) as direct_column_mutation_acl_count
           from pg_catalog.pg_class table_record
           join pg_catalog.pg_namespace table_namespace
             on table_namespace.oid = table_record.relnamespace
@@ -1994,7 +2027,8 @@ export async function probeDatabaseReadiness(
         inspectionTables.rls_count !== 21 ||
         inspectionTables.force_rls_count !== 21 ||
         inspectionTables.owner_safe_count !== 21 ||
-        inspectionTables.direct_mutation_acl_count !== 0
+        inspectionTables.direct_mutation_acl_count !== 0 ||
+        inspectionTables.direct_column_mutation_acl_count !== 0
       ) {
         return { status: "SCHEMA_NOT_READY" };
       }

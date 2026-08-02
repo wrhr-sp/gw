@@ -175,6 +175,41 @@ function failure(status: string): never {
   throw new InspectionServiceError("INTERNAL_ERROR", 500);
 }
 
+function savedResultMatches(
+  snapshot: unknown,
+  itemSnapshotId: string,
+  expected: SaveInspectionItemResultRequest,
+) {
+  if (!snapshot || typeof snapshot !== "object" || !("items" in snapshot))
+    return false;
+  const items = snapshot.items;
+  if (!Array.isArray(items)) return false;
+  const item = items.find(
+    (candidate) =>
+      candidate &&
+      typeof candidate === "object" &&
+      "id" in candidate &&
+      candidate.id === itemSnapshotId,
+  );
+  if (!item || typeof item !== "object" || !("result" in item)) return false;
+  const result = item.result;
+  if (!result || typeof result !== "object") return false;
+  const files = "fileVersionIds" in result ? result.fileVersionIds : null;
+  return (
+    "version" in result &&
+    result.version === expected.version + 1 &&
+    "result" in result &&
+    result.result === expected.result &&
+    "description" in result &&
+    result.description === expected.description &&
+    "severity" in result &&
+    result.severity === expected.severity &&
+    Array.isArray(files) &&
+    files.length === expected.fileVersionIds.length &&
+    files.every((file, index) => file === expected.fileVersionIds[index])
+  );
+}
+
 export function createInspectionService(
   repository: InspectionApiRepository,
 ): InspectionService {
@@ -187,6 +222,11 @@ export function createInspectionService(
     inspectionId: string;
     operationPath: string;
     principal: MutationPrincipal;
+    requestValue: unknown;
+    resultExpectation?: {
+      itemSnapshotId: string;
+      value: SaveInspectionItemResultRequest;
+    };
     value: unknown;
   }) {
     const result = await repository.command({
@@ -202,7 +242,7 @@ export function createInspectionService(
       requestHash: await hash({
         method: input.httpMethod,
         path: input.operationPath,
-        value: input.value,
+        value: input.requestValue,
       }),
       resourceId: input.inspectionId,
       sessionId: input.principal.sessionId,
@@ -212,6 +252,15 @@ export function createInspectionService(
     });
     if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
       failure(result.status);
+    if (
+      input.resultExpectation &&
+      !savedResultMatches(
+        result.payload,
+        input.resultExpectation.itemSnapshotId,
+        input.resultExpectation.value,
+      )
+    )
+      throw new InspectionServiceError("VERSION_CONFLICT", 409);
     const resourceId =
       result.payload &&
       typeof result.payload === "object" &&
@@ -233,7 +282,17 @@ export function createInspectionService(
       !("inspection" in read.payload)
     )
       throw new InspectionServiceError("INTERNAL_ERROR", 500);
-    return read.payload.inspection;
+    const inspection = read.payload.inspection;
+    if (
+      input.resultExpectation &&
+      !savedResultMatches(
+        inspection,
+        input.resultExpectation.itemSnapshotId,
+        input.resultExpectation.value,
+      )
+    )
+      throw new InspectionServiceError("VERSION_CONFLICT", 409);
+    return inspection;
   }
 
   return {
@@ -557,6 +616,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.createManual(hotelId),
         principal,
+        requestValue: value,
         value: {
           ...value,
           processExecutionId: crypto.randomUUID(),
@@ -585,6 +645,8 @@ export function createInspectionService(
           itemSnapshotId,
         ),
         principal,
+        requestValue: value,
+        resultExpectation: { itemSnapshotId, value },
         value: {
           ...value,
           historyId: crypto.randomUUID(),
@@ -603,6 +665,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.submit(hotelId, inspectionId),
         principal,
+        requestValue: value,
         value: { historyId: crypto.randomUUID(), reason: value.reason },
       });
     },
@@ -616,6 +679,7 @@ export function createInspectionService(
         inspectionId,
         operationPath: inspectionRoutes.transition(hotelId, inspectionId),
         principal,
+        requestValue: value,
         value: { ...value, historyId: crypto.randomUUID() },
       });
     },
