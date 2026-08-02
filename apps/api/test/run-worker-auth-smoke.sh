@@ -35,7 +35,7 @@ cleanup() {
     wait "$WORKER_PID" >/dev/null 2>&1 || true
   fi
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null 2>&1 \
-    -c "delete from runtime_database_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE'); drop owned by $RUNTIME_ROLE, $RECONCILER_ROLE; drop role $RUNTIME_ROLE, $RECONCILER_ROLE" || true
+    -c "delete from hotel_file_finalizer_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE'); delete from runtime_database_capabilities where role_name in ('$RUNTIME_ROLE', '$RECONCILER_ROLE'); drop owned by $RUNTIME_ROLE, $RECONCILER_ROLE; drop role $RUNTIME_ROLE, $RECONCILER_ROLE" || true
   if [[ "$status" -ne 0 && -f "$LOG_FILE" ]]; then
     python - "$LOG_FILE" "$TEST_DATABASE_URL" "$RUNTIME_DATABASE_URL" <<'PY'
 from pathlib import Path
@@ -57,6 +57,8 @@ cd "$ROOT_DIR"
 psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" >/dev/null <<SQL
 DO \$\$
 BEGIN
+  DELETE FROM hotel_file_finalizer_capabilities
+   WHERE role_name IN ('$RUNTIME_ROLE', '$RECONCILER_ROLE');
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '$RUNTIME_ROLE') THEN
     DELETE FROM runtime_database_capabilities WHERE role_name = '$RUNTIME_ROLE';
     EXECUTE 'DROP OWNED BY $RUNTIME_ROLE';
@@ -169,6 +171,9 @@ TO $RECONCILER_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RECONCILER_ROLE', 'RECONCILER')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
+INSERT INTO hotel_file_finalizer_capabilities (role_name)
+VALUES ('$RECONCILER_ROLE')
+ON CONFLICT (role_name) DO NOTHING;
 SQL
 
 ROOM_ACL_MISMATCHES="$(psql -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
