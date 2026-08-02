@@ -1869,7 +1869,8 @@ try {
             on grantee_role.oid = acl.grantee
          where procedure_namespace.nspname = 'public'
            and procedure_record.proname in (
-             'hotel_process_command_v1', 'hotel_inspection_command_v1',
+             'hotel_process_command_v1', 'hotel_process_default_read_v1',
+             'hotel_inspection_command_v1',
              'hotel_file_command_v1', 'hotel_file_scan_command_v1',
              'hotel_inspection_claim_materialization_v1',
              'hotel_inspection_complete_materialization_v1'
@@ -1896,6 +1897,9 @@ try {
     grant execute on function public.hotel_process_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_process_default_read_v1(
+      uuid, uuid, text
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inspection_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
