@@ -6,7 +6,6 @@ import {
   type InspectionService,
 } from "../src/inspections/service";
 import {
-  FileStorageError,
   createHotelFileService,
   createPrivateR2EvidenceStore,
   type PrivateR2Binding,
@@ -73,9 +72,8 @@ describe("inspection process service", () => {
       sessionId: principal.sessionId,
       sessionToken: principal.sessionToken,
     });
-    expect(result).toEqual(
-      (await readInspection.mock.results[0]?.value).payload,
-    );
+    const readResult = await readInspection.mock.results[0]!.value;
+    expect(result).toEqual(readResult.payload);
   });
 
   it("adds server-owned IDs and expected version to an abnormal result mutation", async () => {

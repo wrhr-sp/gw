@@ -1793,7 +1793,7 @@ const safeEvidenceFileNameSchema = z
       });
       return;
     }
-    if (!/^[\p{L}\p{M}\p{N} _()\-]+\.[A-Za-z0-9]+$/u.test(value)) {
+    if (!/^[\p{L}\p{M}\p{N} _()-]+\.[A-Za-z0-9]+$/u.test(value)) {
       context.addIssue({
         code: "custom",
         message: "파일명은 안전한 이름과 확장자 하나만 사용할 수 있습니다.",
