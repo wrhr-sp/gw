@@ -8,6 +8,14 @@ export PGTZ="Asia/Seoul"
 PG_BIN="${PG_BIN:-/usr/lib/postgresql/18/bin}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 
+configure_test_database_timezone() {
+  local admin_url="$1"
+  local alter_database_sql
+  alter_database_sql="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
+    -c "select pg_catalog.format('alter database %I set timezone to ''Asia/Seoul''', pg_catalog.current_database())")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "$alter_database_sql" >/dev/null
+}
+
 configure_runtime_probe_role() {
   local admin_url="$1"
   local probe_password
@@ -895,6 +903,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     exit "$reset_status"
   }
   trap cleanup_external_database EXIT
+  configure_test_database_timezone "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$AUTH_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_MIGRATION" >/dev/null
@@ -1048,6 +1057,8 @@ trap cleanup EXIT
 
 createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_test
 createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_hotel_blank
+configure_test_database_timezone "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
+configure_test_database_timezone "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_blank"
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -f "$MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
