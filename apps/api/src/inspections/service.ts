@@ -1,11 +1,14 @@
 import {
   inspectionRoutes,
+  processRoutes,
   submitInspectionRequestSchema,
   transitionProcessExecutionRequestSchema,
   type AuthenticatedPrincipal,
   type CreateInspectionChecklistRevisionRequest,
   type CreateManualInspectionRequest,
+  type CreateProcessDefinitionRequest,
   type SaveInspectionItemResultRequest,
+  type SetDefaultProcessRequest,
 } from "@werehere/contracts";
 import type { InspectionApiRepository } from "@werehere/db";
 import type { z } from "zod";
@@ -26,6 +29,8 @@ type InspectionServiceCode =
   | "INTERNAL_ERROR"
   | "INVALID_STATE_TRANSITION"
   | "PROCESS_DEFAULT_REQUIRED"
+  | "PROCESS_ASSIGNEE_INVALID"
+  | "PROCESS_GRAPH_INVALID"
   | "RESOURCE_NOT_FOUND"
   | "VERSION_CONFLICT";
 
@@ -45,6 +50,22 @@ export interface InspectionService {
     principal: MutationPrincipal,
     hotelId: string | null,
   ): Promise<unknown[]>;
+  getDefaultProcess(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown | null>;
+  saveProcessDefinition(
+    principal: MutationPrincipal,
+    definitionId: string | null,
+    value: CreateProcessDefinitionRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
+  setDefaultProcess(
+    principal: MutationPrincipal,
+    hotelId: string,
+    value: SetDefaultProcessRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
   getChecklist(
     principal: MutationPrincipal,
     hotelId: string,
@@ -106,6 +127,9 @@ function failure(status: string): never {
     INVALID_STATE_TRANSITION: ["INVALID_STATE_TRANSITION", 409],
     NOT_FOUND: ["RESOURCE_NOT_FOUND", 404],
     PROCESS_DEFAULT_REQUIRED: ["PROCESS_DEFAULT_REQUIRED", 422],
+    PROCESS_ASSIGNEE_INVALID: ["PROCESS_ASSIGNEE_INVALID", 422],
+    PROCESS_GRAPH_INVALID: ["PROCESS_GRAPH_INVALID", 422],
+    PROCESS_VERSION_CONFLICT: ["VERSION_CONFLICT", 409],
     VERSION_CONFLICT: ["VERSION_CONFLICT", 409],
   };
   const mappedFailure = mapped[status];
@@ -194,6 +218,109 @@ export function createInspectionService(
       )
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload.definitions;
+    },
+    async getDefaultProcess(principal, hotelId) {
+      const processDefaultRead = repository.processDefaultRead;
+      if (!processDefaultRead)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await processDefaultRead({
+        companyId: principal.companyId,
+        hotelId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      return result.payload;
+    },
+    async saveProcessDefinition(
+      principal,
+      definitionId,
+      value,
+      idempotencyKey,
+    ) {
+      const processMutation = repository.processMutation;
+      if (!processMutation)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const resourceId = definitionId ?? crypto.randomUUID();
+      const operationPath = definitionId
+        ? processRoutes.definition(definitionId)
+        : processRoutes.definitions;
+      const httpMethod = definitionId ? "PUT" : "POST";
+      const commandValue = {
+        ...value,
+        revisionId: crypto.randomUUID(),
+        stages: value.stages.map((stage) => ({
+          ...stage,
+          id: crypto.randomUUID(),
+        })),
+        transitions: value.transitions.map((transition) => ({
+          ...transition,
+          id: crypto.randomUUID(),
+        })),
+      };
+      const result = await processMutation({
+        action: "SAVE_DEFINITION",
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
+        expectedVersion: value.version,
+        hotelId: value.scope === "HOTEL" ? value.hotelId : null,
+        httpMethod,
+        idempotencyKey,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({
+          method: httpMethod,
+          path: operationPath,
+          value,
+        }),
+        resourceId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
+        value: commandValue,
+      });
+      if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
+        failure(result.status);
+      if (!result.payload)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async setDefaultProcess(principal, hotelId, value, idempotencyKey) {
+      const processMutation = repository.processMutation;
+      if (!processMutation)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const operationPath = processRoutes.hotelDefault(hotelId);
+      const result = await processMutation({
+        action: "SET_DEFAULT",
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod: "PUT",
+        idempotencyKey,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({ method: "PUT", path: operationPath, value }),
+        resourceId: value.processDefinitionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
+        value,
+      });
+      if (!["UPDATED", "REPLAYED"].includes(result.status))
+        failure(result.status);
+      const canonical = await this.getDefaultProcess(principal, hotelId);
+      if (
+        !canonical ||
+        typeof canonical !== "object" ||
+        !("definition" in canonical) ||
+        !canonical.definition ||
+        typeof canonical.definition !== "object" ||
+        !("id" in canonical.definition) ||
+        canonical.definition.id !== value.processDefinitionId
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return canonical;
     },
     async getChecklist(principal, hotelId) {
       const inspectionQuery = repository.inspectionQuery;

@@ -29,6 +29,8 @@ describe("inspection configuration panel", () => {
     );
     expect(markup).toContain("점검항목 추가");
     expect(markup).toContain("체크리스트 저장");
+    expect(markup).toContain("호텔 기본 프로세스");
+    expect(markup).toContain("기본 프로세스 저장");
     expect(markup).toContain('aria-live="polite"');
     expect(markup).not.toContain("저장하고 다시 확인했습니다");
   });

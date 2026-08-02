@@ -8,6 +8,7 @@ import {
   createHotelRoomTypeRequestSchema,
   createInspectionChecklistRevisionRequestSchema,
   createManualInspectionRequestSchema,
+  createProcessDefinitionRequestSchema,
   customLoginRequestSchema,
   createHotelRequestSchema,
   deactivateAccountRequestSchema,
@@ -33,7 +34,10 @@ import {
   inspectionChecklistResponseSchema,
   inspectionExecutionResponseSchema,
   processDefinitionListResponseSchema,
+  processDefinitionResponseSchema,
+  processDefaultResponseSchema,
   saveInspectionItemResultRequestSchema,
+  setDefaultProcessRequestSchema,
   submitInspectionRequestSchema,
   transitionProcessExecutionRequestSchema,
   ownerTransferRequestSchema,
@@ -2416,6 +2420,164 @@ export function createApp(options: CreateAppOptions = {}) {
       return hotelFailure(context, error);
     }
   });
+
+  const saveProcessDefinitionRoute = async (
+    context: Context,
+    definitionId: string | null,
+  ) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = createProcessDefinitionRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const definition = await withInspectionService(context.env, (service) =>
+        service.saveProcessDefinition(
+          roomMutationPrincipal(context, principal),
+          definitionId,
+          parsed.data,
+          key,
+        ),
+      );
+      return context.json(
+        processDefinitionResponseSchema.parse({
+          ok: true,
+          data: { definition },
+          error: null,
+        }),
+        definitionId ? 200 : 201,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  };
+
+  hotelApp.post("/api/admin/process-definitions", (context) =>
+    saveProcessDefinitionRoute(context, null),
+  );
+  hotelApp.put("/api/admin/process-definitions/:definitionId", (context) => {
+    const parsed = HOTEL_ID_SCHEMA.safeParse(context.req.param("definitionId"));
+    if (!parsed.success) return mutationFailure(context, "NOT_FOUND");
+    return saveProcessDefinitionRoute(context, parsed.data);
+  });
+
+  hotelApp.get(
+    "/api/hotels/:hotelId/process-defaults/room-inspection",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+        const currentDefault = await withInspectionService(
+          context.env,
+          (service) =>
+            service.getDefaultProcess(
+              roomMutationPrincipal(context, principal),
+              hotelId.data,
+            ),
+        );
+        return context.json(
+          processDefaultResponseSchema.parse({
+            ok: true,
+            data: { default: currentDefault },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.put(
+    "/api/hotels/:hotelId/process-defaults/room-inspection",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+        const key = idempotencyKey(context);
+        if (!key)
+          return validationFailure(context, [
+            {
+              field: "idempotencyKey",
+              message: "Idempotency-Key 헤더가 필요합니다.",
+            },
+          ]);
+        const parsed = setDefaultProcessRequestSchema.safeParse(
+          await context.req.json().catch(() => undefined),
+        );
+        if (!parsed.success)
+          return validationFailure(
+            context,
+            zodFieldErrors(parsed.error.issues),
+          );
+        const currentDefault = await withInspectionService(
+          context.env,
+          (service) =>
+            service.setDefaultProcess(
+              roomMutationPrincipal(context, principal),
+              hotelId.data,
+              parsed.data,
+              key,
+            ),
+        );
+        return context.json(
+          processDefaultResponseSchema.parse({
+            ok: true,
+            data: { default: currentDefault },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
 
   hotelApp.get("/api/hotels/:hotelId/inspection-checklist", async (context) => {
     context.header("Cache-Control", "no-store");

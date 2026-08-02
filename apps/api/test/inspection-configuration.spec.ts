@@ -24,6 +24,8 @@ function repository() {
     fileCommand: vi.fn(),
     fileQuery: vi.fn(),
     processCommand: vi.fn(),
+    processDefaultRead: vi.fn(),
+    processMutation: vi.fn(),
     readInspection: vi.fn(),
   };
 }
@@ -100,6 +102,78 @@ describe("inspection configuration service", () => {
       }),
     );
   });
+
+  it("saves server-owned process graph IDs and reads back a versioned default", async () => {
+    const repo = repository();
+    const definitionId = "d1000000-0000-4000-8000-000000000001";
+    const definition = { id: definitionId, version: 1 };
+    repo.processMutation
+      .mockResolvedValueOnce({ status: "CREATED", payload: definition })
+      .mockResolvedValueOnce({ status: "UPDATED", payload: definition });
+    repo.processDefaultRead.mockResolvedValue({
+      status: "OK",
+      payload: {
+        hotelId,
+        applicationType: "ROOM_INSPECTION",
+        definition,
+        version: 1,
+        updatedAt: "2026-08-02T00:00:00.000Z",
+      },
+    });
+    const service = createInspectionService(repo);
+    const input = {
+      name: "객실점검 공통검토",
+      applicationType: "ROOM_INSPECTION" as const,
+      scope: "HOTEL" as const,
+      hotelId,
+      version: 0,
+      startStageKey: "review",
+      stages: [
+        {
+          key: "review",
+          name: "점검 검토",
+          reviewerUserId: principal.userId,
+          delegate: null,
+          due: null,
+          isFinal: true,
+        },
+      ],
+      transitions: [],
+    };
+
+    await service.saveProcessDefinition(
+      principal,
+      null,
+      input,
+      "process-save-1",
+    );
+    expect(repo.processMutation).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        action: "SAVE_DEFINITION",
+        hotelId,
+        value: expect.objectContaining({
+          revisionId: expect.any(String),
+          stages: [expect.objectContaining({ id: expect.any(String) })],
+        }),
+      }),
+    );
+
+    await expect(
+      service.setDefaultProcess(
+        principal,
+        hotelId,
+        { processDefinitionId: definitionId, version: 0 },
+        "default-save-1",
+      ),
+    ).resolves.toMatchObject({ version: 1, definition: { id: definitionId } });
+    expect(repo.processDefaultRead).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hotelId,
+        sessionToken: principal.sessionToken,
+      }),
+    );
+  });
 });
 
 describe("inspection configuration HTTP API", () => {
@@ -134,6 +208,29 @@ describe("inspection configuration HTTP API", () => {
       data: { checklist: { id: checklist.id, hotelId } },
     });
     expect(getChecklist).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      hotelId,
+    );
+  });
+
+  it("returns a nullable versioned hotel process default", async () => {
+    const getDefaultProcess = vi.fn(async () => null);
+    const app = createApp({
+      authService: {
+        resolvePrincipal: vi.fn(async () => principal),
+      } as unknown as AuthService,
+      inspectionService: { getDefaultProcess } as unknown as InspectionService,
+    });
+    const response = await app.request(
+      `/api/hotels/${hotelId}/process-defaults/room-inspection`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: { default: null },
+    });
+    expect(getDefaultProcess).toHaveBeenCalledWith(
       expect.objectContaining({ sessionToken: "opaque-session-token" }),
       hotelId,
     );
