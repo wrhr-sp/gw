@@ -465,6 +465,10 @@ try {
       "0028_hotel_process_default_read_contract",
       "0028_hotel_process_default_read_contract.sql",
     ],
+    [
+      "0029_hotel_process_reviewer_candidates",
+      "0029_hotel_process_reviewer_candidates.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -478,6 +482,7 @@ try {
     "0026_hotel_inspection_process_and_files",
     "0027_hotel_file_finalizer_recovery",
     "0028_hotel_process_default_read_contract",
+    "0029_hotel_process_reviewer_candidates",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1485,6 +1490,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0028_hotel_process_default_read_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0029_hotel_process_reviewer_candidates'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1870,6 +1878,7 @@ try {
          where procedure_namespace.nspname = 'public'
            and procedure_record.proname in (
              'hotel_process_command_v1', 'hotel_process_default_read_v1',
+             'hotel_process_reviewer_candidates_v1',
              'hotel_inspection_command_v1',
              'hotel_file_command_v1', 'hotel_file_scan_command_v1',
              'hotel_inspection_claim_materialization_v1',
@@ -1899,6 +1908,9 @@ try {
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_process_default_read_v1(
+      uuid, uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_process_reviewer_candidates_v1(
       uuid, uuid, text
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inspection_command_v1(
@@ -2343,6 +2355,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0028_hotel_process_default_read_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0029_hotel_process_reviewer_candidates'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {

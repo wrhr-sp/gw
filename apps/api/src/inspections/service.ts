@@ -50,6 +50,10 @@ export interface InspectionService {
     principal: MutationPrincipal,
     hotelId: string | null,
   ): Promise<unknown[]>;
+  listProcessReviewerCandidates(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown[]>;
   getDefaultProcess(
     principal: MutationPrincipal,
     hotelId: string,
@@ -218,6 +222,26 @@ export function createInspectionService(
       )
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload.definitions;
+    },
+    async listProcessReviewerCandidates(principal, hotelId) {
+      const processReviewerCandidates = repository.processReviewerCandidates;
+      if (!processReviewerCandidates)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await processReviewerCandidates({
+        companyId: principal.companyId,
+        hotelId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (
+        !result.payload ||
+        typeof result.payload !== "object" ||
+        !("candidates" in result.payload) ||
+        !Array.isArray(result.payload.candidates)
+      )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.candidates;
     },
     async getDefaultProcess(principal, hotelId) {
       const processDefaultRead = repository.processDefaultRead;

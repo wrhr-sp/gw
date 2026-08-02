@@ -34,6 +34,7 @@ export default async function InspectionSettingsPage({
       hotelId={hotelId}
       initialChecklist={configuration.checklist}
       processDefinitions={configuration.definitions}
+      reviewerCandidates={configuration.reviewerCandidates}
       roomTypes={roomData.data.roomTypes}
     />
   );

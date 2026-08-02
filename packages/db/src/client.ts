@@ -13,7 +13,7 @@ const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "API_RUNTIME",
-    digest: "9b9a841b76aeae458ebb0b33e68b10ee2fd53fbfb06e19fdb6791ae62a6f129e",
+    digest: "c56d9ae6458a49f078fc457d5914c06739d2d086fea69aea8033bd5c51db498d",
     name: "hotel_process_command_v1",
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature:
@@ -25,6 +25,13 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     name: "hotel_process_default_read_v1",
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature: "public.hotel_process_default_read_v1(uuid,uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "3ed0a486551ee5875a8766c0d7ba4428c9be0abe14f18ffcb5913dca4abae7c2",
+    name: "hotel_process_reviewer_candidates_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_process_reviewer_candidates_v1(uuid,uuid,text)",
   },
   {
     capability: "API_RUNTIME",
@@ -1439,6 +1446,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_process_marker_count: number;
         hotel_file_finalizer_recovery_marker_count: number;
         hotel_process_default_read_marker_count: number;
+        hotel_process_reviewer_candidates_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1494,7 +1502,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_file_finalizer_recovery_marker_count,
              count(*) filter (
                where version = '0028_hotel_process_default_read_contract'
-             )::integer as hotel_process_default_read_marker_count
+             )::integer as hotel_process_default_read_marker_count,
+             count(*) filter (
+               where version = '0029_hotel_process_reviewer_candidates'
+             )::integer as hotel_process_reviewer_candidates_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1521,7 +1532,8 @@ export async function probeDatabaseReadiness(
         '0025_hotel_room_reference_lifecycle',
         '0026_hotel_inspection_process_and_files',
         '0027_hotel_file_finalizer_recovery',
-        '0028_hotel_process_default_read_contract'
+        '0028_hotel_process_default_read_contract',
+        '0029_hotel_process_reviewer_candidates'
       )
     `;
     const schemaPhase =
@@ -1558,11 +1570,14 @@ export async function probeDatabaseReadiness(
     const inspectionProcessPhase =
       migrationRows[0]?.hotel_inspection_process_marker_count === 1 &&
       migrationRows[0].hotel_file_finalizer_recovery_marker_count === 1 &&
-      migrationRows[0].hotel_process_default_read_marker_count === 1
+      migrationRows[0].hotel_process_default_read_marker_count === 1 &&
+      migrationRows[0].hotel_process_reviewer_candidates_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
             migrationRows[0].hotel_file_finalizer_recovery_marker_count === 0 &&
-            migrationRows[0].hotel_process_default_read_marker_count === 0
+            migrationRows[0].hotel_process_default_read_marker_count === 0 &&
+            migrationRows[0].hotel_process_reviewer_candidates_marker_count ===
+              0
           ? "EXPAND"
           : null;
     if (

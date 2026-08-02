@@ -137,6 +137,7 @@ GRANT EXECUTE ON FUNCTION
     text, text, text, text, uuid, uuid
   ),
   public.hotel_process_default_read_v1(uuid, uuid, text),
+  public.hotel_process_reviewer_candidates_v1(uuid, uuid, text),
   public.hotel_inspection_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid

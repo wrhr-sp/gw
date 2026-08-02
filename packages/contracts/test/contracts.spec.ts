@@ -42,6 +42,7 @@ import {
   createManualInspectionRequestSchema,
   createProcessDefinitionRequestSchema,
   processDefaultResponseSchema,
+  processReviewerCandidatesResponseSchema,
   deleteHotelRoomRequestSchema,
   hotelFileRoutes,
   hotelFileUploadCompleteRequestSchema,
@@ -1075,6 +1076,38 @@ describe("hotel platform contracts", () => {
         reason: "현장점검 완료",
       }),
     ).toEqual({ version: 2, reason: "현장점검 완료" });
+  });
+
+  it("accepts only minimal process reviewer candidate fields", () => {
+    expect(
+      processReviewerCandidatesResponseSchema.parse({
+        ok: true,
+        data: {
+          candidates: [
+            {
+              id: "20000000-0000-4000-8000-000000000001",
+              displayName: "검토 담당자",
+            },
+          ],
+        },
+        error: null,
+      }).data.candidates,
+    ).toHaveLength(1);
+    expect(
+      processReviewerCandidatesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          candidates: [
+            {
+              id: "20000000-0000-4000-8000-000000000001",
+              displayName: "검토 담당자",
+              email: "not-allowed@example.test",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("requires a versioned canonical hotel process default snapshot", () => {
