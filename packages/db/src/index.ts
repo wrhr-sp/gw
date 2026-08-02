@@ -1,4 +1,11 @@
 export {
+  createPostgresFileFinalizerRepository,
+  type FileFinalizerRepository,
+  type FileScanAction,
+  type FileScanCommandInput,
+  type FileScanCommandResult,
+} from "./file-finalizer";
+export {
   createPostgresAccountRepository,
   type AccountActor,
   type AccountDeactivateResult,
@@ -38,6 +45,14 @@ export {
   type HotelListResult,
   type HotelRepository,
 } from "./hotels";
+export {
+  createPostgresInspectionRepository,
+  type InspectionActor,
+  type InspectionApiRepository,
+  type InspectionCommandInput,
+  type InspectionCommandResult,
+  type InspectionRepository,
+} from "./inspections";
 export {
   createPostgresRoomRepository,
   type ChangeRoomStatusInput,

@@ -37,7 +37,20 @@ import {
   changeHotelRoomStatusRequestSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
+  createInspectionChecklistRevisionRequestSchema,
+  createInspectionRoutineRequestSchema,
+  createManualInspectionRequestSchema,
+  createProcessDefinitionRequestSchema,
   deleteHotelRoomRequestSchema,
+  hotelFileRoutes,
+  hotelFileUploadCompleteRequestSchema,
+  hotelFileUploadInitRequestSchema,
+  hotelFileUploadStatusResponseSchema,
+  inspectionRoutes,
+  processRoutes,
+  saveInspectionItemResultRequestSchema,
+  submitInspectionRequestSchema,
+  transitionProcessExecutionRequestSchema,
   hotelRoomInternalDetailResponseSchema,
   hotelRoomInternalListResponseSchema,
   hotelRoomInternalSchema,
@@ -868,5 +881,288 @@ describe("hotel platform contracts", () => {
         error: null,
       }),
     ).toMatchObject({ data: { hotel: { version: 1 } } });
+  });
+
+  it("validates a configured review graph instead of hard-coding stages", () => {
+    const definition = {
+      name: "객실 점검 공통검토",
+      applicationType: "ROOM_INSPECTION",
+      scope: "COMPANY",
+      hotelId: null,
+      version: 0,
+      startStageKey: "MANAGER_REVIEW",
+      stages: [
+        {
+          key: "MANAGER_REVIEW",
+          name: "관리자 검토",
+          reviewerUserId: "20000000-0000-4000-8000-000000000001",
+          delegate: null,
+          due: { amount: 1, unit: "DAYS" },
+          isFinal: false,
+        },
+        {
+          key: "FINAL_REVIEW",
+          name: "최종 검토",
+          reviewerUserId: "20000000-0000-4000-8000-000000000002",
+          delegate: null,
+          due: null,
+          isFinal: true,
+        },
+      ],
+      transitions: [
+        {
+          fromStageKey: "MANAGER_REVIEW",
+          event: "APPROVE",
+          choiceValue: null,
+          toStageKey: "FINAL_REVIEW",
+        },
+      ],
+    } as const;
+    expect(
+      createProcessDefinitionRequestSchema.parse(definition).stages,
+    ).toHaveLength(2);
+    expect(
+      createProcessDefinitionRequestSchema.safeParse({
+        ...definition,
+        transitions: [
+          {
+            fromStageKey: "FINAL_REVIEW",
+            event: "APPROVE",
+            choiceValue: null,
+            toStageKey: "MANAGER_REVIEW",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createProcessDefinitionRequestSchema.safeParse({
+        ...definition,
+        stages: definition.stages.map((stage) => ({
+          ...stage,
+          isFinal: false,
+        })),
+      }).success,
+    ).toBe(false);
+  });
+
+  it("keeps checklist and routine revisions strict and monthly missing dates skipped", () => {
+    const roomTypeId = "70000000-0000-4000-8000-000000000001";
+    expect(
+      createInspectionChecklistRevisionRequestSchema.parse({
+        version: 0,
+        reason: "최초 점검기준 등록",
+        items: [
+          {
+            itemId: null,
+            source: "HOTEL_COMMON",
+            roomTypeId: null,
+            excludedRoomTypeIds: [roomTypeId],
+            name: "욕실 누수",
+            description: "배수구와 세면대 확인",
+            isRequired: true,
+            displayOrder: 1,
+            defaultSeverity: "MAJOR",
+          },
+          {
+            itemId: null,
+            source: "ROOM_TYPE_ADDED",
+            roomTypeId,
+            excludedRoomTypeIds: [],
+            name: "테라스 난간",
+            description: null,
+            isRequired: true,
+            displayOrder: 2,
+            defaultSeverity: "CRITICAL",
+          },
+        ],
+      }).items,
+    ).toHaveLength(2);
+    expect(
+      createInspectionChecklistRevisionRequestSchema.safeParse({
+        version: 0,
+        reason: "잘못된 기준",
+        items: [
+          {
+            itemId: null,
+            source: "HOTEL_COMMON",
+            roomTypeId,
+            excludedRoomTypeIds: [],
+            name: "잘못된 항목",
+            description: null,
+            isRequired: true,
+            displayOrder: 1,
+            defaultSeverity: "MINOR",
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    const routine = createInspectionRoutineRequestSchema.parse({
+      name: "월간 객실점검",
+      status: "ACTIVE",
+      version: 0,
+      mode: "FIXED",
+      recurrence: { type: "MONTHLY", dayOfMonth: 31 },
+      startDate: "2026-08-01",
+      endDate: null,
+      localDueTime: "15:00",
+      rounds: [
+        { order: 1, target: { type: "ROOM_TYPE", roomTypeIds: [roomTypeId] } },
+      ],
+    });
+    expect(routine.recurrence).toEqual({ type: "MONTHLY", dayOfMonth: 31 });
+    expect(
+      createInspectionRoutineRequestSchema.safeParse({
+        ...routine,
+        recurrence: {
+          type: "MONTHLY",
+          dayOfMonth: 31,
+          missingDatePolicy: "LAST_DAY",
+        },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("requires evidence only for abnormal results and locks submissions to versions", () => {
+    const itemSnapshotId = "81000000-0000-4000-8000-000000000001";
+    expect(
+      saveInspectionItemResultRequestSchema.parse({
+        itemSnapshotId,
+        version: 0,
+        result: "NORMAL",
+        description: null,
+        severity: null,
+        fileVersionIds: [],
+        changeReason: null,
+      }).result,
+    ).toBe("NORMAL");
+    expect(
+      saveInspectionItemResultRequestSchema.safeParse({
+        itemSnapshotId,
+        version: 0,
+        result: "ABNORMAL",
+        description: "누수가 확인됨",
+        severity: "MAJOR",
+        fileVersionIds: [],
+        changeReason: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      saveInspectionItemResultRequestSchema.parse({
+        itemSnapshotId,
+        version: 0,
+        result: "ABNORMAL",
+        description: "누수가 확인됨",
+        severity: "MAJOR",
+        fileVersionIds: ["82000000-0000-4000-8000-000000000001"],
+        changeReason: null,
+      }).fileVersionIds,
+    ).toHaveLength(1);
+    expect(
+      saveInspectionItemResultRequestSchema.safeParse({
+        itemSnapshotId,
+        version: 1,
+        result: "CAUTION",
+        description: "경미한 변색",
+        severity: null,
+        fileVersionIds: [],
+        changeReason: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      submitInspectionRequestSchema.parse({
+        version: 2,
+        reason: "현장점검 완료",
+      }),
+    ).toEqual({ version: 2, reason: "현장점검 완료" });
+  });
+
+  it("validates manual targets and process transition events", () => {
+    expect(
+      createManualInspectionRequestSchema.parse({
+        processDefinitionId: "83000000-0000-4000-8000-000000000001",
+        targets: [
+          {
+            roomId: "84000000-0000-4000-8000-000000000001",
+            selectedItemIds: ["85000000-0000-4000-8000-000000000001"],
+          },
+        ],
+      }).targets,
+    ).toHaveLength(1);
+    expect(
+      transitionProcessExecutionRequestSchema.safeParse({
+        version: 1,
+        event: "SELECT",
+        choiceValue: null,
+        reason: "다음 담당 선택",
+      }).success,
+    ).toBe(false);
+    expect(
+      transitionProcessExecutionRequestSchema.parse({
+        version: 1,
+        event: "APPROVE",
+        choiceValue: null,
+        reason: "검토 완료",
+      }).event,
+    ).toBe("APPROVE");
+  });
+
+  it("exposes same-origin private upload routes without storage internals", () => {
+    const uploadId = "86000000-0000-4000-8000-000000000001";
+    expect(hotelFileRoutes.uploadBody(uploadId)).toBe(
+      `/api/files/uploads/${uploadId}/body`,
+    );
+    expect(inspectionRoutes.createManual("hotel_1")).toBe(
+      "/api/hotels/hotel_1/inspections/manual",
+    );
+    expect(processRoutes.definitions).toBe("/api/admin/process-definitions");
+    expect(
+      hotelFileUploadInitRequestSchema.parse({
+        parent: {
+          type: "INSPECTION_ITEM_EVIDENCE",
+          inspectionId: "87000000-0000-4000-8000-000000000001",
+          itemSnapshotId: "88000000-0000-4000-8000-000000000001",
+        },
+        fileName: "욕실 누수 사진.jpg",
+        sizeBytes: 1234,
+        mimeType: "image/jpeg",
+      }).mimeType,
+    ).toBe("image/jpeg");
+    for (const fileName of [
+      "payload.exe.jpg",
+      "../photo.jpg",
+      "photo．jpg",
+      "photo\u00a0.jpg",
+    ]) {
+      expect(
+        hotelFileUploadInitRequestSchema.safeParse({
+          parent: {
+            type: "INSPECTION_ITEM_EVIDENCE",
+            inspectionId: "87000000-0000-4000-8000-000000000001",
+            itemSnapshotId: "88000000-0000-4000-8000-000000000001",
+          },
+          fileName,
+          sizeBytes: 1234,
+          mimeType: "image/jpeg",
+        }).success,
+      ).toBe(false);
+    }
+    expect(
+      hotelFileUploadCompleteRequestSchema.parse({
+        etag: '"0123456789abcdef0123456789abcdef"',
+      }),
+    ).toEqual({ etag: '"0123456789abcdef0123456789abcdef"' });
+    expect(
+      hotelFileUploadStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          upload: {
+            id: uploadId,
+            status: "QUARANTINED",
+            fileVersionId: uploadId,
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
   });
 });

@@ -10,6 +10,57 @@ const HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256 =
   "21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e";
 const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
   "e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50";
+const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
+  {
+    capability: "API_RUNTIME",
+    digest: "9b9a841b76aeae458ebb0b33e68b10ee2fd53fbfb06e19fdb6791ae62a6f129e",
+    name: "hotel_process_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "666cf1980fb1bb629097e96c2a0ddaa0f3e349f9cdb833cf042e4e305cb1b010",
+    name: "hotel_inspection_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "d041635b8383bd77f4c95b94d72827f210165c6e4d14d32130a88f7c1d017499",
+    name: "hotel_file_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "daf7eb22db1065b5528af244eb68914bd06ae38e2d6102341e508b75d6702d15",
+    name: "hotel_file_scan_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "2510f44ea768a3b8882fd373983cee2f612e44d673dc31b91d39e7115e6c27a8",
+    name: "hotel_inspection_claim_materialization_v1",
+    result:
+      "TABLE(result_status text, claim_generation bigint, from_date date, through_date date)",
+    signature:
+      "public.hotel_inspection_claim_materialization_v1(uuid,bytea,integer)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "a92d38909edf2003148cf61b71c96abe2497b1bf9258e87081b6a0fe5a699ea5",
+    name: "hotel_inspection_complete_materialization_v1",
+    result: "TABLE(result_status text, created_count integer)",
+    signature:
+      "public.hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)",
+  },
+] as const;
 const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
   "57926aacd5232ddbf118b6614bf7dc6679d9d9dc2cdb5672ebb3d5026e3f986f";
 const AUTH_CREATE_SESSION_V2_EXPAND_PROSRC_SHA256 =
@@ -965,6 +1016,27 @@ const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "users:INSERT",
   "users:SELECT",
   "users:UPDATE",
+  "hotel_file_finalizer_capabilities:SELECT",
+  "hotel_file_links:SELECT",
+  "hotel_file_uploads:SELECT",
+  "hotel_file_versions:SELECT",
+  "hotel_inspections:SELECT",
+  "hotel_process_defaults:SELECT",
+  "inspection_checklist_item_exclusions:SELECT",
+  "inspection_checklist_items:SELECT",
+  "inspection_checklist_revisions:SELECT",
+  "inspection_item_result_history:SELECT",
+  "inspection_item_results:SELECT",
+  "inspection_item_snapshots:SELECT",
+  "inspection_routine_revisions:SELECT",
+  "inspection_routine_rounds:SELECT",
+  "inspection_routines:SELECT",
+  "process_definition_revisions:SELECT",
+  "process_definitions:SELECT",
+  "process_execution_history:SELECT",
+  "process_executions:SELECT",
+  "process_stage_snapshots:SELECT",
+  "process_transition_snapshots:SELECT",
 ] as const;
 
 const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
@@ -990,7 +1062,32 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
   "schema_migrations:SELECT",
   "users:INSERT",
   "users:SELECT",
+  "hotel_file_finalizer_capabilities:SELECT",
 ] as const;
+
+const HOTEL_INSPECTION_CONTRACT_TABLES = new Set([
+  "hotel_file_finalizer_capabilities",
+  "hotel_file_links",
+  "hotel_file_uploads",
+  "hotel_file_versions",
+  "hotel_inspections",
+  "hotel_process_defaults",
+  "inspection_checklist_item_exclusions",
+  "inspection_checklist_items",
+  "inspection_checklist_revisions",
+  "inspection_item_result_history",
+  "inspection_item_results",
+  "inspection_item_snapshots",
+  "inspection_routine_revisions",
+  "inspection_routine_rounds",
+  "inspection_routines",
+  "process_definition_revisions",
+  "process_definitions",
+  "process_execution_history",
+  "process_executions",
+  "process_stage_snapshots",
+  "process_transition_snapshots",
+]);
 
 const EXPECTED_API_RUNTIME_EXPAND_COLUMN_PRIVILEGES = [
   "branches:updated_at:UPDATE",
@@ -1275,6 +1372,7 @@ export async function probeDatabaseReadiness(
     // accepts any exact approved base/room phase combination during rollout.
     requiredRoomSchemaPhase?: "CONTRACT" | "EXPAND";
     requiredLoginIdHistoryPhase?: "CONTRACT" | "EXPAND";
+    requiredInspectionProcessPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
@@ -1331,6 +1429,8 @@ export async function probeDatabaseReadiness(
         hotel_room_marker_count: number;
         hotel_room_contract_marker_count: number;
         hotel_room_lifecycle_marker_count: number;
+        hotel_inspection_process_marker_count: number;
+        hotel_file_finalizer_recovery_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1377,7 +1477,13 @@ export async function probeDatabaseReadiness(
              )::integer as login_id_history_contract_marker_count,
              count(*) filter (
                where version = '0025_hotel_room_reference_lifecycle'
-             )::integer as hotel_room_lifecycle_marker_count
+             )::integer as hotel_room_lifecycle_marker_count,
+             count(*) filter (
+               where version = '0026_hotel_inspection_process_and_files'
+             )::integer as hotel_inspection_process_marker_count,
+             count(*) filter (
+               where version = '0027_hotel_file_finalizer_recovery'
+             )::integer as hotel_file_finalizer_recovery_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1401,7 +1507,9 @@ export async function probeDatabaseReadiness(
         '0019_hotel_room_management',
         '0022_hotel_room_contract_hardening',
         '0023_login_id_registry_history_contract',
-        '0025_hotel_room_reference_lifecycle'
+        '0025_hotel_room_reference_lifecycle',
+        '0026_hotel_inspection_process_and_files',
+        '0027_hotel_file_finalizer_recovery'
       )
     `;
     const schemaPhase =
@@ -1435,11 +1543,20 @@ export async function probeDatabaseReadiness(
         : migrationRows[0]?.login_id_history_contract_marker_count === 0
           ? "EXPAND"
           : null;
+    const inspectionProcessPhase =
+      migrationRows[0]?.hotel_inspection_process_marker_count === 1 &&
+      migrationRows[0].hotel_file_finalizer_recovery_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
+            migrationRows[0].hotel_file_finalizer_recovery_marker_count === 0
+          ? "EXPAND"
+          : null;
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
       !roomPolicyPhase ||
       !loginIdHistoryPhase ||
+      !inspectionProcessPhase ||
       (roomSchemaPhase === "EXPAND" &&
         !columns.has("hotel_rooms.planned_resume_date")) ||
       (roomSchemaPhase === "CONTRACT" &&
@@ -1450,13 +1567,15 @@ export async function probeDatabaseReadiness(
         !columns.has("hotel_room_status_history.change_source")) ||
       (roomSchemaPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
       (loginIdHistoryPhase === "CONTRACT" && schemaPhase !== "CONTRACT") ||
+      (options.requiredInspectionProcessPhase !== undefined &&
+        inspectionProcessPhase !== options.requiredInspectionProcessPhase) ||
       (options.requiredRoomSchemaPhase !== undefined &&
         roomSchemaPhase !== options.requiredRoomSchemaPhase) ||
       (options.requiredLoginIdHistoryPhase !== undefined &&
         loginIdHistoryPhase !== options.requiredLoginIdHistoryPhase) ||
       migrationRows[0]?.hotel_relationship_marker_count !== 1 ||
-      migrationRows[0].hotel_integrity_marker_count !== 1 ||
-      migrationRows[0].hotel_support_overlap_marker_count !== 1
+      migrationRows[0]?.hotel_integrity_marker_count !== 1 ||
+      migrationRows[0]?.hotel_support_overlap_marker_count !== 1
     ) {
       return { status: "SCHEMA_NOT_READY" };
     }
@@ -1733,6 +1852,209 @@ export async function probeDatabaseReadiness(
         return { status: "SCHEMA_NOT_READY" };
       }
     }
+    if (inspectionProcessPhase === "CONTRACT") {
+      const [inspectionTables] = await sql<
+        {
+          direct_mutation_acl_count: number;
+          force_rls_count: number;
+          owner_safe_count: number;
+          rls_count: number;
+          table_count: number;
+        }[]
+      >`
+        select count(*)::integer as table_count,
+               count(*) filter (where table_record.relrowsecurity)::integer as rls_count,
+               count(*) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
+               count(*) filter (
+                 where table_record.relowner = migration_table.relowner
+               )::integer as owner_safe_count,
+               (
+                 select count(*)::integer
+                   from pg_catalog.pg_class protected_table
+                   join pg_catalog.pg_namespace protected_namespace
+                     on protected_namespace.oid = protected_table.relnamespace
+                   cross join lateral pg_catalog.aclexplode(coalesce(
+                     protected_table.relacl,
+                     pg_catalog.acldefault('r'::"char", protected_table.relowner)
+                   )) acl
+                   join pg_catalog.pg_roles grantee_role
+                     on grantee_role.oid = acl.grantee
+                   join public.runtime_database_capabilities capability
+                     on capability.role_name = grantee_role.rolname
+                  where protected_namespace.nspname = 'public'
+                    and protected_table.relname in (
+                      'process_definitions', 'process_definition_revisions',
+                      'process_stage_snapshots', 'process_transition_snapshots',
+                      'hotel_process_defaults', 'process_executions',
+                      'process_execution_history', 'inspection_checklist_revisions',
+                      'inspection_checklist_items', 'inspection_checklist_item_exclusions',
+                      'inspection_routines', 'inspection_routine_revisions',
+                      'inspection_routine_rounds', 'hotel_inspections',
+                      'inspection_item_snapshots', 'inspection_item_results',
+                      'inspection_item_result_history', 'hotel_file_uploads',
+                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+                    )
+                    and acl.grantee <> protected_table.relowner
+                    and acl.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+               ) as direct_mutation_acl_count
+          from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace
+            on table_namespace.oid = table_record.relnamespace
+          join pg_catalog.pg_class migration_table
+            on migration_table.relname = 'schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace
+            on migration_namespace.oid = migration_table.relnamespace
+         where table_namespace.nspname = 'public'
+           and migration_namespace.nspname = 'public'
+           and table_record.relkind in ('r', 'p')
+           and table_record.relname in (
+             'process_definitions', 'process_definition_revisions',
+             'process_stage_snapshots', 'process_transition_snapshots',
+             'hotel_process_defaults', 'process_executions',
+             'process_execution_history', 'inspection_checklist_revisions',
+             'inspection_checklist_items', 'inspection_checklist_item_exclusions',
+             'inspection_routines', 'inspection_routine_revisions',
+             'inspection_routine_rounds', 'hotel_inspections',
+             'inspection_item_snapshots', 'inspection_item_results',
+             'inspection_item_result_history', 'hotel_file_uploads',
+             'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+           )
+      `;
+      if (
+        inspectionTables?.table_count !== 21 ||
+        inspectionTables.rls_count !== 21 ||
+        inspectionTables.force_rls_count !== 21 ||
+        inspectionTables.owner_safe_count !== 21 ||
+        inspectionTables.direct_mutation_acl_count !== 0
+      ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+      for (const contract of HOTEL_INSPECTION_COMMAND_CONTRACTS) {
+        const [command] = await sql<
+          {
+            executable: boolean;
+            execute_acl_safe: boolean;
+            metadata_safe: boolean;
+            name_unique: boolean;
+            owner_safe: boolean;
+            public_execute: boolean;
+            return_signature: string;
+            source: string;
+          }[]
+        >`
+          select has_function_privilege(current_user, procedure_record.oid, 'EXECUTE')
+                   as executable,
+                 procedure_record.prosecdef
+                   and procedure_language.lanname = 'plpgsql'
+                   and procedure_record.provolatile = 'v'
+                   and procedure_record.proparallel = 'u'
+                   and not procedure_record.proleakproof
+                   and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
+                   as metadata_safe,
+                 pg_catalog.pg_get_function_result(procedure_record.oid)
+                   as return_signature,
+                 procedure_record.prosrc as source,
+                 procedure_record.proowner = migration_table.relowner as owner_safe,
+                 (
+                   select count(*) = 1 from pg_catalog.pg_proc named_procedure
+                   join pg_catalog.pg_namespace named_namespace
+                     on named_namespace.oid = named_procedure.pronamespace
+                   where named_namespace.nspname = 'public'
+                     and named_procedure.proname = ${contract.name}
+                 ) as name_unique,
+                 exists (
+                   select 1 from pg_catalog.aclexplode(coalesce(
+                     procedure_record.proacl,
+                     pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+                   )) acl
+                   where acl.privilege_type = 'EXECUTE' and acl.grantee = 0::oid
+                 ) as public_execute,
+                 (
+                   not exists (
+                     select 1 from pg_catalog.aclexplode(coalesce(
+                       procedure_record.proacl,
+                       pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+                     )) acl
+                     left join pg_catalog.pg_roles grantee_role
+                       on grantee_role.oid = acl.grantee
+                     left join public.runtime_database_capabilities capability
+                       on capability.role_name = grantee_role.rolname
+                     where acl.privilege_type = 'EXECUTE'
+                       and acl.grantee <> procedure_record.proowner
+                       and (acl.is_grantable or capability.capability is distinct from ${contract.capability})
+                   )
+                   and not exists (
+                     select 1 from public.runtime_database_capabilities capability
+                     join pg_catalog.pg_roles capability_role
+                       on capability_role.rolname = capability.role_name
+                     where capability.capability = ${contract.capability}
+                       and capability_role.oid <> procedure_record.proowner
+                       and not exists (
+                         select 1 from pg_catalog.aclexplode(coalesce(
+                           procedure_record.proacl,
+                           pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+                         )) acl
+                         where acl.privilege_type = 'EXECUTE'
+                           and acl.grantee = capability_role.oid
+                           and not acl.is_grantable
+                       )
+                   )
+                 ) as execute_acl_safe
+            from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace
+              on procedure_namespace.oid = procedure_record.pronamespace
+            join pg_catalog.pg_language procedure_language
+              on procedure_language.oid = procedure_record.prolang
+            join pg_catalog.pg_class migration_table
+              on migration_table.relname = 'schema_migrations'
+            join pg_catalog.pg_namespace migration_namespace
+              on migration_namespace.oid = migration_table.relnamespace
+           where procedure_namespace.nspname = 'public'
+             and migration_namespace.nspname = 'public'
+             and procedure_record.oid = pg_catalog.to_regprocedure(${contract.signature})
+        `;
+        if (
+          !command?.metadata_safe ||
+          !command.owner_safe ||
+          !command.name_unique ||
+          command.public_execute ||
+          !command.execute_acl_safe ||
+          command.return_signature !== contract.result ||
+          command.executable !== (options.capability === contract.capability) ||
+          (await sourceSha256(command.source)) !== contract.digest
+        ) {
+          return { status: "SCHEMA_NOT_READY" };
+        }
+      }
+
+      const [finalizerCapability] = await sql<{ exact: boolean }[]>`
+        select not exists (
+          select 1 from public.hotel_file_finalizer_capabilities finalizer
+          left join public.runtime_database_capabilities capability
+            on capability.role_name = finalizer.role_name
+           and capability.capability = 'RECONCILER'
+          where capability.role_name is null
+        ) and not exists (
+          select 1 from public.runtime_database_capabilities capability
+          join pg_catalog.pg_roles capability_role
+            on capability_role.rolname = capability.role_name
+          where capability.capability = 'RECONCILER'
+            and capability_role.oid <> (
+              select table_record.relowner
+                from pg_catalog.pg_class table_record
+                join pg_catalog.pg_namespace table_namespace
+                  on table_namespace.oid = table_record.relnamespace
+               where table_namespace.nspname = 'public'
+                 and table_record.relname = 'schema_migrations'
+            )
+            and not exists (
+              select 1 from public.hotel_file_finalizer_capabilities finalizer
+               where finalizer.role_name = capability.role_name
+            )
+        ) as exact
+      `;
+      if (!finalizerCapability?.exact) return { status: "SCHEMA_NOT_READY" };
+    }
     if (loginIdHistoryPhase === "CONTRACT") {
       const operationColumns = await sql<
         {
@@ -1796,10 +2118,16 @@ export async function probeDatabaseReadiness(
       where code in (
         'HOTEL_ASSIGNMENT_MANAGE', 'HOTEL_OWNER_MANAGE', 'HOTEL_STATUS_MANAGE',
         'HOTEL_PERMISSION_MANAGE', 'HOTEL_ROOM_READ', 'HOTEL_ROOM_MANAGE',
-        'HOTEL_ROOM_TYPE_MANAGE'
+        'HOTEL_ROOM_TYPE_MANAGE', 'PROCESS_DEFINITION_MANAGE',
+        'HOTEL_INSPECTION_CONFIG', 'HOTEL_INSPECTION_RUN',
+        'HOTEL_INSPECTION_REVIEW', 'HOTEL_FILE_UPLOAD',
+        'HOTEL_FILE_READ', 'HOTEL_FILE_DOWNLOAD'
       )
     `;
-    if (hotelPermissionCatalog?.count !== 7)
+    if (
+      hotelPermissionCatalog?.count !==
+      (inspectionProcessPhase === "CONTRACT" ? 14 : 7)
+    )
       return { status: "SCHEMA_NOT_READY" };
 
     const [definerMembershipTopology] = await sql<
@@ -2981,7 +3309,7 @@ export async function probeDatabaseReadiness(
     };
     for (const role of capabilityRoleRows) {
       if (role.role_name === migrationOwner.role_name) continue;
-      const roleTablePrivileges =
+      const capabilityTablePrivileges =
         role.capability === "API_RUNTIME"
           ? roomSchemaPhase === "CONTRACT"
             ? EXPECTED_API_RUNTIME_TABLE_PRIVILEGES.filter(
@@ -2991,6 +3319,15 @@ export async function probeDatabaseReadiness(
               )
             : EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
           : EXPECTED_RECONCILER_TABLE_PRIVILEGES;
+      const roleTablePrivileges =
+        inspectionProcessPhase === "CONTRACT"
+          ? capabilityTablePrivileges
+          : capabilityTablePrivileges.filter(
+              (label) =>
+                !HOTEL_INSPECTION_CONTRACT_TABLES.has(
+                  label.split(":", 1)[0] ?? "",
+                ),
+            );
       addExpectedTablePrivileges(role.role_name, roleTablePrivileges);
     }
     addExpectedTablePrivileges("werehere_auth_session_definer", [
