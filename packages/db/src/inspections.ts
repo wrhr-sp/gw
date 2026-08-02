@@ -72,6 +72,12 @@ export interface InspectionRepository {
     sessionId: string;
     sessionToken: string;
   }): Promise<InspectionCommandResult>;
+  processReviewerCandidates?(input: {
+    companyId: string;
+    hotelId: string;
+    sessionId: string;
+    sessionToken: string;
+  }): Promise<InspectionCommandResult>;
   processMutation?(
     input: ProcessMutationInput,
   ): Promise<InspectionCommandResult>;
@@ -92,6 +98,7 @@ export type InspectionApiRepository = Pick<
   | "inspectionQuery"
   | "processCommand"
   | "processDefaultRead"
+  | "processReviewerCandidates"
   | "processMutation"
   | "readInspection"
 >;
@@ -234,6 +241,21 @@ export function createPostgresInspectionRepository(
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_process_default_read_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
+    async processReviewerCandidates(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_process_reviewer_candidates_v1(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.sessionToken}::text
             )

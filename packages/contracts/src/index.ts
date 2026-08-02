@@ -1323,6 +1323,25 @@ export const processDefinitionListResponseSchema = z
   })
   .strict();
 
+export const processReviewerCandidateSchema = z
+  .object({
+    id: z.uuid(),
+    displayName: z.string().trim().min(1).max(200),
+  })
+  .strict();
+export type ProcessReviewerCandidate = z.infer<
+  typeof processReviewerCandidateSchema
+>;
+export const processReviewerCandidatesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ candidates: z.array(processReviewerCandidateSchema).max(1000) })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
 export const setDefaultProcessRequestSchema = z
   .object({
     processDefinitionId: z.uuid(),
@@ -1934,6 +1953,8 @@ const processPath = (definitionId: string) =>
 export const processRoutes = {
   definitions: "/api/admin/process-definitions",
   definition: processPath,
+  reviewerCandidates: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/process-reviewer-candidates` as const,
   hotelDefault: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/process-defaults/room-inspection` as const,
 } as const;

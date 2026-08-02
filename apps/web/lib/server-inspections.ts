@@ -4,6 +4,7 @@ import {
   inspectionRoutes,
   processDefinitionListResponseSchema,
   processDefaultResponseSchema,
+  processReviewerCandidatesResponseSchema,
   processRoutes,
 } from "@werehere/contracts";
 import { cookies } from "next/headers";
@@ -22,21 +23,32 @@ async function request(path: string) {
 }
 
 export async function fetchInspectionConfiguration(hotelId: string) {
-  const [checklistResponse, definitionsResponse, defaultResponse] =
-    await Promise.all([
-      request(inspectionRoutes.checklist(hotelId)),
-      request(
-        `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
-      ),
-      request(processRoutes.hotelDefault(hotelId)),
-    ]);
+  const [
+    checklistResponse,
+    definitionsResponse,
+    defaultResponse,
+    candidatesResponse,
+  ] = await Promise.all([
+    request(inspectionRoutes.checklist(hotelId)),
+    request(
+      `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
+    ),
+    request(processRoutes.hotelDefault(hotelId)),
+    request(processRoutes.reviewerCandidates(hotelId)),
+  ]);
   if (
     checklistResponse.status === 401 ||
     definitionsResponse.status === 401 ||
-    defaultResponse.status === 401
+    defaultResponse.status === 401 ||
+    candidatesResponse.status === 401
   )
     redirect("/login");
-  if (checklistResponse.ok && definitionsResponse.ok && defaultResponse.ok) {
+  if (
+    checklistResponse.ok &&
+    definitionsResponse.ok &&
+    defaultResponse.ok &&
+    candidatesResponse.ok
+  ) {
     const checklist = inspectionChecklistResponseSchema.safeParse(
       await checklistResponse.json().catch(() => undefined),
     );
@@ -46,19 +58,31 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     const currentDefault = processDefaultResponseSchema.safeParse(
       await defaultResponse.json().catch(() => undefined),
     );
-    if (checklist.success && definitions.success && currentDefault.success)
+    const reviewerCandidates =
+      processReviewerCandidatesResponseSchema.safeParse(
+        await candidatesResponse.json().catch(() => undefined),
+      );
+    if (
+      checklist.success &&
+      definitions.success &&
+      currentDefault.success &&
+      reviewerCandidates.success
+    )
       return {
         ok: true as const,
         checklist: checklist.data.data.checklist,
         definitions: definitions.data.data.definitions,
         currentDefault: currentDefault.data.data.default,
+        reviewerCandidates: reviewerCandidates.data.data.candidates,
       };
   }
   const response = !checklistResponse.ok
     ? checklistResponse
     : !definitionsResponse.ok
       ? definitionsResponse
-      : defaultResponse;
+      : !defaultResponse.ok
+        ? defaultResponse
+        : candidatesResponse;
   const parsed = hotelErrorResponseSchema.safeParse(
     await response.json().catch(() => undefined),
   );

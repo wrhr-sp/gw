@@ -25,6 +25,7 @@ function repository() {
     fileQuery: vi.fn(),
     processCommand: vi.fn(),
     processDefaultRead: vi.fn(),
+    processReviewerCandidates: vi.fn(),
     processMutation: vi.fn(),
     readInspection: vi.fn(),
   };
@@ -52,6 +53,31 @@ describe("inspection configuration service", () => {
       sessionId: principal.sessionId,
       sessionToken: principal.sessionToken,
       value: {},
+    });
+  });
+
+  it("lists only canonical process reviewer candidate payloads", async () => {
+    const repo = repository();
+    const candidates = [
+      {
+        id: "21000000-0000-4000-8000-000000000001",
+        displayName: "객실 점검 검토자",
+      },
+    ];
+    repo.processReviewerCandidates.mockResolvedValue({
+      status: "OK",
+      payload: { candidates },
+    });
+    const service = createInspectionService(repo);
+
+    await expect(
+      service.listProcessReviewerCandidates(principal, hotelId),
+    ).resolves.toEqual(candidates);
+    expect(repo.processReviewerCandidates).toHaveBeenCalledWith({
+      companyId: principal.companyId,
+      hotelId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
     });
   });
 
@@ -208,6 +234,38 @@ describe("inspection configuration HTTP API", () => {
       data: { checklist: { id: checklist.id, hotelId } },
     });
     expect(getChecklist).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      hotelId,
+    );
+  });
+
+  it("returns minimal reviewer candidates through the authenticated hotel route", async () => {
+    const candidates = [
+      {
+        id: "21000000-0000-4000-8000-000000000001",
+        displayName: "객실 점검 검토자",
+      },
+    ];
+    const listProcessReviewerCandidates = vi.fn(async () => candidates);
+    const app = createApp({
+      authService: {
+        resolvePrincipal: vi.fn(async () => principal),
+      } as unknown as AuthService,
+      inspectionService: {
+        listProcessReviewerCandidates,
+      } as unknown as InspectionService,
+    });
+    const response = await app.request(
+      `/api/hotels/${hotelId}/process-reviewer-candidates`,
+      { headers: { cookie: "__Host-hotel_session=opaque-session-token" } },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      data: { candidates },
+      error: null,
+    });
+    expect(listProcessReviewerCandidates).toHaveBeenCalledWith(
       expect.objectContaining({ sessionToken: "opaque-session-token" }),
       hotelId,
     );

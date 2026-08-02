@@ -9,11 +9,13 @@ import {
   processDefinitionSchema,
   processRoutes,
   type HotelRoomType,
+  type ProcessReviewerCandidate,
 } from "@werehere/contracts";
 import { Button, PageHeader, StatusBadge } from "@werehere/ui";
 import React, { useEffect, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import type { z } from "zod";
+import { ProcessDefinitionEditor } from "./process-definition-editor";
 
 type Checklist = z.infer<typeof inspectionChecklistRevisionSchema>;
 type Definition = z.infer<typeof processDefinitionSchema>;
@@ -34,14 +36,17 @@ const emptyItem = () => ({
 export function InspectionConfigurationPanel({
   hotelId,
   initialChecklist,
-  processDefinitions,
+  processDefinitions: initialDefinitions,
+  reviewerCandidates = [],
   roomTypes,
 }: {
   hotelId: string;
   initialChecklist: Checklist | null;
   processDefinitions: Definition[];
+  reviewerCandidates?: ProcessReviewerCandidate[];
   roomTypes: HotelRoomType[];
 }) {
+  const [definitions, setDefinitions] = useState(initialDefinitions);
   const [saved, setSaved] = useState(initialChecklist);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -212,7 +217,7 @@ export function InspectionConfigurationPanel({
           이 호텔에서 사용할 수 있는 회사·호텔 프로세스입니다.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {processDefinitions.map((definition) => (
+          {definitions.map((definition) => (
             <li
               className="rounded-control border border-border p-3"
               key={definition.id}
@@ -223,7 +228,7 @@ export function InspectionConfigurationPanel({
               </span>
             </li>
           ))}
-          {processDefinitions.length === 0 ? (
+          {definitions.length === 0 ? (
             <li className="text-sm text-muted">등록된 프로세스가 없습니다.</li>
           ) : null}
         </ul>
@@ -237,7 +242,7 @@ export function InspectionConfigurationPanel({
               value={selectedDefaultId}
             >
               <option value="">선택</option>
-              {processDefinitions.map((definition) => (
+              {definitions.map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.name} · v{definition.version}
                 </option>
@@ -253,6 +258,12 @@ export function InspectionConfigurationPanel({
             {savingDefault ? "저장 중…" : "기본 프로세스 저장"}
           </Button>
         </div>
+        <ProcessDefinitionEditor
+          definitions={definitions}
+          hotelId={hotelId}
+          onDefinitionsChange={setDefinitions}
+          reviewerCandidates={reviewerCandidates}
+        />
       </section>
       <form className="space-y-4" onSubmit={submit}>
         <section className="rounded-panel border border-border bg-surface p-5 md:p-6">

@@ -36,6 +36,7 @@ import {
   processDefinitionListResponseSchema,
   processDefinitionResponseSchema,
   processDefaultResponseSchema,
+  processReviewerCandidatesResponseSchema,
   saveInspectionItemResultRequestSchema,
   setDefaultProcessRequestSchema,
   submitInspectionRequestSchema,
@@ -2420,6 +2421,44 @@ export function createApp(options: CreateAppOptions = {}) {
       return hotelFailure(context, error);
     }
   });
+
+  hotelApp.get(
+    "/api/hotels/:hotelId/process-reviewer-candidates",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+        const candidates = await withInspectionService(context.env, (service) =>
+          service.listProcessReviewerCandidates(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+          ),
+        );
+        return context.json(
+          processReviewerCandidatesResponseSchema.parse({
+            ok: true,
+            data: { candidates },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
 
   const saveProcessDefinitionRoute = async (
     context: Context,
