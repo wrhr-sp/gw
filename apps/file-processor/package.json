@@ -1,0 +1,14 @@
+{
+  "name": "@werehere/file-processor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "sharp": "0.34.5"
+  }
+}

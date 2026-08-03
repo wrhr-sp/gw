@@ -78,6 +78,9 @@ jobs:
           pnpm --filter @werehere/web build:cloudflare
           pnpm --filter @werehere/web exec wrangler deploy --dry-run --config wrangler.jsonc
 
+      - name: Build file processor container
+        run: docker build -f apps/file-processor/Dockerfile -t werehere-file-processor:ci .
+
       - name: Visual regression
         run: pnpm run test:visual
 

@@ -64,6 +64,12 @@ importers:
         specifier: 4.111.0
         version: 4.111.0
 
+  apps/file-processor:
+    dependencies:
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
+
   apps/web:
     dependencies:
       '@tanstack/react-query':
