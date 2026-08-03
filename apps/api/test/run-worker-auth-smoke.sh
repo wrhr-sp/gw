@@ -175,6 +175,7 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.api_current_company_id(), public.reconciler_current_company_id(),
   public.reconciliation_company_ids(),
   public.hotel_file_scan_command_v1(uuid, text, text, bigint, jsonb, uuid),
+  public.hotel_file_scan_candidates_v1(integer),
   public.hotel_inspection_claim_materialization_v1(uuid, bytea, integer),
   public.hotel_inspection_complete_materialization_v1(uuid, bigint, bytea, uuid)
 TO $RECONCILER_ROLE;
