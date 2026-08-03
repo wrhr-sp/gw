@@ -3242,21 +3242,43 @@ export function createApp(options: CreateAppOptions = {}) {
         );
       const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
       if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
-      const hotelId = z.uuid().safeParse(context.req.query("hotelId"));
-      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
       const mimeType = context.req.header("content-type");
-      if (!mimeType || context.req.header("if-none-match") !== "*")
+      const contentLengthHeader = context.req.header("content-length");
+      const contentLength = Number(contentLengthHeader);
+      const body = context.req.raw.body;
+      const fetchSite = context.req.header("sec-fetch-site");
+      const origin = context.req.header("origin");
+      let expectedOrigin: string | undefined;
+      try {
+        expectedOrigin = context.env?.ZITADEL_REDIRECT_URI
+          ? new URL(context.env.ZITADEL_REDIRECT_URI).origin
+          : new URL(context.req.url).origin;
+      } catch {
+        expectedOrigin = undefined;
+      }
+      if (
+        !mimeType ||
+        context.req.header("if-none-match") !== "*" ||
+        !contentLengthHeader ||
+        !/^\d+$/u.test(contentLengthHeader) ||
+        !Number.isSafeInteger(contentLength) ||
+        contentLength < 1 ||
+        contentLength > 20 * 1024 * 1024 ||
+        !body ||
+        fetchSite !== "same-origin" ||
+        !origin ||
+        origin !== expectedOrigin
+      )
         return validationFailure(context, [
           { field: "headers", message: "업로드 필수 헤더를 확인해 주세요." },
         ]);
-      const bytes = new Uint8Array(await context.req.arrayBuffer());
       const stored = await withHotelFileService(context.env, (service) =>
         service.authorizeAndPut(
           roomMutationPrincipal(context, principal),
-          hotelId.data,
           uploadId.data,
-          bytes,
+          body,
           mimeType,
+          contentLength,
         ),
       );
       context.header("ETag", stored.etag);
@@ -3282,8 +3304,6 @@ export function createApp(options: CreateAppOptions = {}) {
         );
       const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
       if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
-      const hotelId = z.uuid().safeParse(context.req.query("hotelId"));
-      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
       const key = idempotencyKey(context);
       if (!key)
         return validationFailure(context, [
@@ -3300,7 +3320,6 @@ export function createApp(options: CreateAppOptions = {}) {
       const upload = await withHotelFileService(context.env, (service) =>
         service.complete(
           roomMutationPrincipal(context, principal),
-          hotelId.data,
           uploadId.data,
           parsed.data,
           key,

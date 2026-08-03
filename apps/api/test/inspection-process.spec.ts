@@ -8,6 +8,7 @@ import {
 import {
   createHotelFileService,
   createPrivateR2EvidenceStore,
+  type HotelFileService,
   type PrivateR2Binding,
 } from "../src/files/r2";
 
@@ -314,6 +315,83 @@ describe("inspection HTTP API", () => {
       "manual-inspection-http-1",
     );
   });
+
+  it("streams an authenticated same-origin upload body to the file service", async () => {
+    const authorizeAndPut = vi.fn(async () => ({
+      etag: '"0123456789abcdef0123456789abcdef"',
+    }));
+    const authService = {
+      resolvePrincipal: vi.fn(async () => principal),
+    } as unknown as AuthService;
+    const hotelFileService = {
+      authorizeAndPut,
+      close: vi.fn(),
+    } as unknown as HotelFileService;
+    const app = createApp({ authService, hotelFileService });
+
+    const response = await app.request(
+      "/api/files/uploads/d1000000-0000-4000-8000-000000000001/body",
+      {
+        method: "PUT",
+        headers: {
+          "content-length": "3",
+          "content-type": "image/jpeg",
+          cookie: "__Host-hotel_session=opaque-session-token",
+          "if-none-match": "*",
+          origin: "http://localhost",
+          "sec-fetch-site": "same-origin",
+        },
+        body: new Uint8Array([1, 2, 3]),
+      },
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("etag")).toBe(
+      '"0123456789abcdef0123456789abcdef"',
+    );
+    expect(authorizeAndPut).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      "d1000000-0000-4000-8000-000000000001",
+      expect.any(ReadableStream),
+      "image/jpeg",
+      3,
+    );
+
+    const crossOrigin = await app.request(
+      "/api/files/uploads/d1000000-0000-4000-8000-000000000001/body",
+      {
+        method: "PUT",
+        headers: {
+          "content-length": "3",
+          "content-type": "image/jpeg",
+          cookie: "__Host-hotel_session=opaque-session-token",
+          "if-none-match": "*",
+          origin: "https://attacker.invalid",
+          "sec-fetch-site": "cross-site",
+        },
+        body: new Uint8Array([1, 2, 3]),
+      },
+    );
+    expect(crossOrigin.status).toBe(400);
+
+    const tooLarge = await app.request(
+      "/api/files/uploads/d1000000-0000-4000-8000-000000000001/body",
+      {
+        method: "PUT",
+        headers: {
+          "content-length": String(20 * 1024 * 1024 + 1),
+          "content-type": "image/jpeg",
+          cookie: "__Host-hotel_session=opaque-session-token",
+          "if-none-match": "*",
+          origin: "http://localhost",
+          "sec-fetch-site": "same-origin",
+        },
+        body: new Uint8Array([1]),
+      },
+    );
+    expect(tooLarge.status).toBe(400);
+    expect(authorizeAndPut).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("private R2 evidence store", () => {
@@ -341,18 +419,24 @@ describe("private R2 evidence store", () => {
         expiresAt: "2026-08-02T00:05:00.000Z",
       },
     });
+    const fileUploadScope = vi.fn().mockResolvedValue(inspectionHotelId);
+    const putReservedOriginal = vi.fn().mockResolvedValue({
+      etag: '"0123456789abcdef0123456789abcdef"',
+      objectKey,
+    });
     const service = createHotelFileService(
       {
         close: vi.fn(),
         command: vi.fn(),
         fileCommand,
+        fileUploadScope,
         fileQuery,
         readInspection: vi.fn(),
       },
       {
         reserveQuarantineKey: vi.fn(() => objectKey),
         putQuarantinedOriginal: vi.fn(),
-        putReservedOriginal: vi.fn(),
+        putReservedOriginal,
         putCleanVersion: vi.fn(),
         readCleanVersion: vi.fn(),
         readQuarantinedOriginal: vi.fn(),
@@ -382,7 +466,9 @@ describe("private R2 evidence store", () => {
     );
     expect(initialized).toMatchObject({
       upload: { status: "PENDING_UPLOAD" },
-      uploadUrl: expect.stringContaining(`hotelId=${inspectionHotelId}`),
+      uploadUrl: expect.stringMatching(
+        /^\/api\/files\/uploads\/[0-9a-f-]{36}\/body$/u,
+      ),
       requiredHeaders: { "If-None-Match": "*" },
     });
     expect(fileCommand.mock.calls[0]?.[0].value).toMatchObject({
@@ -390,9 +476,44 @@ describe("private R2 evidence store", () => {
       reservationFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/u),
     });
 
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1, 2, 3]));
+        controller.close();
+      },
+    });
+    await service.authorizeAndPut(
+      principal,
+      uploadId,
+      stream,
+      "image/jpeg",
+      3,
+    );
+    expect(fileUploadScope).toHaveBeenCalledWith({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+      uploadId,
+    });
+    expect(putReservedOriginal).toHaveBeenCalledWith({
+      body: stream,
+      mimeType: "image/jpeg",
+      objectKey,
+      uploadId,
+    });
+
+    await expect(
+      service.authorizeAndPut(
+        principal,
+        uploadId,
+        new ReadableStream<Uint8Array>(),
+        "image/jpeg",
+        4,
+      ),
+    ).rejects.toMatchObject({ code: "FILE_INTEGRITY_MISMATCH" });
+
     await service.complete(
       principal,
-      inspectionHotelId,
       uploadId,
       { etag: '"0123456789abcdef0123456789abcdef"' },
       "file-complete-1",
