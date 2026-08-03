@@ -44,7 +44,11 @@ describe("same-origin API runtime proxy", () => {
           method: "PUT",
         },
       ),
-      { params: Promise.resolve({ path: ["files", "uploads", uploadId, "body"] }) },
+      {
+        params: Promise.resolve({
+          path: ["files", "uploads", uploadId, "body"],
+        }),
+      },
     );
     expect(response.status).toBe(204);
     expect(response.headers.get("etag")).toBe(
@@ -54,18 +58,65 @@ describe("same-origin API runtime proxy", () => {
 
   it("allows only the inspection evidence and submit route methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
-    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ ok: true })),
+    );
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const inspectionId = "91000000-0000-4000-8000-000000000001";
     const itemId = "95000000-0000-4000-8000-000000000001";
     const uploadId = "10000000-0000-4000-8000-000000000001";
+    const fileVersionId = "99000000-0000-4000-8000-000000000001";
     const routes = [
       [POST, "POST", ["hotels", hotelId, "files", "upload-init"]],
       [GET, "GET", ["files", "uploads", uploadId]],
       [POST, "POST", ["files", "uploads", uploadId, "complete"]],
       [GET, "GET", ["hotels", hotelId, "inspections", inspectionId]],
-      [PUT, "PUT", ["hotels", hotelId, "inspections", inspectionId, "items", itemId, "result"]],
-      [POST, "POST", ["hotels", hotelId, "inspections", inspectionId, "submit"]],
+      [GET, "GET", ["hotels", hotelId, "inspection-reviews"]],
+      [GET, "GET", ["hotels", hotelId, "inspection-reviews", inspectionId]],
+      [
+        POST,
+        "POST",
+        [
+          "hotels",
+          hotelId,
+          "inspections",
+          inspectionId,
+          "process",
+          "transition",
+        ],
+      ],
+      [
+        GET,
+        "GET",
+        [
+          "hotels",
+          hotelId,
+          "inspections",
+          inspectionId,
+          "files",
+          fileVersionId,
+          "view",
+        ],
+      ],
+      [
+        PUT,
+        "PUT",
+        [
+          "hotels",
+          hotelId,
+          "inspections",
+          inspectionId,
+          "items",
+          itemId,
+          "result",
+        ],
+      ],
+      [
+        POST,
+        "POST",
+        ["hotels", hotelId, "inspections", inspectionId, "submit"],
+      ],
     ] as const;
     for (const [handler, method, path] of routes) {
       const response = await handler(
@@ -81,7 +132,11 @@ describe("same-origin API runtime proxy", () => {
         `https://hotel.example.test/api/files/uploads/${uploadId}/body`,
         { method: "PATCH" },
       ),
-      { params: Promise.resolve({ path: ["files", "uploads", uploadId, "body"] }) },
+      {
+        params: Promise.resolve({
+          path: ["files", "uploads", uploadId, "body"],
+        }),
+      },
     );
     expect(rejected.status).toBe(405);
   });

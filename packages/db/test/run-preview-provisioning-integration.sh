@@ -112,6 +112,20 @@ run_provision() {
 
 run_provision EXPAND >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create table public.hotel_file_access_grants (company_id uuid not null);
+alter table public.hotel_file_access_grants enable row level security;
+alter table public.hotel_file_access_grants force row level security;
+create policy hotel_file_access_grants_company_isolation
+  on public.hotel_file_access_grants using (true) with check (true);
+SQL
+if run_provision EXPAND >/dev/null 2>&1; then
+  printf '%s\n' 'Expand provisioning accepted a premature 0035 RLS policy.' >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c \
+  'drop table public.hotel_file_access_grants' >/dev/null
+printf 'PREVIEW_EXPAND_PREMATURE_REVIEW_POLICY_REJECTED\n'
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 grant usage on schema public to werehere_preview_runtime;
 grant select on public.branches to werehere_preview_runtime;
 grant execute on function public.runtime_is_schema_owner(),

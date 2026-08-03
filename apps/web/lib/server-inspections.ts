@@ -3,6 +3,8 @@ import {
   inspectionChecklistResponseSchema,
   inspectionExecutionListResponseSchema,
   inspectionExecutionResponseSchema,
+  inspectionReviewListResponseSchema,
+  inspectionReviewResponseSchema,
   inspectionRoutineListResponseSchema,
   inspectionRoutes,
   processDefinitionListResponseSchema,
@@ -23,6 +25,14 @@ async function request(path: string) {
   } catch {
     return new Response(null, { status: 503 });
   }
+}
+
+async function structuredFailure(response: Response, fallback: string) {
+  const parsed = hotelErrorResponseSchema.safeParse(await response.json().catch(() => undefined));
+  if (!parsed.success)
+    return { code: "INVALID_ERROR_RESPONSE", error: fallback, message: fallback, retryable: true };
+  const { code, message, retryable } = parsed.data.error;
+  return { code, error: code === "RESOURCE_NOT_FOUND" ? code : message, message, retryable };
 }
 
 export async function fetchInspectionExecutions(hotelId: string) {
@@ -106,6 +116,68 @@ export async function fetchInspectionExecutions(hotelId: string) {
   return {
     ok: false as const,
     error: "점검 수행 상세를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  };
+}
+
+export async function fetchInspectionReviews(hotelId: string) {
+  const listResponse = await request(
+    `${inspectionRoutes.reviews(hotelId)}?page=1&pageSize=20`,
+  );
+  if (listResponse.status === 401) redirect("/login");
+  if (!listResponse.ok)
+    return {
+      ok: false as const,
+      ...(await structuredFailure(
+        listResponse,
+        "검토 대기 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      )),
+    };
+  const list = inspectionReviewListResponseSchema.safeParse(
+    await listResponse.json().catch(() => undefined),
+  );
+  if (!list.success)
+    return {
+      ok: false as const,
+      error:
+        "검토 대기 목록을 안전하게 불러오지 못했습니다. 관리자에게 문의해 주세요.",
+    };
+  const reviews = list.data.data.reviews;
+  const selected = reviews[0];
+  if (!selected)
+    return {
+      ok: true as const,
+      pagination: list.data.data.pagination,
+      reviews,
+      selectedReview: null,
+    };
+  const detailResponse = await request(
+    inspectionRoutes.review(hotelId, selected.id),
+  );
+  if (detailResponse.status === 401) redirect("/login");
+  if (!detailResponse.ok)
+    return {
+      ok: false as const,
+      ...(await structuredFailure(
+        detailResponse,
+        "검토 상세를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      )),
+    };
+  const detail = inspectionReviewResponseSchema.safeParse(
+    await detailResponse.json().catch(() => undefined),
+  );
+  if (!detail.success)
+    return {
+      ok: false as const,
+      code: "INVALID_RESPONSE",
+      error: "검토 상세를 안전하게 불러오지 못했습니다.",
+      message: "검토 상세를 안전하게 불러오지 못했습니다.",
+      retryable: true,
+    };
+  return {
+    ok: true as const,
+    pagination: list.data.data.pagination,
+    reviews,
+    selectedReview: detail.data.data.review,
   };
 }
 

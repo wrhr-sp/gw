@@ -71,6 +71,30 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-inspection.review": {
+    audience: ["점검 검토 권한과 현재 호텔배정이 있는 사내 임직원"],
+    cautions: [
+      "현재 나에게 배정됐거나 지금 유효한 대리 업무만 대기 목록에 표시됩니다.",
+      "승인·반려 버튼은 점검 생성 당시 프로세스 revision에 저장된 처리만 표시됩니다.",
+      "사진은 현재 점검결과에 연결된 검역 완료본만 열리며 외부에 다시 공유하지 않습니다.",
+    ],
+    featureKey: "hotel-inspection.review",
+    permissions: [
+      "점검 검토 권한과 현재 호텔배정이 모두 필요합니다.",
+      "사진을 보려면 호텔 파일 읽기 권한이 추가로 필요합니다.",
+    ],
+    steps: [
+      "검토 대기 목록에서 객실과 현재 단계를 확인하고 업무를 선택합니다.",
+      "수행 기록, 항목별 결과와 검역 완료 사진을 읽기 전용으로 확인합니다.",
+      "판단 근거나 인계 내용을 처리 사유에 입력합니다.",
+      "허용된 승인 또는 반려를 선택하고 확인창에서 처리 내용을 확정합니다.",
+      "처리 후 최신 대기 목록과 안내 메시지로 저장 결과를 확인합니다.",
+    ],
+    summary:
+      "배정된 호텔 점검결과와 사진을 확인하고 생성 당시 프로세스에 따라 승인하거나 반려합니다.",
+    title: "점검 검토",
+    version: "1.0",
+  },
   "hotel-management.detail": {
     audience: [
       "호텔 정보를 조회할 수 있는 사내 임직원, 하우스키핑, 호텔 소유주",
@@ -102,6 +126,7 @@ export type HotelFeatureGuideKey = keyof typeof hotelFeatureGuides;
 
 export const hotelFeatureGuideRoutes = {
   "/hotels/[hotelId]": "hotel-management.detail",
+  "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
 } as const satisfies Record<string, HotelFeatureGuideKey>;
 
 export const accountFeatureGuideRoutes = {

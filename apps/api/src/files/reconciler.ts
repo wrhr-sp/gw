@@ -1,6 +1,26 @@
 import type { FileFinalizerRepository } from "@werehere/db";
 import type { HotelFileFinalizerService } from "./finalizer";
 
+export async function recoverExpiredHotelFileAccessGrants(input: {
+  batchSize: number;
+  repository: Pick<FileFinalizerRepository, "recoverExpiredAccessGrants">;
+}) {
+  if (
+    !Number.isSafeInteger(input.batchSize) ||
+    input.batchSize < 1 ||
+    input.batchSize > 500
+  ) {
+    throw new Error("file access recovery batch size is invalid");
+  }
+  if (!input.repository.recoverExpiredAccessGrants) {
+    throw new Error("file access recovery is not configured");
+  }
+  const recovered = await input.repository.recoverExpiredAccessGrants(
+    input.batchSize,
+  );
+  return { recovered };
+}
+
 export async function reconcileHotelFileEvidence(input: {
   batchSize: number;
   finalizer: Pick<HotelFileFinalizerService, "finalize">;

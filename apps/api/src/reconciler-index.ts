@@ -4,6 +4,7 @@ import {
 } from "./accounts/factory";
 import {
   reconcileHotelFileEvidenceFromBindings,
+  recoverExpiredHotelFileAccessGrantsFromBindings,
   type FileReconcilerBindings,
 } from "./files/factory";
 
@@ -21,6 +22,7 @@ const worker = {
       Promise.all([
         reconcileAccountProviderJobsFromBindings(env),
         reconcileHotelFileEvidenceFromBindings(env),
+        recoverExpiredHotelFileAccessGrantsFromBindings(env),
       ]),
     );
   },

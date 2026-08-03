@@ -17,6 +17,10 @@ const foundationIntegrationSource = readFileSync(
   new URL("./run-foundation-integration.sh", import.meta.url),
   "utf8",
 );
+const previewProvisioningIntegrationSource = readFileSync(
+  new URL("./run-preview-provisioning-integration.sh", import.meta.url),
+  "utf8",
+);
 
 describe("account administration readiness contract", () => {
   it("requires exact EXPAND and CONTRACT migration marker sets", () => {
@@ -622,5 +626,50 @@ describe("account administration readiness contract", () => {
     expect(foundationIntegrationSource).toContain(
       "HOTEL_INSPECTION_EVIDENCE_CONCURRENCY_OK",
     );
+  });
+
+  it("binds readiness and Preview ACL closure to inspection review v1", () => {
+    for (const contract of [
+      "0035_hotel_inspection_review_and_file_view",
+      "HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS",
+      "59ee6d0461c7ae7aa942c5f04aa4925df3f1b7d5b373377ebcd6e9570034784d",
+      "d08ee2d3d4457bf44f74e09922df23218cb8deae8a8c542851bb84a8a7ad46e1",
+      "8c8f0816f9666212a238d25c657e312eb59e5b7bf60d43ee7c77170bf5574bf9",
+      "811dcd84a6b75c0bff5a3f3cf349745205e0ddd512cf3b950a7291401859393f",
+      "5ece2f7716873e06c7cf239598b61e527683843f79003ebb9b868abb17c119fe",
+      "hotel_file_access_rate_windows",
+      "hotel_file_access_grants",
+      "hotel_file_access_rate_windows_company_isolation",
+      "hotel_file_access_grants_company_isolation",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    for (const contract of [
+      "0035_hotel_inspection_review_and_file_view.sql",
+      "grant execute on function public.hotel_inspection_reviews_read_v1(",
+      "grant execute on function public.hotel_inspection_transition_v1(",
+      "grant execute on function public.hotel_file_view_command_v1(",
+      "grant execute on function public.hotel_file_access_recover_expired_v1(",
+      "'hotel_process_reviewer_is_eligible_v1'",
+    ]) {
+      expect(provisionSource).toContain(contract);
+    }
+    for (const contract of [
+      "hotel_inspection_reviews_read_v1(uuid,uuid,uuid,jsonb,text)",
+      "hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid)",
+      "hotel_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)",
+      "HOTEL_INSPECTION_REVIEW_OK",
+      "HOTEL_INSPECTION_REVIEW_IDEMPOTENCY_CONCURRENCY_OK",
+      "HOTEL_INSPECTION_REVIEW_READINESS_DAMAGE_OK",
+      "REVIEW_DAMAGE_POLICY_RESTORED",
+      "REVIEW_DAMAGE_EXTRA_POLICY_RESTORED",
+      "REVIEW_DAMAGE_ROLE_SCOPED_EXTRA_POLICY_RESTORED",
+      "REVIEW_DAMAGE_CONSTRAINT_RESTORED",
+      "PREVIEW_EXPAND_PREMATURE_REVIEW_POLICY_REJECTED",
+    ]) {
+      expect(
+        `${foundationIntegrationSource}\n${previewProvisioningIntegrationSource}`,
+      ).toContain(contract);
+    }
   });
 });

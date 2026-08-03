@@ -154,7 +154,14 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
   ),
-  public.hotel_file_upload_scope_v1(uuid, uuid, text)
+  public.hotel_file_upload_scope_v1(uuid, uuid, text),
+  public.hotel_inspection_reviews_read_v1(uuid, uuid, uuid, jsonb, text),
+  public.hotel_inspection_transition_v1(
+    uuid, uuid, uuid, integer, jsonb, text, uuid, text, text, text, uuid, uuid
+  ),
+  public.hotel_file_view_command_v1(
+    uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+  )
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
@@ -177,6 +184,7 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.reconciliation_company_ids(),
   public.hotel_file_scan_command_v1(uuid, text, text, bigint, jsonb, uuid),
   public.hotel_file_scan_candidates_v1(integer),
+  public.hotel_file_access_recover_expired_v1(integer),
   public.hotel_inspection_claim_materialization_v1(uuid, bytea, integer),
   public.hotel_inspection_complete_materialization_v1(uuid, bigint, bytea, uuid)
 TO $RECONCILER_ROLE;

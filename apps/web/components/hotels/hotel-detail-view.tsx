@@ -72,7 +72,7 @@ export function HotelDetailView({
           />
           <div
             aria-label="호텔 상세 탭"
-            className="flex gap-5 border-b border-border"
+            className="flex flex-wrap gap-5 border-b border-border"
           >
             <span
               aria-current="page"
@@ -97,6 +97,12 @@ export function HotelDetailView({
               href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections`}
             >
               점검수행
+            </a>
+            <a
+              className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
+              href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections/reviews`}
+            >
+              점검검토
             </a>
             <a
               className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"

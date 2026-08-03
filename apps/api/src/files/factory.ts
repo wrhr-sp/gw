@@ -9,13 +9,34 @@ import {
 } from "./finalizer";
 import { createHttpEvidenceFileProcessor } from "./processor-client";
 import { createPrivateR2EvidenceStore, type PrivateR2Binding } from "./r2";
-import { reconcileHotelFileEvidence } from "./reconciler";
+import {
+  reconcileHotelFileEvidence,
+  recoverExpiredHotelFileAccessGrants,
+} from "./reconciler";
 
 export type FileReconcilerBindings = ReconcilerDatabaseBindings & {
   FILE_PROCESSOR_SHARED_SECRET?: string;
   FILE_PROCESSOR_URL?: string;
   HOTEL_FILES?: PrivateR2Binding;
 };
+
+export async function recoverExpiredHotelFileAccessGrantsFromBindings(
+  bindings: FileReconcilerBindings | undefined,
+) {
+  const databaseUrl = resolveDatabaseUrl(bindings, "RECONCILER");
+  if (!databaseUrl) {
+    throw new FileFinalizerError("FILE_FINALIZER_NOT_CONFIGURED");
+  }
+  const repository = createPostgresFileFinalizerRepository(databaseUrl);
+  try {
+    return await recoverExpiredHotelFileAccessGrants({
+      batchSize: 500,
+      repository,
+    });
+  } finally {
+    await repository.close();
+  }
+}
 
 export async function reconcileHotelFileEvidenceFromBindings(
   bindings: FileReconcilerBindings | undefined,

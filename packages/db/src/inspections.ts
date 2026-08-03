@@ -63,6 +63,20 @@ export interface InspectionRepository {
     sessionToken: string;
     uploadId: string;
   }): Promise<InspectionCommandResult>;
+  fileViewCommand?(input: {
+    action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED";
+    alertAuditEventId: string;
+    auditEventId: string;
+    companyId: string;
+    completionToken: string;
+    fileVersionId: string;
+    grantId: string;
+    hotelId: string;
+    inspectionId: string;
+    sessionId: string;
+    sessionToken: string;
+    traceId: string;
+  }): Promise<InspectionCommandResult>;
   inspectionQuery?(input: {
     action: "LIST_INSPECTIONS" | "LIST_ROUTINES" | "READ_CHECKLIST";
     companyId: string;
@@ -117,6 +131,9 @@ export interface InspectionRepository {
     sessionId: string;
     sessionToken: string;
   }): Promise<InspectionCommandResult>;
+  readInspectionReview?(
+    input: InspectionExecutionReadInput,
+  ): Promise<InspectionCommandResult>;
 }
 
 export type InspectionApiRepository = Pick<
@@ -132,6 +149,7 @@ export type InspectionApiRepository = Pick<
   | "routineMutation"
   | "listInspections"
   | "readInspection"
+  | "readInspectionReview"
 >;
 
 type CommandRow = {
@@ -166,6 +184,26 @@ export function createPostgresInspectionRepository(
         await transaction`
           select set_config('app.session_id', ${input.sessionId}, true)
         `;
+        if (input.action === "TRANSITION") {
+          return one(
+            await transaction<CommandRow[]>`
+              select * from public.hotel_inspection_transition_v1(
+                ${input.companyId}::uuid,
+                ${input.hotelId}::uuid,
+                ${input.resourceId}::uuid,
+                ${input.expectedVersion}::integer,
+                ${transaction.json(input.value as never)}::jsonb,
+                ${input.sessionToken}::text,
+                ${input.idempotencyRecordId}::uuid,
+                ${input.idempotencyKey}::text,
+                ${input.operationPath}::text,
+                ${input.requestHash}::text,
+                ${input.auditEventId}::uuid,
+                ${input.traceId}::uuid
+              )
+            `,
+          );
+        }
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_inspection_command_v2(
@@ -241,6 +279,26 @@ export function createPostgresInspectionRepository(
       });
     },
 
+    async fileViewCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_file_view_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.inspectionId}::uuid, ${input.fileVersionId}::uuid,
+              ${input.action}::text, ${input.sessionToken}::text,
+              ${input.grantId}::uuid, ${input.completionToken}::text,
+              ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,
+              ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
+
     async inspectionQuery(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -303,6 +361,23 @@ export function createPostgresInspectionRepository(
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_inspection_executions_read_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.inspectionId}::uuid,
+              ${transaction.json(input.query as never)}::jsonb,
+              ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
+    async readInspectionReview(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_reviews_read_v1(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.inspectionId}::uuid,
               ${transaction.json(input.query as never)}::jsonb,

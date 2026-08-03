@@ -37,36 +37,29 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (
-    new RegExp(
-      `^hotels/${UUID_PATH_PATTERN}/files/upload-init$`,
-      "iu",
-    ).test(apiPath)
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/files/upload-init$`, "iu").test(
+      apiPath,
+    )
   ) {
     return new Set(["POST"]);
   }
-  if (
-    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
-  ) {
+  if (new RegExp(`^files/uploads/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)) {
     return new Set(["GET"]);
   }
   if (
-    new RegExp(
-      `^files/uploads/${UUID_PATH_PATTERN}/body$`,
-      "iu",
-    ).test(apiPath)
+    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}/body$`, "iu").test(apiPath)
   ) {
     return new Set(["PUT"]);
   }
   if (
-    new RegExp(
-      `^files/uploads/${UUID_PATH_PATTERN}/complete$`,
-      "iu",
-    ).test(apiPath)
+    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}/complete$`, "iu").test(
+      apiPath,
+    )
   ) {
     return new Set(["POST"]);
   }
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections$`, "iu").test(
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspection-reviews$`, "iu").test(
       apiPath,
     )
   ) {
@@ -74,9 +67,37 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   }
   if (
     new RegExp(
-      `^hotels/${UUID_PATH_PATTERN}/inspections/manual$`,
+      `^hotels/${UUID_PATH_PATTERN}/inspection-reviews/${UUID_PATH_PATTERN}$`,
       "iu",
     ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/${UUID_PATH_PATTERN}/process/transition$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections$`, "iu").test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections/manual$`, "iu").test(
+      apiPath,
+    )
   ) {
     return new Set(["POST"]);
   }

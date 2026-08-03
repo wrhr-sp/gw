@@ -53,6 +53,7 @@ export const hotelErrorCodeSchema = z.enum([
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
   "FILE_NOT_READY",
+  "FILE_RATE_LIMITED",
   "INTERNAL_ERROR",
 ]);
 export type HotelErrorCode = z.infer<typeof hotelErrorCodeSchema>;
@@ -1892,6 +1893,146 @@ export const hotelFileMimeTypeSchema = z.enum([
   "image/webp",
   "image/heic",
 ]);
+
+const inspectionReviewActorSchema = z
+  .object({ id: z.uuid(), displayName: z.string().trim().min(1).max(100) })
+  .strict();
+const inspectionReviewProcessSummarySchema = z
+  .object({
+    executionId: z.uuid(),
+    version: z.number().int().positive(),
+    currentStageName: z.string().trim().min(1).max(100),
+    reviewer: inspectionReviewActorSchema,
+    delegate: inspectionReviewActorSchema.nullable(),
+    dueAt: z.iso.datetime().nullable(),
+    overdue: z.boolean(),
+  })
+  .strict();
+export const inspectionReviewSummarySchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    source: z.enum(["MANUAL", "ROUTINE"]),
+    businessDate: z.iso.date(),
+    dueAt: z.iso.datetime(),
+    targetSummary: z.string().trim().min(1).max(300),
+    itemCount: z.number().int().min(1),
+    abnormalCount: z.number().int().min(0),
+    cautionCount: z.number().int().min(0),
+    process: inspectionReviewProcessSummarySchema,
+  })
+  .strict();
+export const inspectionReviewListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type InspectionReviewListQuery = z.infer<
+  typeof inspectionReviewListQuerySchema
+>;
+const inspectionReviewActionSchema = z
+  .object({
+    event: processTransitionEventSchema,
+    choiceValue: z.string().trim().min(1).max(100).nullable(),
+    label: z.string().trim().min(1).max(140),
+    toStageKey: processStageKeySchema.nullable(),
+    toStageName: z.string().trim().min(1).max(100).nullable(),
+    completesProcess: z.boolean(),
+  })
+  .strict();
+export const processExecutionHistoryEventSchema = z.enum([
+  "SUBMIT",
+  "APPROVE",
+  "REJECT",
+  "SELECT",
+  "CANCEL",
+  "UNFINISHED_CLOSE",
+]);
+
+export const inspectionReviewHistorySchema = z
+  .object({
+    id: z.uuid(),
+    previousState: z.string().trim().min(1).max(40),
+    nextState: z.string().trim().min(1).max(40),
+    previousStageName: z.string().trim().min(1).max(100).nullable(),
+    nextStageName: z.string().trim().min(1).max(100).nullable(),
+    event: processExecutionHistoryEventSchema.nullable(),
+    reason: z.string().nullable(),
+    actor: inspectionReviewActorSchema,
+    occurredAt: z.iso.datetime(),
+  })
+  .strict();
+export const inspectionReviewSchema = z
+  .object({
+    inspection: inspectionExecutionSchema,
+    provenance: z
+      .object({
+        submittedBy: inspectionReviewActorSchema,
+        submittedAt: z.iso.datetime(),
+        lastResultChangedBy: inspectionReviewActorSchema,
+        lastResultChangedAt: z.iso.datetime(),
+      })
+      .strict(),
+    review: z
+      .object({
+        executionId: z.uuid(),
+        version: z.number().int().positive(),
+        currentStage: z
+          .object({
+            key: processStageKeySchema,
+            name: z.string().trim().min(1).max(100),
+          })
+          .strict(),
+        reviewer: inspectionReviewActorSchema,
+        delegate: inspectionReviewActorSchema.nullable(),
+        dueAt: z.iso.datetime().nullable(),
+        overdue: z.boolean(),
+        actions: z.array(inspectionReviewActionSchema).max(100),
+        history: z.array(inspectionReviewHistorySchema),
+      })
+      .strict(),
+    evidence: z.array(
+      z
+        .object({
+          id: z.uuid(),
+          itemSnapshotId: z.uuid(),
+          displayName: z.string().trim().min(1).max(180),
+          mimeType: hotelFileMimeTypeSchema,
+          sizeBytes: z
+            .number()
+            .int()
+            .min(1)
+            .max(20 * 1024 * 1024),
+        })
+        .strict(),
+    ),
+  })
+  .strict();
+export type InspectionReview = z.infer<typeof inspectionReviewSchema>;
+export type InspectionReviewSummary = z.infer<
+  typeof inspectionReviewSummarySchema
+>;
+export const inspectionReviewListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        reviews: z.array(inspectionReviewSummarySchema),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const inspectionReviewResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ review: inspectionReviewSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
 const inspectionEvidenceParentSchema = z
   .object({
     type: z.literal("INSPECTION_ITEM_EVIDENCE"),
@@ -2049,6 +2190,10 @@ export const inspectionRoutes = {
   createManual: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspections/manual` as const,
   detail: inspectionPath,
+  reviews: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-reviews` as const,
+  review: (hotelId: string, inspectionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-reviews/${encodeURIComponent(inspectionId)}` as const,
   result: (hotelId: string, inspectionId: string, itemSnapshotId: string) =>
     `${inspectionPath(hotelId, inspectionId)}/items/${encodeURIComponent(itemSnapshotId)}/result` as const,
   submit: (hotelId: string, inspectionId: string) =>
@@ -2057,6 +2202,8 @@ export const inspectionRoutes = {
     `${inspectionPath(hotelId, inspectionId)}/process/transition` as const,
 } as const;
 export const hotelFileRoutes = {
+  view: (hotelId: string, inspectionId: string, fileVersionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/${encodeURIComponent(inspectionId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   uploadInit: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/files/upload-init` as const,
   uploadBody: (uploadId: string) =>

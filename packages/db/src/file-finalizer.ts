@@ -27,6 +27,7 @@ export interface FileFinalizerRepository {
   close(): Promise<void>;
   command(input: FileScanCommandInput): Promise<FileScanCommandResult>;
   listCandidates?(limit: number): Promise<FileScanCandidateUploadId[]>;
+  recoverExpiredAccessGrants?(limit: number): Promise<number>;
 }
 
 type CommandRow = {
@@ -35,6 +36,7 @@ type CommandRow = {
 };
 
 type CandidateRow = { upload_id: string };
+type RecoveryRow = { recovered_count: number };
 
 function one(rows: CommandRow[]): FileScanCommandResult {
   const row = rows[0];
@@ -89,6 +91,26 @@ export function createPostgresFileFinalizerRepository(
         throw new Error("file scan candidate returned an invalid upload ID");
       }
       return rows.map((row) => row.upload_id);
+    },
+    async recoverExpiredAccessGrants(limit) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 500) {
+        throw new Error("file access recovery limit is invalid");
+      }
+      const rows = await sql<RecoveryRow[]>`
+        select recovered_count
+          from public.hotel_file_access_recover_expired_v1(${limit}::integer)
+      `;
+      const recoveredCount = rows[0]?.recovered_count;
+      if (
+        rows.length !== 1 ||
+        typeof recoveredCount !== "number" ||
+        !Number.isSafeInteger(recoveredCount) ||
+        recoveredCount < 0 ||
+        recoveredCount > limit
+      ) {
+        throw new Error("file access recovery returned an invalid count");
+      }
+      return recoveredCount;
     },
   };
 }
