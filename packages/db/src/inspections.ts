@@ -49,6 +49,12 @@ export interface InspectionRepository {
   close(): Promise<void>;
   command(input: InspectionCommandInput): Promise<InspectionCommandResult>;
   fileCommand(input: InspectionCommandInput): Promise<InspectionCommandResult>;
+  fileUploadScope?(input: {
+    companyId: string;
+    sessionId: string;
+    sessionToken: string;
+    uploadId: string;
+  }): Promise<string | null>;
   fileQuery(input: {
     action: "STATUS" | "UPLOAD_AUTHORIZE";
     companyId: string;
@@ -200,6 +206,21 @@ export function createPostgresInspectionRepository(
             )
           `,
         );
+      });
+    },
+    async fileUploadScope(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        const rows = await transaction<{ branch_id: string }[]>`
+          select * from public.hotel_file_upload_scope_v1(
+            ${input.companyId}::uuid,
+            ${input.uploadId}::uuid,
+            ${input.sessionToken}::text
+          )
+        `;
+        return rows[0]?.branch_id ?? null;
       });
     },
     async fileQuery(input) {
