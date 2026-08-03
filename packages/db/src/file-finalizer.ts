@@ -21,15 +21,20 @@ export type FileScanCommandResult = {
   status: string;
 };
 
+export type FileScanCandidateUploadId = string;
+
 export interface FileFinalizerRepository {
   close(): Promise<void>;
   command(input: FileScanCommandInput): Promise<FileScanCommandResult>;
+  listCandidates?(limit: number): Promise<FileScanCandidateUploadId[]>;
 }
 
 type CommandRow = {
   command_status: string;
   result_snapshot: unknown | null;
 };
+
+type CandidateRow = { upload_id: string };
 
 function one(rows: CommandRow[]): FileScanCommandResult {
   const row = rows[0];
@@ -64,6 +69,26 @@ export function createPostgresFileFinalizerRepository(
           )
         `,
       );
+    },
+    async listCandidates(limit) {
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 25) {
+        throw new Error("file scan candidate limit is invalid");
+      }
+      const rows = await sql<CandidateRow[]>`
+        select upload_id
+          from public.hotel_file_scan_candidates_v1(${limit}::integer)
+      `;
+      if (
+        rows.some(
+          (row) =>
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+              row.upload_id,
+            ),
+        )
+      ) {
+        throw new Error("file scan candidate returned an invalid upload ID");
+      }
+      return rows.map((row) => row.upload_id);
     },
   };
 }

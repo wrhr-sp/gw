@@ -555,4 +555,28 @@ describe("account administration readiness contract", () => {
     expect(source).toContain('schemaPhase === "CONTRACT"');
     expect(source).toContain("capabilityTopology.total_count === 3");
   });
+
+  it("binds readiness and Preview grants to inspection evidence processing", () => {
+    for (const contract of [
+      "0032_hotel_inspection_evidence_processing",
+      "hotel_file_scan_candidates_v1",
+      "34315511feea89376fba3eafa1d4f802aa3464966a6082c354622156533f8529",
+      "hotel_file_links_version_result_revision_key",
+      "hotel_file_links_parent_guard",
+      "hotel_file_links_terminal_insert_guard",
+      "GUARD_HOTEL_FILE_LINK_PARENT_V1_PROSRC_SHA256",
+      "GUARD_INSPECTION_TERMINAL_MUTATION_PROSRC_SHA256",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(provisionSource).toContain(
+      "0032_hotel_inspection_evidence_processing.sql",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_file_scan_candidates_v1(",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK",
+    );
+  });
 });

@@ -477,6 +477,10 @@ try {
       "0031_hotel_inspection_execution_contract",
       "0031_hotel_inspection_execution_contract.sql",
     ],
+    [
+      "0032_hotel_inspection_evidence_processing",
+      "0032_hotel_inspection_evidence_processing.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -493,6 +497,7 @@ try {
     "0029_hotel_process_reviewer_candidates",
     "0030_hotel_inspection_routine_contract",
     "0031_hotel_inspection_execution_contract",
+    "0032_hotel_inspection_evidence_processing",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1509,6 +1514,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0031_hotel_inspection_execution_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0032_hotel_inspection_evidence_processing'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1944,6 +1952,7 @@ try {
              'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v1',
              'hotel_file_command_v1', 'hotel_file_scan_command_v1',
+             'hotel_file_scan_candidates_v1',
              'hotel_inspection_claim_materialization_v1',
              'hotel_inspection_complete_materialization_v1'
            )
@@ -1996,6 +2005,9 @@ try {
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_file_scan_command_v1(
       uuid, text, text, bigint, jsonb, uuid
+    ) to ${reconcilerRole};
+    grant execute on function public.hotel_file_scan_candidates_v1(
+      integer
     ) to ${reconcilerRole};
     grant execute on function public.hotel_inspection_claim_materialization_v1(
       uuid, bytea, integer
@@ -2437,6 +2449,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0031_hotel_inspection_execution_contract'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0032_hotel_inspection_evidence_processing'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {

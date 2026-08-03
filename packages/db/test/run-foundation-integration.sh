@@ -47,6 +47,7 @@ GRANT INSERT ON audit_events, auth_identities, hotel_owner_assignments,
   TO gw_runtime_probe;
 GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO gw_runtime_probe;
 GRANT EXECUTE ON FUNCTION hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid),
+  hotel_file_scan_candidates_v1(integer),
   hotel_inspection_claim_materialization_v1(uuid,bytea,integer),
   hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)
   TO gw_runtime_probe;
@@ -126,6 +127,8 @@ select
   has_function_privilege(current_user,
     'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)', 'EXECUTE')
   and has_function_privilege(current_user,
+    'public.hotel_file_scan_candidates_v1(integer)', 'EXECUTE')
+  and has_function_privilege(current_user,
     'public.hotel_inspection_claim_materialization_v1(uuid,bytea,integer)', 'EXECUTE')
   and has_function_privilege(current_user,
     'public.hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)', 'EXECUTE')
@@ -166,6 +169,21 @@ SQL
     printf 'Inspection runtime ACL is not exact.\n' >&2
     return 1
   fi
+}
+
+assert_schema_not_ready() {
+  local probe_url="$1"
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const result = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (result.status !== "SCHEMA_NOT_READY") {
+  throw new Error(`expected SCHEMA_NOT_READY, received ${result.status}`);
+}
+NODE
+  )
 }
 
 register_owner_api_capability() {
@@ -769,6 +787,7 @@ HOTEL_PROCESS_DEFAULT_READ_MIGRATION="$ROOT_DIR/packages/db/migrations/0028_hote
 HOTEL_PROCESS_REVIEWER_CANDIDATES_MIGRATION="$ROOT_DIR/packages/db/migrations/0029_hotel_process_reviewer_candidates.sql"
 HOTEL_INSPECTION_ROUTINE_MIGRATION="$ROOT_DIR/packages/db/migrations/0030_hotel_inspection_routine_contract.sql"
 HOTEL_INSPECTION_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0031_hotel_inspection_execution_contract.sql"
+HOTEL_INSPECTION_EVIDENCE_MIGRATION="$ROOT_DIR/packages/db/migrations/0032_hotel_inspection_evidence_processing.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -778,6 +797,7 @@ HOTEL_INSPECTION_PROCESS_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-p
 HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-process-reviewer-candidates-integration.sql"
 HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
+HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
 HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-finalizer-recovery-integration.sql"
 
 if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
@@ -903,6 +923,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -942,6 +966,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EXECUTION_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -1155,6 +1180,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_INSPECTION_ROUTINE_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_INSPECTION_EXECUTION_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -1231,6 +1258,34 @@ if [[ "$EXECUTION_RESULT" != *"HOTEL_INSPECTION_EXECUTION_OK"* ]]; then
   printf '%s\n' "$EXECUTION_RESULT" >&2
   exit 1
 fi
+EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_TEST_SQL")"
+if [[ "$EVIDENCE_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK"* ]]; then
+  printf '%s\n' "$EVIDENCE_RESULT" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "delete from public.schema_migrations where version = '0032_hotel_inspection_evidence_processing'" >/dev/null
+assert_schema_not_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "insert into public.schema_migrations(version) values ('0032_hotel_inspection_evidence_processing')" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "alter table public.hotel_file_links rename constraint hotel_file_links_version_result_revision_key to damaged_evidence_revision_key" >/dev/null
+assert_schema_not_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "alter table public.hotel_file_links rename constraint damaged_evidence_revision_key to hotel_file_links_version_result_revision_key" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "alter trigger hotel_file_links_parent_guard on public.hotel_file_links rename to damaged_file_links_parent_guard" >/dev/null
+assert_schema_not_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "alter trigger damaged_file_links_parent_guard on public.hotel_file_links rename to hotel_file_links_parent_guard" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "revoke execute on function public.hotel_file_scan_candidates_v1(integer) from gw_runtime_probe" >/dev/null
+assert_schema_not_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
+  -c "grant execute on function public.hotel_file_scan_candidates_v1(integer) to gw_runtime_probe" >/dev/null
 ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
 if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
   printf '%s\n' "$ROUTINE_RESULT" >&2

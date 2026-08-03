@@ -2,6 +2,7 @@ export {
   createPostgresFileFinalizerRepository,
   type FileFinalizerRepository,
   type FileScanAction,
+  type FileScanCandidateUploadId,
   type FileScanCommandInput,
   type FileScanCommandResult,
 } from "./file-finalizer";
