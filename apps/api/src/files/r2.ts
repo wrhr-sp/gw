@@ -285,14 +285,13 @@ export interface HotelFileService {
   close?(): Promise<void>;
   authorizeAndPut(
     principal: FilePrincipal,
-    hotelId: string,
     uploadId: string,
-    body: Uint8Array,
+    body: ReadableStream<Uint8Array>,
     mimeType: string,
+    contentLength: number,
   ): Promise<{ etag: string }>;
   complete(
     principal: FilePrincipal,
-    hotelId: string,
     uploadId: string,
     value: HotelFileUploadCompleteRequest,
     idempotencyKey: string,
@@ -314,11 +313,26 @@ export function createHotelFileService(
   repository: InspectionRepository,
   store: PrivateR2EvidenceStore,
 ): HotelFileService {
+  async function canonicalScope(
+    principal: FilePrincipal,
+    uploadId: string,
+  ): Promise<string> {
+    if (!repository.fileUploadScope)
+      throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+    const hotelId = await repository.fileUploadScope({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+      uploadId,
+    });
+    if (!hotelId) throw new FileStorageError("RESOURCE_NOT_FOUND");
+    return hotelId;
+  }
   async function authorize(
     principal: FilePrincipal,
-    hotelId: string,
     uploadId: string,
   ): Promise<{ hotelId: string; upload: AuthorizedUpload }> {
+    const hotelId = await canonicalScope(principal, uploadId);
     const result = await repository.fileQuery({
       action: "UPLOAD_AUTHORIZE",
       companyId: principal.companyId,
@@ -368,9 +382,15 @@ export function createHotelFileService(
   }
   return {
     close: () => repository.close(),
-    async authorizeAndPut(principal, hotelId, uploadId, body, mimeType) {
-      const { upload } = await authorize(principal, hotelId, uploadId);
-      if (body.byteLength !== upload.sizeBytes || mimeType !== upload.mimeType)
+    async authorizeAndPut(
+      principal,
+      uploadId,
+      body,
+      mimeType,
+      contentLength,
+    ) {
+      const { upload } = await authorize(principal, uploadId);
+      if (contentLength !== upload.sizeBytes || mimeType !== upload.mimeType)
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
       const result = await store.putReservedOriginal({
         body,
@@ -380,8 +400,8 @@ export function createHotelFileService(
       });
       return { etag: result.etag };
     },
-    async complete(principal, hotelId, uploadId, value, idempotencyKey) {
-      const { upload } = await authorize(principal, hotelId, uploadId);
+    async complete(principal, uploadId, value, idempotencyKey) {
+      const { hotelId, upload } = await authorize(principal, uploadId);
       const objectState = await store.headReservedOriginal(
         upload.quarantineObjectKey,
       );
@@ -436,7 +456,7 @@ export function createHotelFileService(
       const upload = object(payload);
       return {
         upload: { id: upload.id, status: upload.status },
-        uploadUrl: `${hotelFileRoutes.uploadBody(uploadId)}?hotelId=${encodeURIComponent(hotelId)}`,
+        uploadUrl: hotelFileRoutes.uploadBody(uploadId),
         expiresInSeconds: 300,
         requiredHeaders: {
           "Content-Type": value.mimeType,
