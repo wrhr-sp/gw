@@ -166,6 +166,24 @@ export interface EvidenceImageProcessor {
   }>;
 }
 
+export type EvidenceFileProcessorResult =
+  | { verdict: "INFECTED" }
+  | {
+      body: Uint8Array;
+      exifLocationRemoved: true;
+      maxDimension: number;
+      mimeType: "image/jpeg" | "image/png" | "image/webp";
+      verdict: "CLEAN";
+    };
+
+export interface EvidenceFileProcessor {
+  process(input: {
+    body: Uint8Array;
+    declaredMime: string;
+    maxDimension: 2048;
+  }): Promise<EvidenceFileProcessorResult>;
+}
+
 export class FileFinalizerError extends Error {
   constructor(
     public readonly code:
@@ -265,18 +283,38 @@ export interface HotelFileFinalizerService {
 
 export function createHotelFileFinalizerService(input: {
   imageProcessor?: EvidenceImageProcessor;
+  processor?: EvidenceFileProcessor;
   repository: FileFinalizerRepository;
   scanner?: MalwareScanner;
   store: PrivateR2EvidenceStore;
 }): HotelFileFinalizerService {
-  if (!input.scanner || !input.imageProcessor)
+  if (!input.processor && (!input.scanner || !input.imageProcessor))
     throw new FileFinalizerError("FILE_FINALIZER_NOT_CONFIGURED");
-  const scanner = input.scanner;
-  const imageProcessor = input.imageProcessor;
+  const processor: EvidenceFileProcessor =
+    input.processor ??
+    {
+      async process({ body, declaredMime, maxDimension }) {
+        const scan = await input.scanner!.scan({ body, declaredMime });
+        if (scan.verdict === "INFECTED") return scan;
+        return {
+          ...(await input.imageProcessor!.optimizeAndStripLocation({
+            body,
+            detectedMime: scan.detectedMime,
+            maxDimension,
+          })),
+          verdict: "CLEAN" as const,
+        };
+      },
+    };
 
   async function command(
     uploadId: string,
-    action: "CLAIM" | "PROMOTE_COMPLETE" | "REJECT" | "SCAN_CLEAN",
+    action:
+      | "CLAIM"
+      | "FAIL"
+      | "PROMOTE_COMPLETE"
+      | "REJECT"
+      | "SCAN_CLEAN",
     token: string,
     generation: number,
     value: unknown,
@@ -289,6 +327,21 @@ export function createHotelFileFinalizerService(input: {
       uploadId,
       value,
     });
+  }
+
+  async function recordRetryableFailure(
+    uploadId: string,
+    token: string,
+    generation: number,
+    error: unknown,
+  ): Promise<never> {
+    try {
+      const failed = await command(uploadId, "FAIL", token, generation, {});
+      commandAccepted(failed.status, ["RETRY_SCHEDULED", "SCAN_FAILED"]);
+    } catch {
+      // The fenced lease remains authoritative when failure recording is unavailable.
+    }
+    throw error;
   }
 
   return {
@@ -330,9 +383,21 @@ export function createHotelFileFinalizerService(input: {
         commandAccepted(promoted.status, ["COMPLETED", "REPLAYED"]);
         return promoted.payload;
       }
-      const source = await input.store.readQuarantinedOriginal(
-        claim.quarantineObjectKey,
-      );
+      let source: Awaited<
+        ReturnType<PrivateR2EvidenceStore["readQuarantinedOriginal"]>
+      >;
+      try {
+        source = await input.store.readQuarantinedOriginal(
+          claim.quarantineObjectKey,
+        );
+      } catch (error) {
+        return recordRetryableFailure(
+          uploadId,
+          token,
+          claim.generation,
+          error,
+        );
+      }
       if (
         source.etag !== claim.sourceEtag ||
         source.objectVersion !== claim.sourceObjectVersion ||
@@ -350,11 +415,22 @@ export function createHotelFileFinalizerService(input: {
         throw new FileFinalizerError("FILE_FINALIZER_REJECTED");
       }
 
-      const scan = await scanner.scan({
-        body: source.body,
-        declaredMime: source.mimeType,
-      });
-      if (scan.verdict === "INFECTED") {
+      let processed: EvidenceFileProcessorResult;
+      try {
+        processed = await processor.process({
+          body: source.body,
+          declaredMime: source.mimeType,
+          maxDimension: 2048,
+        });
+      } catch (error) {
+        return recordRetryableFailure(
+          uploadId,
+          token,
+          claim.generation,
+          error,
+        );
+      }
+      if (processed.verdict === "INFECTED") {
         const rejected = await command(
           uploadId,
           "REJECT",
@@ -365,14 +441,6 @@ export function createHotelFileFinalizerService(input: {
         commandAccepted(rejected.status, ["REJECTED"]);
         throw new FileFinalizerError("FILE_FINALIZER_REJECTED");
       }
-      if (!/^[a-f0-9]{64}$/u.test(scan.scannerSha256))
-        throw new FileFinalizerError("FILE_FINALIZER_INTEGRITY");
-
-      const processed = await imageProcessor.optimizeAndStripLocation({
-        body: source.body,
-        detectedMime: scan.detectedMime,
-        maxDimension: 2048,
-      });
       if (
         processed.exifLocationRemoved !== true ||
         processed.maxDimension > 2048 ||
@@ -384,11 +452,21 @@ export function createHotelFileFinalizerService(input: {
       const fileVersionId = crypto.randomUUID();
       const cleanObjectKey = `clean/${fileVersionId}`;
       const cleanSha256 = await hexDigest(processed.body);
-      const clean = await input.store.putCleanVersion({
-        body: processed.body,
-        fileVersionId,
-        mimeType: processed.mimeType,
-      });
+      let clean: Awaited<ReturnType<PrivateR2EvidenceStore["putCleanVersion"]>>;
+      try {
+        clean = await input.store.putCleanVersion({
+          body: processed.body,
+          fileVersionId,
+          mimeType: processed.mimeType,
+        });
+      } catch (error) {
+        return recordRetryableFailure(
+          uploadId,
+          token,
+          claim.generation,
+          error,
+        );
+      }
       if (clean.objectKey !== cleanObjectKey)
         throw new FileFinalizerError("FILE_FINALIZER_INTEGRITY");
 
@@ -401,7 +479,7 @@ export function createHotelFileFinalizerService(input: {
           cleanObjectKey,
           detectedMime: processed.mimeType,
           fileVersionId,
-          scannerSha256: scan.scannerSha256,
+          scannerSha256: await hexDigest(source.body),
         },
       );
       commandAccepted(scanned.status, ["RECORDED", "REPLAYED"]);
