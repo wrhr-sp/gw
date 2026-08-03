@@ -84,7 +84,7 @@ GRANT EXECUTE ON FUNCTION
   hotel_inspection_routines_read_v1(uuid,uuid,uuid,text),
   hotel_inspection_routine_command_v1(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid),
   hotel_inspection_executions_read_v1(uuid,uuid,uuid,jsonb,text),
-  hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_upload_scope_v1(uuid,uuid,text)
   TO gw_api_probe;
@@ -120,6 +120,81 @@ run_actual_inspection_api_probe() {
   return "$probe_status"
 }
 
+run_evidence_submit_concurrency_probe() {
+  local admin_url="$1"
+  local holder_log result_log holder_pid holder_ready result_status holder_status
+  local result_line result_found
+  holder_log="$(mktemp /tmp/gw-evidence-holder.XXXXXX)"
+  result_log="$(mktemp /tmp/gw-evidence-result.XXXXXX)"
+
+  PGAPPNAME=gw_evidence_submit_lock_holder \
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >"$holder_log" 2>&1 <<'SQL' &
+begin;
+update public.hotel_inspections
+   set status = 'IN_REVIEW', updated_at = statement_timestamp()
+ where company_id = '10000000-0000-0000-0000-000000000001'
+   and id = 'c3000000-0000-4000-8000-000000000001';
+select pg_sleep(2);
+commit;
+SQL
+  holder_pid=$!
+  holder_ready="f"
+  for _ in $(seq 1 100); do
+    holder_ready="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" -c "select exists (select 1 from pg_catalog.pg_stat_activity where application_name = 'gw_evidence_submit_lock_holder' and state = 'active' and query like '%pg_sleep%')")"
+    [[ "$holder_ready" == "t" ]] && break
+    sleep 0.05
+  done
+  if [[ "$holder_ready" != "t" ]]; then
+    kill "$holder_pid" 2>/dev/null || true
+    wait "$holder_pid" 2>/dev/null || true
+    rm -f "$holder_log" "$result_log"
+    printf 'Evidence submission lock holder did not become ready.\n' >&2
+    return 1
+  fi
+
+  set +e
+  psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" >"$result_log" 2>&1 <<'SQL'
+begin;
+select set_config('app.session_id', '4f000000-0000-4000-8000-000000000001', true);
+select command_status from public.hotel_inspection_command_v2(
+  '10000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
+  'c3000000-0000-4000-8000-000000000001',
+  'SAVE_RESULT', 1, '{}'::jsonb, repeat('I', 43),
+  'fb000000-0000-4000-8000-000000000001',
+  'concurrent-post-submit-save', 'PUT',
+  '/api/hotels/50000000-0000-4000-8000-000000000001/inspections/c3000000-0000-4000-8000-000000000001/items/result',
+  'hash-concurrent-post-submit-save',
+  'fb000000-0000-4000-8000-000000000002',
+  'fb000000-0000-4000-8000-000000000003'
+);
+rollback;
+SQL
+  result_status=$?
+  wait "$holder_pid"
+  holder_status=$?
+  set -e
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+update public.hotel_inspections
+   set status = 'COMPLETED', updated_at = statement_timestamp()
+ where company_id = '10000000-0000-0000-0000-000000000001'
+   and id = 'c3000000-0000-4000-8000-000000000001';
+SQL
+
+  result_found="f"
+  while IFS= read -r result_line; do
+    [[ "$result_line" == "INSPECTION_FINAL_LOCKED" ]] && result_found="t"
+  done <"$result_log"
+  if [[ "$result_status" -ne 0 || "$holder_status" -ne 0 || "$result_found" != "t" ]]; then
+    printf '%s\n%s\n' "$(<"$holder_log")" "$(<"$result_log")" >&2
+    rm -f "$holder_log" "$result_log"
+    return 1
+  fi
+  rm -f "$holder_log" "$result_log"
+  printf 'HOTEL_INSPECTION_EVIDENCE_CONCURRENCY_OK\n'
+}
+
 assert_inspection_runtime_acl() {
   local probe_url="$1"
   local result
@@ -147,6 +222,8 @@ select
     'public.hotel_inspection_executions_read_v1(uuid,uuid,uuid,jsonb,text)', 'EXECUTE')
   and not has_function_privilege(current_user,
     'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
+  and not has_function_privilege(current_user,
+    'public.hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
   and not has_function_privilege(current_user,
     'public.hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)', 'EXECUTE')
   and not has_function_privilege(current_user,
@@ -792,6 +869,7 @@ HOTEL_INSPECTION_ROUTINE_MIGRATION="$ROOT_DIR/packages/db/migrations/0030_hotel_
 HOTEL_INSPECTION_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0031_hotel_inspection_execution_contract.sql"
 HOTEL_INSPECTION_EVIDENCE_MIGRATION="$ROOT_DIR/packages/db/migrations/0032_hotel_inspection_evidence_processing.sql"
 HOTEL_FILE_UPLOAD_SCOPE_MIGRATION="$ROOT_DIR/packages/db/migrations/0033_hotel_file_upload_scope.sql"
+HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION="$ROOT_DIR/packages/db/migrations/0034_hotel_inspection_evidence_submission.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -801,6 +879,7 @@ HOTEL_INSPECTION_PROCESS_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-p
 HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-process-reviewer-candidates-integration.sql"
 HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
+HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-submission-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
 HOTEL_FILE_UPLOAD_SCOPE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-upload-scope-integration.sql"
 HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-finalizer-recovery-integration.sql"
@@ -936,6 +1015,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -977,6 +1060,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EXECUTION_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_UPLOAD_SCOPE_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -1047,6 +1131,12 @@ NODE
     printf '%s\n' "$INSPECTION_RESULT" >&2
     exit 1
   fi
+  EVIDENCE_SUBMISSION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL")"
+  if [[ "$EVIDENCE_SUBMISSION_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_SUBMISSION_OK"* ]]; then
+    printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
+    exit 1
+  fi
+  run_evidence_submit_concurrency_probe "$TEST_DATABASE_URL"
   RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
   if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
     printf '%s\n' "$RECOVERY_RESULT" >&2
@@ -1194,6 +1284,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_FILE_UPLOAD_SCOPE_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -1254,6 +1346,12 @@ if [[ "$INSPECTION_RESULT" != *"INSPECTION_FILE_PROCESS_JOURNEY_OK"* ]]; then
   printf '%s\n' "$INSPECTION_RESULT" >&2
   exit 1
 fi
+EVIDENCE_SUBMISSION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL")"
+if [[ "$EVIDENCE_SUBMISSION_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_SUBMISSION_OK"* ]]; then
+  printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
+  exit 1
+fi
+run_evidence_submit_concurrency_probe "$ADMIN_URL"
 REVIEWER_CANDIDATES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL")"
 if [[ "$REVIEWER_CANDIDATES_RESULT" != *"HOTEL_PROCESS_REVIEWER_CANDIDATES_OK"* ]]; then
   printf '%s\n' "$REVIEWER_CANDIDATES_RESULT" >&2

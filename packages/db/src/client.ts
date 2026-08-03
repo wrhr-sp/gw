@@ -58,11 +58,11 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
-    digest: "4706062d37cfab01607fba9b2dbdfabdf6506eb5ba54ce610d43a31f737f0f70",
-    name: "hotel_inspection_command_v1",
+    digest: "81c3bcfca74413771c3e3a36fb502c02267ef077b9a2d6297488c95c9889dba1",
+    name: "hotel_inspection_command_v2",
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature:
-      "public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+      "public.hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
   },
   {
     capability: "API_RUNTIME",
@@ -1506,6 +1506,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_execution_marker_count: number;
         hotel_inspection_evidence_marker_count: number;
         hotel_file_upload_scope_marker_count: number;
+        hotel_inspection_evidence_submission_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1576,7 +1577,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_evidence_marker_count,
              count(*) filter (
                where version = '0033_hotel_file_upload_scope'
-             )::integer as hotel_file_upload_scope_marker_count
+             )::integer as hotel_file_upload_scope_marker_count,
+             count(*) filter (
+               where version = '0034_hotel_inspection_evidence_submission'
+             )::integer as hotel_inspection_evidence_submission_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1608,7 +1612,8 @@ export async function probeDatabaseReadiness(
         '0030_hotel_inspection_routine_contract',
         '0031_hotel_inspection_execution_contract',
         '0032_hotel_inspection_evidence_processing',
-        '0033_hotel_file_upload_scope'
+        '0033_hotel_file_upload_scope',
+        '0034_hotel_inspection_evidence_submission'
       )
     `;
     const schemaPhase =
@@ -1650,7 +1655,8 @@ export async function probeDatabaseReadiness(
       migrationRows[0].hotel_inspection_routine_marker_count === 1 &&
       migrationRows[0].hotel_inspection_execution_marker_count === 1 &&
       migrationRows[0].hotel_inspection_evidence_marker_count === 1 &&
-      migrationRows[0].hotel_file_upload_scope_marker_count === 1
+      migrationRows[0].hotel_file_upload_scope_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_evidence_submission_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
             migrationRows[0].hotel_file_finalizer_recovery_marker_count === 0 &&
@@ -1661,6 +1667,7 @@ export async function probeDatabaseReadiness(
             migrationRows[0].hotel_inspection_execution_marker_count === 0 &&
             migrationRows[0].hotel_inspection_evidence_marker_count === 0
             && migrationRows[0].hotel_file_upload_scope_marker_count === 0
+            && migrationRows[0].hotel_inspection_evidence_submission_marker_count === 0
           ? "EXPAND"
           : null;
     if (
@@ -2195,6 +2202,30 @@ export async function probeDatabaseReadiness(
         ) {
           return { status: "SCHEMA_NOT_READY" };
         }
+      }
+
+      const [legacyInspectionCommandAcl] = await sql<{ exact: boolean }[]>`
+        select not exists (
+          select 1
+            from public.runtime_database_capabilities capability
+            join pg_catalog.pg_roles capability_role
+              on capability_role.rolname = capability.role_name
+            join pg_catalog.pg_class migration_table
+              on migration_table.relname = 'schema_migrations'
+            join pg_catalog.pg_namespace migration_namespace
+              on migration_namespace.oid = migration_table.relnamespace
+           where capability.capability = 'API_RUNTIME'
+             and migration_namespace.nspname = 'public'
+             and capability_role.oid <> migration_table.relowner
+             and has_function_privilege(
+               capability.role_name,
+               'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+               'EXECUTE'
+             )
+        ) as exact
+      `;
+      if (!legacyInspectionCommandAcl?.exact) {
+        return { status: "SCHEMA_NOT_READY" };
       }
 
       const [finalizerCapability] = await sql<{ exact: boolean }[]>`

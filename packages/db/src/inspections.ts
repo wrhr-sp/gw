@@ -168,7 +168,7 @@ export function createPostgresInspectionRepository(
         `;
         return one(
           await transaction<CommandRow[]>`
-            select * from public.hotel_inspection_command_v1(
+            select * from public.hotel_inspection_command_v2(
               ${input.companyId}::uuid,
               ${input.hotelId}::uuid,
               ${input.resourceId}::uuid,
@@ -248,7 +248,7 @@ export function createPostgresInspectionRepository(
         `;
         return one(
           await transaction<CommandRow[]>`
-            select * from public.hotel_inspection_command_v1(
+            select * from public.hotel_inspection_command_v2(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.resourceId ?? null}::uuid, ${input.action}::text, 0,
               ${transaction.json((input.value ?? {}) as never)}::jsonb,
