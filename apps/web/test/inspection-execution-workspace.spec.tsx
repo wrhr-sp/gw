@@ -76,5 +76,9 @@ describe("inspection execution workspace", () => {
     expect(html).toContain("이상");
     expect(html).toContain("저장하고 다음");
     expect(html).toContain("변경사항 저장");
+    expect(html).toContain("점검 사진");
+    expect(html).toContain("이상 결과를 선택하면 현장 사진을 추가할 수 있습니다");
+    expect(html).toContain("검역 통과 사진만 저장됩니다");
+    expect(html).toContain("점검 제출");
   });
 });

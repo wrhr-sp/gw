@@ -42,17 +42,60 @@ async function configuredApiService(): Promise<ServiceFetcher | null> {
   }
 }
 
-export async function fetchApi(path: string, init: RequestInit = {}): Promise<Response> {
+type StreamingRequestInit = RequestInit & { duplex?: "half" };
+
+function requestInit(
+  init: RequestInit,
+  origin: string | null,
+): StreamingRequestInit {
+  const headers = new Headers(init.headers);
+  if (origin) {
+    headers.set("origin", origin);
+    headers.set("sec-fetch-site", "same-origin");
+  }
+  const next: StreamingRequestInit = { ...init, headers };
+  if (init.body instanceof ReadableStream) next.duplex = "half";
+  return next;
+}
+
+async function fetchApiWithTrust(
+  path: string,
+  init: RequestInit,
+  trustedSameOrigin: boolean,
+): Promise<Response> {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new ApiTransportNotConfiguredError();
   }
 
   const service = await configuredApiService();
   if (service) {
-    return service.fetch(new Request(new URL(path, "https://api.internal"), init));
+    const origin = "https://api.internal";
+    return service.fetch(
+      new Request(
+        new URL(path, origin),
+        requestInit(init, trustedSameOrigin ? origin : null),
+      ),
+    );
   }
 
   const origin = configuredApiOrigin();
   if (!origin) throw new ApiTransportNotConfiguredError();
-  return fetch(new URL(path, origin), init);
+  return fetch(
+    new URL(path, origin),
+    requestInit(init, trustedSameOrigin ? origin : null),
+  );
+}
+
+export async function fetchApi(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetchApiWithTrust(path, init, false);
+}
+
+export async function fetchApiSameOrigin(
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetchApiWithTrust(path, init, true);
 }

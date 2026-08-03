@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { hotelErrorResponseSchema } from "@werehere/contracts";
-import { GET, PATCH, POST } from "../app/api/[...path]/route";
+import { GET, PATCH, POST, PUT } from "../app/api/[...path]/route";
 
 const originalOrigin = process.env.HOTEL_API_ORIGIN;
 
@@ -11,6 +11,81 @@ afterEach(() => {
 });
 
 describe("same-origin API runtime proxy", () => {
+  it("streams only the approved upload body with its exact length", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const uploadId = "10000000-0000-4000-8000-000000000001";
+    const upstreamFetch = vi.fn(
+      async (_input: URL | RequestInfo, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        expect(init?.method).toBe("PUT");
+        expect(init?.body).toBeInstanceOf(ReadableStream);
+        expect(headers.get("content-length")).toBe("3");
+        expect(headers.get("content-type")).toBe("image/jpeg");
+        expect(headers.get("if-none-match")).toBe("*");
+        expect(headers.get("origin")).toBe("http://127.0.0.1:8787");
+        expect(headers.get("sec-fetch-site")).toBe("same-origin");
+        return new Response(null, {
+          headers: { etag: '"0123456789abcdef0123456789abcdef"' },
+          status: 204,
+        });
+      },
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+    const response = await PUT(
+      new Request(
+        `https://hotel.example.test/api/files/uploads/${uploadId}/body`,
+        {
+          body: new Uint8Array([1, 2, 3]),
+          headers: {
+            "content-length": "3",
+            "content-type": "image/jpeg",
+            "if-none-match": "*",
+          },
+          method: "PUT",
+        },
+      ),
+      { params: Promise.resolve({ path: ["files", "uploads", uploadId, "body"] }) },
+    );
+    expect(response.status).toBe(204);
+    expect(response.headers.get("etag")).toBe(
+      '"0123456789abcdef0123456789abcdef"',
+    );
+  });
+
+  it("allows only the inspection evidence and submit route methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ ok: true })));
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const inspectionId = "91000000-0000-4000-8000-000000000001";
+    const itemId = "95000000-0000-4000-8000-000000000001";
+    const uploadId = "10000000-0000-4000-8000-000000000001";
+    const routes = [
+      [POST, "POST", ["hotels", hotelId, "files", "upload-init"]],
+      [GET, "GET", ["files", "uploads", uploadId]],
+      [POST, "POST", ["files", "uploads", uploadId, "complete"]],
+      [GET, "GET", ["hotels", hotelId, "inspections", inspectionId]],
+      [PUT, "PUT", ["hotels", hotelId, "inspections", inspectionId, "items", itemId, "result"]],
+      [POST, "POST", ["hotels", hotelId, "inspections", inspectionId, "submit"]],
+    ] as const;
+    for (const [handler, method, path] of routes) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, {
+          method,
+        }),
+        { params: Promise.resolve({ path: [...path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+    const rejected = await PATCH(
+      new Request(
+        `https://hotel.example.test/api/files/uploads/${uploadId}/body`,
+        { method: "PATCH" },
+      ),
+      { params: Promise.resolve({ path: ["files", "uploads", uploadId, "body"] }) },
+    );
+    expect(rejected.status).toBe(405);
+  });
+
   it("fails closed when the API origin is not configured", async () => {
     delete process.env.HOTEL_API_ORIGIN;
     const response = await GET(
