@@ -153,7 +153,8 @@ GRANT EXECUTE ON FUNCTION
   public.hotel_file_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
-  )
+  ),
+  public.hotel_file_upload_scope_v1(uuid, uuid, text)
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')

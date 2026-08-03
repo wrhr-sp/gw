@@ -579,4 +579,22 @@ describe("account administration readiness contract", () => {
       "HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK",
     );
   });
+
+  it("binds readiness and Preview grants to canonical file upload scope", () => {
+    for (const contract of [
+      "0033_hotel_file_upload_scope",
+      "hotel_file_upload_scope_v1",
+      "dce219c3bb0458e3ff1150cdee934ebbf2227de50f5930e7499e5a7e022015c0",
+      "public.hotel_file_upload_scope_v1(uuid,uuid,text)",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(provisionSource).toContain("0033_hotel_file_upload_scope.sql");
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_file_upload_scope_v1(",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "HOTEL_FILE_UPLOAD_SCOPE_OK",
+    );
+  });
 });

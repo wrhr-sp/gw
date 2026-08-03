@@ -481,6 +481,10 @@ try {
       "0032_hotel_inspection_evidence_processing",
       "0032_hotel_inspection_evidence_processing.sql",
     ],
+    [
+      "0033_hotel_file_upload_scope",
+      "0033_hotel_file_upload_scope.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -498,6 +502,7 @@ try {
     "0030_hotel_inspection_routine_contract",
     "0031_hotel_inspection_execution_contract",
     "0032_hotel_inspection_evidence_processing",
+    "0033_hotel_file_upload_scope",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1517,6 +1522,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0032_hotel_inspection_evidence_processing'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0033_hotel_file_upload_scope'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1951,7 +1959,8 @@ try {
              'hotel_inspection_routine_command_v1',
              'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v1',
-             'hotel_file_command_v1', 'hotel_file_scan_command_v1',
+             'hotel_file_command_v1', 'hotel_file_upload_scope_v1',
+             'hotel_file_scan_command_v1',
              'hotel_file_scan_candidates_v1',
              'hotel_inspection_claim_materialization_v1',
              'hotel_inspection_complete_materialization_v1'
@@ -2002,6 +2011,9 @@ try {
     grant execute on function public.hotel_file_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_file_upload_scope_v1(
+      uuid, uuid, text
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_file_scan_command_v1(
       uuid, text, text, bigint, jsonb, uuid
@@ -2452,6 +2464,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0032_hotel_inspection_evidence_processing'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0033_hotel_file_upload_scope'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {
