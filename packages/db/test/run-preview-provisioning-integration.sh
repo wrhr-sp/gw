@@ -716,6 +716,11 @@ select (
   )
   and has_function_privilege(
     'werehere_preview_api_runtime',
+    'public.hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_api_runtime',
     'public.hotel_inspection_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
     'EXECUTE'
   )

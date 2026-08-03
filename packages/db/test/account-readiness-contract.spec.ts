@@ -597,4 +597,30 @@ describe("account administration readiness contract", () => {
       "HOTEL_FILE_UPLOAD_SCOPE_OK",
     );
   });
+
+  it("binds readiness and Preview grants to evidence submission v2", () => {
+    for (const contract of [
+      "0034_hotel_inspection_evidence_submission",
+      "hotel_inspection_command_v2",
+      "81c3bcfca74413771c3e3a36fb502c02267ef077b9a2d6297488c95c9889dba1",
+      "public.hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(provisionSource).toContain(
+      "0034_hotel_inspection_evidence_submission.sql",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_inspection_command_v2(",
+    );
+    expect(provisionSource).toContain(
+      "revoke execute on function public.hotel_inspection_command_v1(",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "HOTEL_INSPECTION_EVIDENCE_SUBMISSION_OK",
+    );
+    expect(foundationIntegrationSource).toContain(
+      "HOTEL_INSPECTION_EVIDENCE_CONCURRENCY_OK",
+    );
+  });
 });

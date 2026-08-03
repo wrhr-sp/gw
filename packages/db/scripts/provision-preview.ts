@@ -485,6 +485,10 @@ try {
       "0033_hotel_file_upload_scope",
       "0033_hotel_file_upload_scope.sql",
     ],
+    [
+      "0034_hotel_inspection_evidence_submission",
+      "0034_hotel_inspection_evidence_submission.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -503,6 +507,7 @@ try {
     "0031_hotel_inspection_execution_contract",
     "0032_hotel_inspection_evidence_processing",
     "0033_hotel_file_upload_scope",
+    "0034_hotel_inspection_evidence_submission",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1525,6 +1530,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0033_hotel_file_upload_scope'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0034_hotel_inspection_evidence_submission'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1958,7 +1966,7 @@ try {
              'hotel_inspection_routines_read_v1',
              'hotel_inspection_routine_command_v1',
              'hotel_inspection_executions_read_v1',
-             'hotel_inspection_command_v1',
+             'hotel_inspection_command_v2',
              'hotel_file_command_v1', 'hotel_file_upload_scope_v1',
              'hotel_file_scan_command_v1',
              'hotel_file_scan_candidates_v1',
@@ -2004,7 +2012,11 @@ try {
     grant execute on function public.hotel_inspection_executions_read_v1(
       uuid, uuid, uuid, jsonb, text
     ) to ${apiRuntimeRole};
-    grant execute on function public.hotel_inspection_command_v1(
+    revoke execute on function public.hotel_inspection_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) from ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_command_v2(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};
@@ -2467,6 +2479,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0033_hotel_file_upload_scope'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0034_hotel_inspection_evidence_submission'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {
