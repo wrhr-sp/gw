@@ -2,6 +2,7 @@ import type { HotelErrorCode } from "@werehere/contracts";
 import {
   ApiTransportNotConfiguredError,
   fetchApi,
+  fetchApiSameOrigin,
 } from "../../../lib/api-transport";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,74 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/files/upload-init$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^files/uploads/${UUID_PATH_PATTERN}/body$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["PUT"]);
+  }
+  if (
+    new RegExp(
+      `^files/uploads/${UUID_PATH_PATTERN}/complete$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/manual$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/${UUID_PATH_PATTERN}/items/${UUID_PATH_PATTERN}/result$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["PUT"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/${UUID_PATH_PATTERN}/submit$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/(?:rooms|room-types)$`, "iu").test(
       apiPath,
@@ -194,11 +263,15 @@ async function proxy(
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
       : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
+  const streamingUpload = new RegExp(
+    `^files/uploads/${UUID_PATH_PATTERN}/body$`,
+    "iu",
+  ).test(apiPath);
 
   const headers = new Headers(request.headers);
   headers.delete("connection");
-  headers.delete("content-length");
   headers.delete("host");
+  if (!streamingUpload) headers.delete("content-length");
 
   const init: RequestInit = {
     cache: "no-store",
@@ -207,11 +280,13 @@ async function proxy(
     redirect: "manual",
   };
   if (request.method !== "GET" && request.method !== "HEAD") {
-    init.body = await request.arrayBuffer();
+    init.body = streamingUpload ? request.body : await request.arrayBuffer();
   }
 
   try {
-    const upstream = await fetchApi(upstreamPath, init);
+    const upstream = streamingUpload
+      ? await fetchApiSameOrigin(upstreamPath, init)
+      : await fetchApi(upstreamPath, init);
     return new Response(upstream.body, {
       headers: upstream.headers,
       status: upstream.status,
@@ -260,3 +335,4 @@ async function proxy(
 export const GET = proxy;
 export const PATCH = proxy;
 export const POST = proxy;
+export const PUT = proxy;

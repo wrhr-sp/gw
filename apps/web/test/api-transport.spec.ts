@@ -12,6 +12,7 @@ import {
   ApiTransportNotConfiguredError,
   configuredApiOrigin,
   fetchApi,
+  fetchApiSameOrigin,
 } from "../lib/api-transport";
 
 const originalOrigin = process.env.HOTEL_API_ORIGIN;
@@ -62,6 +63,53 @@ describe("API transport", () => {
     const response = await fetchApi("/api/health/live");
 
     expect(response.status).toBe(200);
+    expect(directFetch).toHaveBeenCalledOnce();
+  });
+
+  it("rewrites trusted same-origin metadata to the selected service origin", async () => {
+    const serviceFetch = vi.fn(async (request: Request) => {
+      expect(request.headers.get("origin")).toBe("https://api.internal");
+      expect(request.headers.get("sec-fetch-site")).toBe("same-origin");
+      expect(request.headers.get("content-length")).toBe("3");
+      expect(request.body).toBeInstanceOf(ReadableStream);
+      return new Response(null, { status: 204 });
+    });
+    cloudflare.getCloudflareContext.mockResolvedValue({
+      env: { API_SERVICE: { fetch: serviceFetch } },
+    });
+    const response = await fetchApiSameOrigin(
+      "/api/files/uploads/10000000-0000-4000-8000-000000000001/body",
+      {
+        body: new Blob([new Uint8Array([1, 2, 3])]).stream(),
+        headers: {
+          "content-length": "3",
+          "content-type": "image/jpeg",
+        },
+        method: "PUT",
+      },
+    );
+    expect(response.status).toBe(204);
+    expect(serviceFetch).toHaveBeenCalledOnce();
+  });
+
+  it("uses the validated public API origin for trusted direct requests", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const directFetch = vi.fn(
+      async (_input: URL | RequestInfo, init?: RequestInit) => {
+        expect(new Headers(init?.headers).get("origin")).toBe(
+          "http://127.0.0.1:8787",
+        );
+        expect(new Headers(init?.headers).get("sec-fetch-site")).toBe(
+          "same-origin",
+        );
+        return new Response(null, { status: 204 });
+      },
+    );
+    vi.stubGlobal("fetch", directFetch);
+    await fetchApiSameOrigin("/api/files/uploads/upload/body", {
+      body: new Blob(["x"]).stream(),
+      method: "PUT",
+    });
     expect(directFetch).toHaveBeenCalledOnce();
   });
 

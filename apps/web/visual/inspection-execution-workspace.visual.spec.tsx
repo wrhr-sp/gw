@@ -126,11 +126,77 @@ test.beforeEach(async ({ page }) => {
 
 test("PC 점검 수행 다중편집 기준 화면", async ({ mount, page }) => {
   await page.setViewportSize({ width: 1440, height: 1100 });
+  const uploadId = "98000000-0000-4000-8000-000000000001";
+  const fileVersionId = "99000000-0000-4000-8000-000000000001";
+  await page.route("**/files/upload-init", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      status: 201,
+      body: JSON.stringify({
+        ok: true,
+        data: {
+          upload: { id: uploadId, status: "PENDING_UPLOAD" },
+          uploadUrl: `/api/files/uploads/${uploadId}/body`,
+          expiresInSeconds: 300,
+          requiredHeaders: {
+            "Content-Type": "image/png",
+            "If-None-Match": "*",
+          },
+        },
+        error: null,
+      }),
+    });
+  });
+  await page.route(`**/files/uploads/${uploadId}/body`, async (route) => {
+    await route.fulfill({
+      headers: { etag: '"0123456789abcdef0123456789abcdef"' },
+      status: 204,
+    });
+  });
+  await page.route(`**/files/uploads/${uploadId}/complete`, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: { upload: { id: uploadId, status: "QUARANTINED" } },
+        error: null,
+      }),
+    });
+  });
+  await page.route(`**/files/uploads/${uploadId}?hotelId=*`, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: {
+          upload: { id: uploadId, status: "READY_UNLINKED", fileVersionId },
+        },
+        error: null,
+      }),
+    });
+  });
   const workspace = await mountWorkspace(mount);
   await page.evaluate(() => document.fonts.ready);
   await workspace.getByRole("button", { name: /출입문 잠금/ }).click();
   await workspace.getByRole("button", { name: "이상" }).click();
   await workspace.getByLabel("설명").fill("잠금장치가 끝까지 잠기지 않음");
+  const droppedPhoto = await page.evaluateHandle(() => {
+    const bytes = Uint8Array.from(
+      atob(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGOQtA4HAAEcAKwm1M7RAAAAAElFTkSuQmCC",
+      ),
+      (character) => character.charCodeAt(0),
+    );
+    const transfer = new DataTransfer();
+    transfer.items.add(
+      new File([bytes], "잠금장치.png", { type: "image/png" }),
+    );
+    return transfer;
+  });
+  await workspace
+    .getByLabel("사진 끌어놓기 영역")
+    .dispatchEvent("drop", { dataTransfer: droppedPhoto });
+  await expect(workspace.getByText("검역 통과", { exact: true })).toBeVisible();
   await expect(workspace.getByLabel("심각도")).toHaveValue("CRITICAL");
   await expect(
     workspace.getByRole("button", { name: /변경사항 저장 \(1\)/ }),
@@ -179,6 +245,9 @@ test("네트워크 실패 시 입력과 동일 저장 operation을 유지한다"
   await expect(workspace.getByRole("status")).toContainText(
     "요청을 처리하지 못했습니다",
   );
+  await expect(
+    workspace.getByRole("heading", { name: "출입문 잠금" }),
+  ).toBeFocused();
   await workspace.getByRole("button", { name: "저장하고 다음" }).click();
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBeTruthy();
@@ -282,6 +351,92 @@ test("commit 여부가 불확정한 수시점검 생성은 같은 key로 재시�
   expect(keys[0]).toBeTruthy();
   expect(keys[1]).toBe(keys[0]);
   expect(bodies[1]).toBe(bodies[0]);
+});
+
+test("저장 완료 점검을 제출하고 read-only로 전환한다", async ({
+  mount,
+  page,
+}) => {
+  const readyInspection = {
+    ...inspection,
+    items: inspection.items.map((item, index) => ({
+      ...item,
+      result: {
+        description: item.result?.description ?? null,
+        fileVersionIds: item.result?.fileVersionIds ?? [],
+        result: item.result?.result ?? ("NORMAL" as const),
+        severity: item.result?.severity ?? null,
+        version: item.result?.version ?? 1,
+      },
+      displayOrder: (index + 1) * 10,
+    })),
+  };
+  const submittedInspection = {
+    ...readyInspection,
+    status: "IN_REVIEW" as const,
+    version: 2,
+    process: {
+      ...readyInspection.process,
+      currentStageKey: "REVIEW",
+      currentStageName: "검토",
+      state: "IN_REVIEW" as const,
+      version: 2,
+    },
+  };
+  await page.route("**/submit", async (route) => {
+    expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: { inspection: submittedInspection },
+        error: null,
+      }),
+    });
+  });
+  await page.route(`**/inspections/${inspection.id}`, async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        ok: true,
+        data: { inspection: submittedInspection },
+        error: null,
+      }),
+    });
+  });
+  const workspace = await mount(
+    <InspectionExecutionWorkspace
+      checklistItems={readyInspection.items.map((item) => ({
+        id: item.itemId,
+        name: item.name,
+      }))}
+      hotelId={hotelId}
+      initialInspections={[summary]}
+      initialSelectedInspection={readyInspection}
+      rooms={[]}
+    />,
+  );
+  await workspace.getByRole("button", { name: "점검 제출" }).click();
+  await expect(page.getByText("점검을 제출할까요?")).toBeVisible();
+  await page.getByRole("button", { name: "제출 확정" }).click();
+  await expect(
+    workspace.getByRole("button", { name: "검토 중 · 수정 불가" }),
+  ).toBeDisabled();
+  await expect(workspace.getByRole("status")).toContainText("점검을 제출했습니다");
+});
+
+test("모바일 이상 결과에 촬영과 사진첩 진입을 분리한다", async ({
+  mount,
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const workspace = await mountWorkspace(mount);
+  await workspace.getByRole("button", { name: "이상" }).click();
+  await expect(workspace.getByText("사진 촬영", { exact: true })).toBeVisible();
+  await expect(
+    workspace.getByText("사진첩에서 선택", { exact: true }),
+  ).toBeVisible();
+  await expect(workspace.getByLabel("사진 끌어놓기 영역")).toBeVisible();
 });
 
 test("모바일 점검 수행 한 항목 집중 흐름", async ({ mount, page }) => {
