@@ -2,13 +2,13 @@
 
 ## 1. 문서 정보
 
-| 항목 | 값 |
-|---|---|
-| PRD ID | `HOTEL-MVP-120` |
-| 상태 | `user_approved` |
-| 사용자 정본 | `제품요구사항(사용자)/0. 공통기능.md`, `5. 운영사업부.md`, `8. 관리자페이지.md` |
-| 제품 범위 | 객실점검, 시설물점검, 공통 검토 프로세스, 하자·보수, 방문일정 |
-| 외부 provider | Google Calendar API는 backend-only 단방향 일정 반영 |
+| 항목          | 값                                                                              |
+| ------------- | ------------------------------------------------------------------------------- |
+| PRD ID        | `HOTEL-MVP-120`                                                                 |
+| 상태          | `user_approved`                                                                 |
+| 사용자 정본   | `제품요구사항(사용자)/0. 공통기능.md`, `5. 운영사업부.md`, `8. 관리자페이지.md` |
+| 제품 범위     | 객실점검, 시설물점검, 공통 검토 프로세스, 하자·보수, 방문일정                   |
+| 외부 provider | Google Calendar API는 backend-only 단방향 일정 반영                             |
 
 이 문서는 객실점검과 시설물점검이 공유하는 업무기반과 하자·보수 세로 기능의 정본이다. 객실 기준정보의 고유 규칙은 [02-room-and-inspection-prd.md](02-room-and-inspection-prd.md), 인증·파일·감사 공통통제는 [06-platform-security-prd.md](06-platform-security-prd.md)를 함께 따른다.
 
@@ -63,14 +63,14 @@
 
 ## 4. 구현후보 gate
 
-| 구현영역 | 상태 | 기존 승인 재사용 여부 |
-|---|---|---|
-| 공통 process definition/revision·실행 엔진 | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수 |
-| 객실·시설물 공통 inspection 대상·결과 모델 | `approved` | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK |
-| 시설물·공용공간 기준정보 | `approved` | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK |
-| 보수 건·우선순위·방문일정 | `approved` | 정규화 PostgreSQL aggregate + append-only history |
-| Calendar adapter·OAuth credential·outbox 재시도 | `approved` | OAuth 2.0 offline + direct REST + PostgreSQL projection outbox + scheduled Worker |
-| 자체 월간·주간 달력 UI | `unresearched` | 신규 UI |
+| 구현영역                                        | 상태           | 기존 승인 재사용 여부                                                             |
+| ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------- |
+| 공통 process definition/revision·실행 엔진      | `approved`     | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수         |
+| 객실·시설물 공통 inspection 대상·결과 모델      | `approved`     | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK                        |
+| 시설물·공용공간 기준정보                        | `approved`     | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK        |
+| 보수 건·우선순위·방문일정                       | `approved`     | 정규화 PostgreSQL aggregate + append-only history                                 |
+| Calendar adapter·OAuth credential·outbox 재시도 | `approved`     | OAuth 2.0 offline + direct REST + PostgreSQL projection outbox + scheduled Worker |
+| 자체 월간·주간 달력 UI                          | `unresearched` | 신규 UI                                                                           |
 
 ### 4.1 공통 process engine 후보 결정 — 2026-07-31
 
@@ -80,11 +80,11 @@
 
 비교한 독립 후보는 정확히 다음 세 개다.
 
-| 후보 | 확인 결과 | 선택 결과 |
-|---|---|---|
-| PostgreSQL 18 정본 + TypeScript 자체 엔진 | 기존 RLS·`FORCE ROW LEVEL SECURITY`·version·멱등·감사·command transaction과 직접 결합 가능. 신규 runtime·상용 라이선스·외부 서비스 없음 | 선택 |
-| XState 5.32.5 + PostgreSQL | MIT이며 actor snapshot의 DB 저장·복구를 지원하지만 동적 권한·대리인·기한·감사·RLS는 별도 구현이 필요하고 XState snapshot과 DB 실행상태의 이중 정본 위험이 있음 | package 미도입, 모델링 개념만 흡수 |
-| Camunda 8.9 + PostgreSQL | User Task·담당후보·멀티테넌시·BPMN 운영도구를 제공하지만 SaaS 또는 별도 Self-Managed runtime이 필요하고 DB transaction과 외부 process 전이를 원자화할 수 없음. Production Self-Managed 주요 compiled component는 Enterprise Edition 경계임 | runtime·Tasklist·Modeler·SaaS 미도입, 그래프 검증 개념만 흡수 |
+| 후보                                      | 확인 결과                                                                                                                                                                                                                                  | 선택 결과                                                     |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------- |
+| PostgreSQL 18 정본 + TypeScript 자체 엔진 | 기존 RLS·`FORCE ROW LEVEL SECURITY`·version·멱등·감사·command transaction과 직접 결합 가능. 신규 runtime·상용 라이선스·외부 서비스 없음                                                                                                    | 선택                                                          |
+| XState 5.32.5 + PostgreSQL                | MIT이며 actor snapshot의 DB 저장·복구를 지원하지만 동적 권한·대리인·기한·감사·RLS는 별도 구현이 필요하고 XState snapshot과 DB 실행상태의 이중 정본 위험이 있음                                                                             | package 미도입, 모델링 개념만 흡수                            |
+| Camunda 8.9 + PostgreSQL                  | User Task·담당후보·멀티테넌시·BPMN 운영도구를 제공하지만 SaaS 또는 별도 Self-Managed runtime이 필요하고 DB transaction과 외부 process 전이를 원자화할 수 없음. Production Self-Managed 주요 compiled component는 Enterprise Edition 경계임 | runtime·Tasklist·Modeler·SaaS 미도입, 그래프 검증 개념만 흡수 |
 
 공식 조사 근거:
 
@@ -152,11 +152,11 @@
 
 비교한 독립 후보는 정확히 다음 세 개다.
 
-| 후보 | 확인 결과 | 선택 결과 |
-|---|---|---|
-| 공통 실행대상 child + 유형별 직접 FK | 한 실행에 여러 대상을 담고 객실·시설물 존재·회사·호텔 일치를 declarative composite FK와 행 CHECK로 직접 보장할 수 있음 | 선택 |
-| 공통 inspection target registry | 실행에서는 단일 target ID를 쓸 수 있으나 객실·시설물 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택 |
-| `target_type + target_id` polymorphic 참조 | 열 추가 없이 대상유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함 | 미선택 |
+| 후보                                       | 확인 결과                                                                                                                                | 선택 결과 |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 공통 실행대상 child + 유형별 직접 FK       | 한 실행에 여러 대상을 담고 객실·시설물 존재·회사·호텔 일치를 declarative composite FK와 행 CHECK로 직접 보장할 수 있음                   | 선택      |
+| 공통 inspection target registry            | 실행에서는 단일 target ID를 쓸 수 있으나 객실·시설물 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택    |
+| `target_type + target_id` polymorphic 참조 | 열 추가 없이 대상유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함     | 미선택    |
 
 공식 조사 근거:
 
@@ -232,6 +232,21 @@
 - 최종 완료 뒤 결과·설명·사진·심각도·수행자·대상·완료시각·프로세스 snapshot은 누구도 수정·재개·정정하지 못한다.
 - 오류가 발견되면 기존 완료 건을 열지 않고 새 업무를 생성한다.
 
+### 5.5 검토 UI·반려·파일보기 후보 결정 — 2026-08-03
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 검토 화면은 전용 Master–Detail route를 사용하되 기존 점검 결과 renderer를 read-only로 재사용하고, process 계약은 향후 공통 업무함으로 확장 가능하게 분리한다.
+- 검토 목록·상세·처리는 현재 단계의 주 검토자 또는 요청시각에 유효한 immutable revision 대리인에게만 허용한다.
+- `REJECT`도 생성 당시 process revision의 명시적 transition edge로만 저장·노출·실행한다. 해당 edge가 없으면 반려 버튼을 노출하지 않고 API도 거부하며, 코드에 `PENDING_INPUT` 같은 fallback 목적지를 고정하지 않는다.
+- 최종 단계 완료는 `APPROVE`와 `choiceValue=null` 조합만 허용한다.
+- CLEAN 사진은 same-origin 인증 stream으로 제공하며 동일 session·사용자·호텔배정에서 `HOTEL_INSPECTION_REVIEW`와 `HOTEL_FILE_READ`를 모두 재검증한다.
+- 파일 접근은 사용자+호텔 기준 5분 30회와 호텔 전체 기준 5분 100회를 같은 DB transaction에서 예약한다. 호텔 전체 80회 도달 시 대량반출 감사경보를 남긴다.
+- 권한거부·존재하지 않는 파일 반복 요청도 인증된 actor 범위에서는 제한 횟수에 포함한다.
+- 파일 전송은 `STARTED`를 별도 접근정본에 남기고 EOF는 `SUCCEEDED`, R2 오류는 `FAILED`, 사용자 취소는 `ABORTED`로 정확히 한 번 종결한다.
+- 만료된 `STARTED`는 후속 사용자 요청과 무관하게 scheduled reconciler가 최대 500건씩 `FOR UPDATE SKIP LOCKED`로 회복하여 `ABORTED`와 `HOTEL_FILE_VIEW_ABANDONED` 감사를 남긴다. 반복 실행은 추가 변경이 없어야 한다.
+- 검토 처리 사유는 2~500자이며, 처리 이력 조회는 정상 누적량을 임의의 500건 상한으로 파싱 거부하지 않는다.
+
 ## 6. 동적 권한
 
 호텔별 유효권한은 다음을 정본으로 계산한다.
@@ -267,10 +282,10 @@
 
 ### 7.2 결과
 
-| 결과 | 설명 | 사진 |
-|---|---|---|
-| `NORMAL` 정상 | 선택 | 선택 |
-| `CAUTION` 주의 | 필수 | 선택 |
+| 결과            | 설명 | 사진       |
+| --------------- | ---- | ---------- |
+| `NORMAL` 정상   | 선택 | 선택       |
+| `CAUTION` 주의  | 필수 | 선택       |
 | `ABNORMAL` 이상 | 필수 | 1~5장 필수 |
 
 - `해당없음` 결과는 사용하지 않고 기준정보 설정에서 적용대상에서 제외한다.
@@ -334,11 +349,11 @@
 
 비교한 독립 후보는 정확히 다음 세 개다.
 
-| 후보 | 확인 결과 | 선택 결과 |
-|---|---|---|
-| 시설물의 위치유형별 직접 composite FK | 실제 객실·공용공간 존재와 회사·호텔 일치를 declarative FK와 같은 행 CHECK로 직접 보장하고 별도 위치 동기화가 필요 없음 | 선택 |
-| 공통 location registry | 시설물이 단일 location ID를 쓸 수 있으나 객실·공용공간 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택 |
-| `location_type + location_id` polymorphic 참조 | 열 추가 없이 위치유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함 | 미선택 |
+| 후보                                           | 확인 결과                                                                                                                                  | 선택 결과 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 시설물의 위치유형별 직접 composite FK          | 실제 객실·공용공간 존재와 회사·호텔 일치를 declarative FK와 같은 행 CHECK로 직접 보장하고 별도 위치 동기화가 필요 없음                     | 선택      |
+| 공통 location registry                         | 시설물이 단일 location ID를 쓸 수 있으나 객실·공용공간 lifecycle과 registry 동기화, subtype 정확히 하나 보장, stale registry 복구가 추가됨 | 미선택    |
+| `location_type + location_id` polymorphic 참조 | 열 추가 없이 위치유형 확장이 쉽지만 한 UUID가 여러 테이블을 가리켜 직접 FK를 만들 수 없고 command·trigger·복구검증에 무결성이 의존함       | 미선택    |
 
 공식 조사 근거:
 
@@ -487,11 +502,11 @@
 
 보수 건·우선순위·다중 방문일정의 같은 기능결과를 만드는 저장·실행방식만 비교했다. Calendar provider adapter와 자체 달력 UI는 별도 후보 gate로 남긴다.
 
-| 후보 | 구조·기능 적합성 | UX·PC/모바일 | 보안·격리·동시성 | 비용·상업이용·유지보수 | 확장성 | 판정 |
-|---|---|---|---|---|---|---|
-| 정규화 PostgreSQL repair aggregate + append-only history | typed source·target, priority·process snapshot, case 아래 독립 visit·performer·완료증빙 current relation과 별도 불변 history | PC 필터·달력 query와 모바일 방문카드·일정별 저장이 직접 relation에 대응하고 서로 다른 visit 수정충돌이 작음 | composite FK·null-safe CHECK·RLS·`FORCE ROW LEVEL SECURITY`; case·visit별 expected version과 transaction 잠금 | 신규 package·서비스·비용 없음, PostgreSQL License로 상업이용 가능; 기존 SQL migration·DB·감사 운영 재사용으로 유지보수 가장 단순 | index·필요 시 partition으로 case·visit·history를 독립 확장하고 Calendar adapter를 경계 밖에서 추가 가능 | **선택** |
-| PostgreSQL append-only event stream + current projection | 모든 변경 event를 stream version으로 append하고 case·visit projection을 같은 transaction에서 갱신 | PC·모바일은 projection을 읽어 같은 화면이 가능하지만 projection 오류·재구축 중 최신상태 판정이 추가됨 | event·projection 양쪽 tenant 정책, event schema version·replay·projection rebuild 필요 | PostgreSQL License로 상업이용 가능하고 신규 라이선스 비용은 없지만 자체 event 규약·upcaster·projection을 지속 유지 | 다수 event 소비자와 과거시점 replay에는 유리하나 stream·projection 저장량과 rebuild 운영이 함께 증가 | 비선택 |
-| PostgreSQL JSONB repair document aggregate | case 한 행 JSONB에 priority·visits·performer·result·history 배열 저장 | 같은 화면은 가능하지만 모바일에서 visit 하나 저장해도 case 전체 version 충돌, PC 관계형 필터·달력 query가 복잡 | 문서 내부 typed FK·행 CHECK가 약하고 방문별 병렬수정이 case 전체 version에서 충돌; RLS는 case 단위 | PostgreSQL License로 상업이용 가능하고 신규 비용은 없지만 자체 JSON schema·과거문서 migration·GIN query를 지속 유지 | 필드 추가는 쉽지만 문서성장·row 경합·visit/performer별 권한·관계형 분석 확장이 불리 | 비선택 |
+| 후보                                                     | 구조·기능 적합성                                                                                                             | UX·PC/모바일                                                                                                   | 보안·격리·동시성                                                                                              | 비용·상업이용·유지보수                                                                                                           | 확장성                                                                                                  | 판정     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------- |
+| 정규화 PostgreSQL repair aggregate + append-only history | typed source·target, priority·process snapshot, case 아래 독립 visit·performer·완료증빙 current relation과 별도 불변 history | PC 필터·달력 query와 모바일 방문카드·일정별 저장이 직접 relation에 대응하고 서로 다른 visit 수정충돌이 작음    | composite FK·null-safe CHECK·RLS·`FORCE ROW LEVEL SECURITY`; case·visit별 expected version과 transaction 잠금 | 신규 package·서비스·비용 없음, PostgreSQL License로 상업이용 가능; 기존 SQL migration·DB·감사 운영 재사용으로 유지보수 가장 단순 | index·필요 시 partition으로 case·visit·history를 독립 확장하고 Calendar adapter를 경계 밖에서 추가 가능 | **선택** |
+| PostgreSQL append-only event stream + current projection | 모든 변경 event를 stream version으로 append하고 case·visit projection을 같은 transaction에서 갱신                            | PC·모바일은 projection을 읽어 같은 화면이 가능하지만 projection 오류·재구축 중 최신상태 판정이 추가됨          | event·projection 양쪽 tenant 정책, event schema version·replay·projection rebuild 필요                        | PostgreSQL License로 상업이용 가능하고 신규 라이선스 비용은 없지만 자체 event 규약·upcaster·projection을 지속 유지               | 다수 event 소비자와 과거시점 replay에는 유리하나 stream·projection 저장량과 rebuild 운영이 함께 증가    | 비선택   |
+| PostgreSQL JSONB repair document aggregate               | case 한 행 JSONB에 priority·visits·performer·result·history 배열 저장                                                        | 같은 화면은 가능하지만 모바일에서 visit 하나 저장해도 case 전체 version 충돌, PC 관계형 필터·달력 query가 복잡 | 문서 내부 typed FK·행 CHECK가 약하고 방문별 병렬수정이 case 전체 version에서 충돌; RLS는 case 단위            | PostgreSQL License로 상업이용 가능하고 신규 비용은 없지만 자체 JSON schema·과거문서 migration·GIN query를 지속 유지              | 필드 추가는 쉽지만 문서성장·row 경합·visit/performer별 권한·관계형 분석 확장이 불리                     | 비선택   |
 
 선택안은 현재상태를 정규화 relation으로 유지하고 후보 2의 append-only 이력 장점만 흡수한다. JSONB는 감사 before/after summary처럼 제한되고 비정본인 metadata에만 허용하며 대상·우선순위·방문·수행자·완료결과·파일의 업무 정본을 대체하지 않는다.
 
@@ -550,11 +565,11 @@
 
 같은 단방향 Calendar projection 결과를 만드는 독립 후보는 정확히 다음 세 개다.
 
-| 후보 | 구조·PC/모바일 UX | 인증·보안·회사/호텔 격리 | 비용·라이선스·상업이용 | 운영·유지보수 | 확장성 | 판정 |
-|---|---|---|---|---|---|---|
-| OAuth 2.0 offline + direct REST + PostgreSQL outbox | 권한 있는 내부 운영자만 회사 전용계정을 한 번 연결하고 일반 PC·모바일 사용자는 Google 동의 없이 자체 UI의 반영상태만 봄; 같은 transaction의 호텔범위 job을 기존 scheduled Worker가 처리 | `calendar.app.created` + `calendar.calendarlist.readonly` exact set, state hash·PKCE·browser binding·중요작업 재인증, AES-GCM refresh credential, 회사 connection·호텔 calendar link·RLS와 version fence; 앱 fetch/XHR·Calendar REST는 브라우저 호출 없음, 운영자의 OAuth authorization top-level navigation만 예외 | REST 계약 자체에 client package 비용·라이선스 없음; 기존 PostgreSQL·Worker 재사용, Google 계정/Workspace 비용은 고객 정책에 따름 | 좁은 OAuth refresh·Calendar endpoint·오류 schema를 Zod allowlist로 직접 유지하지만 bundle·transitive dependency가 없음 | 회사별 계정으로 사용자 quota를 분산하고 source version·claim fence·backoff로 확장; Calendar 외 Google API가 늘면 직접유지 부담 증가 | **선택** |
-| OAuth 2.0 offline + 공식 `googleapis` Node client + PostgreSQL outbox | 연결 UX와 자체 UI는 선택안과 같고 client helper로 OAuth·Calendar 호출 | scope·credential·tenant 경계는 선택안과 동일하며 package 사용이 최소권한·격리를 대신하지 않음 | Apache-2.0 상업이용 가능, API 호출비 경계는 동일; 조사시 npm 173.0.0의 registry reported unpacked size가 약 207MB라 Worker bundle PoC 필요 | 공식 client 모델을 얻지만 대형 신규 dependency·transitive update·Cloudflare node compatibility·cold start 부담 | 여러 Google Workspace API가 추가되면 유리하나 현재 소수 endpoint에는 과대 | 미선택 |
-| service account + Workspace domain-wide delegation + PostgreSQL outbox | 일반 사용자 동의는 없지만 회사 Workspace 최고관리자가 client ID·scope·impersonation을 별도 설정 | 사용자 동의 없이 조직자료 접근 가능한 강한 권한, 회사별 service account·impersonation 격리와 private key 또는 federation 필요; 일반 Gmail·비Workspace 회사 사용 불가 | Workspace·관리자 운영비 가능, REST 계약 자체는 package 비용 없음 | super-admin 승인·scope·key 회전/폐기·침해대응 부담이 가장 크고 Google은 가능한 경우 service-account key 회피를 권고 | 하나의 통제된 Workspace 대규모 자동화에는 유리하나 독립 호텔회사 SaaS onboarding에는 불리 | 미선택 |
+| 후보                                                                   | 구조·PC/모바일 UX                                                                                                                                                                       | 인증·보안·회사/호텔 격리                                                                                                                                                                                                                                                                                            | 비용·라이선스·상업이용                                                                                                                     | 운영·유지보수                                                                                                          | 확장성                                                                                                                              | 판정     |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| OAuth 2.0 offline + direct REST + PostgreSQL outbox                    | 권한 있는 내부 운영자만 회사 전용계정을 한 번 연결하고 일반 PC·모바일 사용자는 Google 동의 없이 자체 UI의 반영상태만 봄; 같은 transaction의 호텔범위 job을 기존 scheduled Worker가 처리 | `calendar.app.created` + `calendar.calendarlist.readonly` exact set, state hash·PKCE·browser binding·중요작업 재인증, AES-GCM refresh credential, 회사 connection·호텔 calendar link·RLS와 version fence; 앱 fetch/XHR·Calendar REST는 브라우저 호출 없음, 운영자의 OAuth authorization top-level navigation만 예외 | REST 계약 자체에 client package 비용·라이선스 없음; 기존 PostgreSQL·Worker 재사용, Google 계정/Workspace 비용은 고객 정책에 따름           | 좁은 OAuth refresh·Calendar endpoint·오류 schema를 Zod allowlist로 직접 유지하지만 bundle·transitive dependency가 없음 | 회사별 계정으로 사용자 quota를 분산하고 source version·claim fence·backoff로 확장; Calendar 외 Google API가 늘면 직접유지 부담 증가 | **선택** |
+| OAuth 2.0 offline + 공식 `googleapis` Node client + PostgreSQL outbox  | 연결 UX와 자체 UI는 선택안과 같고 client helper로 OAuth·Calendar 호출                                                                                                                   | scope·credential·tenant 경계는 선택안과 동일하며 package 사용이 최소권한·격리를 대신하지 않음                                                                                                                                                                                                                       | Apache-2.0 상업이용 가능, API 호출비 경계는 동일; 조사시 npm 173.0.0의 registry reported unpacked size가 약 207MB라 Worker bundle PoC 필요 | 공식 client 모델을 얻지만 대형 신규 dependency·transitive update·Cloudflare node compatibility·cold start 부담         | 여러 Google Workspace API가 추가되면 유리하나 현재 소수 endpoint에는 과대                                                           | 미선택   |
+| service account + Workspace domain-wide delegation + PostgreSQL outbox | 일반 사용자 동의는 없지만 회사 Workspace 최고관리자가 client ID·scope·impersonation을 별도 설정                                                                                         | 사용자 동의 없이 조직자료 접근 가능한 강한 권한, 회사별 service account·impersonation 격리와 private key 또는 federation 필요; 일반 Gmail·비Workspace 회사 사용 불가                                                                                                                                                | Workspace·관리자 운영비 가능, REST 계약 자체는 package 비용 없음                                                                           | super-admin 승인·scope·key 회전/폐기·침해대응 부담이 가장 크고 Google은 가능한 경우 service-account key 회피를 권고    | 하나의 통제된 Workspace 대규모 자동화에는 유리하나 독립 호텔회사 SaaS onboarding에는 불리                                           | 미선택   |
 
 공식 조사 근거:
 
@@ -568,11 +583,11 @@
 
 Calendar resource 생성 응답유실 복구방식은 2026-08-01 Google 공식 Discovery 재검증에서 `calendar.app.created`가 `calendars.insert/get`과 event CRUD에는 허용되지만 Calendar ID 회수에 필요한 `calendarList.list`에는 허용되지 않음을 확인한 뒤 정확히 다음 세 후보를 다시 비교했다.
 
-| 복구 후보 | 기능·PC/모바일 UX | 인증·보안·회사/호텔 격리 | 비용·라이선스 | 운영·유지보수·확장성 | 판정 |
-|---|---|---|---|---|---|
-| `calendar.app.created` 단일 scope + 수동 orphan 정리 | 정상 응답 때만 자동연결하고 timeout·connection loss·비결정 5xx는 관리자가 전용 Google 계정에서 orphan Calendar를 찾아 제거한 뒤 재시도 | 최소권한이지만 provider ID를 잃은 Calendar는 서버가 존재여부를 판정할 수 없고 사람의 오정리·중복위험이 남음 | 추가 API·라이선스 비용 없음 | 드문 장애라도 호텔별 수동복구와 고객지원이 필요해 확장성이 낮음 | 미선택 |
-| `calendar.app.created` + `calendar.calendarlist.readonly` exact set | 일반 사용자는 변화가 없고 관리자는 자동 read-back 상태만 확인; scheduled Worker가 opaque link key로 생성결과를 복구 | 전용 연동계정의 구독 Calendar 목록 ID·description을 읽을 수 있으나 exact fields·메모리 필터·불일치 metadata 무보존·회사 credential/호텔 link 격리로 blast radius를 제한 | 추가 package·라이선스 비용 없고 Google quota만 사용 | 자동복구·중복차단이 가능하며 호텔 증가에도 동일 aggregate-head job으로 확장 | **선택** |
-| Google에서 호텔 Calendar 수동생성 + `calendar.events.owned` | 관리자가 호텔마다 Calendar를 직접 만들고 ID를 입력한 뒤 event CRUD만 자동화 | 앱 생성 Calendar 정책을 폐기하고 owned Calendar 전체 event 권한과 ID 오입력 검증이 필요; 수동 tenant mapping 위험 | 추가 package 비용은 없으나 운영인력 비용 증가 | 호텔 추가·계정교체마다 수동작업, 자동 onboarding과 복구에 부적합 | 미선택 |
+| 복구 후보                                                           | 기능·PC/모바일 UX                                                                                                                      | 인증·보안·회사/호텔 격리                                                                                                                                                | 비용·라이선스                                       | 운영·유지보수·확장성                                                        | 판정     |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| `calendar.app.created` 단일 scope + 수동 orphan 정리                | 정상 응답 때만 자동연결하고 timeout·connection loss·비결정 5xx는 관리자가 전용 Google 계정에서 orphan Calendar를 찾아 제거한 뒤 재시도 | 최소권한이지만 provider ID를 잃은 Calendar는 서버가 존재여부를 판정할 수 없고 사람의 오정리·중복위험이 남음                                                             | 추가 API·라이선스 비용 없음                         | 드문 장애라도 호텔별 수동복구와 고객지원이 필요해 확장성이 낮음             | 미선택   |
+| `calendar.app.created` + `calendar.calendarlist.readonly` exact set | 일반 사용자는 변화가 없고 관리자는 자동 read-back 상태만 확인; scheduled Worker가 opaque link key로 생성결과를 복구                    | 전용 연동계정의 구독 Calendar 목록 ID·description을 읽을 수 있으나 exact fields·메모리 필터·불일치 metadata 무보존·회사 credential/호텔 link 격리로 blast radius를 제한 | 추가 package·라이선스 비용 없고 Google quota만 사용 | 자동복구·중복차단이 가능하며 호텔 증가에도 동일 aggregate-head job으로 확장 | **선택** |
+| Google에서 호텔 Calendar 수동생성 + `calendar.events.owned`         | 관리자가 호텔마다 Calendar를 직접 만들고 ID를 입력한 뒤 event CRUD만 자동화                                                            | 앱 생성 Calendar 정책을 폐기하고 owned Calendar 전체 event 권한과 ID 오입력 검증이 필요; 수동 tenant mapping 위험                                                       | 추가 package 비용은 없으나 운영인력 비용 증가       | 호텔 추가·계정교체마다 수동작업, 자동 onboarding과 복구에 부적합            | 미선택   |
 
 선택한 두 scope는 순서무관 exact set으로만 요청·수락하며 `calendar.readonly`, `calendar.calendarlist`, 전체 `calendar`, `calendar.events.owned` 또는 그 밖의 scope로 자동확대하지 않는다. 전용 연동계정에도 primary Calendar는 존재할 수 있으므로 “관련 없는 Calendar가 없다”고 가정하지 않고, 목록 응답의 불일치 metadata를 영속화·로그·감사·metrics·API 응답에 남기지 않는 것을 보안불변식으로 둔다.
 

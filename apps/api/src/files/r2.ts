@@ -10,6 +10,7 @@ import { sha256 } from "../auth/crypto";
 export interface PrivateR2Binding {
   get?(key: string): Promise<{
     arrayBuffer(): Promise<ArrayBuffer>;
+    body?: ReadableStream<Uint8Array>;
     etag?: string;
     httpMetadata?: { contentType?: string };
     size?: number;
@@ -36,14 +37,17 @@ export class FileStorageError extends Error {
     public readonly code:
       | "FILE_INTEGRITY_MISMATCH"
       | "FILE_NOT_READY"
+      | "FILE_RATE_LIMITED"
       | "FILE_STORAGE_NOT_CONFIGURED"
       | "RESOURCE_NOT_FOUND",
-    public readonly httpStatus: 404 | 409 | 500 | 503 = code ===
+    public readonly httpStatus: 404 | 409 | 429 | 500 | 503 = code ===
     "RESOURCE_NOT_FOUND"
       ? 404
-      : code === "FILE_STORAGE_NOT_CONFIGURED"
-        ? 503
-        : 409,
+      : code === "FILE_RATE_LIMITED"
+        ? 429
+        : code === "FILE_STORAGE_NOT_CONFIGURED"
+          ? 503
+          : 409,
     public readonly retryable = false,
   ) {
     super(code);
@@ -101,6 +105,13 @@ export interface PrivateR2EvidenceStore {
   }>;
   readQuarantinedOriginal(objectKey: string): Promise<{
     body: Uint8Array;
+    etag: string;
+    mimeType: string;
+    objectVersion: string;
+    sizeBytes: number;
+  }>;
+  openCleanVersion?(objectKey: string): Promise<{
+    body: ReadableStream<Uint8Array>;
     etag: string;
     mimeType: string;
     objectVersion: string;
@@ -215,6 +226,28 @@ export function createPrivateR2EvidenceStore(
         sizeBytes: object.size,
       };
     },
+    async openCleanVersion(objectKey) {
+      if (!CLEAN_KEY.test(objectKey))
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      const configured = requireBinding();
+      if (!configured.get)
+        throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      const object = await configured.get(objectKey);
+      if (
+        !object?.body ||
+        !object.version ||
+        typeof object.size !== "number" ||
+        !object.httpMetadata?.contentType
+      )
+        throw new FileStorageError("FILE_NOT_READY");
+      return {
+        body: object.body,
+        etag: quotedEtag(object.etag),
+        mimeType: object.httpMetadata.contentType,
+        objectVersion: object.version,
+        sizeBytes: object.size,
+      };
+    },
     async readCleanVersion(objectKey) {
       if (!CLEAN_KEY.test(objectKey))
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
@@ -245,6 +278,17 @@ export function createPrivateR2EvidenceStore(
 
 type FilePrincipal = AuthenticatedPrincipal & { sessionToken: string };
 
+type AuthorizedView = {
+  cleanObjectKey: string;
+  displayName: string;
+  etag: string;
+  grantId: string;
+  mimeType: string;
+  objectVersion: string;
+  sha256: string;
+  sizeBytes: number;
+};
+
 type AuthorizedUpload = {
   expiresAt: string;
   id: string;
@@ -272,6 +316,43 @@ function authorized(value: unknown): AuthorizedUpload {
   )
     throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
   return record as AuthorizedUpload;
+}
+
+function authorizedView(value: unknown, fileVersionId: string): AuthorizedView {
+  const record = object(value);
+  if (
+    record.cleanObjectKey !== `clean/${fileVersionId}` ||
+    typeof record.displayName !== "string" ||
+    !record.displayName.trim() ||
+    typeof record.etag !== "string" ||
+    !/^"[a-f0-9]{32}"$/u.test(record.etag) ||
+    typeof record.grantId !== "string" ||
+    !UUID.test(record.grantId) ||
+    typeof record.mimeType !== "string" ||
+    !["image/jpeg", "image/png", "image/webp", "image/heic"].includes(
+      record.mimeType,
+    ) ||
+    typeof record.objectVersion !== "string" ||
+    !record.objectVersion ||
+    typeof record.sha256 !== "string" ||
+    !/^[a-f0-9]{64}$/u.test(record.sha256) ||
+    typeof record.sizeBytes !== "number" ||
+    !Number.isInteger(record.sizeBytes) ||
+    record.sizeBytes < 1 ||
+    record.sizeBytes > 20 * 1024 * 1024
+  )
+    throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+  return record as AuthorizedView;
+}
+
+function randomCompletionToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary)
+    .replace(/\+/gu, "-")
+    .replace(/\//gu, "_")
+    .replace(/=+$/gu, "");
 }
 
 async function hexHash(value: unknown): Promise<string> {
@@ -307,6 +388,18 @@ export interface HotelFileService {
     hotelId: string,
     uploadId: string,
   ): Promise<unknown>;
+  view(
+    principal: FilePrincipal,
+    hotelId: string,
+    inspectionId: string,
+    fileVersionId: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>;
+    displayName: string;
+    etag: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
 }
 
 export function createHotelFileService(
@@ -380,15 +473,37 @@ export function createHotelFileService(
     }
     return result.payload;
   }
+  async function viewCommand(
+    principal: FilePrincipal,
+    hotelId: string,
+    inspectionId: string,
+    fileVersionId: string,
+    action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED",
+    traceId: string,
+    grantId: string,
+    completionToken: string,
+  ) {
+    const command = repository.fileViewCommand;
+    if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+    return command({
+      action,
+      alertAuditEventId: crypto.randomUUID(),
+      auditEventId: crypto.randomUUID(),
+      companyId: principal.companyId,
+      completionToken,
+      fileVersionId,
+      grantId,
+      hotelId,
+      inspectionId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+      traceId,
+    });
+  }
+
   return {
     close: () => repository.close(),
-    async authorizeAndPut(
-      principal,
-      uploadId,
-      body,
-      mimeType,
-      contentLength,
-    ) {
+    async authorizeAndPut(principal, uploadId, body, mimeType, contentLength) {
       const { upload } = await authorize(principal, uploadId);
       if (contentLength !== upload.sizeBytes || mimeType !== upload.mimeType)
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
@@ -476,6 +591,118 @@ export function createHotelFileService(
       if (result.status !== "OK")
         throw new FileStorageError("RESOURCE_NOT_FOUND");
       return result.payload;
+    },
+    async view(principal, hotelId, inspectionId, fileVersionId) {
+      const traceId = crypto.randomUUID();
+      const grantId = crypto.randomUUID();
+      const completionToken = randomCompletionToken();
+      const authorization = await viewCommand(
+        principal,
+        hotelId,
+        inspectionId,
+        fileVersionId,
+        "AUTHORIZE",
+        traceId,
+        grantId,
+        completionToken,
+      );
+      if (authorization.status === "RATE_LIMITED")
+        throw new FileStorageError("FILE_RATE_LIMITED", 429, true);
+      if (authorization.status !== "OK")
+        throw new FileStorageError("RESOURCE_NOT_FOUND");
+
+      let finalized = false;
+      let finalization: Promise<void> | null = null;
+      const finalize = (action: "ABORTED" | "FAILED" | "SUCCEEDED") => {
+        if (finalized) return Promise.resolve();
+        if (finalization) return finalization;
+        finalization = (async () => {
+          let failure: unknown;
+          try {
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+              try {
+                const recorded = await viewCommand(
+                  principal,
+                  hotelId,
+                  inspectionId,
+                  fileVersionId,
+                  action,
+                  traceId,
+                  grantId,
+                  completionToken,
+                );
+                if (recorded.status !== "RECORDED")
+                  throw new FileStorageError("FILE_INTEGRITY_MISMATCH", 500);
+                finalized = true;
+                return;
+              } catch (error) {
+                failure = error;
+              }
+            }
+            throw failure;
+          } finally {
+            if (finalized || failure) await repository.close();
+            if (!finalized) finalization = null;
+          }
+        })();
+        return finalization;
+      };
+
+      try {
+        const expected = authorizedView(authorization.payload, fileVersionId);
+        if (expected.grantId !== grantId)
+          throw new FileStorageError("FILE_INTEGRITY_MISMATCH", 500);
+        const openCleanVersion = store.openCleanVersion;
+        if (!openCleanVersion)
+          throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+        const objectState = await openCleanVersion(expected.cleanObjectKey);
+        if (
+          objectState.etag !== expected.etag ||
+          objectState.objectVersion !== expected.objectVersion ||
+          objectState.mimeType !== expected.mimeType ||
+          objectState.sizeBytes !== expected.sizeBytes
+        )
+          throw new FileStorageError("FILE_INTEGRITY_MISMATCH", 500);
+
+        const reader = objectState.body.getReader();
+        let cancellationRequested = false;
+        const body = new ReadableStream<Uint8Array>({
+          async pull(controller) {
+            try {
+              const result = await reader.read();
+              if (result.done) {
+                await finalize(cancellationRequested ? "ABORTED" : "SUCCEEDED");
+                controller.close();
+              } else {
+                controller.enqueue(result.value);
+              }
+            } catch (error) {
+              await finalize(
+                cancellationRequested ? "ABORTED" : "FAILED",
+              ).catch(() => undefined);
+              controller.error(error);
+            }
+          },
+          async cancel(reason) {
+            cancellationRequested = true;
+            try {
+              await reader.cancel(reason);
+            } finally {
+              await finalize("ABORTED");
+            }
+          },
+        });
+        return {
+          body,
+          displayName: expected.displayName,
+          etag: objectState.etag,
+          mimeType: objectState.mimeType,
+          sizeBytes: objectState.sizeBytes,
+        };
+      } catch (error) {
+        await finalize("FAILED").catch(() => undefined);
+        throw error;
+      }
     },
   };
 }

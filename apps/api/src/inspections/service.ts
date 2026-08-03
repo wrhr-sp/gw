@@ -1,4 +1,5 @@
 import {
+  inspectionReviewSchema,
   inspectionRoutes,
   processRoutes,
   submitInspectionRequestSchema,
@@ -9,6 +10,7 @@ import {
   type CreateManualInspectionRequest,
   type CreateProcessDefinitionRequest,
   type InspectionExecutionListQuery,
+  type InspectionReviewListQuery,
   type SaveInspectionItemResultRequest,
   type SetDefaultProcessRequest,
 } from "@werehere/contracts";
@@ -106,6 +108,16 @@ export interface InspectionService {
     query: InspectionExecutionListQuery,
   ): Promise<unknown>;
   getInspection(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
+  ): Promise<unknown>;
+  listReviews(
+    principal: MutationPrincipal,
+    hotelId: string,
+    query: InspectionReviewListQuery,
+  ): Promise<unknown>;
+  getReview(
     principal: MutationPrincipal,
     hotelId: string,
     inspectionId: string,
@@ -293,6 +305,29 @@ export function createInspectionService(
     )
       throw new InspectionServiceError("VERSION_CONFLICT", 409);
     return inspection;
+  }
+
+  async function readReview(input: {
+    hotelId: string;
+    inspectionId: string | null;
+    principal: MutationPrincipal;
+    query: unknown;
+  }) {
+    const readInspectionReview = repository.readInspectionReview;
+    if (!readInspectionReview)
+      throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+    const result = await readInspectionReview({
+      companyId: input.principal.companyId,
+      hotelId: input.hotelId,
+      inspectionId: input.inspectionId,
+      query: input.query,
+      sessionId: input.principal.sessionId,
+      sessionToken: input.principal.sessionToken,
+    });
+    if (result.status !== "OK") failure(result.status);
+    if (!result.payload || typeof result.payload !== "object")
+      throw new InspectionServiceError("INTERNAL_ERROR", 500);
+    return result.payload;
   }
 
   return {
@@ -605,6 +640,28 @@ export function createInspectionService(
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload.inspection;
     },
+    async listReviews(principal, hotelId, query) {
+      const payload = await readReview({
+        hotelId,
+        inspectionId: null,
+        principal,
+        query,
+      });
+      if (!("reviews" in payload) || !("pagination" in payload))
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return payload;
+    },
+    async getReview(principal, hotelId, inspectionId) {
+      const payload = await readReview({
+        hotelId,
+        inspectionId,
+        principal,
+        query: {},
+      });
+      if (!("review" in payload))
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return payload.review;
+    },
     createManualInspection(principal, hotelId, value, idempotencyKey) {
       const inspectionId = crypto.randomUUID();
       return mutateAndRead({
@@ -669,19 +726,35 @@ export function createInspectionService(
         value: { historyId: crypto.randomUUID(), reason: value.reason },
       });
     },
-    transition(principal, hotelId, inspectionId, value, idempotencyKey) {
-      return mutateAndRead({
+    async transition(principal, hotelId, inspectionId, value, idempotencyKey) {
+      const operationPath = inspectionRoutes.transition(hotelId, inspectionId);
+      const result = await repository.command({
         action: "TRANSITION",
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
         expectedVersion: value.version,
         hotelId,
         httpMethod: "POST",
         idempotencyKey,
-        inspectionId,
-        operationPath: inspectionRoutes.transition(hotelId, inspectionId),
-        principal,
-        requestValue: value,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({
+          method: "POST",
+          path: operationPath,
+          value,
+        }),
+        resourceId: inspectionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
         value: { ...value, historyId: crypto.randomUUID() },
       });
+      if (!["UPDATED", "REPLAYED"].includes(result.status))
+        failure(result.status);
+      const receipt = inspectionReviewSchema.safeParse(result.payload);
+      if (!receipt.success)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return receipt.data;
     },
   };
 }

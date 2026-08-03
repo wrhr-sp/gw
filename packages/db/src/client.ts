@@ -10,6 +10,8 @@ const HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256 =
   "21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e";
 const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
   "e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50";
+const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
+  "5ece2f7716873e06c7cf239598b61e527683843f79003ebb9b868abb17c119fe";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "API_RUNTIME",
@@ -110,6 +112,77 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     result: "TABLE(result_status text, created_count integer)",
     signature:
       "public.hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "59ee6d0461c7ae7aa942c5f04aa4925df3f1b7d5b373377ebcd6e9570034784d",
+    name: "hotel_inspection_reviews_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_reviews_read_v1(uuid,uuid,uuid,jsonb,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "d08ee2d3d4457bf44f74e09922df23218cb8deae8a8c542851bb84a8a7ad46e1",
+    name: "hotel_inspection_transition_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "8c8f0816f9666212a238d25c657e312eb59e5b7bf60d43ee7c77170bf5574bf9",
+    name: "hotel_file_view_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "811dcd84a6b75c0bff5a3f3cf349745205e0ddd512cf3b950a7291401859393f",
+    name: "hotel_file_access_recover_expired_v1",
+    result: "TABLE(recovered_count integer)",
+    signature: "public.hotel_file_access_recover_expired_v1(integer)",
+  },
+] as const;
+const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
+  {
+    digest: "c1d8a461d30311e62203102d77f14ee302f062112514546c7029f9564a640b4a",
+    language: "sql",
+    name: "hotel_active_actor_v1",
+    result: "TABLE(session_id uuid, user_id uuid, user_type text)",
+    securityDefiner: true,
+    signature: "public.hotel_active_actor_v1(uuid,text)",
+    volatility: "s",
+  },
+  {
+    digest: "6956643c5c410d8fa66fad712a554c929f5854194f5c8ae94c5725bf3099fc82",
+    language: "sql",
+    name: "hotel_process_reviewer_is_eligible_v1",
+    result: "boolean",
+    securityDefiner: true,
+    signature:
+      "public.hotel_process_reviewer_is_eligible_v1(uuid,uuid,uuid,timestamp with time zone)",
+    volatility: "s",
+  },
+  {
+    digest: "66844011a877c5c1bdf5c94f129b93680d275ff39a30167aa7ca928b64099b7e",
+    language: "sql",
+    name: "hotel_process_actor_is_assigned_v1",
+    result: "boolean",
+    securityDefiner: false,
+    signature:
+      "public.hotel_process_actor_is_assigned_v1(uuid,uuid,uuid,timestamp with time zone)",
+    volatility: "s",
+  },
+  {
+    digest: "65af98e86665675bae94b942c5e979ca7c56425379e5ba29eb34c844ee94ae04",
+    language: "sql",
+    name: "hotel_inspection_review_snapshot_v1",
+    result: "jsonb",
+    securityDefiner: false,
+    signature: "public.hotel_inspection_review_snapshot_v1(uuid,uuid,uuid)",
+    volatility: "s",
   },
 ] as const;
 const AUTH_CREATE_SESSION_V2_PROSRC_SHA256 =
@@ -1125,6 +1198,8 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
 ] as const;
 
 const HOTEL_INSPECTION_CONTRACT_TABLES = new Set([
+  "hotel_file_access_grants",
+  "hotel_file_access_rate_windows",
   "hotel_file_finalizer_capabilities",
   "hotel_file_links",
   "hotel_file_uploads",
@@ -1372,6 +1447,14 @@ const REQUIRED_RLS_POLICIES = [
     policy: "hotel_room_status_history_company_isolation",
     table: "hotel_room_status_history",
   },
+  {
+    policy: "hotel_file_access_rate_windows_company_isolation",
+    table: "hotel_file_access_rate_windows",
+  },
+  {
+    policy: "hotel_file_access_grants_company_isolation",
+    table: "hotel_file_access_grants",
+  },
 ] as const;
 
 function normalizePolicyDefinition(value: string) {
@@ -1455,6 +1538,7 @@ export async function probeDatabaseReadiness(
   });
 
   try {
+    await sql.unsafe("set timezone = 'UTC'");
     const tableRows = await sql<{ table_name: string }[]>`
       select table_record.relname as table_name
       from pg_class table_record
@@ -1507,6 +1591,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_evidence_marker_count: number;
         hotel_file_upload_scope_marker_count: number;
         hotel_inspection_evidence_submission_marker_count: number;
+        hotel_inspection_review_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1580,7 +1665,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_file_upload_scope_marker_count,
              count(*) filter (
                where version = '0034_hotel_inspection_evidence_submission'
-             )::integer as hotel_inspection_evidence_submission_marker_count
+             )::integer as hotel_inspection_evidence_submission_marker_count,
+             count(*) filter (
+               where version = '0035_hotel_inspection_review_and_file_view'
+             )::integer as hotel_inspection_review_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1613,7 +1701,8 @@ export async function probeDatabaseReadiness(
         '0031_hotel_inspection_execution_contract',
         '0032_hotel_inspection_evidence_processing',
         '0033_hotel_file_upload_scope',
-        '0034_hotel_inspection_evidence_submission'
+        '0034_hotel_inspection_evidence_submission',
+        '0035_hotel_inspection_review_and_file_view'
       )
     `;
     const schemaPhase =
@@ -1656,7 +1745,8 @@ export async function probeDatabaseReadiness(
       migrationRows[0].hotel_inspection_execution_marker_count === 1 &&
       migrationRows[0].hotel_inspection_evidence_marker_count === 1 &&
       migrationRows[0].hotel_file_upload_scope_marker_count === 1 &&
-      migrationRows[0].hotel_inspection_evidence_submission_marker_count === 1
+      migrationRows[0].hotel_inspection_evidence_submission_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_review_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
             migrationRows[0].hotel_file_finalizer_recovery_marker_count === 0 &&
@@ -1668,6 +1758,7 @@ export async function probeDatabaseReadiness(
             migrationRows[0].hotel_inspection_evidence_marker_count === 0
             && migrationRows[0].hotel_file_upload_scope_marker_count === 0
             && migrationRows[0].hotel_inspection_evidence_submission_marker_count === 0
+            && migrationRows[0].hotel_inspection_review_marker_count === 0
           ? "EXPAND"
           : null;
     if (
@@ -2016,7 +2107,8 @@ export async function probeDatabaseReadiness(
                       'inspection_routine_rounds', 'hotel_inspections',
                       'inspection_item_snapshots', 'inspection_item_results',
                       'inspection_item_result_history', 'hotel_file_uploads',
-                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
                     )
                     and acl.grantee <> protected_table.relowner
                     and acl.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
@@ -2048,7 +2140,8 @@ export async function probeDatabaseReadiness(
                       'inspection_routine_rounds', 'hotel_inspections',
                       'inspection_item_snapshots', 'inspection_item_results',
                       'inspection_item_result_history', 'hotel_file_uploads',
-                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+                      'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
                     )
                     and acl.grantee <> protected_table.relowner
                     and acl.privilege_type in ('INSERT', 'UPDATE', 'REFERENCES')
@@ -2073,17 +2166,66 @@ export async function probeDatabaseReadiness(
              'inspection_routine_rounds', 'hotel_inspections',
              'inspection_item_snapshots', 'inspection_item_results',
              'inspection_item_result_history', 'hotel_file_uploads',
-             'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links'
+             'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
            )
       `;
       if (
-        inspectionTables?.table_count !== 21 ||
-        inspectionTables.rls_count !== 21 ||
-        inspectionTables.force_rls_count !== 21 ||
-        inspectionTables.owner_safe_count !== 21 ||
+        inspectionTables?.table_count !== 23 ||
+        inspectionTables.rls_count !== 23 ||
+        inspectionTables.force_rls_count !== 23 ||
+        inspectionTables.owner_safe_count !== 23 ||
         inspectionTables.direct_mutation_acl_count !== 0 ||
         inspectionTables.direct_column_mutation_acl_count !== 0
       ) {
+        return { status: "SCHEMA_NOT_READY" };
+      }
+      const [fileAccessSchema] = await sql<{ digest: string }[]>`
+        select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+          pg_catalog.jsonb_build_object(
+            'columns', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, column_record.attnum, column_record.attname,
+                pg_catalog.format_type(column_record.atttypid, column_record.atttypmod),
+                column_record.attnotnull,
+                pg_catalog.pg_get_expr(default_record.adbin, default_record.adrelid)
+              ) order by table_record.relname, column_record.attnum)
+                from pg_catalog.pg_attribute column_record
+                join pg_catalog.pg_class table_record
+                  on table_record.oid = column_record.attrelid
+                join pg_catalog.pg_namespace table_namespace
+                  on table_namespace.oid = table_record.relnamespace
+                left join pg_catalog.pg_attrdef default_record
+                  on default_record.adrelid = column_record.attrelid
+                 and default_record.adnum = column_record.attnum
+               where table_namespace.nspname = 'public'
+                 and table_record.relname in (
+                   'hotel_file_access_rate_windows', 'hotel_file_access_grants'
+                 )
+                 and column_record.attnum > 0
+                 and not column_record.attisdropped
+            ),
+            'constraints', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, constraint_record.conname,
+                constraint_record.contype, constraint_record.convalidated,
+                pg_catalog.pg_get_constraintdef(constraint_record.oid)
+              ) order by table_record.relname, constraint_record.conname)
+                from pg_catalog.pg_constraint constraint_record
+                join pg_catalog.pg_class table_record
+                  on table_record.oid = constraint_record.conrelid
+                join pg_catalog.pg_namespace table_namespace
+                  on table_namespace.oid = table_record.relnamespace
+               where table_namespace.nspname = 'public'
+                 and table_record.relname in (
+                   'hotel_file_access_rate_windows', 'hotel_file_access_grants'
+                 )
+            )
+          )::text,
+          'UTF8'
+        )), 'hex') as digest
+      `;
+      if (fileAccessSchema?.digest !== HOTEL_FILE_ACCESS_SCHEMA_SHA256) {
         return { status: "SCHEMA_NOT_READY" };
       }
       const [evidenceRevisionConstraint] = await sql<{ exact: boolean }[]>`
@@ -2199,6 +2341,68 @@ export async function probeDatabaseReadiness(
           command.return_signature !== contract.result ||
           command.executable !== (options.capability === contract.capability) ||
           (await sourceSha256(command.source)) !== contract.digest
+        ) {
+          return { status: "SCHEMA_NOT_READY" };
+        }
+      }
+
+      for (const contract of HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS) {
+        const [helper] = await sql<
+          {
+            acl_safe: boolean;
+            metadata_safe: boolean;
+            name_unique: boolean;
+            owner_safe: boolean;
+            return_signature: string;
+            source: string;
+          }[]
+        >`
+          select procedure_record.prosecdef = ${contract.securityDefiner}
+                   and procedure_language.lanname = ${contract.language}
+                   and procedure_record.provolatile = ${contract.volatility}::"char"
+                   and procedure_record.proparallel = 'u'
+                   and not procedure_record.proleakproof
+                   and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
+                   as metadata_safe,
+                 pg_catalog.pg_get_function_result(procedure_record.oid)
+                   as return_signature,
+                 procedure_record.prosrc as source,
+                 procedure_record.proowner = migration_table.relowner as owner_safe,
+                 (
+                   select count(*) = 1 from pg_catalog.pg_proc named_procedure
+                   join pg_catalog.pg_namespace named_namespace
+                     on named_namespace.oid = named_procedure.pronamespace
+                   where named_namespace.nspname = 'public'
+                     and named_procedure.proname = ${contract.name}
+                 ) as name_unique,
+                 not exists (
+                   select 1 from pg_catalog.aclexplode(coalesce(
+                     procedure_record.proacl,
+                     pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+                   )) acl
+                   where acl.privilege_type = 'EXECUTE'
+                     and acl.grantee <> procedure_record.proowner
+                 ) as acl_safe
+            from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace
+              on procedure_namespace.oid = procedure_record.pronamespace
+            join pg_catalog.pg_language procedure_language
+              on procedure_language.oid = procedure_record.prolang
+            join pg_catalog.pg_class migration_table
+              on migration_table.relname = 'schema_migrations'
+            join pg_catalog.pg_namespace migration_namespace
+              on migration_namespace.oid = migration_table.relnamespace
+           where procedure_namespace.nspname = 'public'
+             and migration_namespace.nspname = 'public'
+             and procedure_record.oid = pg_catalog.to_regprocedure(${contract.signature})
+        `;
+        if (
+          !helper?.metadata_safe ||
+          !helper.owner_safe ||
+          !helper.name_unique ||
+          !helper.acl_safe ||
+          helper.return_signature !== contract.result ||
+          (await sourceSha256(helper.source)) !== contract.digest
         ) {
           return { status: "SCHEMA_NOT_READY" };
         }
@@ -3974,12 +4178,21 @@ export async function probeDatabaseReadiness(
       join pg_namespace policy_namespace on policy_namespace.oid = policy_table.relnamespace
       where policy_namespace.nspname = 'public'
     `;
+    const activeRequiredRlsPolicies = REQUIRED_RLS_POLICIES.filter(
+      (required) =>
+        inspectionProcessPhase === "CONTRACT" ||
+        (required.table !== "hotel_file_access_rate_windows" &&
+          required.table !== "hotel_file_access_grants"),
+    );
     if (
-      REQUIRED_RLS_POLICIES.some(
-        (required) =>
-          !rlsRows.some((policy) => {
+      activeRequiredRlsPolicies.some(
+        (required) => {
+          const missing = !rlsRows.some((policy) => {
             const requiredPolicyPhase =
-              required.table === "hotel_room_types" ||
+              required.table === "hotel_file_access_rate_windows" ||
+              required.table === "hotel_file_access_grants"
+                ? "CONTRACT"
+                : required.table === "hotel_room_types" ||
               required.table === "hotel_rooms" ||
               required.table === "hotel_room_status_history"
                 ? roomPolicyPhase
@@ -4004,7 +4217,9 @@ export async function probeDatabaseReadiness(
                 requiredPolicyPhase,
               )
             );
-          }),
+          });
+          return missing;
+        },
       )
     ) {
       return { status: "SCHEMA_NOT_READY" };
@@ -4013,14 +4228,13 @@ export async function probeDatabaseReadiness(
       REQUIRED_RLS_POLICIES.map((required) => required.table),
     );
     const approvedRlsPolicies = new Set(
-      REQUIRED_RLS_POLICIES.map(
+      activeRequiredRlsPolicies.map(
         (required) => `${required.table}\0${required.policy}`,
       ),
     );
     if (
       rlsRows.some(
         (policy) =>
-          policy.applies_to_current_role &&
           protectedRlsTables.has(
             policy.table_name as (typeof REQUIRED_RLS_POLICIES)[number]["table"],
           ) &&

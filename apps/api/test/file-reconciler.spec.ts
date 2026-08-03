@@ -1,11 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 import { reconcileHotelFileEvidenceFromBindings } from "../src/files/factory";
-import { reconcileHotelFileEvidence } from "../src/files/reconciler";
+import {
+  reconcileHotelFileEvidence,
+  recoverExpiredHotelFileAccessGrants,
+} from "../src/files/reconciler";
 
 const first = "c6000000-0000-4000-8000-000000000001";
 const second = "c6000000-0000-4000-8000-000000000002";
 
 describe("hotel file evidence reconciler", () => {
+  it("durably recovers expired STARTED access grants without scan candidates", async () => {
+    const recoverExpiredAccessGrants = vi.fn(async () => 3);
+    await expect(
+      recoverExpiredHotelFileAccessGrants({
+        batchSize: 500,
+        repository: { recoverExpiredAccessGrants },
+      }),
+    ).resolves.toEqual({ recovered: 3 });
+    expect(recoverExpiredAccessGrants).toHaveBeenCalledWith(500);
+  });
+
+  it("fails closed when durable access-grant recovery is unavailable", async () => {
+    await expect(
+      recoverExpiredHotelFileAccessGrants({
+        batchSize: 500,
+        repository: {},
+      }),
+    ).rejects.toThrow("file access recovery is not configured");
+  });
+
   it("fails before opening resources when required bindings are incomplete", async () => {
     await expect(
       reconcileHotelFileEvidenceFromBindings(undefined),

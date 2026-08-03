@@ -36,6 +36,9 @@ import {
   inspectionExecutionListQuerySchema,
   inspectionExecutionListResponseSchema,
   inspectionExecutionResponseSchema,
+  inspectionReviewListQuerySchema,
+  inspectionReviewListResponseSchema,
+  inspectionReviewResponseSchema,
   inspectionRoutineListResponseSchema,
   inspectionRoutineResponseSchema,
   processDefinitionListResponseSchema,
@@ -204,6 +207,18 @@ const AUTH_ERROR_MESSAGES: Partial<Record<HotelErrorCode, string>> = {
   DB_NOT_CONFIGURED: "데이터베이스 연결이 설정되지 않았습니다.",
   INTERNAL_ERROR: "로그인 요청을 처리할 수 없습니다.",
 };
+
+function inlineContentDisposition(displayName: string): string {
+  const ascii = displayName
+    .replace(/[^\x20-\x7e]/gu, "_")
+    .replace(/["\\\r\n]/gu, "_")
+    .slice(0, 120);
+  const encoded = encodeURIComponent(displayName).replace(
+    /[!'()*]/gu,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `inline; filename="${ascii || "inspection-evidence"}"; filename*=UTF-8''${encoded}`;
+}
 
 export function createApp(options: CreateAppOptions = {}) {
   const hotelApp = new Hono<{ Bindings: Bindings }>();
@@ -2936,6 +2951,89 @@ export function createApp(options: CreateAppOptions = {}) {
     },
   );
 
+  hotelApp.get("/api/hotels/:hotelId/inspection-reviews", async (context) => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      const parsed = inspectionReviewListQuerySchema.safeParse(
+        context.req.query(),
+      );
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const data = await withInspectionService(context.env, (service) =>
+        service.listReviews(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          parsed.data,
+        ),
+      );
+      return context.json(
+        inspectionReviewListResponseSchema.parse({
+          ok: true,
+          data,
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get(
+    "/api/hotels/:hotelId/inspection-reviews/:inspectionId",
+    async (context) => {
+      context.header("Cache-Control", "no-store");
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const inspectionId = z
+          .uuid()
+          .safeParse(context.req.param("inspectionId"));
+        if (!hotelId.success || !inspectionId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        const review = await withInspectionService(context.env, (service) =>
+          service.getReview(
+            roomMutationPrincipal(context, principal),
+            hotelId.data,
+            inspectionId.data,
+          ),
+        );
+        return context.json(
+          inspectionReviewResponseSchema.parse({
+            ok: true,
+            data: { review },
+            error: null,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
   hotelApp.post("/api/hotels/:hotelId/inspections/manual", async (context) => {
     context.header("Cache-Control", "no-store");
     try {
@@ -3153,7 +3251,7 @@ export function createApp(options: CreateAppOptions = {}) {
             context,
             zodFieldErrors(parsed.error.issues),
           );
-        const inspection = await withInspectionService(context.env, (service) =>
+        const review = await withInspectionService(context.env, (service) =>
           service.transition(
             roomMutationPrincipal(context, principal),
             hotelId.data,
@@ -3163,13 +3261,70 @@ export function createApp(options: CreateAppOptions = {}) {
           ),
         );
         return context.json(
-          inspectionExecutionResponseSchema.parse({
+          inspectionReviewResponseSchema.parse({
             ok: true,
-            data: { inspection },
+            data: { review },
             error: null,
           }),
         );
       } catch (error) {
+        if (error instanceof AuthServiceError)
+          return authFailure(context, error);
+        return hotelFailure(context, error);
+      }
+    },
+  );
+
+  hotelApp.get(
+    "/api/hotels/:hotelId/inspections/:inspectionId/files/:fileVersionId/view",
+    async (context) => {
+      context.header("Cache-Control", "private, no-store");
+      let service: HotelFileService | undefined;
+      try {
+        const principal = await requestPrincipal(context);
+        if (!principal)
+          return context.json(
+            errorResponse(
+              "AUTHENTICATION_REQUIRED",
+              "로그인이 필요합니다.",
+              false,
+            ),
+            401,
+          );
+        if (context.req.header("sec-fetch-site") !== "same-origin")
+          return context.json(
+            errorResponse("FORBIDDEN", "파일을 볼 수 없습니다.", false),
+            403,
+          );
+        const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+        const inspectionId = z
+          .uuid()
+          .safeParse(context.req.param("inspectionId"));
+        const fileVersionId = z
+          .uuid()
+          .safeParse(context.req.param("fileVersionId"));
+        if (!hotelId.success || !inspectionId.success || !fileVersionId.success)
+          return mutationFailure(context, "NOT_FOUND");
+        service = getHotelFileService(context.env);
+        const view = await service.view(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          inspectionId.data,
+          fileVersionId.data,
+        );
+        return new Response(view.body, {
+          status: 200,
+          headers: {
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": inlineContentDisposition(view.displayName),
+            "Content-Length": String(view.sizeBytes),
+            "Content-Type": view.mimeType,
+            "X-Content-Type-Options": "nosniff",
+          },
+        });
+      } catch (error) {
+        if (service && !options.hotelFileService)
+          await service.close?.().catch(() => undefined);
         if (error instanceof AuthServiceError)
           return authFailure(context, error);
         return hotelFailure(context, error);

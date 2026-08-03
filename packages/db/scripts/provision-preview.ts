@@ -489,6 +489,10 @@ try {
       "0034_hotel_inspection_evidence_submission",
       "0034_hotel_inspection_evidence_submission.sql",
     ],
+    [
+      "0035_hotel_inspection_review_and_file_view",
+      "0035_hotel_inspection_review_and_file_view.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -508,6 +512,7 @@ try {
     "0032_hotel_inspection_evidence_processing",
     "0033_hotel_file_upload_scope",
     "0034_hotel_inspection_evidence_submission",
+    "0035_hotel_inspection_review_and_file_view",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1533,6 +1538,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0034_hotel_inspection_evidence_submission'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0035_hotel_inspection_review_and_file_view'
     ) as contracted
   `;
   if (!inspectionProcessState) {
@@ -1971,7 +1979,15 @@ try {
              'hotel_file_scan_command_v1',
              'hotel_file_scan_candidates_v1',
              'hotel_inspection_claim_materialization_v1',
-             'hotel_inspection_complete_materialization_v1'
+             'hotel_inspection_complete_materialization_v1',
+             'hotel_active_actor_v1',
+             'hotel_process_reviewer_is_eligible_v1',
+             'hotel_process_actor_is_assigned_v1',
+             'hotel_inspection_review_snapshot_v1',
+             'hotel_inspection_reviews_read_v1',
+             'hotel_inspection_transition_v1',
+             'hotel_file_view_command_v1',
+             'hotel_file_access_recover_expired_v1'
            )
            and acl.privilege_type = 'EXECUTE'
            and acl.grantee <> procedure_record.proowner
@@ -2027,10 +2043,22 @@ try {
     grant execute on function public.hotel_file_upload_scope_v1(
       uuid, uuid, text
     ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_reviews_read_v1(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_transition_v1(
+      uuid, uuid, uuid, integer, jsonb, text, uuid, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_file_view_command_v1(
+      uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
     grant execute on function public.hotel_file_scan_command_v1(
       uuid, text, text, bigint, jsonb, uuid
     ) to ${reconcilerRole};
     grant execute on function public.hotel_file_scan_candidates_v1(
+      integer
+    ) to ${reconcilerRole};
+    grant execute on function public.hotel_file_access_recover_expired_v1(
       integer
     ) to ${reconcilerRole};
     grant execute on function public.hotel_inspection_claim_materialization_v1(
@@ -2482,6 +2510,9 @@ try {
     ) and exists (
       select 1 from public.schema_migrations
       where version = '0034_hotel_inspection_evidence_submission'
+    ) and exists (
+      select 1 from public.schema_migrations
+      where version = '0035_hotel_inspection_review_and_file_view'
     ) as contracted
   `;
   if (!inspectionProcessRolloutState) {

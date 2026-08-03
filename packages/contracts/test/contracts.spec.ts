@@ -50,6 +50,10 @@ import {
   hotelFileUploadInitRequestSchema,
   hotelFileUploadStatusResponseSchema,
   inspectionExecutionListQuerySchema,
+  inspectionReviewHistorySchema,
+  inspectionReviewListQuerySchema,
+  inspectionReviewListResponseSchema,
+  inspectionReviewResponseSchema,
   inspectionRoutes,
   processRoutes,
   saveInspectionItemResultRequestSchema,
@@ -1285,6 +1289,104 @@ describe("hotel platform contracts", () => {
           },
         },
         error: null,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("accepts every persisted inspection execution history event", () => {
+    for (const event of [
+      "SUBMIT",
+      "APPROVE",
+      "REJECT",
+      "SELECT",
+      "CANCEL",
+      "UNFINISHED_CLOSE",
+    ]) {
+      expect(
+        inspectionReviewHistorySchema.safeParse({
+          id: "92000000-0000-4000-8000-000000000001",
+          previousState: "PENDING_INPUT",
+          nextState: "IN_REVIEW",
+          previousStageName: null,
+          nextStageName: "하우스키핑 검토",
+          event,
+          reason: "상태 변경",
+          actor: {
+            id: "20000000-0000-4000-8000-000000000001",
+            displayName: "김검토",
+          },
+          occurredAt: "2026-08-03T00:30:00.000Z",
+        }).success,
+      ).toBe(true);
+    }
+  });
+
+  it("defines assigned inspection review routes and strict pagination", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const inspectionId = "91000000-0000-4000-8000-000000000001";
+    expect(inspectionRoutes.reviews(hotelId)).toBe(
+      `/api/hotels/${hotelId}/inspection-reviews`,
+    );
+    expect(inspectionRoutes.review(hotelId, inspectionId)).toBe(
+      `/api/hotels/${hotelId}/inspection-reviews/${inspectionId}`,
+    );
+    expect(hotelFileRoutes.view(hotelId, inspectionId, inspectionId)).toBe(
+      `/api/hotels/${hotelId}/inspections/${inspectionId}/files/${inspectionId}/view`,
+    );
+    expect(
+      inspectionReviewListQuerySchema.parse({ page: "2", pageSize: "20" }),
+    ).toEqual({ page: 2, pageSize: 20 });
+    expect(
+      inspectionReviewListQuerySchema.safeParse({
+        page: 1,
+        pageSize: 20,
+        status: "COMPLETED",
+      }).success,
+    ).toBe(false);
+    expect(
+      inspectionReviewListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          reviews: [],
+          pagination: { page: 1, pageSize: 20, total: 0, totalPages: 0 },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      inspectionReviewResponseSchema.safeParse({
+        ok: true,
+        data: {},
+        error: null,
+      }).success,
+    ).toBe(false);
+    const transitionBase = {
+      choiceValue: null,
+      event: "APPROVE",
+      version: 1,
+    } as const;
+    expect(
+      transitionProcessExecutionRequestSchema.safeParse({
+        ...transitionBase,
+        reason: "가",
+      }).success,
+    ).toBe(false);
+    expect(
+      transitionProcessExecutionRequestSchema.safeParse({
+        ...transitionBase,
+        reason: "확인",
+      }).success,
+    ).toBe(true);
+    expect(
+      transitionProcessExecutionRequestSchema.safeParse({
+        ...transitionBase,
+        reason: "가".repeat(500),
+      }).success,
+    ).toBe(true);
+    expect(
+      transitionProcessExecutionRequestSchema.safeParse({
+        ...transitionBase,
+        reason: "가".repeat(501),
       }).success,
     ).toBe(false);
   });

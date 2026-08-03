@@ -48,6 +48,7 @@ GRANT INSERT ON audit_events, auth_identities, hotel_owner_assignments,
 GRANT UPDATE ON account_provisioning_attempts, outbox_jobs TO gw_runtime_probe;
 GRANT EXECUTE ON FUNCTION hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid),
   hotel_file_scan_candidates_v1(integer),
+  hotel_file_access_recover_expired_v1(integer),
   hotel_inspection_claim_materialization_v1(uuid,bytea,integer),
   hotel_inspection_complete_materialization_v1(uuid,bigint,bytea,uuid)
   TO gw_runtime_probe;
@@ -86,7 +87,10 @@ GRANT EXECUTE ON FUNCTION
   hotel_inspection_executions_read_v1(uuid,uuid,uuid,jsonb,text),
   hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
-  hotel_file_upload_scope_v1(uuid,uuid,text)
+  hotel_file_upload_scope_v1(uuid,uuid,text),
+  hotel_inspection_reviews_read_v1(uuid,uuid,uuid,jsonb,text),
+  hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid),
+  hotel_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)
   TO gw_api_probe;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('gw_api_probe', 'API_RUNTIME')
@@ -195,6 +199,72 @@ SQL
   printf 'HOTEL_INSPECTION_EVIDENCE_CONCURRENCY_OK\n'
 }
 
+run_review_transition_idempotency_concurrency_probe() {
+  local admin_url="$1"
+  local first_log second_log first_pid second_pid first_status second_status
+  local statuses
+  first_log="$(mktemp /tmp/gw-review-idempotency-first.XXXXXX)"
+  second_log="$(mktemp /tmp/gw-review-idempotency-second.XXXXXX)"
+
+  psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" >/dev/null <<'SQL'
+update public.hotel_inspections
+   set status = 'IN_REVIEW', version = version + 1,
+       updated_at = statement_timestamp()
+ where company_id = '10000000-0000-0000-0000-000000000001'
+   and id = 'db300000-0000-4000-8000-000000000001';
+update public.process_executions
+   set state = 'IN_REVIEW', current_stage_key = 'RECHECK',
+       current_reviewer_user_id = '2f000000-0000-4000-8000-000000000001',
+       version = version + 1, completed_at = null
+ where company_id = '10000000-0000-0000-0000-000000000001'
+   and id = 'db400000-0000-4000-8000-000000000001';
+delete from public.idempotency_records
+ where company_id = '10000000-0000-0000-0000-000000000001'
+   and idempotency_key = 'review-concurrent-same-key';
+SQL
+
+  local process_version
+  process_version="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" -c "select version from public.process_executions where company_id = '10000000-0000-0000-0000-000000000001' and id = 'db400000-0000-4000-8000-000000000001'")"
+
+  run_call() {
+    local output_file="$1"
+    psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" >"$output_file" 2>&1 <<SQL
+begin;
+select set_config('app.session_id', '4f000000-0000-4000-8000-000000000001', true);
+select command_status from public.hotel_inspection_transition_v1(
+  '10000000-0000-0000-0000-000000000001',
+  '50000000-0000-4000-8000-000000000001',
+  'db300000-0000-4000-8000-000000000001',
+  ${process_version},
+  jsonb_build_object(
+    'historyId', 'db990000-0000-4000-8000-000000000099',
+    'event', 'APPROVE', 'choiceValue', null,
+    'reason', '동일 멱등키 동시 승인'
+  ),
+  repeat('I', 43), gen_random_uuid(), 'review-concurrent-same-key',
+  '/api/hotels/50000000-0000-4000-8000-000000000001/inspections/db300000-0000-4000-8000-000000000001/process/transition',
+  'hash-review-concurrent-same-session', gen_random_uuid(), gen_random_uuid()
+);
+commit;
+SQL
+  }
+
+  set +e
+  run_call "$first_log" & first_pid=$!
+  run_call "$second_log" & second_pid=$!
+  wait "$first_pid"; first_status=$?
+  wait "$second_pid"; second_status=$?
+  set -e
+  statuses="$(printf '%s\n%s\n' "$(<"$first_log")" "$(<"$second_log")" | grep -E '^(UPDATED|REPLAYED)$' | sort | tr '\n' ' ')"
+  if [[ "$first_status" -ne 0 || "$second_status" -ne 0 || "$statuses" != "REPLAYED UPDATED " ]]; then
+    printf '%s\n%s\n' "$(<"$first_log")" "$(<"$second_log")" >&2
+    rm -f "$first_log" "$second_log"
+    return 1
+  fi
+  rm -f "$first_log" "$second_log"
+  printf 'HOTEL_INSPECTION_REVIEW_IDEMPOTENCY_CONCURRENCY_OK\n'
+}
+
 assert_inspection_runtime_acl() {
   local probe_url="$1"
   local result
@@ -264,6 +334,133 @@ if (result.status !== "SCHEMA_NOT_READY") {
 }
 NODE
   )
+}
+
+assert_schema_ready() {
+  local probe_url="$1"
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
+
+const result = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+if (result.status !== "READY") {
+  throw new Error(`expected READY, received ${result.status}`);
+}
+NODE
+  )
+}
+
+assert_review_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+
+  printf 'REVIEW_DAMAGE_BASELINE_CHECK\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "delete from public.schema_migrations where version = '0035_hotel_inspection_review_and_file_view'" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "insert into public.schema_migrations(version) values ('0035_hotel_inspection_review_and_file_view')" >/dev/null
+  printf 'REVIEW_DAMAGE_MARKER_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter table public.hotel_file_access_grants no force row level security" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter table public.hotel_file_access_grants force row level security" >/dev/null
+  printf 'REVIEW_DAMAGE_RLS_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter policy hotel_file_access_grants_company_isolation
+  on public.hotel_file_access_grants
+  using (true)
+  with check (true);
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter policy hotel_file_access_grants_company_isolation
+  on public.hotel_file_access_grants
+  using ((
+    case
+      when public.runtime_is_schema_owner() then true
+      when current_user = 'werehere_auth_session_definer' then true
+      when current_user = 'werehere_tenant_authority_definer' then true
+      when public.runtime_has_capability('API_RUNTIME')
+        then company_id = public.api_current_company_id()
+      when public.runtime_has_capability('RECONCILER')
+        then company_id = public.reconciler_current_company_id()
+      else false
+    end
+  ))
+  with check ((
+    case
+      when public.runtime_is_schema_owner() then true
+      when current_user = 'werehere_auth_session_definer' then true
+      when current_user = 'werehere_tenant_authority_definer' then true
+      when public.runtime_has_capability('API_RUNTIME')
+        then company_id = public.api_current_company_id()
+      when public.runtime_has_capability('RECONCILER')
+        then company_id = public.reconciler_current_company_id()
+      else false
+    end
+  ));
+SQL
+  printf 'REVIEW_DAMAGE_POLICY_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "create policy hotel_file_access_grants_attacker_allow on public.hotel_file_access_grants using (true) with check (true)" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "drop policy hotel_file_access_grants_attacker_allow on public.hotel_file_access_grants" >/dev/null
+  printf 'REVIEW_DAMAGE_EXTRA_POLICY_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "create policy hotel_file_access_grants_role_scoped_attacker_allow on public.hotel_file_access_grants to werehere_tenant_authority_definer using (true) with check (true)" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "drop policy hotel_file_access_grants_role_scoped_attacker_allow on public.hotel_file_access_grants" >/dev/null
+  printf 'REVIEW_DAMAGE_ROLE_SCOPED_EXTRA_POLICY_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter table public.hotel_file_access_grants drop constraint hotel_file_access_grants_expiry_check" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter table public.hotel_file_access_grants add constraint hotel_file_access_grants_expiry_check check (expires_at > started_at)" >/dev/null
+  printf 'REVIEW_DAMAGE_CONSTRAINT_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter function public.hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) set search_path = public" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "alter function public.hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) set search_path = pg_catalog" >/dev/null
+  printf 'REVIEW_DAMAGE_SEARCH_PATH_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "grant execute on function public.hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) to gw_runtime_probe" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "revoke execute on function public.hotel_inspection_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) from gw_runtime_probe" >/dev/null
+  printf 'REVIEW_DAMAGE_EXECUTE_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "grant select(file_version_id) on public.hotel_file_access_grants to gw_runtime_probe" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "revoke select(file_version_id) on public.hotel_file_access_grants from gw_runtime_probe" >/dev/null
+  printf 'REVIEW_DAMAGE_COLUMN_RESTORED\n'
+  assert_schema_ready "$probe_url"
+
+  printf 'HOTEL_INSPECTION_REVIEW_READINESS_DAMAGE_OK\n'
 }
 
 register_owner_api_capability() {
@@ -870,6 +1067,7 @@ HOTEL_INSPECTION_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0031_hote
 HOTEL_INSPECTION_EVIDENCE_MIGRATION="$ROOT_DIR/packages/db/migrations/0032_hotel_inspection_evidence_processing.sql"
 HOTEL_FILE_UPLOAD_SCOPE_MIGRATION="$ROOT_DIR/packages/db/migrations/0033_hotel_file_upload_scope.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION="$ROOT_DIR/packages/db/migrations/0034_hotel_inspection_evidence_submission.sql"
+HOTEL_INSPECTION_REVIEW_MIGRATION="$ROOT_DIR/packages/db/migrations/0035_hotel_inspection_review_and_file_view.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -880,6 +1078,7 @@ HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-pro
 HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-submission-integration.sql"
+HOTEL_INSPECTION_REVIEW_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-review-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
 HOTEL_FILE_UPLOAD_SCOPE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-upload-scope-integration.sql"
 HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-file-finalizer-recovery-integration.sql"
@@ -1019,6 +1218,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_REVIEW_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1061,6 +1264,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_UPLOAD_SCOPE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_REVIEW_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -1136,13 +1340,13 @@ NODE
     printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
     exit 1
   fi
+  run_actual_inspection_api_probe "$TEST_DATABASE_URL"
   run_evidence_submit_concurrency_probe "$TEST_DATABASE_URL"
   RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
   if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
     printf '%s\n' "$RECOVERY_RESULT" >&2
     exit 1
   fi
-  run_actual_inspection_api_probe "$TEST_DATABASE_URL"
   EXECUTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EXECUTION_TEST_SQL")"
   if [[ "$EXECUTION_RESULT" != *"HOTEL_INSPECTION_EXECUTION_OK"* ]]; then
     printf '%s\n' "$EXECUTION_RESULT" >&2
@@ -1155,6 +1359,13 @@ NODE
   fi
   assert_room_constraints_exact "$TEST_DATABASE_URL" "$PROBE_URL"
   assert_room_fingerprint_damage "$TEST_DATABASE_URL" "$PROBE_URL"
+  REVIEW_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_REVIEW_TEST_SQL")"
+  if [[ "$REVIEW_RESULT" != *"HOTEL_INSPECTION_REVIEW_OK"* ]]; then
+    printf '%s\n' "$REVIEW_RESULT" >&2
+    exit 1
+  fi
+  run_review_transition_idempotency_concurrency_probe "$TEST_DATABASE_URL"
+  assert_review_readiness_damage "$TEST_DATABASE_URL" "$PROBE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
   (
@@ -1286,6 +1497,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_FILE_UPLOAD_SCOPE_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_INSPECTION_REVIEW_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -1351,6 +1564,7 @@ if [[ "$EVIDENCE_SUBMISSION_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_SUBMISSION_OK
   printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
   exit 1
 fi
+run_actual_inspection_api_probe "$ADMIN_URL"
 run_evidence_submit_concurrency_probe "$ADMIN_URL"
 REVIEWER_CANDIDATES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL")"
 if [[ "$REVIEWER_CANDIDATES_RESULT" != *"HOTEL_PROCESS_REVIEWER_CANDIDATES_OK"* ]]; then
@@ -1362,7 +1576,6 @@ if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
   printf '%s\n' "$RECOVERY_RESULT" >&2
   exit 1
 fi
-run_actual_inspection_api_probe "$ADMIN_URL"
 EXECUTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EXECUTION_TEST_SQL")"
 if [[ "$EXECUTION_RESULT" != *"HOTEL_INSPECTION_EXECUTION_OK"* ]]; then
   printf '%s\n' "$EXECUTION_RESULT" >&2
@@ -1408,6 +1621,13 @@ if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
 fi
 assert_room_constraints_exact "$ADMIN_URL" "$PROBE_URL"
 assert_room_fingerprint_damage "$ADMIN_URL" "$PROBE_URL"
+REVIEW_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_REVIEW_TEST_SQL")"
+if [[ "$REVIEW_RESULT" != *"HOTEL_INSPECTION_REVIEW_OK"* ]]; then
+  printf '%s\n' "$REVIEW_RESULT" >&2
+  exit 1
+fi
+run_review_transition_idempotency_concurrency_probe "$ADMIN_URL"
+assert_review_readiness_damage "$ADMIN_URL" "$PROBE_URL"
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column version to malformed_version" >/dev/null

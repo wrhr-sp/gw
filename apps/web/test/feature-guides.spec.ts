@@ -55,20 +55,32 @@ describe("account feature-guide registry", () => {
 });
 
 describe("hotel feature-guide registry", () => {
-  it("covers the approved hotel detail route with operational room guidance", () => {
+  it("covers approved hotel routes with complete operational guidance", () => {
     expect(hotelFeatureGuideRoutes).toEqual({
       "/hotels/[hotelId]": "hotel-management.detail",
+      "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
     });
-    const guide = hotelFeatureGuides["hotel-management.detail"];
-    expect(guide.title).toBe("호텔 상세");
-    expect(JSON.stringify(guide)).toContain("객실");
-    expect(JSON.stringify(guide)).not.toMatch(forbiddenCopy);
-    for (const item of [
-      ...guide.audience,
-      ...guide.steps,
-      ...guide.permissions,
-      ...guide.cautions,
-    ])
-      expect(item.trim()).not.toBe("");
+    expect(hotelFeatureGuides["hotel-management.detail"].title).toBe(
+      "호텔 상세",
+    );
+    expect(JSON.stringify(hotelFeatureGuides["hotel-management.detail"])).toContain(
+      "객실",
+    );
+    expect(hotelFeatureGuides["hotel-inspection.review"].title).toBe(
+      "점검 검토",
+    );
+    expect(JSON.stringify(hotelFeatureGuides["hotel-inspection.review"])).toContain(
+      "점검",
+    );
+    for (const guide of Object.values(hotelFeatureGuides)) {
+      expect(JSON.stringify(guide)).not.toMatch(forbiddenCopy);
+      for (const item of [
+        ...guide.audience,
+        ...guide.steps,
+        ...guide.permissions,
+        ...guide.cautions,
+      ])
+        expect(item.trim()).not.toBe("");
+    }
   });
 });
