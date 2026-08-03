@@ -147,23 +147,18 @@ describe("hotel file finalizer", () => {
         payload: { id: uploadId, status: "READY_UNLINKED" },
       });
     const evidenceStore = store();
+    const processor = {
+      process: vi.fn(async () => ({
+        body: new Uint8Array([4, 5]),
+        exifLocationRemoved: true as const,
+        maxDimension: 2048,
+        mimeType: "image/jpeg" as const,
+        verdict: "CLEAN" as const,
+      })),
+    };
     const service = createHotelFileFinalizerService({
       repository: { close: vi.fn(), command },
-      scanner: {
-        scan: vi.fn(async () => ({
-          detectedMime: "image/jpeg" as const,
-          scannerSha256: "b".repeat(64),
-          verdict: "CLEAN" as const,
-        })),
-      },
-      imageProcessor: {
-        optimizeAndStripLocation: vi.fn(async () => ({
-          body: new Uint8Array([4, 5]),
-          exifLocationRemoved: true as const,
-          maxDimension: 2048,
-          mimeType: "image/jpeg" as const,
-        })),
-      },
+      processor,
       store: evidenceStore,
     });
 
@@ -179,7 +174,8 @@ describe("hotel file finalizer", () => {
     expect(command.mock.calls[1]?.[0].value).toMatchObject({
       cleanObjectKey: expect.stringMatching(/^clean\/[0-9a-f-]{36}$/u),
       detectedMime: "image/jpeg",
-      scannerSha256: "b".repeat(64),
+      scannerSha256:
+        "039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81",
     });
     expect(command.mock.calls[2]?.[0].value).toMatchObject({
       cleanEtag: '"cccccccccccccccccccccccccccccccc"',
@@ -273,6 +269,30 @@ describe("hotel file finalizer", () => {
         exifLocationRemoved: true,
         fileVersionId,
       },
+    });
+  });
+
+  it("records processor unavailability through the fenced durable retry path", async () => {
+    const unavailable = new Error("processor unavailable");
+    const command = vi
+      .fn()
+      .mockResolvedValueOnce({ status: "CLAIMED", payload: claim() })
+      .mockResolvedValueOnce({ status: "RETRY_SCHEDULED", payload: null });
+    const service = createHotelFileFinalizerService({
+      processor: { process: vi.fn(async () => Promise.reject(unavailable)) },
+      repository: { close: vi.fn(), command },
+      store: store(),
+    });
+
+    await expect(service.finalize(uploadId)).rejects.toBe(unavailable);
+    expect(command.mock.calls.map(([input]) => input.action)).toEqual([
+      "CLAIM",
+      "FAIL",
+    ]);
+    expect(command.mock.calls[1]?.[0]).toMatchObject({
+      generation: 1,
+      uploadId,
+      value: {},
     });
   });
 });

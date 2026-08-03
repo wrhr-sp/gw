@@ -366,6 +366,13 @@ describe("Preview account provisioning wiring", () => {
     expect(apiEntry).not.toContain("scheduled(");
     expect(apiEntry).not.toContain("RECONCILER_HYPERDRIVE");
     expect(reconcilerEntry).toContain("scheduled(");
+    expect(reconcilerEntry).toContain(
+      "reconcileAccountProviderJobsFromBindings(env)",
+    );
+    expect(reconcilerEntry).toContain(
+      "reconcileHotelFileEvidenceFromBindings(env)",
+    );
+    expect(reconcilerEntry).toContain("Promise.all([");
     expect(reconcilerEntry).not.toContain("fetch(");
     expect(reconcilerEntry).not.toContain("API_HYPERDRIVE");
   });

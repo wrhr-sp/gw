@@ -2,6 +2,10 @@ import {
   reconcileAccountProviderJobsFromBindings,
   type AccountReconcilerBindings,
 } from "./accounts/factory";
+import {
+  reconcileHotelFileEvidenceFromBindings,
+  type FileReconcilerBindings,
+} from "./files/factory";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
@@ -10,10 +14,15 @@ type ScheduledExecutionContext = {
 const worker = {
   scheduled(
     _controller: unknown,
-    env: AccountReconcilerBindings,
+    env: AccountReconcilerBindings & FileReconcilerBindings,
     context: ScheduledExecutionContext,
   ) {
-    context.waitUntil(reconcileAccountProviderJobsFromBindings(env));
+    context.waitUntil(
+      Promise.all([
+        reconcileAccountProviderJobsFromBindings(env),
+        reconcileHotelFileEvidenceFromBindings(env),
+      ]),
+    );
   },
 };
 
