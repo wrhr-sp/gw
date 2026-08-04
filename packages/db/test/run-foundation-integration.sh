@@ -86,6 +86,7 @@ GRANT EXECUTE ON FUNCTION
   hotel_inspection_routine_command_v1(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid),
   hotel_inspection_executions_read_v1(uuid,uuid,uuid,jsonb,text),
   hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_upload_scope_v1(uuid,uuid,text),
   hotel_inspection_reviews_read_v1(uuid,uuid,uuid,jsonb,text),
@@ -105,6 +106,27 @@ cleanup_api_probe_role() {
 DELETE FROM runtime_database_capabilities WHERE role_name = 'gw_api_probe';
 DROP OWNED BY gw_api_probe;
 DROP ROLE IF EXISTS gw_api_probe;
+SQL
+}
+
+grant_checklist_v2_api_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $grant_checklist_v2$
+declare
+  capability_role record;
+begin
+  for capability_role in
+    select role_name from public.runtime_database_capabilities
+     where capability = 'API_RUNTIME'
+  loop
+    execute format(
+      'grant execute on function public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I',
+      capability_role.role_name
+    );
+  end loop;
+end
+$grant_checklist_v2$;
 SQL
 }
 
@@ -343,12 +365,43 @@ assert_schema_ready() {
     TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
 import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 
-const result = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+let checkpoint = "NONE";
+const result = await probeDatabaseReadiness(process.env.TEST_READY_URL, {
+  capability: "RECONCILER",
+  onSchemaNotReady: (value) => {
+    checkpoint = value;
+  },
+});
 if (result.status !== "READY") {
-  throw new Error(`expected READY, received ${result.status}`);
+  throw new Error(`expected READY, received ${result.status} at ${checkpoint}`);
 }
 NODE
   )
+}
+
+assert_checklist_v2_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.inspection_checklist_v2_item_exclusions
+  drop constraint inspection_checklist_v2_exclusions_target_check;
+alter table public.inspection_checklist_v2_item_exclusions
+  add constraint inspection_checklist_v2_exclusions_target_check check (true);
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.inspection_checklist_v2_item_exclusions
+  drop constraint inspection_checklist_v2_exclusions_target_check;
+alter table public.inspection_checklist_v2_item_exclusions
+  add constraint inspection_checklist_v2_exclusions_target_check check (
+    (target_type = 'ROOM' and room_type_id is not null and facility_type_id is null)
+    or
+    (target_type = 'FACILITY' and room_type_id is null and facility_type_id is not null)
+  );
+SQL
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_INSPECTION_CHECKLIST_V2_READINESS_DAMAGE_OK\n'
 }
 
 assert_review_readiness_damage() {
@@ -553,6 +606,8 @@ assert_room_constraints_exact() {
         "hotel_rooms:hotel_rooms_company_id_room_type_id_fkey"
         "inspection_checklist_items:inspection_checklist_items_company_id_room_type_id_fkey"
         "inspection_checklist_item_exclusions:inspection_checklist_item_exclusio_company_id_room_type_id_fkey"
+        "inspection_checklist_v2_items:inspection_checklist_v2_items_room_type_fkey"
+        "inspection_checklist_v2_item_exclusions:inspection_checklist_v2_exclusions_room_type_fkey"
       )
     elif [[ "$constraint_name" == "hotel_rooms_company_branch_id_key" ]]; then
       dependent_specifications=(
@@ -1072,6 +1127,7 @@ HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION="$ROOT_DIR/packages/db/migrations
 HOTEL_INSPECTION_REVIEW_MIGRATION="$ROOT_DIR/packages/db/migrations/0035_hotel_inspection_review_and_file_view.sql"
 HOTEL_FACILITY_MASTER_DATA_MIGRATION="$ROOT_DIR/packages/db/migrations/0036_hotel_facility_master_data.sql"
 HOTEL_INSPECTION_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0037_hotel_inspection_execution_targets.sql"
+HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0038_hotel_inspection_checklist_targets.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1082,6 +1138,7 @@ HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-pro
 HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
 HOTEL_INSPECTION_TARGET_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-targets-integration.sql"
+HOTEL_INSPECTION_CHECKLIST_TARGET_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-checklist-targets-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-submission-integration.sql"
 HOTEL_INSPECTION_REVIEW_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-review-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
@@ -1235,6 +1292,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1356,7 +1417,6 @@ NODE
     printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
     exit 1
   fi
-  run_actual_inspection_api_probe "$TEST_DATABASE_URL"
   run_evidence_submit_concurrency_probe "$TEST_DATABASE_URL"
   RECOVERY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_FINALIZER_RECOVERY_TEST_SQL")"
   if [[ "$RECOVERY_RESULT" != *"HOTEL_FILE_FINALIZER_RECOVERY_OK"* ]]; then
@@ -1374,6 +1434,8 @@ NODE
     printf '%s\n' "$TARGET_RESULT" >&2
     exit 1
   fi
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null
+  grant_checklist_v2_api_capabilities "$TEST_DATABASE_URL"
   ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
   if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
     printf '%s\n' "$ROUTINE_RESULT" >&2
@@ -1388,6 +1450,13 @@ NODE
   fi
   run_review_transition_idempotency_concurrency_probe "$TEST_DATABASE_URL"
   assert_review_readiness_damage "$TEST_DATABASE_URL" "$PROBE_URL"
+  assert_checklist_v2_readiness_damage "$TEST_DATABASE_URL" "$PROBE_URL"
+  run_actual_inspection_api_probe "$TEST_DATABASE_URL"
+  CHECKLIST_TARGET_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_TEST_SQL")"
+  if [[ "$CHECKLIST_TARGET_RESULT" != *"HOTEL_INSPECTION_CHECKLIST_TARGETS_OK"* ]]; then
+    printf '%s\n' "$CHECKLIST_TARGET_RESULT" >&2
+    exit 1
+  fi
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
   (
@@ -1590,7 +1659,6 @@ if [[ "$EVIDENCE_SUBMISSION_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_SUBMISSION_OK
   printf '%s\n' "$EVIDENCE_SUBMISSION_RESULT" >&2
   exit 1
 fi
-run_actual_inspection_api_probe "$ADMIN_URL"
 run_evidence_submit_concurrency_probe "$ADMIN_URL"
 REVIEWER_CANDIDATES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL")"
 if [[ "$REVIEWER_CANDIDATES_RESULT" != *"HOTEL_PROCESS_REVIEWER_CANDIDATES_OK"* ]]; then
@@ -1820,6 +1888,9 @@ if [[ "$TARGET_CONVERGENCE" != "1:1" ]]; then
 fi
 printf '%s\n' 'HOTEL_INSPECTION_TARGET_CONCURRENCY_OK'
 
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null
+grant_checklist_v2_api_capabilities "$ADMIN_URL"
+
 EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_TEST_SQL")"
 if [[ "$EVIDENCE_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK"* ]]; then
   printf '%s\n' "$EVIDENCE_RESULT" >&2
@@ -1867,6 +1938,13 @@ if [[ "$REVIEW_RESULT" != *"HOTEL_INSPECTION_REVIEW_OK"* ]]; then
 fi
 run_review_transition_idempotency_concurrency_probe "$ADMIN_URL"
 assert_review_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+assert_checklist_v2_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+run_actual_inspection_api_probe "$ADMIN_URL"
+CHECKLIST_TARGET_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_TEST_SQL")"
+if [[ "$CHECKLIST_TARGET_RESULT" != *"HOTEL_INSPECTION_CHECKLIST_TARGETS_OK"* ]]; then
+  printf '%s\n' "$CHECKLIST_TARGET_RESULT" >&2
+  exit 1
+fi
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column version to malformed_version" >/dev/null

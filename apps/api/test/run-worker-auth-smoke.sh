@@ -156,6 +156,10 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
   ),
+  public.hotel_inspection_checklist_v2_command(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
+  ),
   public.hotel_file_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
@@ -877,6 +881,18 @@ if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
   exit 1
 fi
 printf 'HOTEL_INSPECTION_TARGET_FOUNDATION_OK\n'
+
+for checklist_table in \
+  inspection_checklist_v2_revisions \
+  inspection_checklist_v2_items \
+  inspection_checklist_v2_item_exclusions; do
+  if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+    -c "select count(*) from public.${checklist_table}" >/dev/null 2>&1; then
+    printf 'API runtime unexpectedly received direct checklist v2 SELECT privilege.\n' >&2
+    exit 1
+  fi
+done
+printf 'HOTEL_INSPECTION_CHECKLIST_TARGETS_WORKER_OK\n'
 
 printf 'WORKER_AUTH_RUNTIME_SMOKE_OK\n'
 printf 'WORKER_HOTEL_RUNTIME_SMOKE_OK\n'

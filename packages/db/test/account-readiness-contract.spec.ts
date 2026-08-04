@@ -655,6 +655,33 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("binds readiness to the versioned checklist target contract", () => {
+    for (const contract of [
+      "0038_hotel_inspection_checklist_targets",
+      "hotel_inspection_checklist_target_marker_count",
+      "inspectionTargetChecklistPhase",
+      'inspectionTargetChecklistPhase === "CONTRACT"',
+      "inspection_checklist_v2_revisions",
+      "inspection_checklist_v2_items",
+      "inspection_checklist_v2_item_exclusions",
+      "hotel_inspection_checklist_v2_command",
+      "INSPECTION_CHECKLIST_V2_CATALOG_SHA256",
+      "343da317f244109e0f1feddb00929e1a8e27c05826253d6882573b5310c9e70f",
+      "be20318aa8c8b3acb29e1b3d24c54ac43c4b4b761319df867b567c2f08ae6fad",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(provisionSource).toContain(
+      "0038_hotel_inspection_checklist_targets.sql",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_inspection_checklist_v2_command(",
+    );
+    expect(provisionSource).not.toContain(
+      "grant select on table public.inspection_checklist_v2_revisions",
+    );
+  });
+
   it("keeps runtime readiness opaque while reporting a safe provisioning checkpoint", () => {
     expect(source).toContain(
       "onSchemaNotReady?: (checkpoint: string) => unknown;",

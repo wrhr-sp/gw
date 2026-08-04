@@ -45,7 +45,8 @@
 | 객실 | `POST /api/hotels/:id/rooms/:roomId/status` | `Idempotency-Key`·version·`ACTIVE\|INACTIVE`·변경사유 | 상태·version·append-only history·감사 재조회 | DB 동적 객실관리권한 |
 | 객실 | `POST /api/hotels/:id/rooms/:roomId/delete` | `Idempotency-Key`·version·삭제사유 | `DELETED` 객실·append-only history·감사 재조회 | DB 동적 객실관리권한; 현재 `INACTIVE`만 허용 |
 | 시설물 | `POST /api/hotels/:id/facilities` | 유형·시설물명·`{ type: "ROOM", roomId } \| { type: "COMMON_AREA", commonAreaId }` 위치 | 시설물 재조회 | DB 동적 시설물관리권한 |
-| 점검항목 | `POST /api/hotels/:id/inspection-items` | 대상유형 `ROOM\|FACILITY`·공통항목·객실/시설물유형별 제외/추가·version | 대상유형별 새 revision | DB 동적 항목설정권한 |
+| 점검항목 | `GET /api/hotels/:id/inspection-checklist/v2` | — | 호텔 단일 공통 revision과 strict `ROOM\|FACILITY` item union | DB 동적 점검실행권한; CONTRACT 전에는 v1 ROOM exact adapter만 허용 |
+| 점검항목 | `PUT /api/hotels/:id/inspection-checklist/v2` | `Idempotency-Key`·version·대상유형 `ROOM\|FACILITY`·공통항목·객실/시설물유형별 제외/추가 | 새 공통 revision 재조회; v1에는 ROOM projection만 공개 | DB 동적 항목설정권한; CONTRACT 전 mutation 안전실패 |
 | 루틴 | `POST /api/hotels/:id/inspection-routines` | 대상범위·회차·반복·기한 | 루틴 revision 재조회 | DB 동적 루틴관리권한 |
 | 점검 | `POST /api/hotels/:id/inspections` | 대상·유효항목·수시점검 | process·대상·항목 snapshot | DB 동적 점검등록권한 |
 | 점검 | `PATCH /api/hotels/:id/inspections/:inspectionId/results` | version·정상/주의/이상·설명·첨부 | 결과·실제 수행자 재조회 | DB 동적 점검수행권한 |

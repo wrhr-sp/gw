@@ -1,13 +1,14 @@
 "use client";
 
 import {
-  createInspectionChecklistRevisionRequestSchema,
-  inspectionChecklistResponseSchema,
-  inspectionChecklistRevisionSchema,
+  createInspectionChecklistRevisionV2RequestSchema,
+  inspectionChecklistV2ResponseSchema,
+  inspectionChecklistV2RevisionSchema,
   inspectionRoutes,
   processDefaultResponseSchema,
   processDefinitionSchema,
   processRoutes,
+  type HotelFacilityType,
   type HotelRoomType,
   type InspectionRoutine,
   type ProcessReviewerCandidate,
@@ -22,24 +23,67 @@ import {
   type RoomOption,
 } from "./inspection-routine-editor";
 
-type Checklist = z.infer<typeof inspectionChecklistRevisionSchema>;
+type Checklist = z.infer<typeof inspectionChecklistV2RevisionSchema>;
 type Definition = z.infer<typeof processDefinitionSchema>;
-type FormValue = z.input<typeof createInspectionChecklistRevisionRequestSchema>;
+type FormValue = z.input<
+  typeof createInspectionChecklistRevisionV2RequestSchema
+>;
 
-const emptyItem = () => ({
-  itemId: null,
-  source: "HOTEL_COMMON" as const,
-  roomTypeId: null,
-  excludedRoomTypeIds: [] as string[],
-  name: "",
-  description: null,
-  isRequired: true,
-  displayOrder: 10,
-  defaultSeverity: "OBSERVATION" as const,
-});
+const emptyItem = (
+  targetType: "ROOM" | "FACILITY",
+): FormValue["items"][number] => {
+  const common = {
+    itemId: null,
+    source: "HOTEL_COMMON" as const,
+    name: "",
+    description: null,
+    isRequired: true,
+    displayOrder: 10,
+    defaultSeverity: "OBSERVATION" as const,
+  };
+  if (targetType === "ROOM")
+    return {
+      ...common,
+      targetType: "ROOM",
+      roomTypeId: null,
+      excludedRoomTypeIds: [],
+    };
+  return {
+    ...common,
+    targetType: "FACILITY",
+    facilityTypeId: null,
+    excludedFacilityTypeIds: [],
+  };
+};
+
+function checklistMaterial(items: FormValue["items"]) {
+  return JSON.stringify(
+    items
+      .map((item) => ({
+        targetType: item.targetType,
+        source: item.source,
+        typeId:
+          item.targetType === "ROOM" ? item.roomTypeId : item.facilityTypeId,
+        excludedTypeIds: [
+          ...(item.targetType === "ROOM"
+            ? item.excludedRoomTypeIds
+            : item.excludedFacilityTypeIds),
+        ].sort(),
+        name: item.name,
+        description: item.description,
+        isRequired: item.isRequired,
+        displayOrder: item.displayOrder,
+        defaultSeverity: item.defaultSeverity,
+      }))
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      ),
+  );
+}
 
 export function InspectionConfigurationPanel({
   hotelId,
+  facilityTypes,
   initialChecklist,
   initialRoutines = [],
   processDefinitions: initialDefinitions,
@@ -48,6 +92,7 @@ export function InspectionConfigurationPanel({
   roomTypes,
 }: {
   hotelId: string;
+  facilityTypes: HotelFacilityType[];
   initialChecklist: Checklist | null;
   initialRoutines?: InspectionRoutine[];
   processDefinitions: Definition[];
@@ -153,14 +198,14 @@ export function InspectionConfigurationPanel({
   const submit = handleSubmit(async (value) => {
     setMessage(null);
     const parsed =
-      createInspectionChecklistRevisionRequestSchema.safeParse(value);
+      createInspectionChecklistRevisionV2RequestSchema.safeParse(value);
     if (!parsed.success) {
       setMessage(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요.");
       return;
     }
     setSaving(true);
     try {
-      const response = await fetch(inspectionRoutes.checklist(hotelId), {
+      const response = await fetch(inspectionRoutes.checklistV2(hotelId), {
         method: "PUT",
         headers: {
           "content-type": "application/json",
@@ -168,15 +213,15 @@ export function InspectionConfigurationPanel({
         },
         body: JSON.stringify(parsed.data),
       });
-      const mutation = inspectionChecklistResponseSchema.safeParse(
+      const mutation = inspectionChecklistV2ResponseSchema.safeParse(
         await response.json().catch(() => undefined),
       );
       if (!response.ok || !mutation.success || !mutation.data.data.checklist)
         throw new Error("체크리스트를 저장하지 못했습니다.");
-      const readResponse = await fetch(inspectionRoutes.checklist(hotelId), {
+      const readResponse = await fetch(inspectionRoutes.checklistV2(hotelId), {
         cache: "no-store",
       });
-      const read = inspectionChecklistResponseSchema.safeParse(
+      const read = inspectionChecklistV2ResponseSchema.safeParse(
         await readResponse.json().catch(() => undefined),
       );
       if (
@@ -185,7 +230,13 @@ export function InspectionConfigurationPanel({
         !read.data.data.checklist ||
         read.data.data.checklist.id !== mutation.data.data.checklist.id ||
         read.data.data.checklist.version !==
-          mutation.data.data.checklist.version
+          mutation.data.data.checklist.version ||
+        mutation.data.data.checklist.reason !== parsed.data.reason ||
+        read.data.data.checklist.reason !== parsed.data.reason ||
+        checklistMaterial(mutation.data.data.checklist.items) !==
+          checklistMaterial(parsed.data.items) ||
+        checklistMaterial(read.data.data.checklist.items) !==
+          checklistMaterial(parsed.data.items)
       )
         throw new Error("저장 결과를 다시 확인하지 못했습니다.");
       const checklist = read.data.data.checklist;
@@ -216,7 +267,7 @@ export function InspectionConfigurationPanel({
             {saved ? `버전 ${saved.version}` : "미설정"}
           </StatusBadge>
         }
-        description="호텔별 객실 점검항목과 적용 객실유형을 설정합니다."
+        description="호텔별 객실·시설물 점검항목과 적용 유형을 설정합니다."
         eyebrow="호텔 점검"
         title="점검 설정"
       />
@@ -280,16 +331,32 @@ export function InspectionConfigurationPanel({
             <div>
               <h2 className="text-lg font-semibold">객실 체크리스트</h2>
               <p className="mt-1 text-sm text-muted">
-                공통항목과 객실유형별 추가·제외항목을 관리합니다.
+                호텔 공통항목과 객실유형별 추가·제외항목을 관리합니다.
               </p>
             </div>
             <Button
               className="min-h-11"
-              onClick={() => append(emptyItem())}
+              onClick={() => append(emptyItem("ROOM"))}
               type="button"
               variant="secondary"
             >
-              점검항목 추가
+              객실 점검항목 추가
+            </Button>
+          </div>
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+            <div>
+              <h2 className="text-lg font-semibold">시설물 체크리스트</h2>
+              <p className="mt-1 text-sm text-muted">
+                호텔 시설물 공통항목과 시설물유형별 추가·제외항목을 관리합니다.
+              </p>
+            </div>
+            <Button
+              className="min-h-11"
+              onClick={() => append(emptyItem("FACILITY"))}
+              type="button"
+              variant="secondary"
+            >
+              시설물유형 추가
             </Button>
           </div>
           <label
@@ -312,8 +379,14 @@ export function InspectionConfigurationPanel({
                   key={field.formKey}
                 >
                   <legend className="px-1 text-sm font-semibold">
-                    점검항목 {index + 1}
+                    {watchedItems[index]?.targetType === "FACILITY"
+                      ? "시설물"
+                      : "객실"} 점검항목 {index + 1}
                   </legend>
+                  <input
+                    type="hidden"
+                    {...register(`items.${index}.targetType`)}
+                  />
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="text-sm font-semibold">
                       항목 이름 {index + 1}
@@ -330,16 +403,21 @@ export function InspectionConfigurationPanel({
                         className="mt-1 min-h-11 w-full rounded-control border border-border px-3"
                         {...register(`items.${index}.source`, {
                           onChange: (event) => {
-                            if (event.target.value === "HOTEL_COMMON")
-                              setValue(`items.${index}.roomTypeId`, null);
+                            if (event.target.value === "HOTEL_COMMON") {
+                              if (watchedItems[index]?.targetType === "ROOM")
+                                setValue(`items.${index}.roomTypeId`, null);
+                              else
+                                setValue(`items.${index}.facilityTypeId`, null);
+                            }
                           },
                         })}
                       >
                         <option value="HOTEL_COMMON">호텔 공통</option>
-                        <option value="ROOM_TYPE_ADDED">객실유형 추가</option>
+                        <option value="TARGET_TYPE_ADDED">유형별 추가</option>
                       </select>
                     </label>
-                    {source === "ROOM_TYPE_ADDED" ? (
+                    {source === "TARGET_TYPE_ADDED" &&
+                    watchedItems[index]?.targetType === "ROOM" ? (
                       <label className="text-sm font-semibold">
                         적용 객실유형 {index + 1}
                         <select
@@ -359,6 +437,82 @@ export function InspectionConfigurationPanel({
                             ))}
                         </select>
                       </label>
+                    ) : null}
+                    {source === "TARGET_TYPE_ADDED" &&
+                    watchedItems[index]?.targetType === "FACILITY" ? (
+                      <label className="text-sm font-semibold">
+                        적용 시설물유형 {index + 1}
+                        <select
+                          aria-label={`적용 시설물유형 ${index + 1}`}
+                          className="mt-1 min-h-11 w-full rounded-control border border-border px-3"
+                          {...register(`items.${index}.facilityTypeId`, {
+                            setValueAs: (value) => value || null,
+                          })}
+                        >
+                          <option value="">선택</option>
+                          {facilityTypes
+                            .filter((type) => type.status === "ACTIVE")
+                            .map((type) => (
+                              <option key={type.id} value={type.id}>
+                                {type.name}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    ) : null}
+                    {source === "HOTEL_COMMON" &&
+                    watchedItems[index]?.targetType === "ROOM" ? (
+                      <fieldset className="md:col-span-2">
+                        <legend className="text-sm font-semibold">
+                          제외 객실유형 {index + 1}
+                        </legend>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {roomTypes
+                            .filter((type) => type.isActive)
+                            .map((type) => (
+                              <label
+                                className="flex min-h-11 items-center gap-2 text-sm"
+                                key={type.id}
+                              >
+                                <input
+                                  type="checkbox"
+                                  value={type.id}
+                                  {...register(
+                                    `items.${index}.excludedRoomTypeIds`,
+                                  )}
+                                />
+                                {type.name}
+                              </label>
+                            ))}
+                        </div>
+                      </fieldset>
+                    ) : null}
+                    {source === "HOTEL_COMMON" &&
+                    watchedItems[index]?.targetType === "FACILITY" ? (
+                      <fieldset className="md:col-span-2">
+                        <legend className="text-sm font-semibold">
+                          제외 시설물유형 {index + 1}
+                        </legend>
+                        <div className="mt-2 flex flex-wrap gap-3">
+                          {facilityTypes
+                            .filter((type) => type.status === "ACTIVE")
+                            .map((type) => (
+                              <label
+                                className="flex min-h-11 items-center gap-2 text-sm"
+                                key={type.id}
+                              >
+                                <input
+                                  type="checkbox"
+                                  value={type.id}
+                                  {...register(
+                                    `items.${index}.excludedFacilityTypeIds`,
+                                  )}
+                                />
+                                {type.name}
+                              </label>
+                            ))}
+                        </div>
+                      </fieldset>
                     ) : null}
                     <label className="text-sm font-semibold">
                       기본 심각도 {index + 1}

@@ -2318,9 +2318,10 @@ fi
 BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 
 TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0037_hotel_inspection_execution_targets'")"
+CHECKLIST_TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0038_hotel_inspection_checklist_targets'")"
 TARGETLESS_ITEM_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c 'select count(*) from public.inspection_item_snapshots where execution_target_id is null')"
-if [[ "$TARGET_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
-  printf '%s\n' 'Inspection target marker/backfill closure was not ready.' >&2
+if [[ "$TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_TARGET_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
+  printf '%s\n' 'Inspection target/checklist marker and backfill closure was not ready.' >&2
   exit 1
 fi
 
@@ -2462,6 +2463,13 @@ psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
 assert_readiness SCHEMA_NOT_READY
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c "insert into public.schema_migrations(version) values ('0037_hotel_inspection_execution_targets')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version='0038_hotel_inspection_checklist_targets'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values ('0038_hotel_inspection_checklist_targets')" >/dev/null
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \

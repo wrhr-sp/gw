@@ -1670,6 +1670,102 @@ export const inspectionChecklistResponseSchema = z
   })
   .strict();
 
+export const inspectionChecklistTargetTypeSchema = z.enum(["ROOM", "FACILITY"]);
+export const inspectionChecklistV2ItemSourceSchema = z.enum([
+  "HOTEL_COMMON",
+  "TARGET_TYPE_ADDED",
+]);
+const inspectionChecklistV2ItemBaseFields = {
+  itemId: z.uuid().nullable(),
+  source: inspectionChecklistV2ItemSourceSchema,
+  name: z.string().trim().min(1).max(150),
+  description: z.string().trim().min(1).max(1000).nullable(),
+  isRequired: z.boolean(),
+  displayOrder: z.number().int().min(0).max(100_000),
+  defaultSeverity: inspectionSeveritySchema,
+} as const;
+const roomInspectionChecklistV2ItemInputSchema = z
+  .object({
+    ...inspectionChecklistV2ItemBaseFields,
+    targetType: z.literal("ROOM"),
+    roomTypeId: z.uuid().nullable(),
+    excludedRoomTypeIds: z.array(z.uuid()).max(100),
+  })
+  .strict()
+  .superRefine((item, context) => {
+    if (item.source === "HOTEL_COMMON" && item.roomTypeId !== null)
+      context.addIssue({ code: "custom", path: ["roomTypeId"], message: "객실 공통항목에는 객실유형을 지정할 수 없습니다." });
+    if (item.source === "TARGET_TYPE_ADDED" && item.roomTypeId === null)
+      context.addIssue({ code: "custom", path: ["roomTypeId"], message: "객실유형 추가항목에는 객실유형이 필요합니다." });
+    if (item.source === "TARGET_TYPE_ADDED" && item.excludedRoomTypeIds.length > 0)
+      context.addIssue({ code: "custom", path: ["excludedRoomTypeIds"], message: "객실유형 추가항목에는 제외유형을 지정할 수 없습니다." });
+    if (new Set(item.excludedRoomTypeIds).size !== item.excludedRoomTypeIds.length)
+      context.addIssue({ code: "custom", path: ["excludedRoomTypeIds"], message: "제외 객실유형은 중복될 수 없습니다." });
+  });
+const facilityInspectionChecklistV2ItemInputSchema = z
+  .object({
+    ...inspectionChecklistV2ItemBaseFields,
+    targetType: z.literal("FACILITY"),
+    facilityTypeId: z.uuid().nullable(),
+    excludedFacilityTypeIds: z.array(z.uuid()).max(100),
+  })
+  .strict()
+  .superRefine((item, context) => {
+    if (item.source === "HOTEL_COMMON" && item.facilityTypeId !== null)
+      context.addIssue({ code: "custom", path: ["facilityTypeId"], message: "시설물 공통항목에는 시설물유형을 지정할 수 없습니다." });
+    if (item.source === "TARGET_TYPE_ADDED" && item.facilityTypeId === null)
+      context.addIssue({ code: "custom", path: ["facilityTypeId"], message: "시설물유형 추가항목에는 시설물유형이 필요합니다." });
+    if (item.source === "TARGET_TYPE_ADDED" && item.excludedFacilityTypeIds.length > 0)
+      context.addIssue({ code: "custom", path: ["excludedFacilityTypeIds"], message: "시설물유형 추가항목에는 제외유형을 지정할 수 없습니다." });
+    if (new Set(item.excludedFacilityTypeIds).size !== item.excludedFacilityTypeIds.length)
+      context.addIssue({ code: "custom", path: ["excludedFacilityTypeIds"], message: "제외 시설물유형은 중복될 수 없습니다." });
+  });
+export const inspectionChecklistV2ItemInputSchema = z.union([
+  roomInspectionChecklistV2ItemInputSchema,
+  facilityInspectionChecklistV2ItemInputSchema,
+]);
+export const createInspectionChecklistRevisionV2RequestSchema = z
+  .object({
+    version: versionFromZeroSchema,
+    reason: inspectionReasonSchema,
+    items: z.array(inspectionChecklistV2ItemInputSchema).min(1).max(400),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const ids = value.items.flatMap((item) => (item.itemId ? [item.itemId] : []));
+    if (new Set(ids).size !== ids.length)
+      context.addIssue({ code: "custom", path: ["items"], message: "점검항목 ID는 중복될 수 없습니다." });
+    if (!value.items.some((item) => item.targetType === "ROOM"))
+      context.addIssue({ code: "custom", path: ["items"], message: "객실 점검항목이 하나 이상 필요합니다." });
+    if (!value.items.some((item) => item.targetType === "FACILITY"))
+      context.addIssue({ code: "custom", path: ["items"], message: "시설물 점검항목이 하나 이상 필요합니다." });
+  });
+export type CreateInspectionChecklistRevisionV2Request = z.infer<
+  typeof createInspectionChecklistRevisionV2RequestSchema
+>;
+const inspectionChecklistV2ItemSchema = z.union([
+  roomInspectionChecklistV2ItemInputSchema.and(z.object({ itemId: z.uuid() })),
+  facilityInspectionChecklistV2ItemInputSchema.and(z.object({ itemId: z.uuid() })),
+]);
+export const inspectionChecklistV2RevisionSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    version: z.number().int().positive(),
+    reason: inspectionReasonSchema,
+    items: z.array(inspectionChecklistV2ItemSchema),
+    createdBy: z.uuid(),
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+export const inspectionChecklistV2ResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ checklist: inspectionChecklistV2RevisionSchema.nullable() }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
 export const inspectionDayOfWeekSchema = z.enum([
   "MONDAY",
   "TUESDAY",
@@ -2370,6 +2466,8 @@ const inspectionPath = (hotelId: string, inspectionId: string) =>
 export const inspectionRoutes = {
   checklist: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist` as const,
+  checklistV2: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2` as const,
   routines: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-routines` as const,
   routine: (hotelId: string, routineId: string) =>
