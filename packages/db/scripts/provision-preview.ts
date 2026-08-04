@@ -2526,6 +2526,8 @@ try {
     requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
     requiredRoomSchemaPhase: requiredRoomRolloutPhase,
     requiredSchemaPhase: requiredRolloutPhase,
+    onSchemaNotReady: (checkpoint) =>
+      console.error(`READINESS_CHECKPOINT_${checkpoint}_API_RUNTIME`),
   });
   if (apiReadiness.status !== "READY") {
     fail(
@@ -2540,6 +2542,8 @@ try {
       requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
       requiredRoomSchemaPhase: requiredRoomRolloutPhase,
       requiredSchemaPhase: requiredRolloutPhase,
+      onSchemaNotReady: (checkpoint) =>
+        console.error(`READINESS_CHECKPOINT_${checkpoint}_RECONCILER`),
     },
   );
   if (reconcilerReadiness.status !== "READY") {

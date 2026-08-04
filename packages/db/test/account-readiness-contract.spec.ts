@@ -628,6 +628,22 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("keeps runtime readiness opaque while reporting a safe provisioning checkpoint", () => {
+    expect(source).toContain(
+      "onSchemaNotReady?: (checkpoint: string) => void;",
+    );
+    expect(source).toContain("const schemaNotReady = () => {");
+    expect(source).toContain("options.onSchemaNotReady?.(");
+    expect(source).toContain('return { status: "SCHEMA_NOT_READY" } as const;');
+    expect(provisionSource).toContain(
+      "READINESS_CHECKPOINT_${checkpoint}_API_RUNTIME",
+    );
+    expect(provisionSource).toContain(
+      "READINESS_CHECKPOINT_${checkpoint}_RECONCILER",
+    );
+    expect(provisionSource).not.toContain("readinessStack");
+  });
+
   it("binds readiness and Preview ACL closure to inspection review v1", () => {
     for (const contract of [
       "0035_hotel_inspection_review_and_file_view",
