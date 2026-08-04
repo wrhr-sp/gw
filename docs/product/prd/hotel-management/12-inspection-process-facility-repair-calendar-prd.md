@@ -67,10 +67,20 @@
 | ----------------------------------------------- | -------------- | --------------------------------------------------------------------------------- |
 | 공통 process definition/revision·실행 엔진      | `approved`     | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수         |
 | 객실·시설물 공통 inspection 대상·결과 모델      | `approved`     | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK                        |
+| 객실·시설물 공통 점검항목 revision              | `approved`     | PostgreSQL v2 공통 revision + v1 ROOM 양방향 bridge, 별도 v2 계약·통합 설정 UI     |
 | 시설물·공용공간 기준정보                        | `approved`     | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK        |
 | 보수 건·우선순위·방문일정                       | `approved`     | 정규화 PostgreSQL aggregate + append-only history                                 |
 | Calendar adapter·OAuth credential·outbox 재시도 | `approved`     | OAuth 2.0 offline + direct REST + PostgreSQL projection outbox + scheduled Worker |
 | 자체 월간·주간 달력 UI                          | `unresearched` | 신규 UI                                                                           |
+
+### 4.0.1 공통 점검항목 revision 후보 결정 — 2026-08-04
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 선택안: PostgreSQL 관계형 v2 공통 revision을 정본으로 사용하고, 기존 strict ROOM v1은 결정적 backfill·v2→v1 원자 projection·v1→v2 deferred bridge로 유지한다.
+- JSONLogic의 결정적 규칙 개념은 Contracts·DB test matrix로 흡수하되 package는 도입하지 않는다.
+- Directus의 관리 편의는 기존 shadcn/Radix 설정 UI의 객실·시설물 구분과 공통 제외·유형별 추가 흐름으로 흡수하며 별도 서비스는 도입하지 않는다.
+- 적용식은 `호텔 대상 공통항목 - 대상유형 제외항목 + 대상유형 추가항목`이고 개별 객실·시설물 override와 `해당없음` 입력은 만들지 않는다.
 
 ### 4.1 공통 process engine 후보 결정 — 2026-07-31
 

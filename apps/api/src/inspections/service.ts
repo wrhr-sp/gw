@@ -6,6 +6,7 @@ import {
   transitionProcessExecutionRequestSchema,
   type AuthenticatedPrincipal,
   type CreateInspectionChecklistRevisionRequest,
+  type CreateInspectionChecklistRevisionV2Request,
   type CreateInspectionRoutineRequest,
   type CreateManualInspectionRequest,
   type CreateProcessDefinitionRequest,
@@ -84,6 +85,16 @@ export interface InspectionService {
     principal: MutationPrincipal,
     hotelId: string,
     value: CreateInspectionChecklistRevisionRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
+  getChecklistV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown | null>;
+  saveChecklistV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    value: CreateInspectionChecklistRevisionV2Request,
     idempotencyKey: string,
   ): Promise<unknown>;
   listRoutines(
@@ -220,6 +231,44 @@ function savedResultMatches(
     files.length === expected.fileVersionIds.length &&
     files.every((file, index) => file === expected.fileVersionIds[index])
   );
+}
+
+function isUndefinedDatabaseFunction(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "42883"
+  );
+}
+
+function adaptLegacyChecklistToV2(checklist: unknown): unknown | null {
+  if (!checklist || typeof checklist !== "object") return null;
+  const value = checklist as Record<string, unknown>;
+  if (!Array.isArray(value.items)) return null;
+  return {
+    ...value,
+    items: value.items.map((candidate) => {
+      const item = candidate as Record<string, unknown>;
+      return {
+        itemId: item.itemId,
+        targetType: "ROOM",
+        source:
+          item.source === "ROOM_TYPE_ADDED"
+            ? "TARGET_TYPE_ADDED"
+            : "HOTEL_COMMON",
+        roomTypeId: item.roomTypeId ?? null,
+        excludedRoomTypeIds: Array.isArray(item.excludedRoomTypeIds)
+          ? item.excludedRoomTypeIds
+          : [],
+        name: item.name,
+        description: item.description ?? null,
+        isRequired: item.isRequired,
+        displayOrder: item.displayOrder,
+        defaultSeverity: item.defaultSeverity,
+      };
+    }),
+  };
 }
 
 export function createInspectionService(
@@ -520,6 +569,72 @@ export function createInspectionService(
         traceId: crypto.randomUUID(),
         value: commandValue,
       });
+      if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
+        failure(result.status);
+      if (!result.payload)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async getChecklistV2(principal, hotelId) {
+      const inspectionQuery = repository.inspectionQuery;
+      if (!inspectionQuery)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      try {
+        const result = await inspectionQuery({
+          action: "READ_CHECKLIST_V2",
+          companyId: principal.companyId,
+          hotelId,
+          sessionId: principal.sessionId,
+          sessionToken: principal.sessionToken,
+        });
+        if (result.status !== "OK") failure(result.status);
+        return result.payload;
+      } catch (error) {
+        if (!isUndefinedDatabaseFunction(error)) throw error;
+        return adaptLegacyChecklistToV2(
+          await this.getChecklist(principal, hotelId),
+        );
+      }
+    },
+    async saveChecklistV2(principal, hotelId, value, idempotencyKey) {
+      const operationPath = inspectionRoutes.checklistV2(hotelId);
+      const revisionId = crypto.randomUUID();
+      const legacyRevisionId = crypto.randomUUID();
+      const commandValue = {
+        ...value,
+        revisionId,
+        legacyRevisionId,
+        items: value.items.map((item) => ({
+          ...item,
+          itemId: item.itemId ?? crypto.randomUUID(),
+          snapshotId: crypto.randomUUID(),
+          legacySnapshotId: crypto.randomUUID(),
+        })),
+      };
+      let result;
+      try {
+        result = await repository.command({
+          action: "SAVE_CHECKLIST_V2",
+          auditEventId: crypto.randomUUID(),
+          companyId: principal.companyId,
+          expectedVersion: value.version,
+          hotelId,
+          httpMethod: "PUT",
+          idempotencyKey,
+          idempotencyRecordId: crypto.randomUUID(),
+          operationPath,
+          requestHash: await hash({ method: "PUT", path: operationPath, value }),
+          resourceId: revisionId,
+          sessionId: principal.sessionId,
+          sessionToken: principal.sessionToken,
+          traceId: crypto.randomUUID(),
+          value: commandValue,
+        });
+      } catch (error) {
+        if (isUndefinedDatabaseFunction(error))
+          throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+        throw error;
+      }
       if (!["CREATED", "UPDATED", "REPLAYED"].includes(result.status))
         failure(result.status);
       if (!result.payload)

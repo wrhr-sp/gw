@@ -177,6 +177,51 @@ describe("inspection configuration service", () => {
     );
   });
 
+  it("saves a typed checklist v2 with server-owned IDs", async () => {
+    const repo = repository();
+    repo.command.mockResolvedValue({
+      status: "UPDATED",
+      payload: {
+        id: "c2000000-0000-4000-8000-000000000001",
+        version: 2,
+        items: [],
+      },
+    });
+    const service = createInspectionService(repo);
+    const input = {
+      version: 1,
+      reason: "시설물 점검기준 추가",
+      items: [
+        {
+          itemId: null,
+          targetType: "FACILITY" as const,
+          source: "TARGET_TYPE_ADDED" as const,
+          facilityTypeId: "53000000-0000-4000-8000-000000000001",
+          excludedFacilityTypeIds: [],
+          name: "소화기 압력",
+          description: null,
+          isRequired: true,
+          displayOrder: 10,
+          defaultSeverity: "CRITICAL" as const,
+        },
+      ],
+    };
+
+    await expect(
+      service.saveChecklistV2(principal, hotelId, input, "idem-checklist-v2"),
+    ).resolves.toMatchObject({ version: 2 });
+    expect(repo.command).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "SAVE_CHECKLIST_V2",
+        operationPath: `/api/hotels/${hotelId}/inspection-checklist/v2`,
+        value: expect.objectContaining({
+          revisionId: expect.any(String),
+          items: [expect.objectContaining({ itemId: expect.any(String) })],
+        }),
+      }),
+    );
+  });
+
   it("saves a routine through the dedicated canonical authority", async () => {
     const repo = repository();
     const routine = {

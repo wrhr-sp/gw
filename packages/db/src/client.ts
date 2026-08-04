@@ -34,6 +34,8 @@ const INSPECTION_TARGET_POLICY_SHAPE_SHA256 =
   "a976d9c8151fa8d257f4725de04b888f833e44df7060c68e1cf068c24e3e6061";
 const INSPECTION_TARGET_TRIGGER_SHAPE_SHA256 =
   "0e2cbd0f147fe788c6ca1ef6ca8f7ef44d081b068452fa5e32e33fab865c9a6a";
+const INSPECTION_CHECKLIST_V2_CATALOG_SHA256 =
+  "343da317f244109e0f1feddb00929e1a8e27c05826253d6882573b5310c9e70f";
 const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
   "2df7d2a8c90a059efdf7eaa66ecd8d5f5a5144115ad46385ed8b3c18c41678e5";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
@@ -89,6 +91,14 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature:
       "public.hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "be20318aa8c8b3acb29e1b3d24c54ac43c4b4b761319df867b567c2f08ae6fad",
+    name: "hotel_inspection_checklist_v2_command",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
   },
   {
     capability: "API_RUNTIME",
@@ -1840,7 +1850,25 @@ const REQUIRED_RLS_POLICIES = [
     policy: "hotel_facility_history_company_isolation",
     table: "hotel_facility_history",
   },
+  {
+    policy: "inspection_checklist_v2_revisions_company_isolation",
+    table: "inspection_checklist_v2_revisions",
+  },
+  {
+    policy: "inspection_checklist_v2_items_company_isolation",
+    table: "inspection_checklist_v2_items",
+  },
+  {
+    policy: "inspection_checklist_v2_item_exclusions_company_isolation",
+    table: "inspection_checklist_v2_item_exclusions",
+  },
 ] as const;
+
+const INSPECTION_CHECKLIST_V2_RLS_TABLES = new Set<string>([
+  "inspection_checklist_v2_revisions",
+  "inspection_checklist_v2_items",
+  "inspection_checklist_v2_item_exclusions",
+]);
 
 const HOTEL_FACILITY_RLS_TABLES = new Set<string>([
   "hotel_common_areas",
@@ -2013,6 +2041,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_review_marker_count: number;
         hotel_facility_master_data_marker_count: number;
         hotel_inspection_target_marker_count: number;
+        hotel_inspection_checklist_target_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2095,7 +2124,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_facility_master_data_marker_count,
              count(*) filter (
                where version = '0037_hotel_inspection_execution_targets'
-             )::integer as hotel_inspection_target_marker_count
+             )::integer as hotel_inspection_target_marker_count,
+             count(*) filter (
+               where version = '0038_hotel_inspection_checklist_targets'
+             )::integer as hotel_inspection_checklist_target_marker_count
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2131,7 +2163,8 @@ export async function probeDatabaseReadiness(
         '0034_hotel_inspection_evidence_submission',
         '0035_hotel_inspection_review_and_file_view',
         '0036_hotel_facility_master_data',
-        '0037_hotel_inspection_execution_targets'
+        '0037_hotel_inspection_execution_targets',
+        '0038_hotel_inspection_checklist_targets'
       )
     `;
     const schemaPhase =
@@ -2203,6 +2236,12 @@ export async function probeDatabaseReadiness(
         ? "EXPAND"
         : migrationRows[0]?.hotel_inspection_target_marker_count === 0
           ? "PRE_EXPAND"
+          : null;
+    const inspectionTargetChecklistPhase =
+      migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 0
+          ? "PRE_CONTRACT"
           : null;
     const facilityTableNames = [
       "hotel_common_areas",
@@ -2650,6 +2689,234 @@ export async function probeDatabaseReadiness(
         return schemaNotReady();
       }
     }
+    const checklistTargetExpected =
+      inspectionTargetChecklistPhase === "CONTRACT" ? 1 : 0;
+    const [checklistTargetFoundation] = await sql<
+      {
+        function_count: number;
+        helper_acl_count: number;
+        owner_safe_count: number;
+        policy_count: number;
+        rls_count: number;
+        force_rls_count: number;
+        runtime_acl_count: number;
+        table_count: number;
+        trigger_count: number;
+      }[]
+    >`
+      select
+        (select count(*)::integer from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+         where table_namespace.nspname='public'
+           and table_record.relkind='r'
+           and table_record.relname in (
+             'inspection_checklist_v2_revisions',
+             'inspection_checklist_v2_items',
+             'inspection_checklist_v2_item_exclusions'
+           )) as table_count,
+        (select count(*)::integer from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+         where table_namespace.nspname='public'
+           and table_record.relname like 'inspection_checklist_v2_%'
+           and table_record.relrowsecurity) as rls_count,
+        (select count(*)::integer from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+         where table_namespace.nspname='public'
+           and table_record.relname like 'inspection_checklist_v2_%'
+           and table_record.relforcerowsecurity) as force_rls_count,
+        (select count(*)::integer from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+          join pg_catalog.pg_class migration_table on migration_table.relname='schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+         where table_namespace.nspname='public' and migration_namespace.nspname='public'
+           and table_record.relname in (
+             'inspection_checklist_v2_revisions',
+             'inspection_checklist_v2_items',
+             'inspection_checklist_v2_item_exclusions'
+           ) and table_record.relowner=migration_table.relowner) as owner_safe_count,
+        (select count(*)::integer from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+         where procedure_namespace.nspname='public'
+           and procedure_record.proname in (
+             'inspection_checklist_v2_snapshot_v1',
+             'inspection_checklist_v1_sync_v2',
+             'hotel_inspection_checklist_v2_command'
+           )) as function_count,
+        (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+          join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid
+          join pg_catalog.pg_namespace trigger_namespace on trigger_namespace.oid=trigger_table.relnamespace
+         where trigger_namespace.nspname='public' and not trigger_record.tgisinternal
+           and trigger_record.tgname in (
+             'inspection_checklist_v2_revisions_append_only',
+             'inspection_checklist_v2_items_append_only',
+             'inspection_checklist_v2_item_exclusions_append_only',
+             'inspection_checklist_v1_sync_v2'
+           )) as trigger_count,
+        (select count(*)::integer from pg_catalog.pg_policy policy_record
+          join pg_catalog.pg_class policy_table on policy_table.oid=policy_record.polrelid
+         where policy_table.relname in (
+           'inspection_checklist_v2_revisions',
+           'inspection_checklist_v2_items',
+           'inspection_checklist_v2_item_exclusions'
+         )) as policy_count,
+        (select count(*)::integer from pg_catalog.pg_class protected_table
+          join pg_catalog.pg_namespace protected_namespace on protected_namespace.oid=protected_table.relnamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            protected_table.relacl,
+            pg_catalog.acldefault('r'::"char", protected_table.relowner)
+          )) acl
+         where protected_namespace.nspname='public'
+           and protected_table.relname in (
+             'inspection_checklist_v2_revisions',
+             'inspection_checklist_v2_items',
+             'inspection_checklist_v2_item_exclusions'
+           ) and acl.grantee<>protected_table.relowner) +
+        (select count(*)::integer from pg_catalog.pg_attribute protected_column
+          join pg_catalog.pg_class protected_table on protected_table.oid=protected_column.attrelid
+          join pg_catalog.pg_namespace protected_namespace on protected_namespace.oid=protected_table.relnamespace
+          cross join lateral pg_catalog.aclexplode(protected_column.attacl) acl
+         where protected_namespace.nspname='public'
+           and protected_table.relname in (
+             'inspection_checklist_v2_revisions',
+             'inspection_checklist_v2_items',
+             'inspection_checklist_v2_item_exclusions'
+           ) and protected_column.attnum>0 and not protected_column.attisdropped
+           and acl.grantee<>protected_table.relowner) as runtime_acl_count,
+        (select count(*)::integer from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+         where procedure_namespace.nspname='public'
+           and procedure_record.proname in (
+             'inspection_checklist_v2_snapshot_v1',
+             'inspection_checklist_v1_sync_v2'
+           ) and acl.grantee<>procedure_record.proowner) as helper_acl_count
+    `;
+    let checklistCatalogSafe = checklistTargetExpected === 0;
+    if (checklistTargetExpected === 1) {
+      const [checklistCatalog] = await sql<{ digest: string }[]>`
+        select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
+          pg_catalog.jsonb_build_object(
+            'columns', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, column_record.attnum, column_record.attname,
+                pg_catalog.format_type(column_record.atttypid, column_record.atttypmod),
+                column_record.attnotnull,
+                pg_catalog.pg_get_expr(default_record.adbin, default_record.adrelid)
+              ) order by table_record.relname, column_record.attnum)
+              from pg_catalog.pg_attribute column_record
+              join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+              join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              left join pg_catalog.pg_attrdef default_record
+                on default_record.adrelid=column_record.attrelid
+               and default_record.adnum=column_record.attnum
+              where table_namespace.nspname='public'
+                and table_record.relname in (
+                  'inspection_checklist_v2_revisions',
+                  'inspection_checklist_v2_items',
+                  'inspection_checklist_v2_item_exclusions'
+                )
+                and column_record.attnum>0 and not column_record.attisdropped
+            ),
+            'constraints', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, constraint_record.conname,
+                constraint_record.contype, constraint_record.convalidated,
+                constraint_record.condeferrable, constraint_record.condeferred,
+                pg_catalog.pg_get_constraintdef(constraint_record.oid)
+              ) order by table_record.relname, constraint_record.conname)
+              from pg_catalog.pg_constraint constraint_record
+              join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid
+              join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'
+                and table_record.relname in (
+                  'inspection_checklist_v2_revisions',
+                  'inspection_checklist_v2_items',
+                  'inspection_checklist_v2_item_exclusions'
+                )
+                and constraint_record.contype<>'n'
+            ),
+            'indexes', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, index_record.relname,
+                index_metadata.indisunique, index_metadata.indisprimary,
+                index_metadata.indisvalid,
+                pg_catalog.pg_get_expr(index_metadata.indpred, index_metadata.indrelid),
+                pg_catalog.pg_get_indexdef(index_metadata.indexrelid)
+              ) order by table_record.relname, index_record.relname)
+              from pg_catalog.pg_index index_metadata
+              join pg_catalog.pg_class table_record on table_record.oid=index_metadata.indrelid
+              join pg_catalog.pg_class index_record on index_record.oid=index_metadata.indexrelid
+              join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'
+                and table_record.relname in (
+                  'inspection_checklist_v2_revisions',
+                  'inspection_checklist_v2_items',
+                  'inspection_checklist_v2_item_exclusions'
+                )
+            ),
+            'policies', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, policy_record.polname,
+                policy_record.polpermissive, policy_record.polcmd,
+                policy_record.polroles,
+                pg_catalog.pg_get_expr(policy_record.polqual, policy_record.polrelid),
+                pg_catalog.pg_get_expr(policy_record.polwithcheck, policy_record.polrelid)
+              ) order by table_record.relname, policy_record.polname)
+              from pg_catalog.pg_policy policy_record
+              join pg_catalog.pg_class table_record on table_record.oid=policy_record.polrelid
+              join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'
+                and table_record.relname in (
+                  'inspection_checklist_v2_revisions',
+                  'inspection_checklist_v2_items',
+                  'inspection_checklist_v2_item_exclusions'
+                )
+            ),
+            'triggers', (
+              select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+                table_record.relname, trigger_record.tgname,
+                trigger_record.tgenabled, trigger_record.tgdeferrable,
+                trigger_record.tginitdeferred,
+                pg_catalog.pg_get_triggerdef(trigger_record.oid),
+                procedure_record.proname
+              ) order by table_record.relname, trigger_record.tgname)
+              from pg_catalog.pg_trigger trigger_record
+              join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid
+              join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              join pg_catalog.pg_proc procedure_record on procedure_record.oid=trigger_record.tgfoid
+              where table_namespace.nspname='public'
+                and table_record.relname in (
+                  'inspection_checklist_v2_revisions',
+                  'inspection_checklist_v2_items',
+                  'inspection_checklist_v2_item_exclusions'
+                )
+                and not trigger_record.tgisinternal
+            )
+          )::text,
+          'UTF8'
+        )), 'hex') as digest
+      `;
+      checklistCatalogSafe =
+        checklistCatalog?.digest === INSPECTION_CHECKLIST_V2_CATALOG_SHA256;
+    }
+    if (
+      !checklistTargetFoundation ||
+      checklistTargetFoundation.table_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.rls_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.force_rls_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.owner_safe_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.function_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.trigger_count !== checklistTargetExpected * 4 ||
+      checklistTargetFoundation.policy_count !== checklistTargetExpected * 3 ||
+      !checklistCatalogSafe ||
+      checklistTargetFoundation.runtime_acl_count !== 0 ||
+      checklistTargetFoundation.helper_acl_count !== 0
+    ) {
+      return schemaNotReady();
+    }
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
@@ -2658,6 +2925,7 @@ export async function probeDatabaseReadiness(
       !inspectionProcessPhase ||
       !facilityMasterDataPhase ||
       !inspectionTargetPhase ||
+      !inspectionTargetChecklistPhase ||
       (options.requiredFacilityMasterDataPhase !== undefined &&
         facilityMasterDataPhase !== options.requiredFacilityMasterDataPhase) ||
       (facilityMasterDataPhase === "CONTRACT" &&
@@ -3170,7 +3438,13 @@ export async function probeDatabaseReadiness(
       if (!evidenceRevisionConstraint?.exact) {
         return schemaNotReady();
       }
-      for (const contract of HOTEL_INSPECTION_COMMAND_CONTRACTS) {
+      const activeInspectionCommandContracts =
+        HOTEL_INSPECTION_COMMAND_CONTRACTS.filter(
+          (contract) =>
+            contract.name !== "hotel_inspection_checklist_v2_command" ||
+            inspectionTargetChecklistPhase === "CONTRACT",
+        );
+      for (const contract of activeInspectionCommandContracts) {
         const [command] = await sql<
           {
             executable: boolean;
@@ -5592,15 +5866,19 @@ export async function probeDatabaseReadiness(
           (required.table !== "hotel_file_access_rate_windows" &&
             required.table !== "hotel_file_access_grants")) &&
         (facilityMasterDataPhase === "CONTRACT" ||
-          !HOTEL_FACILITY_RLS_TABLES.has(required.table)),
+          !HOTEL_FACILITY_RLS_TABLES.has(required.table)) &&
+        (inspectionTargetChecklistPhase === "CONTRACT" ||
+          !INSPECTION_CHECKLIST_V2_RLS_TABLES.has(required.table)),
     );
     if (
       activeRequiredRlsPolicies.some((required) => {
         const missing = !rlsRows.some((policy) => {
-          const requiredPolicyPhase = HOTEL_FACILITY_RLS_TABLES.has(
+          const requiredPolicyPhase = INSPECTION_CHECKLIST_V2_RLS_TABLES.has(
             required.table,
           )
-            ? "CONTRACT"
+            ? "EXPAND"
+            : HOTEL_FACILITY_RLS_TABLES.has(required.table)
+              ? "CONTRACT"
             : required.table === "hotel_file_access_rate_windows" ||
                 required.table === "hotel_file_access_grants"
               ? "CONTRACT"

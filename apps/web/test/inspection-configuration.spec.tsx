@@ -12,6 +12,17 @@ describe("inspection configuration panel", () => {
         hotelId={hotelId}
         initialChecklist={null}
         processDefinitions={[]}
+        facilityTypes={[
+          {
+            hotelId,
+            id: "53000000-0000-4000-8000-000000000001",
+            name: "소방설비",
+            status: "ACTIVE",
+            version: 1,
+            createdAt: "2026-08-02T00:00:00.000Z",
+            updatedAt: "2026-08-02T00:00:00.000Z",
+          },
+        ]}
         roomTypes={[
           {
             id: "b1000000-0000-4000-8000-000000000001",
@@ -28,6 +39,8 @@ describe("inspection configuration panel", () => {
       />,
     );
     expect(markup).toContain("점검항목 추가");
+    expect(markup).toContain("시설물 체크리스트");
+    expect(markup).toContain("시설물유형 추가");
     expect(markup).toContain("체크리스트 저장");
     expect(markup).toContain("호텔 기본 프로세스");
     expect(markup).toContain("기본 프로세스 저장");

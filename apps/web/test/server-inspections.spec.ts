@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
 vi.mock("../lib/api-transport", () => ({ fetchApi }));
 
 import {
+  fetchInspectionConfiguration,
   fetchInspectionExecutions,
   fetchInspectionReviews,
 } from "../lib/server-inspections";
@@ -156,5 +157,66 @@ describe("inspection review SSR structured errors", () => {
     await expect(fetchInspectionReviews(hotelId)).resolves.toMatchObject({
       code: "FORBIDDEN", error: "상세 권한 없음", message: "상세 권한 없음", ok: false, retryable: false,
     });
+  });
+});
+
+describe("inspection configuration SSR v2 fetch", () => {
+  it("reads the typed ROOM/FACILITY checklist from the additive v2 route", async () => {
+    fetchApi.mockReset();
+    fetchApi
+      .mockResolvedValueOnce(
+        Response.json({
+          ok: true,
+          data: {
+            checklist: {
+              id: "d8100000-0000-4000-8000-000000000001",
+              hotelId,
+              version: 2,
+              reason: "시설물 점검항목",
+              items: [
+                {
+                  itemId: "d8200000-0000-4000-8000-000000000001",
+                  targetType: "FACILITY",
+                  source: "TARGET_TYPE_ADDED",
+                  facilityTypeId: "53000000-0000-4000-8000-000000000001",
+                  excludedFacilityTypeIds: [],
+                  name: "소화기 압력",
+                  description: null,
+                  isRequired: true,
+                  displayOrder: 10,
+                  defaultSeverity: "MAJOR",
+                },
+              ],
+              createdBy: "2f000000-0000-4000-8000-000000000001",
+              createdAt: "2026-08-04T00:00:00.000Z",
+            },
+          },
+          error: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { definitions: [] }, error: null }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { default: null }, error: null }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { candidates: [] }, error: null }),
+      )
+      .mockResolvedValueOnce(
+        Response.json({ ok: true, data: { routines: [] }, error: null }),
+      );
+
+    await expect(fetchInspectionConfiguration(hotelId)).resolves.toMatchObject({
+      ok: true,
+      checklist: {
+        items: [{ targetType: "FACILITY", name: "소화기 압력" }],
+      },
+    });
+    expect(fetchApi).toHaveBeenNthCalledWith(
+      1,
+      `/api/hotels/${hotelId}/inspection-checklist/v2`,
+      expect.objectContaining({ cache: "no-store" }),
+    );
   });
 });

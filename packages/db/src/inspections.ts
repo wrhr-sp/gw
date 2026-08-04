@@ -78,7 +78,11 @@ export interface InspectionRepository {
     traceId: string;
   }): Promise<InspectionCommandResult>;
   inspectionQuery?(input: {
-    action: "LIST_INSPECTIONS" | "LIST_ROUTINES" | "READ_CHECKLIST";
+    action:
+      | "LIST_INSPECTIONS"
+      | "LIST_ROUTINES"
+      | "READ_CHECKLIST"
+      | "READ_CHECKLIST_V2";
     companyId: string;
     hotelId: string;
     resourceId?: string | null;
@@ -204,6 +208,22 @@ export function createPostgresInspectionRepository(
             `,
           );
         }
+        if (input.action === "SAVE_CHECKLIST_V2") {
+          return one(
+            await transaction<CommandRow[]>`
+              select * from public.hotel_inspection_checklist_v2_command(
+                ${input.companyId}::uuid, ${input.hotelId}::uuid,
+                ${input.resourceId}::uuid, ${input.action}::text,
+                ${input.expectedVersion}::integer,
+                ${transaction.json(input.value as never)}::jsonb,
+                ${input.sessionToken}::text, ${input.idempotencyRecordId}::uuid,
+                ${input.idempotencyKey}::text, ${input.httpMethod}::text,
+                ${input.operationPath}::text, ${input.requestHash}::text,
+                ${input.auditEventId}::uuid, ${input.traceId}::uuid
+              )
+            `,
+          );
+        }
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_inspection_command_v2(
@@ -304,6 +324,19 @@ export function createPostgresInspectionRepository(
         await transaction`
           select set_config('app.session_id', ${input.sessionId}, true)
         `;
+        if (input.action === "READ_CHECKLIST_V2") {
+          return one(
+            await transaction<CommandRow[]>`
+              select * from public.hotel_inspection_checklist_v2_command(
+                ${input.companyId}::uuid, ${input.hotelId}::uuid,
+                null::uuid, ${input.action}::text, 0,
+                '{}'::jsonb, ${input.sessionToken}::text,
+                null::uuid, null::text, 'POST'::text,
+                '/api/read-only'::text, null::text, null::uuid, null::uuid
+              )
+            `,
+          );
+        }
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_inspection_command_v2(

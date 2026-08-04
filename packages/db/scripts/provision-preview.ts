@@ -495,6 +495,10 @@ try {
       "0037_hotel_inspection_execution_targets",
       "0037_hotel_inspection_execution_targets.sql",
     ],
+    [
+      "0038_hotel_inspection_checklist_targets",
+      "0038_hotel_inspection_checklist_targets.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -517,6 +521,7 @@ try {
     "0035_hotel_inspection_review_and_file_view",
     "0036_hotel_facility_master_data",
     "0037_hotel_inspection_execution_targets",
+    "0038_hotel_inspection_checklist_targets",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -2046,6 +2051,7 @@ try {
              'hotel_inspection_routine_command_v1',
              'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v2',
+             'hotel_inspection_checklist_v2_command',
              'hotel_file_command_v1', 'hotel_file_upload_scope_v1',
              'hotel_file_scan_command_v1',
              'hotel_file_scan_candidates_v1',
@@ -2104,6 +2110,10 @@ try {
       text, text, text, uuid, uuid
     ) from ${apiRuntimeRole};
     grant execute on function public.hotel_inspection_command_v2(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_checklist_v2_command(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};

@@ -47,6 +47,8 @@ import {
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
   createInspectionChecklistRevisionRequestSchema,
+  createInspectionChecklistRevisionV2RequestSchema,
+  inspectionChecklistTargetTypeSchema,
   createInspectionRoutineRequestSchema,
   inspectionRoutineListResponseSchema,
   createManualInspectionRequestSchema,
@@ -1144,6 +1146,75 @@ describe("hotel platform contracts", () => {
         error: null,
       }).data.routines,
     ).toHaveLength(1);
+  });
+
+  it("keeps the additive checklist v2 target union typed and cross-target safe", () => {
+    const facilityTypeId = "53000000-0000-4000-8000-000000000001";
+    expect(inspectionChecklistTargetTypeSchema.options).toEqual(["ROOM", "FACILITY"]);
+    const parsed = createInspectionChecklistRevisionV2RequestSchema.parse({
+      version: 1,
+      reason: "시설물 점검기준 추가",
+      items: [
+        {
+          itemId: null,
+          targetType: "ROOM",
+          source: "HOTEL_COMMON",
+          roomTypeId: null,
+          excludedRoomTypeIds: [],
+          name: "객실 공통 확인",
+          description: null,
+          isRequired: true,
+          displayOrder: 5,
+          defaultSeverity: "OBSERVATION",
+        },
+        {
+          itemId: null,
+          targetType: "FACILITY",
+          source: "HOTEL_COMMON",
+          facilityTypeId: null,
+          excludedFacilityTypeIds: [facilityTypeId],
+          name: "외관 손상",
+          description: null,
+          isRequired: true,
+          displayOrder: 10,
+          defaultSeverity: "MAJOR",
+        },
+        {
+          itemId: null,
+          targetType: "FACILITY",
+          source: "TARGET_TYPE_ADDED",
+          facilityTypeId,
+          excludedFacilityTypeIds: [],
+          name: "소화기 압력",
+          description: "압력계 정상범위를 확인합니다.",
+          isRequired: true,
+          displayOrder: 20,
+          defaultSeverity: "CRITICAL",
+        },
+      ],
+    });
+    expect(parsed.items).toHaveLength(3);
+    expect(
+      createInspectionChecklistRevisionV2RequestSchema.safeParse({
+        version: 1,
+        reason: "잘못된 교차대상",
+        items: [
+          {
+            itemId: null,
+            targetType: "FACILITY",
+            source: "TARGET_TYPE_ADDED",
+            roomTypeId: "70000000-0000-4000-8000-000000000001",
+            facilityTypeId,
+            excludedFacilityTypeIds: [],
+            name: "잘못된 항목",
+            description: null,
+            isRequired: true,
+            displayOrder: 10,
+            defaultSeverity: "MAJOR",
+          },
+        ],
+      }).success,
+    ).toBe(false);
   });
 
   it("allows abnormal drafts without evidence and validates execution list filters", () => {

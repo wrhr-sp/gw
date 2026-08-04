@@ -1,6 +1,6 @@
 import {
   hotelErrorResponseSchema,
-  inspectionChecklistResponseSchema,
+  inspectionChecklistV2ResponseSchema,
   inspectionExecutionListResponseSchema,
   inspectionExecutionResponseSchema,
   inspectionReviewListResponseSchema,
@@ -189,7 +189,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     candidatesResponse,
     routinesResponse,
   ] = await Promise.all([
-    request(inspectionRoutes.checklist(hotelId)),
+    request(inspectionRoutes.checklistV2(hotelId)),
     request(
       `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
     ),
@@ -212,7 +212,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     candidatesResponse.ok &&
     routinesResponse.ok
   ) {
-    const checklist = inspectionChecklistResponseSchema.safeParse(
+    const checklist = inspectionChecklistV2ResponseSchema.safeParse(
       await checklistResponse.json().catch(() => undefined),
     );
     const definitions = processDefinitionListResponseSchema.safeParse(
