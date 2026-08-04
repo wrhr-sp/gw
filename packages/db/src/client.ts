@@ -11,7 +11,7 @@ const HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256 =
 const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
   "e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50";
 const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
-  "5ece2f7716873e06c7cf239598b61e527683843f79003ebb9b868abb17c119fe";
+  "2df7d2a8c90a059efdf7eaa66ecd8d5f5a5144115ad46385ed8b3c18c41678e5";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "API_RUNTIME",
@@ -2244,6 +2244,9 @@ export async function probeDatabaseReadiness(
                  and table_record.relname in (
                    'hotel_file_access_rate_windows', 'hotel_file_access_grants'
                  )
+                 -- PostgreSQL 18 mirrors NOT NULL in pg_constraint as type 'n'.
+                 -- attnotnull above remains the cross-major canonical contract.
+                 and constraint_record.contype <> 'n'
             )
           )::text,
           'UTF8'
