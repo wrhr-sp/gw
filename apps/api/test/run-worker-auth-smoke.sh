@@ -694,6 +694,39 @@ if [[ "$FACILITY_STORED" != "1" ]]; then
 fi
 printf 'HOTEL_FACILITY_WORKER_API_INTEGRATION_OK\n'
 
+ROOM_LINKED_FACILITY_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-linked-facility.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-room-linked-facility-1' \
+  --data '{"status":"INACTIVE","reason":"활성 시설물 연결 차단 확인","version":1}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/rooms/$ROOM_ID/status")"
+python - "$TMP_DIR" "$ROOM_LINKED_FACILITY_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "room-linked-facility.json").read_text(encoding="utf-8"))
+if sys.argv[2] != "409" or body.get("error", {}).get("code") != "INVALID_STATE_TRANSITION":
+    raise SystemExit(f"Worker linked facility room guard mismatch: {sys.argv[2]}")
+PY
+
+FACILITY_STATUS_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-status.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-facility-status-1' \
+  --data '{"status":"INACTIVE","reason":"객실 사용중지 전 시설물 사용중지","version":1}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/facilities/$FACILITY_ID/status")"
+python - "$TMP_DIR" "$FACILITY_STATUS_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "facility-status.json").read_text(encoding="utf-8"))
+resource = body.get("data", {}).get("resource", {})
+if sys.argv[2] != "200" or resource.get("status") != "INACTIVE" or resource.get("version") != 2:
+    raise SystemExit(f"Worker facility status mismatch: {sys.argv[2]}")
+PY
+
 ROOM_REPLAY_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-replay.json" -w '%{http_code}' -X POST \
   -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
   -H 'Content-Type: application/json' \

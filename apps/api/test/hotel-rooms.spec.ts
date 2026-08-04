@@ -287,6 +287,38 @@ describe("HOTEL-MVP-020 room API", () => {
     expect(changeRoomStatus).not.toHaveBeenCalled();
   });
 
+  it("maps an active facility room guard to a stable conflict", async () => {
+    const databaseError = Object.assign(new Error("linked_active_facilities"), {
+      code: "55000",
+      name: "PostgresError",
+    });
+    const response = await app(
+      roomService({
+        changeRoomStatus: vi.fn(async () => {
+          throw databaseError;
+        }),
+      }),
+    ).request(`/api/hotels/${hotelId}/rooms/${roomId}/status`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        status: "INACTIVE",
+        reason: "시설물 연결 확인",
+        version: 1,
+      }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      error: {
+        code: "INVALID_STATE_TRANSITION",
+        message:
+          "활성 시설물이 연결되어 있어 사용중지하거나 삭제할 수 없습니다.",
+        retryable: false,
+      },
+    });
+  });
+
   it("strict-validates and forwards the terminal room delete command", async () => {
     const deleteRoom = vi.fn(async () => ({
       status: "STATUS_CHANGED" as const,

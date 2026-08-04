@@ -495,9 +495,17 @@ export function createApp(options: CreateAppOptions = {}) {
             code?: unknown;
             constraint_name?: unknown;
             hotelStage?: unknown;
+            message?: unknown;
             name?: unknown;
           })
         : null;
+    if (
+      databaseError?.code === "55000" &&
+      typeof databaseError.message === "string" &&
+      databaseError.message.includes("linked_active_facilities")
+    ) {
+      return mutationFailure(context, "LINKED_ACTIVE_FACILITIES");
+    }
     console.error(
       JSON.stringify({
         event: "HOTEL_API_FAILURE",
