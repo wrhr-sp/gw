@@ -83,6 +83,8 @@ GRANT SELECT ON
   account_provisioning_attempts, initial_password_change_attempts, login_id_registry,
   hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments,
   hotel_room_types, hotel_rooms, hotel_room_status_history,
+  hotel_common_areas, hotel_facility_types, hotel_facilities,
+  hotel_common_area_history, hotel_facility_type_history, hotel_facility_history,
   process_definitions, process_definition_revisions,
   process_stage_snapshots, process_transition_snapshots, hotel_process_defaults,
   process_executions, process_execution_history,
@@ -131,6 +133,10 @@ GRANT EXECUTE ON FUNCTION
   public.hotel_room_lifecycle_command_v1(
     uuid, uuid, uuid, integer, text, text, uuid, uuid, uuid,
     text, text, text, text, text, uuid
+  ),
+  public.hotel_facility_reference_command_v1(
+    uuid, uuid, text, text, uuid, integer, jsonb, text,
+    uuid, uuid, uuid, text, text, text, text, text, uuid
   ),
   public.hotel_process_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
@@ -203,7 +209,10 @@ WITH protected_roles(role_name) AS (
   VALUES (:'runtime_role'::text), (:'reconciler_role'::text)
 ), room_tables(table_name) AS (
   VALUES ('hotel_room_types'::text), ('hotel_rooms'::text),
-    ('hotel_room_status_history'::text)
+    ('hotel_room_status_history'::text), ('hotel_common_areas'::text),
+    ('hotel_facility_types'::text), ('hotel_facilities'::text),
+    ('hotel_common_area_history'::text),
+    ('hotel_facility_type_history'::text), ('hotel_facility_history'::text)
 ), table_privileges(privilege_name) AS (
   VALUES ('SELECT'::text), ('INSERT'::text), ('UPDATE'::text),
     ('DELETE'::text), ('TRUNCATE'::text), ('REFERENCES'::text),
@@ -266,7 +275,8 @@ WITH protected_roles(role_name) AS (
   FROM protected_roles role
   CROSS JOIN (VALUES
     ('public.hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid)'::text),
-    ('public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'::text)
+    ('public.hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'::text),
+    ('public.hotel_facility_reference_command_v1(uuid,uuid,text,text,uuid,integer,jsonb,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'::text)
   ) command(signature)
   WHERE has_function_privilege(role.role_name, command.signature, 'EXECUTE')
     IS DISTINCT FROM (role.role_name = :'runtime_role')
@@ -399,7 +409,17 @@ insert into permission_grants (
    '11000000-0000-4000-8000-000000000001', 'USER',
    '21000000-0000-4000-8000-000000000001',
    'HOTEL_ROOM_READ', 'ALLOW', now(),
-   '21000000-0000-4000-8000-000000000001', 'Worker 객실 조회 smoke');
+   '21000000-0000-4000-8000-000000000001', 'Worker 객실 조회 smoke'),
+  ('91000000-0000-4000-8000-000000000015',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_FACILITY_READ', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 시설물 조회 smoke'),
+  ('91000000-0000-4000-8000-000000000016',
+   '11000000-0000-4000-8000-000000000001', 'USER',
+   '21000000-0000-4000-8000-000000000001',
+   'HOTEL_FACILITY_MANAGE', 'ALLOW', now(),
+   '21000000-0000-4000-8000-000000000001', 'Worker 시설물 관리 smoke');
 SQL
 
 pnpm --filter @werehere/api exec wrangler dev --config "$WORKER_CONFIG" --port "$PORT" \
@@ -570,6 +590,110 @@ if sys.argv[2] != "201" or room.get("roomNumber") != "WORKER-B01" or room.get("v
 (root / "room-id.txt").write_text(room["id"], encoding="utf-8")
 PY
 ROOM_ID="$(<"$TMP_DIR/room-id.txt")"
+
+FACILITY_AREA_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-area.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-facility-area-create-1' \
+  --data '{"name":"Worker 로비"}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/common-areas")"
+python - "$TMP_DIR" "$FACILITY_AREA_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "facility-area.json").read_text(encoding="utf-8"))
+resource = body.get("data", {}).get("resource", {})
+if sys.argv[2] != "201" or resource.get("name") != "Worker 로비" or resource.get("version") != 1:
+    raise SystemExit(f"Worker common area create mismatch: {sys.argv[2]}")
+(root / "facility-area-id.txt").write_text(resource["id"], encoding="utf-8")
+PY
+FACILITY_AREA_ID="$(<"$TMP_DIR/facility-area-id.txt")"
+
+FACILITY_TYPE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-type.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-facility-type-create-1' \
+  --data '{"name":"Worker 소방설비"}' \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/facility-types")"
+python - "$TMP_DIR" "$FACILITY_TYPE_STATUS" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "facility-type.json").read_text(encoding="utf-8"))
+resource = body.get("data", {}).get("resource", {})
+if sys.argv[2] != "201" or resource.get("name") != "Worker 소방설비":
+    raise SystemExit(f"Worker facility type create mismatch: {sys.argv[2]}")
+(root / "facility-type-id.txt").write_text(resource["id"], encoding="utf-8")
+PY
+FACILITY_TYPE_ID="$(<"$TMP_DIR/facility-type-id.txt")"
+FACILITY_CREATE_PAYLOAD="$(printf '{\"name\":\"Worker 객실 감지기\",\"facilityTypeId\":\"%s\",\"location\":{\"type\":\"ROOM\",\"roomId\":\"%s\"}}' "$FACILITY_TYPE_ID" "$ROOM_ID")"
+FACILITY_CREATE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-create.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-facility-create-1' \
+  --data "$FACILITY_CREATE_PAYLOAD" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/facilities")"
+python - "$TMP_DIR" "$FACILITY_CREATE_STATUS" "$ROOM_ID" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "facility-create.json").read_text(encoding="utf-8"))
+resource = body.get("data", {}).get("resource", {})
+location = resource.get("location", {})
+if sys.argv[2] != "201" or resource.get("name") != "Worker 객실 감지기" or location.get("type") != "ROOM" or location.get("roomId") != sys.argv[3]:
+    raise SystemExit(f"Worker facility create mismatch: {sys.argv[2]}")
+(root / "facility-id.txt").write_text(resource["id"], encoding="utf-8")
+PY
+FACILITY_ID="$(<"$TMP_DIR/facility-id.txt")"
+
+FACILITY_WORKSPACE_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-workspace.json" -w '%{http_code}' \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/facility-master-data?page=1&pageSize=20")"
+python - "$TMP_DIR" "$FACILITY_WORKSPACE_STATUS" "$FACILITY_AREA_ID" "$FACILITY_TYPE_ID" "$FACILITY_ID" <<'PY'
+import json
+from pathlib import Path
+import sys
+root = Path(sys.argv[1])
+body = json.loads((root / "facility-workspace.json").read_text(encoding="utf-8"))
+data = body.get("data", {})
+if sys.argv[2] != "200" or not data.get("capabilities", {}).get("canManage"):
+    raise SystemExit(f"Worker facility workspace mismatch: {sys.argv[2]}")
+if sys.argv[3] not in {item.get("id") for item in data.get("commonAreas", [])}:
+    raise SystemExit("Worker common area missing from workspace")
+if sys.argv[4] not in {item.get("id") for item in data.get("facilityTypes", [])}:
+    raise SystemExit("Worker facility type missing from workspace")
+if sys.argv[5] not in {item.get("id") for item in data.get("facilities", [])}:
+    raise SystemExit("Worker facility missing from workspace")
+PY
+
+FACILITY_MIXED_LOCATION_PAYLOAD="$(printf '{\"name\":\"Worker 혼합 위치\",\"facilityTypeId\":\"%s\",\"location\":{\"type\":\"ROOM\",\"roomId\":\"%s\",\"commonAreaId\":\"%s\"}}' "$FACILITY_TYPE_ID" "$ROOM_ID" "$FACILITY_AREA_ID")"
+FACILITY_MIXED_STATUS="$(curl --silent --show-error -o "$TMP_DIR/facility-mixed.json" -w '%{http_code}' -X POST \
+  -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: worker-facility-mixed-location-1' \
+  --data "$FACILITY_MIXED_LOCATION_PAYLOAD" \
+  "http://127.0.0.1:$PORT/api/hotels/$HOTEL_ID/facilities")"
+if [[ "$FACILITY_MIXED_STATUS" != "400" ]]; then
+  printf 'Worker mixed facility location was accepted: %s\n' "$FACILITY_MIXED_STATUS" >&2
+  exit 1
+fi
+FACILITY_STORED="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" \
+  -v facility_id="$FACILITY_ID" <<'SQL'
+select count(*)
+  from hotel_facilities
+ where id = :'facility_id'::uuid
+   and status = 'ACTIVE';
+SQL
+)"
+if [[ "$FACILITY_STORED" != "1" ]]; then
+  printf 'Worker facility was not persisted in PostgreSQL.\n' >&2
+  exit 1
+fi
+printf 'HOTEL_FACILITY_WORKER_API_INTEGRATION_OK\n'
+
 ROOM_REPLAY_STATUS="$(curl --silent --show-error -o "$TMP_DIR/room-replay.json" -w '%{http_code}' -X POST \
   -H "Cookie: __Host-hotel_session=$SESSION_TOKEN" \
   -H 'Content-Type: application/json' \

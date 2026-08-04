@@ -2,6 +2,16 @@ import {
   accountListQuerySchema,
   activateHotelRequestSchema,
   changeHotelRoomStatusRequestSchema,
+  changeHotelFacilityReferenceStatusRequestSchema,
+  createHotelCommonAreaRequestSchema,
+  createHotelFacilityRequestSchema,
+  createHotelFacilityTypeRequestSchema,
+  deleteHotelFacilityReferenceRequestSchema,
+  hotelFacilityListQuerySchema,
+  hotelFacilityMutationResponseSchema,
+  hotelFacilityWorkspaceResponseSchema,
+  updateHotelFacilityReferenceRequestSchema,
+  updateHotelFacilityRequestSchema,
   createAccountRequestSchema,
   createHotelAssignmentRequestSchema,
   createHotelRoomRequestSchema,
@@ -57,7 +67,12 @@ import {
   type AuthenticatedPrincipal,
   type HotelErrorCode,
 } from "@werehere/contracts";
-import { probeDatabaseReadiness, type DatabaseReadiness } from "@werehere/db";
+import {
+  probeDatabaseReadiness,
+  type DatabaseReadiness,
+  type FacilityEntity,
+  type FacilityMutationValue,
+} from "@werehere/db";
 import { Hono, type Context } from "hono";
 import { setCookie } from "hono/cookie";
 import { z } from "zod";
@@ -76,6 +91,11 @@ import {
   type AuthService,
   type PasswordResetAuthService,
 } from "./auth/service";
+import {
+  FacilityServiceError,
+  type FacilityService,
+} from "./facilities/service";
+import { createFacilityServiceFromBindings } from "./facilities/factory";
 import {
   createHotelServiceFromBindings,
   type HotelBindings,
@@ -119,6 +139,7 @@ type CreateAppOptions = {
   databaseUrl?: string;
   hotelService?: HotelService;
   hotelFileService?: HotelFileService;
+  facilityService?: FacilityService;
   inspectionService?: InspectionService;
   roomService?: RoomService;
   readinessProbe?: ReadinessProbe;
@@ -238,6 +259,12 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.hotelService ?? createHotelServiceFromBindings(bindings);
   }
 
+  function getFacilityService(bindings: Bindings | undefined) {
+    return (
+      options.facilityService ?? createFacilityServiceFromBindings(bindings)
+    );
+  }
+
   function getRoomService(bindings: Bindings | undefined) {
     return options.roomService ?? createRoomServiceFromBindings(bindings);
   }
@@ -287,6 +314,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.hotelService) await service.close?.();
+    }
+  }
+
+  async function withFacilityService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: FacilityService) => Promise<T>,
+  ): Promise<T> {
+    const service = getFacilityService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.facilityService) await service.close?.();
     }
   }
 
@@ -436,6 +475,7 @@ export function createApp(options: CreateAppOptions = {}) {
       error instanceof FileStorageError ||
       error instanceof HotelServiceError ||
       error instanceof InspectionServiceError ||
+      error instanceof FacilityServiceError ||
       error instanceof RoomServiceError
     ) {
       return context.json(
@@ -560,12 +600,22 @@ export function createApp(options: CreateAppOptions = {}) {
       | "FORBIDDEN"
       | "IDEMPOTENCY_CONFLICT"
       | "INVALID_STATE_TRANSITION"
+      | "LINKED_ACTIVE_FACILITIES"
+      | "LINKED_FACILITIES"
       | "NOT_FOUND"
+      | "REFERENCE_UNAVAILABLE"
+      | "VALIDATION_ERROR"
       | "REAUTHENTICATION_REQUIRED"
       | "RELATIONSHIP_CONFLICT"
       | "ROOM_TYPE_UNAVAILABLE"
       | "VERSION_CONFLICT",
-    duplicateField: "branchCode" | "name" | "roomNumber" = "name",
+    duplicateField:
+      | "branchCode"
+      | "commonAreaName"
+      | "facilityName"
+      | "facilityTypeName"
+      | "name"
+      | "roomNumber" = "name",
   ) {
     if (status === "DUPLICATE") {
       const message =
@@ -573,7 +623,13 @@ export function createApp(options: CreateAppOptions = {}) {
           ? "이미 사용 중인 호텔코드입니다."
           : duplicateField === "roomNumber"
             ? "같은 호텔에서 이미 사용 중인 객실번호입니다."
-            : "이미 사용 중인 호텔명입니다.";
+            : duplicateField === "commonAreaName"
+              ? "같은 호텔에서 이미 사용 중인 공용공간명입니다."
+              : duplicateField === "facilityTypeName"
+                ? "같은 호텔에서 이미 사용 중인 시설물유형명입니다."
+                : duplicateField === "facilityName"
+                  ? "같은 설치위치와 시설물유형에서 이미 사용 중인 시설물명입니다."
+                  : "이미 사용 중인 호텔명입니다.";
       return context.json(
         errorResponse("VALIDATION_ERROR", message, false, [
           { field: duplicateField, message },
@@ -612,6 +668,31 @@ export function createApp(options: CreateAppOptions = {}) {
         errorResponse(
           "INVALID_STATE_TRANSITION",
           "현재 상태와 같은 상태로 변경할 수 없습니다.",
+          false,
+        ),
+        409,
+      );
+    }
+    if (status === "REFERENCE_UNAVAILABLE" || status === "VALIDATION_ERROR") {
+      return context.json(
+        errorResponse(
+          "VALIDATION_ERROR",
+          "선택한 유형 또는 설치위치를 사용할 수 없습니다.",
+          false,
+        ),
+        409,
+      );
+    }
+    if (
+      status === "LINKED_ACTIVE_FACILITIES" ||
+      status === "LINKED_FACILITIES"
+    ) {
+      return context.json(
+        errorResponse(
+          "INVALID_STATE_TRANSITION",
+          status === "LINKED_ACTIVE_FACILITIES"
+            ? "활성 시설물이 연결되어 있어 사용중지하거나 삭제할 수 없습니다."
+            : "시설물이 연결되어 있어 시설물유형을 삭제할 수 없습니다.",
           false,
         ),
         409,
@@ -1609,6 +1690,281 @@ export function createApp(options: CreateAppOptions = {}) {
       return hotelFailure(context, error);
     }
   });
+
+  async function handleFacilityMutation(
+    context: Context<{ Bindings: Bindings }>,
+    entity: FacilityEntity,
+    action: "CREATE" | "UPDATE" | "STATUS" | "DELETE",
+    schema: z.ZodType,
+  ) {
+    context.header("Cache-Control", "no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const resourceId =
+        action === "CREATE"
+          ? null
+          : HOTEL_ID_SCHEMA.safeParse(context.req.param("resourceId"));
+      if (resourceId && !resourceId.success)
+        return mutationFailure(context, "NOT_FOUND");
+      const key = idempotencyKey(context);
+      if (!key)
+        return validationFailure(context, [
+          {
+            field: "idempotencyKey",
+            message: "Idempotency-Key 헤더가 필요합니다.",
+          },
+        ]);
+      const parsed = schema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!parsed.success)
+        return validationFailure(context, zodFieldErrors(parsed.error.issues));
+      const result = await withFacilityService(context.env, (service) =>
+        service.mutate(
+          roomMutationPrincipal(context, principal),
+          hotelId.data,
+          entity,
+          action,
+          resourceId ? resourceId.data : null,
+          parsed.data as FacilityMutationValue,
+          key,
+        ),
+      );
+      if (!("resource" in result))
+        return mutationFailure(
+          context,
+          result.status,
+          entity === "COMMON_AREA"
+            ? "commonAreaName"
+            : entity === "FACILITY_TYPE"
+              ? "facilityTypeName"
+              : "facilityName",
+        );
+      return context.json(
+        hotelFacilityMutationResponseSchema.parse({
+          ok: true,
+          data: { resource: result.resource },
+          error: null,
+        }),
+        action === "CREATE" && result.status === "CREATED" ? 201 : 200,
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  }
+
+  async function handleFacilityRead(
+    context: Context<{ Bindings: Bindings }>,
+    entity: FacilityEntity,
+  ) {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      const resourceId = HOTEL_ID_SCHEMA.safeParse(
+        context.req.param("resourceId"),
+      );
+      if (!hotelId.success || !resourceId.success)
+        return mutationFailure(context, "NOT_FOUND");
+      const result = await withFacilityService(context.env, (service) =>
+        service.getResource(principal, hotelId.data, entity, resourceId.data),
+      );
+      if (result.status !== "OK")
+        return mutationFailure(context, result.status);
+      return context.json(
+        hotelFacilityMutationResponseSchema.parse({
+          ok: true,
+          data: { resource: result.resource },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  }
+
+  hotelApp.get("/api/hotels/:hotelId/facility-master-data", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal)
+        return context.json(
+          errorResponse(
+            "AUTHENTICATION_REQUIRED",
+            "로그인이 필요합니다.",
+            false,
+          ),
+          401,
+        );
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const query = hotelFacilityListQuerySchema.safeParse(context.req.query());
+      if (!query.success)
+        return validationFailure(context, zodFieldErrors(query.error.issues));
+      const result = await withFacilityService(context.env, (service) =>
+        service.getWorkspace(principal, hotelId.data, query.data),
+      );
+      if (result.status !== "OK")
+        return mutationFailure(context, result.status);
+      return context.json(
+        hotelFacilityWorkspaceResponseSchema.parse({
+          ok: true,
+          data: {
+            capabilities: result.capabilities,
+            commonAreas: result.commonAreas,
+            facilityTypes: result.facilityTypes,
+            facilities: result.facilities,
+            roomLocations: result.roomLocations,
+            pagination: result.pagination,
+          },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/common-areas/:resourceId", (context) =>
+    handleFacilityRead(context, "COMMON_AREA"),
+  );
+  hotelApp.post("/api/hotels/:hotelId/common-areas", (context) =>
+    handleFacilityMutation(
+      context,
+      "COMMON_AREA",
+      "CREATE",
+      createHotelCommonAreaRequestSchema,
+    ),
+  );
+  hotelApp.patch("/api/hotels/:hotelId/common-areas/:resourceId", (context) =>
+    handleFacilityMutation(
+      context,
+      "COMMON_AREA",
+      "UPDATE",
+      updateHotelFacilityReferenceRequestSchema,
+    ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/common-areas/:resourceId/status",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "COMMON_AREA",
+        "STATUS",
+        changeHotelFacilityReferenceStatusRequestSchema,
+      ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/common-areas/:resourceId/delete",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "COMMON_AREA",
+        "DELETE",
+        deleteHotelFacilityReferenceRequestSchema,
+      ),
+  );
+  hotelApp.get("/api/hotels/:hotelId/facility-types/:resourceId", (context) =>
+    handleFacilityRead(context, "FACILITY_TYPE"),
+  );
+  hotelApp.post("/api/hotels/:hotelId/facility-types", (context) =>
+    handleFacilityMutation(
+      context,
+      "FACILITY_TYPE",
+      "CREATE",
+      createHotelFacilityTypeRequestSchema,
+    ),
+  );
+  hotelApp.patch("/api/hotels/:hotelId/facility-types/:resourceId", (context) =>
+    handleFacilityMutation(
+      context,
+      "FACILITY_TYPE",
+      "UPDATE",
+      updateHotelFacilityReferenceRequestSchema,
+    ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/facility-types/:resourceId/status",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "FACILITY_TYPE",
+        "STATUS",
+        changeHotelFacilityReferenceStatusRequestSchema,
+      ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/facility-types/:resourceId/delete",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "FACILITY_TYPE",
+        "DELETE",
+        deleteHotelFacilityReferenceRequestSchema,
+      ),
+  );
+  hotelApp.get("/api/hotels/:hotelId/facilities/:resourceId", (context) =>
+    handleFacilityRead(context, "FACILITY"),
+  );
+  hotelApp.post("/api/hotels/:hotelId/facilities", (context) =>
+    handleFacilityMutation(
+      context,
+      "FACILITY",
+      "CREATE",
+      createHotelFacilityRequestSchema,
+    ),
+  );
+  hotelApp.patch("/api/hotels/:hotelId/facilities/:resourceId", (context) =>
+    handleFacilityMutation(
+      context,
+      "FACILITY",
+      "UPDATE",
+      updateHotelFacilityRequestSchema,
+    ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/facilities/:resourceId/status",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "FACILITY",
+        "STATUS",
+        changeHotelFacilityReferenceStatusRequestSchema,
+      ),
+  );
+  hotelApp.post(
+    "/api/hotels/:hotelId/facilities/:resourceId/delete",
+    (context) =>
+      handleFacilityMutation(
+        context,
+        "FACILITY",
+        "DELETE",
+        deleteHotelFacilityReferenceRequestSchema,
+      ),
+  );
 
   hotelApp.get("/api/hotels/:hotelId/room-types", async (context) => {
     context.header("Cache-Control", "private, no-store");

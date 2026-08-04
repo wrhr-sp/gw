@@ -35,6 +35,15 @@ import {
   passwordPolicySchema,
   ownerTransferRequestSchema,
   changeHotelRoomStatusRequestSchema,
+  changeHotelFacilityReferenceStatusRequestSchema,
+  createHotelCommonAreaRequestSchema,
+  createHotelFacilityRequestSchema,
+  createHotelFacilityTypeRequestSchema,
+  deleteHotelFacilityReferenceRequestSchema,
+  hotelFacilityListQuerySchema,
+  hotelFacilityLocationSchema,
+  hotelFacilityReferenceStatusSchema,
+  hotelFacilityWorkspaceResponseSchema,
   createHotelRoomRequestSchema,
   createHotelRoomTypeRequestSchema,
   createInspectionChecklistRevisionRequestSchema,
@@ -71,6 +80,63 @@ import {
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("keeps facility master data typed, versioned, and lifecycle-safe", () => {
+    expect(hotelFacilityReferenceStatusSchema.options).toEqual([
+      "ACTIVE",
+      "INACTIVE",
+      "DELETED",
+    ]);
+    expect(
+      createHotelCommonAreaRequestSchema.parse({ name: "  로비  " }),
+    ).toEqual({ name: "로비" });
+    expect(
+      createHotelFacilityTypeRequestSchema.parse({ name: " 소방설비 " }),
+    ).toEqual({ name: "소방설비" });
+    const roomLocation = hotelFacilityLocationSchema.parse({
+      type: "ROOM",
+      roomId: "52000000-0000-4000-8000-000000000001",
+    });
+    expect(roomLocation).toEqual({
+      type: "ROOM",
+      roomId: "52000000-0000-4000-8000-000000000001",
+    });
+    expect(
+      hotelFacilityLocationSchema.safeParse({
+        type: "ROOM",
+        roomId: "52000000-0000-4000-8000-000000000001",
+        commonAreaId: "54000000-0000-4000-8000-000000000001",
+      }).success,
+    ).toBe(false);
+    expect(
+      createHotelFacilityRequestSchema.parse({
+        name: "  소화기  ",
+        facilityTypeId: "53000000-0000-4000-8000-000000000001",
+        location: roomLocation,
+      }),
+    ).toMatchObject({ name: "소화기", location: roomLocation });
+    expect(
+      changeHotelFacilityReferenceStatusRequestSchema.safeParse({
+        status: "DELETED",
+        reason: "삭제",
+        version: 1,
+      }).success,
+    ).toBe(false);
+    expect(
+      deleteHotelFacilityReferenceRequestSchema.parse({
+        reason: "더 이상 사용하지 않음",
+        version: 1,
+      }),
+    ).toMatchObject({ version: 1 });
+    expect(hotelFacilityListQuerySchema.parse({})).toEqual({
+      page: 1,
+      pageSize: 20,
+    });
+    expect(
+      hotelFacilityWorkspaceResponseSchema.safeParse({ ok: true, data: {}, error: null })
+        .success,
+    ).toBe(false);
+  });
+
   it("keeps room inputs strict, versioned, and reasoned", () => {
     expect(hotelRoomStatusSchema.parse("ACTIVE")).toBe("ACTIVE");
     expect(hotelRoomStatusSchema.parse("INACTIVE")).toBe("INACTIVE");

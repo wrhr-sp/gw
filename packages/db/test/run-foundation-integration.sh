@@ -558,6 +558,7 @@ assert_room_constraints_exact() {
       dependent_specifications=(
         "hotel_room_status_history:hotel_room_status_history_room_hotel_fkey"
         "inspection_item_snapshots:inspection_item_snapshots_company_id_branch_id_room_id_fkey"
+        "hotel_facilities:hotel_facilities_room_fkey"
       )
     fi
     definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
@@ -1068,6 +1069,7 @@ HOTEL_INSPECTION_EVIDENCE_MIGRATION="$ROOT_DIR/packages/db/migrations/0032_hotel
 HOTEL_FILE_UPLOAD_SCOPE_MIGRATION="$ROOT_DIR/packages/db/migrations/0033_hotel_file_upload_scope.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION="$ROOT_DIR/packages/db/migrations/0034_hotel_inspection_evidence_submission.sql"
 HOTEL_INSPECTION_REVIEW_MIGRATION="$ROOT_DIR/packages/db/migrations/0035_hotel_inspection_review_and_file_view.sql"
+HOTEL_FACILITY_MASTER_DATA_MIGRATION="$ROOT_DIR/packages/db/migrations/0036_hotel_facility_master_data.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1222,6 +1224,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FACILITY_MASTER_DATA_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1265,6 +1271,7 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FILE_UPLOAD_SCOPE_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_REVIEW_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_FACILITY_MASTER_DATA_MIGRATION" >/dev/null
   assert_exact_contract_isolated "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
   assert_legacy_auth_removed "$TEST_DATABASE_URL"
@@ -1321,6 +1328,8 @@ NODE
       pnpm exec tsx packages/db/test/hotel-repository-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx packages/db/test/hotel-room-integration.ts
+    TEST_READY_URL="$TEST_DATABASE_URL" \
+      pnpm exec tsx packages/db/test/hotel-facility-master-data-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" \
       pnpm exec tsx apps/api/test/hotel-room-api-integration.ts
     TEST_READY_URL="$TEST_DATABASE_URL" \
@@ -1499,6 +1508,8 @@ psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_t
   -f "$HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$HOTEL_INSPECTION_REVIEW_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+  -f "$HOTEL_FACILITY_MASTER_DATA_MIGRATION" >/dev/null
 assert_exact_contract_isolated "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test"
 psql -X -v ON_ERROR_STOP=1 "postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
   -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null
@@ -1545,6 +1556,8 @@ NODE
     pnpm exec tsx packages/db/test/hotel-repository-integration.ts
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx packages/db/test/hotel-room-integration.ts
+  TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
+    pnpm exec tsx packages/db/test/hotel-facility-master-data-integration.ts
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
     pnpm exec tsx apps/api/test/hotel-room-api-integration.ts
   TEST_READY_URL="postgres://postgres@127.0.0.1:$PORT/werehere_hotel_test" \
