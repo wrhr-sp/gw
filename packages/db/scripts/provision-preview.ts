@@ -1572,6 +1572,17 @@ try {
   if (!facilityMasterDataState) {
     fail("Preview facility master-data marker state is unavailable");
   }
+  const [inspectionTargetChecklistState] = await owner<
+    { contracted: boolean }[]
+  >`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0038_hotel_inspection_checklist_targets'
+    ) as contracted
+  `;
+  if (!inspectionTargetChecklistState) {
+    fail("Preview inspection checklist target marker state is unavailable");
+  }
 
   if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
@@ -2113,10 +2124,14 @@ try {
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};
-    grant execute on function public.hotel_inspection_checklist_v2_command(
+    ${
+      inspectionTargetChecklistState.contracted
+        ? `grant execute on function public.hotel_inspection_checklist_v2_command(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
-    ) to ${apiRuntimeRole};
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
     grant execute on function public.hotel_file_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
