@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { HotelDetailView } from "../../../components/hotels/hotel-detail-view";
+import { fetchFacilityInitialData } from "../../../lib/server-facilities";
 import { fetchHotelDetail } from "../../../lib/server-hotels";
 import { fetchRoomInitialData } from "../../../lib/server-rooms";
 
@@ -11,14 +12,17 @@ export default async function HotelDetailPage({
   params: Promise<{ hotelId: string }>;
 }) {
   const { hotelId } = await params;
-  const [result, rooms] = await Promise.all([
+  const [result, rooms, facilities] = await Promise.all([
     fetchHotelDetail(hotelId),
     fetchRoomInitialData(hotelId),
+    fetchFacilityInitialData(hotelId),
   ]);
   if (!result.ok && result.error.status === 404) notFound();
 
   return (
     <HotelDetailView
+      facilityInitialData={facilities.ok ? facilities.data : undefined}
+      facilityInitialFailure={facilities.ok ? undefined : facilities.error}
       result={result}
       retryHref={`/hotels/${hotelId}`}
       roomInitialData={rooms.ok ? rooms.data : undefined}

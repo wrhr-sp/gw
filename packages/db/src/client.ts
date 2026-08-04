@@ -10,6 +10,18 @@ const HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256 =
   "21f348f7571c10c82d93696d6cbef2d897b8a2f8fb8f794c60ae05d32246a87e";
 const HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256 =
   "e89b59f47f3b7901ee89f66d33ca0545e5df96719508c0eb26d216abc9bacd50";
+const HOTEL_FACILITY_REFERENCE_COMMAND_V1_PROSRC_SHA256 =
+  "22ce0d9b30572ceb078761496e29456debe42ef3d3a9e4833f5680f734fede32";
+const HOTEL_FACILITY_COLUMN_SHAPE_SHA256 =
+  "e5375441b28b0d1a1e9ab2bf10eec927216bd46ed1e4fc8e1b3ae173a29c9104";
+const ENFORCE_HOTEL_FACILITY_REFERENCE_LIFECYCLE_PROSRC_SHA256 =
+  "6d2693e1d1069891b187ee751c49587dac911ffc856ec3d57e80713b7bba9843";
+const ENFORCE_HOTEL_ROOM_FACILITY_LOCATION_LIFECYCLE_PROSRC_SHA256 =
+  "8172a722fc47f8105efd0e3ab8f8dc9a49b1d94fc196239cfdde3697b66fc024";
+const REJECT_HOTEL_FACILITY_REFERENCE_DELETE_PROSRC_SHA256 =
+  "5146f6c0f034c27f9a7958ca8f9b1635342427f0a3f918356fa5a84ce0529b12";
+const REJECT_HOTEL_FACILITY_HISTORY_CHANGE_PROSRC_SHA256 =
+  "0f13b723903ecccbf5926338a5abded7c459e5efde41238120a60229e29d3e3e";
 const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
   "2df7d2a8c90a059efdf7eaa66ecd8d5f5a5144115ad46385ed8b3c18c41678e5";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
@@ -540,6 +552,132 @@ const REQUIRED_FOREIGN_KEY_CONSTRAINTS = [
   },
 ] as const;
 
+const HOTEL_FACILITY_REQUIRED_FOREIGN_KEY_CONSTRAINTS = [
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_company_branch_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_created_by_fkey",
+    definition:
+      "foreign key (company_id, created_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_updated_by_fkey",
+    definition:
+      "foreign key (company_id, updated_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_company_branch_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_created_by_fkey",
+    definition:
+      "foreign key (company_id, created_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_updated_by_fkey",
+    definition:
+      "foreign key (company_id, updated_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_company_id_fkey",
+    definition: "foreign key (company_id) references companies(id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_company_branch_fkey",
+    definition:
+      "foreign key (company_id, branch_id) references branches(company_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_type_fkey",
+    definition:
+      "foreign key (company_id, branch_id, facility_type_id) references hotel_facility_types(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_room_fkey",
+    definition:
+      "foreign key (company_id, branch_id, room_id) references hotel_rooms(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_common_area_fkey",
+    definition:
+      "foreign key (company_id, branch_id, common_area_id) references hotel_common_areas(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_created_by_fkey",
+    definition:
+      "foreign key (company_id, created_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_updated_by_fkey",
+    definition:
+      "foreign key (company_id, updated_by) references users(company_id, id)",
+  },
+  {
+    table: "hotel_common_area_history",
+    name: "hotel_common_area_history_parent_fkey",
+    definition:
+      "foreign key (company_id, branch_id, common_area_id) references hotel_common_areas(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_common_area_history",
+    name: "hotel_common_area_history_actor_fkey",
+    definition:
+      "foreign key (company_id, actor_user_id) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facility_type_history",
+    name: "hotel_facility_type_history_parent_fkey",
+    definition:
+      "foreign key (company_id, branch_id, facility_type_id) references hotel_facility_types(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_facility_type_history",
+    name: "hotel_facility_type_history_actor_fkey",
+    definition:
+      "foreign key (company_id, actor_user_id) references users(company_id, id)",
+  },
+  {
+    table: "hotel_facility_history",
+    name: "hotel_facility_history_parent_fkey",
+    definition:
+      "foreign key (company_id, branch_id, facility_id) references hotel_facilities(company_id, branch_id, id)",
+  },
+  {
+    table: "hotel_facility_history",
+    name: "hotel_facility_history_actor_fkey",
+    definition:
+      "foreign key (company_id, actor_user_id) references users(company_id, id)",
+  },
+] as const;
+
 const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
   {
     table: "login_id_registry",
@@ -559,6 +697,39 @@ const REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
   {
     table: "hotel_room_status_history",
     name: "hotel_room_status_history_pkey",
+    definition: "primary key (id)",
+  },
+] as const;
+
+const HOTEL_FACILITY_REQUIRED_PRIMARY_KEY_CONSTRAINTS = [
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_common_area_history",
+    name: "hotel_common_area_history_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_facility_type_history",
+    name: "hotel_facility_type_history_pkey",
+    definition: "primary key (id)",
+  },
+  {
+    table: "hotel_facility_history",
+    name: "hotel_facility_history_pkey",
     definition: "primary key (id)",
   },
 ] as const;
@@ -638,6 +809,34 @@ const REQUIRED_UNIQUE_CONSTRAINTS = [
     definition: "unique (company_id, branch_id, id)",
     name: "hotel_rooms_company_branch_id_key",
     table: "hotel_rooms",
+  },
+] as const;
+
+const HOTEL_FACILITY_REQUIRED_UNIQUE_CONSTRAINTS = [
+  {
+    definition: "unique (company_id, branch_id, id)",
+    name: "hotel_common_areas_company_id_branch_id_id_key",
+    table: "hotel_common_areas",
+  },
+  {
+    definition: "unique (company_id, branch_id, normalized_name)",
+    name: "hotel_common_areas_company_id_branch_id_normalized_name_key",
+    table: "hotel_common_areas",
+  },
+  {
+    definition: "unique (company_id, branch_id, id)",
+    name: "hotel_facility_types_company_id_branch_id_id_key",
+    table: "hotel_facility_types",
+  },
+  {
+    definition: "unique (company_id, branch_id, normalized_name)",
+    name: "hotel_facility_types_company_id_branch_id_normalized_name_key",
+    table: "hotel_facility_types",
+  },
+  {
+    definition: "unique (company_id, branch_id, id)",
+    name: "hotel_facilities_company_id_branch_id_id_key",
+    table: "hotel_facilities",
   },
 ] as const;
 
@@ -936,6 +1135,90 @@ const REQUIRED_SECURITY_CHECK_CONSTRAINTS = [
   },
 ] as const;
 
+const HOTEL_FACILITY_REQUIRED_CHECK_CONSTRAINTS = [
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_name_check",
+    definition:
+      "check (((btrim(name) <> ''::text) and (char_length(btrim(name)) <= 100)))",
+  },
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_status_check",
+    definition:
+      "check ((status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text])))",
+  },
+  {
+    table: "hotel_common_areas",
+    name: "hotel_common_areas_version_check",
+    definition: "check ((version > 0))",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_name_check",
+    definition:
+      "check (((btrim(name) <> ''::text) and (char_length(btrim(name)) <= 100)))",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_status_check",
+    definition:
+      "check ((status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text])))",
+  },
+  {
+    table: "hotel_facility_types",
+    name: "hotel_facility_types_version_check",
+    definition: "check ((version > 0))",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_name_check",
+    definition:
+      "check (((btrim(name) <> ''::text) and (char_length(btrim(name)) <= 100)))",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_location_type_check",
+    definition:
+      "check ((location_type = any (array['ROOM'::text, 'COMMON_AREA'::text])))",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_status_check",
+    definition:
+      "check ((status = any (array['ACTIVE'::text, 'INACTIVE'::text, 'DELETED'::text])))",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_version_check",
+    definition: "check ((version > 0))",
+  },
+  {
+    table: "hotel_facilities",
+    name: "hotel_facilities_location_exactly_one_check",
+    definition:
+      "check ((((location_type = 'ROOM'::text) and (room_id is not null) and (common_area_id is null)) or ((location_type = 'COMMON_AREA'::text) and (room_id is null) and (common_area_id is not null))))",
+  },
+  {
+    table: "hotel_common_area_history",
+    name: "hotel_common_area_history_reason_check",
+    definition:
+      "check (((char_length(btrim(reason)) >= 2) and (char_length(btrim(reason)) <= 500)))",
+  },
+  {
+    table: "hotel_facility_type_history",
+    name: "hotel_facility_type_history_reason_check",
+    definition:
+      "check (((char_length(btrim(reason)) >= 2) and (char_length(btrim(reason)) <= 500)))",
+  },
+  {
+    table: "hotel_facility_history",
+    name: "hotel_facility_history_reason_check",
+    definition:
+      "check (((char_length(btrim(reason)) >= 2) and (char_length(btrim(reason)) <= 500)))",
+  },
+] as const;
+
 const ROOM_LIFECYCLE_CHECK_CONSTRAINT_NAMES = new Set([
   "hotel_rooms_status_check",
   "hotel_rooms_room_number_canonical_check",
@@ -992,6 +1275,19 @@ const INSPECTION_EVIDENCE_TRIGGER_NAMES = new Set([
   "hotel_file_links_parent_guard",
   "hotel_file_links_terminal_insert_guard",
 ]);
+
+const HOTEL_FACILITY_REQUIRED_INDEXES = [
+  {
+    name: "hotel_facilities_room_name_key",
+    definition:
+      "create unique index hotel_facilities_room_name_key on public.hotel_facilities using btree (company_id, branch_id, facility_type_id, room_id, normalized_name) where (location_type = 'ROOM'::text)",
+  },
+  {
+    name: "hotel_facilities_common_area_name_key",
+    definition:
+      "create unique index hotel_facilities_common_area_name_key on public.hotel_facilities using btree (company_id, branch_id, facility_type_id, common_area_id, normalized_name) where (location_type = 'COMMON_AREA'::text)",
+  },
+] as const;
 
 const REQUIRED_INDEXES = [
   {
@@ -1275,6 +1571,59 @@ const EXPECTED_API_RUNTIME_CONTRACT_COLUMN_PRIVILEGES = [
   ),
 ] as const;
 
+const HOTEL_FACILITY_REQUIRED_TRIGGERS = [
+  {
+    name: "hotel_rooms_facility_location_guard",
+    table: "hotel_rooms",
+    functionName: "enforce_hotel_room_facility_location_lifecycle",
+  },
+  {
+    name: "hotel_common_areas_no_delete",
+    table: "hotel_common_areas",
+    functionName: "reject_hotel_facility_reference_delete",
+  },
+  {
+    name: "hotel_facility_types_no_delete",
+    table: "hotel_facility_types",
+    functionName: "reject_hotel_facility_reference_delete",
+  },
+  {
+    name: "hotel_facilities_no_delete",
+    table: "hotel_facilities",
+    functionName: "reject_hotel_facility_reference_delete",
+  },
+  {
+    name: "hotel_common_areas_lifecycle",
+    table: "hotel_common_areas",
+    functionName: "enforce_hotel_facility_reference_lifecycle",
+  },
+  {
+    name: "hotel_facility_types_lifecycle",
+    table: "hotel_facility_types",
+    functionName: "enforce_hotel_facility_reference_lifecycle",
+  },
+  {
+    name: "hotel_facilities_lifecycle",
+    table: "hotel_facilities",
+    functionName: "enforce_hotel_facility_reference_lifecycle",
+  },
+  {
+    name: "hotel_common_area_history_immutable",
+    table: "hotel_common_area_history",
+    functionName: "reject_hotel_facility_history_change",
+  },
+  {
+    name: "hotel_facility_type_history_immutable",
+    table: "hotel_facility_type_history",
+    functionName: "reject_hotel_facility_history_change",
+  },
+  {
+    name: "hotel_facility_history_immutable",
+    table: "hotel_facility_history",
+    functionName: "reject_hotel_facility_history_change",
+  },
+] as const;
+
 const REQUIRED_TRIGGERS = [
   {
     name: "login_id_registry_immutable",
@@ -1455,7 +1804,40 @@ const REQUIRED_RLS_POLICIES = [
     policy: "hotel_file_access_grants_company_isolation",
     table: "hotel_file_access_grants",
   },
+  {
+    policy: "hotel_common_areas_company_isolation",
+    table: "hotel_common_areas",
+  },
+  {
+    policy: "hotel_facility_types_company_isolation",
+    table: "hotel_facility_types",
+  },
+  {
+    policy: "hotel_facilities_company_isolation",
+    table: "hotel_facilities",
+  },
+  {
+    policy: "hotel_common_area_history_company_isolation",
+    table: "hotel_common_area_history",
+  },
+  {
+    policy: "hotel_facility_type_history_company_isolation",
+    table: "hotel_facility_type_history",
+  },
+  {
+    policy: "hotel_facility_history_company_isolation",
+    table: "hotel_facility_history",
+  },
 ] as const;
+
+const HOTEL_FACILITY_RLS_TABLES = new Set<string>([
+  "hotel_common_areas",
+  "hotel_facility_types",
+  "hotel_facilities",
+  "hotel_common_area_history",
+  "hotel_facility_type_history",
+  "hotel_facility_history",
+]);
 
 function normalizePolicyDefinition(value: string) {
   const sqlLiterals: string[] = [];
@@ -1525,6 +1907,7 @@ export async function probeDatabaseReadiness(
     requiredRoomSchemaPhase?: "CONTRACT" | "EXPAND";
     requiredLoginIdHistoryPhase?: "CONTRACT" | "EXPAND";
     requiredInspectionProcessPhase?: "CONTRACT" | "EXPAND";
+    requiredFacilityMasterDataPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
     onSchemaNotReady?: (checkpoint: string) => unknown;
   } = { capability: "RECONCILER" },
@@ -1616,6 +1999,7 @@ export async function probeDatabaseReadiness(
         hotel_file_upload_scope_marker_count: number;
         hotel_inspection_evidence_submission_marker_count: number;
         hotel_inspection_review_marker_count: number;
+        hotel_facility_master_data_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -1692,7 +2076,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_evidence_submission_marker_count,
              count(*) filter (
                where version = '0035_hotel_inspection_review_and_file_view'
-             )::integer as hotel_inspection_review_marker_count
+             )::integer as hotel_inspection_review_marker_count,
+             count(*) filter (
+               where version = '0036_hotel_facility_master_data'
+             )::integer as hotel_facility_master_data_marker_count
       from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -1726,7 +2113,8 @@ export async function probeDatabaseReadiness(
         '0032_hotel_inspection_evidence_processing',
         '0033_hotel_file_upload_scope',
         '0034_hotel_inspection_evidence_submission',
-        '0035_hotel_inspection_review_and_file_view'
+        '0035_hotel_inspection_review_and_file_view',
+        '0036_hotel_facility_master_data'
       )
     `;
     const schemaPhase =
@@ -1769,7 +2157,8 @@ export async function probeDatabaseReadiness(
       migrationRows[0].hotel_inspection_execution_marker_count === 1 &&
       migrationRows[0].hotel_inspection_evidence_marker_count === 1 &&
       migrationRows[0].hotel_file_upload_scope_marker_count === 1 &&
-      migrationRows[0].hotel_inspection_evidence_submission_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_evidence_submission_marker_count ===
+        1 &&
       migrationRows[0].hotel_inspection_review_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_inspection_process_marker_count === 0 &&
@@ -1779,18 +2168,120 @@ export async function probeDatabaseReadiness(
               0 &&
             migrationRows[0].hotel_inspection_routine_marker_count === 0 &&
             migrationRows[0].hotel_inspection_execution_marker_count === 0 &&
-            migrationRows[0].hotel_inspection_evidence_marker_count === 0
-            && migrationRows[0].hotel_file_upload_scope_marker_count === 0
-            && migrationRows[0].hotel_inspection_evidence_submission_marker_count === 0
-            && migrationRows[0].hotel_inspection_review_marker_count === 0
+            migrationRows[0].hotel_inspection_evidence_marker_count === 0 &&
+            migrationRows[0].hotel_file_upload_scope_marker_count === 0 &&
+            migrationRows[0]
+              .hotel_inspection_evidence_submission_marker_count === 0 &&
+            migrationRows[0].hotel_inspection_review_marker_count === 0
           ? "EXPAND"
           : null;
+    const facilityMasterDataPhase =
+      migrationRows[0]?.hotel_facility_master_data_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_facility_master_data_marker_count === 0
+          ? "EXPAND"
+          : null;
+    const facilityTableNames = [
+      "hotel_common_areas",
+      "hotel_facility_types",
+      "hotel_facilities",
+      "hotel_common_area_history",
+      "hotel_facility_type_history",
+      "hotel_facility_history",
+    ] as const;
+    if (facilityMasterDataPhase === "EXPAND") {
+      const [prematureFunctions] = await sql<{ count: number }[]>`
+        select count(*)::integer as count
+          from pg_proc procedure_record
+          join pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+         where procedure_namespace.nspname = 'public'
+           and procedure_record.proname in (
+             'reject_hotel_facility_reference_delete',
+             'reject_hotel_facility_history_change',
+             'enforce_hotel_facility_reference_lifecycle',
+             'enforce_hotel_room_facility_location_lifecycle',
+             'hotel_facility_reference_command_v1'
+           )
+      `;
+      if (
+        facilityTableNames.some((table) => tables.has(table)) ||
+        prematureFunctions?.count !== 0
+      ) {
+        return schemaNotReady();
+      }
+    }
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const facilityColumnShape = await sql<
+        {
+          column_name: string;
+          data_type: string;
+          default_expression: string;
+          generated: string;
+          identity: string;
+          not_null: boolean;
+          ordinal_position: number;
+          table_name: string;
+        }[]
+      >`
+        select table_record.relname::text as table_name,
+               column_record.attnum::integer as ordinal_position,
+               column_record.attname::text as column_name,
+               format_type(column_record.atttypid,column_record.atttypmod)::text as data_type,
+               column_record.attnotnull as not_null,
+               coalesce(pg_get_expr(default_record.adbin,default_record.adrelid),'')::text as default_expression,
+               column_record.attgenerated::text as generated,
+               column_record.attidentity::text as identity
+          from pg_attribute column_record
+          join pg_class table_record on table_record.oid=column_record.attrelid
+          join pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+          left join pg_attrdef default_record
+            on default_record.adrelid=column_record.attrelid
+           and default_record.adnum=column_record.attnum
+         where table_namespace.nspname='public'
+           and table_record.relname in (
+             'hotel_common_areas','hotel_facility_types','hotel_facilities',
+             'hotel_common_area_history','hotel_facility_type_history','hotel_facility_history'
+           )
+           and column_record.attnum>0
+           and not column_record.attisdropped
+         order by table_record.relname,column_record.attnum
+      `;
+      if (
+        (await sourceSha256(JSON.stringify(facilityColumnShape))) !==
+        HOTEL_FACILITY_COLUMN_SHAPE_SHA256
+      ) {
+        return schemaNotReady();
+      }
+    }
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
       !roomPolicyPhase ||
       !loginIdHistoryPhase ||
       !inspectionProcessPhase ||
+      !facilityMasterDataPhase ||
+      (options.requiredFacilityMasterDataPhase !== undefined &&
+        facilityMasterDataPhase !== options.requiredFacilityMasterDataPhase) ||
+      (facilityMasterDataPhase === "CONTRACT" &&
+        [
+          "hotel_common_areas",
+          "hotel_facility_types",
+          "hotel_facilities",
+          "hotel_common_area_history",
+          "hotel_facility_type_history",
+          "hotel_facility_history",
+        ].some((table) => !tables.has(table))) ||
+      (facilityMasterDataPhase === "CONTRACT" &&
+        [
+          "hotel_common_areas.normalized_name",
+          "hotel_facility_types.normalized_name",
+          "hotel_facilities.facility_type_id",
+          "hotel_facilities.location_type",
+          "hotel_facilities.room_id",
+          "hotel_facilities.common_area_id",
+          "hotel_facilities.version",
+        ].some((column) => !columns.has(column))) ||
       (inspectionProcessPhase === "CONTRACT" &&
         !columns.has("inspection_routine_revisions.checklist_revision_id")) ||
       (inspectionProcessPhase === "EXPAND" &&
@@ -2553,14 +3044,260 @@ export async function probeDatabaseReadiness(
         'HOTEL_ROOM_TYPE_MANAGE', 'PROCESS_DEFINITION_MANAGE',
         'HOTEL_INSPECTION_CONFIG', 'HOTEL_INSPECTION_RUN',
         'HOTEL_INSPECTION_REVIEW', 'HOTEL_FILE_UPLOAD',
-        'HOTEL_FILE_READ', 'HOTEL_FILE_DOWNLOAD'
+        'HOTEL_FILE_READ', 'HOTEL_FILE_DOWNLOAD',
+        'HOTEL_FACILITY_READ', 'HOTEL_FACILITY_MANAGE'
       )
     `;
     if (
       hotelPermissionCatalog?.count !==
-      (inspectionProcessPhase === "CONTRACT" ? 14 : 7)
+      (inspectionProcessPhase === "CONTRACT" ? 14 : 7) +
+        (facilityMasterDataPhase === "CONTRACT" ? 2 : 0)
     )
       return schemaNotReady();
+
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const [facilitySecurity] = await sql<
+        {
+          command_executable: boolean;
+          command_execute_acl_safe: boolean;
+          command_grantable_execute_count: number;
+          command_metadata_safe: boolean;
+          command_name_unique: boolean;
+          command_owner_safe: boolean;
+          command_public_execute: boolean;
+          command_return_signature_safe: boolean;
+          command_source: string;
+          direct_column_mutation_acl_count: number;
+          direct_mutation_acl_count: number;
+          force_rls_count: number;
+          owner_safe_count: number;
+          role_table_acl_safe: boolean;
+          rls_count: number;
+          table_count: number;
+        }[]
+      >`
+        with facility_tables(table_name) as (
+          values
+            ('hotel_common_areas'), ('hotel_facility_types'),
+            ('hotel_facilities'), ('hotel_common_area_history'),
+            ('hotel_facility_type_history'), ('hotel_facility_history')
+        ), table_security as (
+          select count(*)::integer as table_count,
+                 count(*) filter (where table_record.relrowsecurity)::integer as rls_count,
+                 count(*) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
+                 count(*) filter (
+                   where table_record.relowner = migration_table.relowner
+                 )::integer as owner_safe_count,
+                 bool_and(
+                   case when ${options.capability} = 'API_RUNTIME'
+                     then has_table_privilege(
+                       current_user,
+                       format('public.%I', facility_table.table_name),
+                       'SELECT'
+                     )
+                     else not has_table_privilege(
+                       current_user,
+                       format('public.%I', facility_table.table_name),
+                       'SELECT'
+                     )
+                   end
+                   and not has_table_privilege(
+                     current_user,
+                     format('public.%I', facility_table.table_name),
+                     'INSERT'
+                   )
+                   and not has_table_privilege(
+                     current_user,
+                     format('public.%I', facility_table.table_name),
+                     'UPDATE'
+                   )
+                   and not has_table_privilege(
+                     current_user,
+                     format('public.%I', facility_table.table_name),
+                     'DELETE'
+                   )
+                 ) as role_table_acl_safe
+            from facility_tables facility_table
+            join pg_class table_record
+              on table_record.relname = facility_table.table_name
+            join pg_namespace table_namespace
+              on table_namespace.oid = table_record.relnamespace
+             and table_namespace.nspname = 'public'
+            join pg_class migration_table
+              on migration_table.relname = 'schema_migrations'
+            join pg_namespace migration_namespace
+              on migration_namespace.oid = migration_table.relnamespace
+             and migration_namespace.nspname = 'public'
+           group by migration_table.relowner
+        ), mutation_acl as (
+          select count(*)::integer as direct_mutation_acl_count
+            from pg_class protected_table
+            join pg_namespace protected_namespace
+              on protected_namespace.oid = protected_table.relnamespace
+            cross join lateral aclexplode(coalesce(
+              protected_table.relacl,
+              acldefault('r', protected_table.relowner)
+            )) acl
+           where protected_namespace.nspname = 'public'
+             and protected_table.relname in (
+               select table_name from facility_tables
+             )
+             and acl.grantee <> protected_table.relowner
+             and acl.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
+        ), column_mutation_acl as (
+          select count(*)::integer as direct_column_mutation_acl_count
+            from pg_class protected_table
+            join pg_namespace protected_namespace
+              on protected_namespace.oid = protected_table.relnamespace
+            join pg_attribute protected_column
+              on protected_column.attrelid = protected_table.oid
+             and protected_column.attnum > 0
+             and not protected_column.attisdropped
+            cross join lateral aclexplode(protected_column.attacl) acl
+           where protected_namespace.nspname = 'public'
+             and protected_table.relname in (
+               select table_name from facility_tables
+             )
+             and acl.grantee <> protected_table.relowner
+             and acl.privilege_type in ('INSERT', 'UPDATE', 'REFERENCES')
+        ), command_security as (
+          select has_function_privilege(
+                   current_user, procedure_record.oid, 'EXECUTE'
+                 ) as command_executable,
+                 procedure_record.prosrc as command_source,
+                 pg_get_function_result(procedure_record.oid) =
+                   'TABLE(command_status text, result_snapshot jsonb)'
+                   as command_return_signature_safe,
+                 procedure_record.prosecdef
+                   and procedure_language.lanname = 'plpgsql'
+                   and procedure_record.provolatile = 'v'
+                   and procedure_record.proparallel = 'u'
+                   and not procedure_record.proleakproof
+                   and procedure_record.proconfig =
+                     array['search_path=pg_catalog']::text[]
+                   and pg_get_function_identity_arguments(
+                     procedure_record.oid
+                   ) =
+                     'p_company_id uuid, p_branch_id uuid, p_entity text, p_action text, p_resource_id uuid, p_expected_version integer, p_value jsonb, p_reason text, p_history_id uuid, p_audit_event_id uuid, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_session_token text, p_trace_id uuid'
+                   as command_metadata_safe,
+                 procedure_record.proowner = migration_table.relowner
+                   as command_owner_safe,
+                 (
+                   select count(*) = 1
+                     from pg_proc named_procedure
+                     join pg_namespace named_namespace
+                       on named_namespace.oid = named_procedure.pronamespace
+                    where named_namespace.nspname = 'public'
+                      and named_procedure.proname =
+                        'hotel_facility_reference_command_v1'
+                 ) as command_name_unique,
+                 (
+                   not exists (
+                     select 1
+                       from aclexplode(coalesce(
+                         procedure_record.proacl,
+                         acldefault('f', procedure_record.proowner)
+                       )) actual_acl
+                      where actual_acl.privilege_type = 'EXECUTE'
+                        and actual_acl.grantee <> procedure_record.proowner
+                        and (
+                          actual_acl.is_grantable
+                          or not exists (
+                            select 1
+                              from runtime_database_capabilities capability_record
+                              join pg_roles capability_role
+                                on capability_role.rolname = capability_record.role_name
+                             where capability_record.capability = 'API_RUNTIME'
+                               and capability_role.oid = actual_acl.grantee
+                               and capability_role.oid <> procedure_record.proowner
+                          )
+                        )
+                   )
+                   and not exists (
+                     select 1
+                       from runtime_database_capabilities capability_record
+                       join pg_roles capability_role
+                         on capability_role.rolname = capability_record.role_name
+                      where capability_record.capability = 'API_RUNTIME'
+                        and capability_role.oid <> procedure_record.proowner
+                        and not exists (
+                          select 1
+                            from aclexplode(coalesce(
+                              procedure_record.proacl,
+                              acldefault('f', procedure_record.proowner)
+                            )) actual_acl
+                           where actual_acl.privilege_type = 'EXECUTE'
+                             and actual_acl.grantee = capability_role.oid
+                             and not actual_acl.is_grantable
+                        )
+                   )
+                 ) as command_execute_acl_safe,
+                 exists (
+                   select 1
+                     from aclexplode(coalesce(
+                       procedure_record.proacl,
+                       acldefault('f', procedure_record.proowner)
+                     )) acl
+                    where acl.privilege_type = 'EXECUTE'
+                      and acl.grantee = 0::oid
+                 ) as command_public_execute,
+                 (
+                   select count(*)::integer
+                     from aclexplode(coalesce(
+                       procedure_record.proacl,
+                       acldefault('f', procedure_record.proowner)
+                     )) acl
+                    where acl.privilege_type = 'EXECUTE'
+                      and acl.grantee <> procedure_record.proowner
+                      and acl.is_grantable
+                 ) as command_grantable_execute_count
+            from pg_proc procedure_record
+            join pg_namespace procedure_namespace
+              on procedure_namespace.oid = procedure_record.pronamespace
+            join pg_language procedure_language
+              on procedure_language.oid = procedure_record.prolang
+            join pg_class migration_table
+              on migration_table.relname = 'schema_migrations'
+            join pg_namespace migration_namespace
+              on migration_namespace.oid = migration_table.relnamespace
+             and migration_namespace.nspname = 'public'
+           where procedure_namespace.nspname = 'public'
+             and procedure_record.oid = to_regprocedure(
+               'public.hotel_facility_reference_command_v1(uuid,uuid,text,text,uuid,integer,jsonb,text,uuid,uuid,uuid,text,text,text,text,text,uuid)'
+             )
+        )
+        select table_security.*,
+               mutation_acl.*,
+               column_mutation_acl.*,
+               command_security.*
+          from table_security
+          cross join mutation_acl
+          cross join column_mutation_acl
+          cross join command_security
+      `;
+      if (
+        facilitySecurity?.table_count !== 6 ||
+        facilitySecurity.rls_count !== 6 ||
+        facilitySecurity.force_rls_count !== 6 ||
+        facilitySecurity.owner_safe_count !== 6 ||
+        !facilitySecurity.role_table_acl_safe ||
+        facilitySecurity.direct_mutation_acl_count !== 0 ||
+        facilitySecurity.direct_column_mutation_acl_count !== 0 ||
+        !facilitySecurity.command_metadata_safe ||
+        !facilitySecurity.command_owner_safe ||
+        !facilitySecurity.command_return_signature_safe ||
+        !facilitySecurity.command_name_unique ||
+        !facilitySecurity.command_execute_acl_safe ||
+        facilitySecurity.command_public_execute ||
+        facilitySecurity.command_grantable_execute_count !== 0 ||
+        facilitySecurity.command_executable !==
+          (options.capability === "API_RUNTIME") ||
+        (await sourceSha256(facilitySecurity.command_source)) !==
+          HOTEL_FACILITY_REFERENCE_COMMAND_V1_PROSRC_SHA256
+      ) {
+        return schemaNotReady();
+      }
+    }
 
     const [definerMembershipTopology] = await sql<
       { exact_zero_or_neon_pair: boolean }[]
@@ -3430,6 +4167,7 @@ export async function probeDatabaseReadiness(
     const constraintRows = await sql<
       {
         constraint_name: string;
+        constraint_type: string;
         definition: string;
         table_name: string;
         validated: boolean;
@@ -3437,6 +4175,7 @@ export async function probeDatabaseReadiness(
     >`
       select constraint_table.relname as table_name,
              constraint_record.conname as constraint_name,
+             constraint_record.contype::text as constraint_type,
              constraint_record.convalidated as validated,
              pg_get_constraintdef(constraint_record.oid) as definition
       from pg_constraint constraint_record
@@ -3447,9 +4186,41 @@ export async function probeDatabaseReadiness(
     const constraints = constraintRows.map((row) => ({
       name: row.constraint_name,
       table: row.table_name,
+      type: row.constraint_type,
       validated: row.validated,
       definition: normalizeDefinition(row.definition),
     }));
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const expectedFacilityConstraints = [
+        ...HOTEL_FACILITY_REQUIRED_FOREIGN_KEY_CONSTRAINTS,
+        ...HOTEL_FACILITY_REQUIRED_PRIMARY_KEY_CONSTRAINTS,
+        ...HOTEL_FACILITY_REQUIRED_UNIQUE_CONSTRAINTS,
+        ...HOTEL_FACILITY_REQUIRED_CHECK_CONSTRAINTS,
+      ];
+      const actualFacilityConstraints = constraints.filter(
+        (constraint) =>
+          ["p", "u", "f", "c"].includes(constraint.type) &&
+          facilityTableNames.includes(
+            constraint.table as (typeof facilityTableNames)[number],
+          ),
+      );
+      if (
+        actualFacilityConstraints.length !==
+          expectedFacilityConstraints.length ||
+        expectedFacilityConstraints.some(
+          (required) =>
+            !actualFacilityConstraints.some(
+              (constraint) =>
+                constraint.table === required.table &&
+                constraint.name === required.name &&
+                constraint.validated &&
+                constraint.definition === required.definition,
+            ),
+        )
+      ) {
+        return schemaNotReady();
+      }
+    }
     const exactDispatchConstraint = constraints.find(
       (constraint) =>
         constraint.table === "outbox_jobs" &&
@@ -3476,8 +4247,15 @@ export async function probeDatabaseReadiness(
     ) {
       return schemaNotReady();
     }
+    const requiredForeignKeyConstraints =
+      facilityMasterDataPhase === "CONTRACT"
+        ? [
+            ...REQUIRED_FOREIGN_KEY_CONSTRAINTS,
+            ...HOTEL_FACILITY_REQUIRED_FOREIGN_KEY_CONSTRAINTS,
+          ]
+        : REQUIRED_FOREIGN_KEY_CONSTRAINTS;
     if (
-      REQUIRED_FOREIGN_KEY_CONSTRAINTS.some(
+      requiredForeignKeyConstraints.some(
         (required) =>
           !constraints.some(
             (constraint) =>
@@ -3490,8 +4268,15 @@ export async function probeDatabaseReadiness(
     ) {
       return schemaNotReady();
     }
+    const requiredPrimaryKeyConstraints =
+      facilityMasterDataPhase === "CONTRACT"
+        ? [
+            ...REQUIRED_PRIMARY_KEY_CONSTRAINTS,
+            ...HOTEL_FACILITY_REQUIRED_PRIMARY_KEY_CONSTRAINTS,
+          ]
+        : REQUIRED_PRIMARY_KEY_CONSTRAINTS;
     if (
-      REQUIRED_PRIMARY_KEY_CONSTRAINTS.some(
+      requiredPrimaryKeyConstraints.some(
         (required) =>
           !constraints.some(
             (constraint) =>
@@ -3504,8 +4289,15 @@ export async function probeDatabaseReadiness(
     ) {
       return schemaNotReady();
     }
+    const requiredUniqueConstraints =
+      facilityMasterDataPhase === "CONTRACT"
+        ? [
+            ...REQUIRED_UNIQUE_CONSTRAINTS,
+            ...HOTEL_FACILITY_REQUIRED_UNIQUE_CONSTRAINTS,
+          ]
+        : REQUIRED_UNIQUE_CONSTRAINTS;
     if (
-      REQUIRED_UNIQUE_CONSTRAINTS.some(
+      requiredUniqueConstraints.some(
         (required) =>
           !constraints.some(
             (constraint) =>
@@ -3590,6 +4382,9 @@ export async function probeDatabaseReadiness(
         (required) => !ROOM_LIFECYCLE_CHECK_CONSTRAINT_NAMES.has(required.name),
       ),
       ...requiredRoomCheckConstraints,
+      ...(facilityMasterDataPhase === "CONTRACT"
+        ? HOTEL_FACILITY_REQUIRED_CHECK_CONSTRAINTS
+        : []),
     ];
     if (
       requiredCheckConstraints.some(
@@ -3647,17 +4442,53 @@ export async function probeDatabaseReadiness(
       return schemaNotReady();
     }
 
-    const indexRows = await sql<{ index_name: string; definition: string }[]>`
-      select indexname as index_name, indexdef as definition
-      from pg_indexes
-      where schemaname = 'public'
+    const indexRows = await sql<
+      { index_name: string; definition: string; table_name: string }[]
+    >`
+      select index_class.relname as index_name,
+             table_class.relname as table_name,
+             pg_get_indexdef(index_class.oid) as definition
+        from pg_index index_record
+        join pg_class index_class on index_class.oid = index_record.indexrelid
+        join pg_class table_class on table_class.oid = index_record.indrelid
+        join pg_namespace table_namespace on table_namespace.oid = table_class.relnamespace
+       where table_namespace.nspname = 'public'
+         and not exists (
+           select 1 from pg_constraint constraint_record
+            where constraint_record.conindid = index_record.indexrelid
+         )
     `;
-    const requiredIndexes =
+    const roomPhaseIndexes =
       roomSchemaPhase === "CONTRACT"
         ? REQUIRED_INDEXES
         : REQUIRED_INDEXES.filter(
             (required) => !ROOM_CONTRACT_INDEX_NAMES.has(required.name),
           );
+    const requiredIndexes =
+      facilityMasterDataPhase === "CONTRACT"
+        ? [...roomPhaseIndexes, ...HOTEL_FACILITY_REQUIRED_INDEXES]
+        : roomPhaseIndexes;
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const actualFacilityIndexes = indexRows.filter((index) =>
+        facilityTableNames.includes(
+          index.table_name as (typeof facilityTableNames)[number],
+        ),
+      );
+      if (
+        actualFacilityIndexes.length !==
+          HOTEL_FACILITY_REQUIRED_INDEXES.length ||
+        HOTEL_FACILITY_REQUIRED_INDEXES.some(
+          (required) =>
+            !actualFacilityIndexes.some(
+              (index) =>
+                index.index_name === required.name &&
+                normalizeDefinition(index.definition) === required.definition,
+            ),
+        )
+      ) {
+        return schemaNotReady();
+      }
+    }
     if (
       requiredIndexes.some(
         (required) =>
@@ -3694,8 +4525,7 @@ export async function probeDatabaseReadiness(
       from permissions
       where code in ('HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND')
     `;
-    if (!permissionRows[0]?.permission_ready)
-      return schemaNotReady();
+    if (!permissionRows[0]?.permission_ready) return schemaNotReady();
 
     const tablePrivilegeRows = await sql<
       { grantable: boolean; label: string; role_name: string | null }[]
@@ -3751,7 +4581,7 @@ export async function probeDatabaseReadiness(
               )
             : EXPECTED_API_RUNTIME_TABLE_PRIVILEGES
           : EXPECTED_RECONCILER_TABLE_PRIVILEGES;
-      const roleTablePrivileges =
+      let roleTablePrivileges: readonly string[] =
         inspectionProcessPhase === "CONTRACT"
           ? capabilityTablePrivileges
           : capabilityTablePrivileges.filter(
@@ -3760,6 +4590,20 @@ export async function probeDatabaseReadiness(
                   label.split(":", 1)[0] ?? "",
                 ),
             );
+      if (
+        facilityMasterDataPhase === "CONTRACT" &&
+        role.capability === "API_RUNTIME"
+      ) {
+        roleTablePrivileges = [
+          ...roleTablePrivileges,
+          "hotel_common_areas:SELECT",
+          "hotel_facility_types:SELECT",
+          "hotel_facilities:SELECT",
+          "hotel_common_area_history:SELECT",
+          "hotel_facility_type_history:SELECT",
+          "hotel_facility_history:SELECT",
+        ];
+      }
       addExpectedTablePrivileges(role.role_name, roleTablePrivileges);
     }
     addExpectedTablePrivileges("werehere_auth_session_definer", [
@@ -3996,13 +4840,44 @@ export async function probeDatabaseReadiness(
         : REQUIRED_TRIGGERS.filter(
             (required) => !ROOM_CONTRACT_TRIGGER_NAMES.has(required.name),
           );
-    const requiredTriggers =
+    const inspectionPhaseTriggers =
       inspectionProcessPhase === "CONTRACT"
         ? roomPhaseTriggers
         : roomPhaseTriggers.filter(
-            (required) =>
-              !INSPECTION_EVIDENCE_TRIGGER_NAMES.has(required.name),
+            (required) => !INSPECTION_EVIDENCE_TRIGGER_NAMES.has(required.name),
           );
+    const requiredTriggers =
+      facilityMasterDataPhase === "CONTRACT"
+        ? [...inspectionPhaseTriggers, ...HOTEL_FACILITY_REQUIRED_TRIGGERS]
+        : inspectionPhaseTriggers;
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const expectedFacilityTriggers = HOTEL_FACILITY_REQUIRED_TRIGGERS.filter(
+        (required) =>
+          facilityTableNames.includes(
+            required.table as (typeof facilityTableNames)[number],
+          ),
+      );
+      const actualFacilityTriggers = triggerRows.filter((trigger) =>
+        facilityTableNames.includes(
+          trigger.table_name as (typeof facilityTableNames)[number],
+        ),
+      );
+      if (
+        actualFacilityTriggers.length !== expectedFacilityTriggers.length ||
+        expectedFacilityTriggers.some(
+          (required) =>
+            !actualFacilityTriggers.some(
+              (trigger) =>
+                trigger.trigger_name === required.name &&
+                trigger.table_name === required.table &&
+                trigger.function_name === required.functionName &&
+                trigger.enabled === "O",
+            ),
+        )
+      ) {
+        return schemaNotReady();
+      }
+    }
     if (
       requiredTriggers.some(
         (required) =>
@@ -4044,6 +4919,108 @@ export async function probeDatabaseReadiness(
           !trigger.function_acl_safe ||
           !trigger.function_contract_safe ||
           (await sourceSha256(trigger.function_source)) !== expectedDigest
+        ) {
+          return schemaNotReady();
+        }
+      }
+    }
+    if (facilityMasterDataPhase === "CONTRACT") {
+      const facilityTriggerContracts = new Map<
+        string,
+        { digest: string; type: number }
+      >([
+        [
+          "hotel_rooms_facility_location_guard",
+          {
+            digest:
+              ENFORCE_HOTEL_ROOM_FACILITY_LOCATION_LIFECYCLE_PROSRC_SHA256,
+            type: 19,
+          },
+        ],
+        [
+          "hotel_common_areas_no_delete",
+          {
+            digest: REJECT_HOTEL_FACILITY_REFERENCE_DELETE_PROSRC_SHA256,
+            type: 11,
+          },
+        ],
+        [
+          "hotel_facility_types_no_delete",
+          {
+            digest: REJECT_HOTEL_FACILITY_REFERENCE_DELETE_PROSRC_SHA256,
+            type: 11,
+          },
+        ],
+        [
+          "hotel_facilities_no_delete",
+          {
+            digest: REJECT_HOTEL_FACILITY_REFERENCE_DELETE_PROSRC_SHA256,
+            type: 11,
+          },
+        ],
+        [
+          "hotel_common_areas_lifecycle",
+          {
+            digest: ENFORCE_HOTEL_FACILITY_REFERENCE_LIFECYCLE_PROSRC_SHA256,
+            type: 19,
+          },
+        ],
+        [
+          "hotel_facility_types_lifecycle",
+          {
+            digest: ENFORCE_HOTEL_FACILITY_REFERENCE_LIFECYCLE_PROSRC_SHA256,
+            type: 19,
+          },
+        ],
+        [
+          "hotel_facilities_lifecycle",
+          {
+            digest: ENFORCE_HOTEL_FACILITY_REFERENCE_LIFECYCLE_PROSRC_SHA256,
+            type: 19,
+          },
+        ],
+        [
+          "hotel_common_area_history_immutable",
+          {
+            digest: REJECT_HOTEL_FACILITY_HISTORY_CHANGE_PROSRC_SHA256,
+            type: 27,
+          },
+        ],
+        [
+          "hotel_facility_type_history_immutable",
+          {
+            digest: REJECT_HOTEL_FACILITY_HISTORY_CHANGE_PROSRC_SHA256,
+            type: 27,
+          },
+        ],
+        [
+          "hotel_facility_history_immutable",
+          {
+            digest: REJECT_HOTEL_FACILITY_HISTORY_CHANGE_PROSRC_SHA256,
+            type: 27,
+          },
+        ],
+      ]);
+      for (const [triggerName, expected] of facilityTriggerContracts) {
+        const trigger = triggerRows.find(
+          (candidate) => candidate.trigger_name === triggerName,
+        );
+        const expectedProtectedColumns =
+          triggerName === "hotel_rooms_facility_location_guard"
+            ? ["status"]
+            : [];
+        if (
+          !trigger ||
+          trigger.trigger_type !== expected.type ||
+          trigger.protected_columns.length !==
+            expectedProtectedColumns.length ||
+          trigger.protected_columns.some(
+            (column, index) => column !== expectedProtectedColumns[index],
+          ) ||
+          trigger.function_owner !== migrationOwner.role_name ||
+          !trigger.function_acl_safe ||
+          !trigger.function_contract_safe ||
+          (await sourceSha256(trigger.function_source)) !== expected.digest
         ) {
           return schemaNotReady();
         }
@@ -4207,47 +5184,50 @@ export async function probeDatabaseReadiness(
     `;
     const activeRequiredRlsPolicies = REQUIRED_RLS_POLICIES.filter(
       (required) =>
-        inspectionProcessPhase === "CONTRACT" ||
-        (required.table !== "hotel_file_access_rate_windows" &&
-          required.table !== "hotel_file_access_grants"),
+        (inspectionProcessPhase === "CONTRACT" ||
+          (required.table !== "hotel_file_access_rate_windows" &&
+            required.table !== "hotel_file_access_grants")) &&
+        (facilityMasterDataPhase === "CONTRACT" ||
+          !HOTEL_FACILITY_RLS_TABLES.has(required.table)),
     );
     if (
-      activeRequiredRlsPolicies.some(
-        (required) => {
-          const missing = !rlsRows.some((policy) => {
-            const requiredPolicyPhase =
-              required.table === "hotel_file_access_rate_windows" ||
-              required.table === "hotel_file_access_grants"
-                ? "CONTRACT"
-                : required.table === "hotel_room_types" ||
-              required.table === "hotel_rooms" ||
-              required.table === "hotel_room_status_history"
+      activeRequiredRlsPolicies.some((required) => {
+        const missing = !rlsRows.some((policy) => {
+          const requiredPolicyPhase = HOTEL_FACILITY_RLS_TABLES.has(
+            required.table,
+          )
+            ? "CONTRACT"
+            : required.table === "hotel_file_access_rate_windows" ||
+                required.table === "hotel_file_access_grants"
+              ? "CONTRACT"
+              : required.table === "hotel_room_types" ||
+                  required.table === "hotel_rooms" ||
+                  required.table === "hotel_room_status_history"
                 ? roomPolicyPhase
                 : schemaPhase;
-            return (
-              policy.policy_name === required.policy &&
-              policy.table_name === required.table &&
-              policy.row_security &&
-              policy.row_security_forced &&
-              policy.policy_permissive &&
-              policy.roles_public &&
-              policy.applies_to_current_role &&
-              policy.policy_command === "*" &&
-              isExactTenantPolicyExpression(
-                policy.using_expression,
-                required.table === "companies" ? "id" : "company_id",
-                requiredPolicyPhase,
-              ) &&
-              isExactTenantPolicyExpression(
-                policy.check_expression,
-                required.table === "companies" ? "id" : "company_id",
-                requiredPolicyPhase,
-              )
-            );
-          });
-          return missing;
-        },
-      )
+          return (
+            policy.policy_name === required.policy &&
+            policy.table_name === required.table &&
+            policy.row_security &&
+            policy.row_security_forced &&
+            policy.policy_permissive &&
+            policy.roles_public &&
+            policy.applies_to_current_role &&
+            policy.policy_command === "*" &&
+            isExactTenantPolicyExpression(
+              policy.using_expression,
+              required.table === "companies" ? "id" : "company_id",
+              requiredPolicyPhase,
+            ) &&
+            isExactTenantPolicyExpression(
+              policy.check_expression,
+              required.table === "companies" ? "id" : "company_id",
+              requiredPolicyPhase,
+            )
+          );
+        });
+        return missing;
+      })
     ) {
       return schemaNotReady();
     }

@@ -1,3 +1,4 @@
+import { FacilityManagementPanel } from "../../components/hotels/facility-management-panel";
 import { HotelDetailView } from "../../components/hotels/hotel-detail-view";
 import { HotelShell } from "../../components/hotels/hotel-shell";
 
@@ -155,6 +156,111 @@ const roomInitialData = {
   ],
   pagination: { page: 1, pageSize: 20, total: 2, totalPages: 1 },
 };
+
+const facilityInitialData = {
+  capabilities: { canManage: true },
+  commonAreas: [
+    {
+      id: "57000000-0000-4000-8000-000000000001",
+      hotelId: hotel.id,
+      name: "1층 로비",
+      status: "ACTIVE" as const,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    },
+  ],
+  facilityTypes: [
+    {
+      id: "58000000-0000-4000-8000-000000000001",
+      hotelId: hotel.id,
+      name: "소방설비",
+      status: "ACTIVE" as const,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    },
+  ],
+  facilities: [
+    {
+      id: "59000000-0000-4000-8000-000000000001",
+      hotelId: hotel.id,
+      name: "101호 연기감지기",
+      facilityType: {
+        id: "58000000-0000-4000-8000-000000000001",
+        name: "소방설비",
+        status: "ACTIVE" as const,
+      },
+      location: {
+        type: "ROOM" as const,
+        roomId: "55000000-0000-4000-8000-000000000001",
+        name: "101",
+      },
+      status: "ACTIVE" as const,
+      version: 1,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T00:00:00.000Z",
+    },
+    {
+      id: "59000000-0000-4000-8000-000000000002",
+      hotelId: hotel.id,
+      name: "로비 소화기",
+      facilityType: {
+        id: "58000000-0000-4000-8000-000000000001",
+        name: "소방설비",
+        status: "ACTIVE" as const,
+      },
+      location: {
+        type: "COMMON_AREA" as const,
+        commonAreaId: "57000000-0000-4000-8000-000000000001",
+        name: "1층 로비",
+      },
+      status: "INACTIVE" as const,
+      version: 2,
+      createdAt: "2026-07-25T00:00:00.000Z",
+      updatedAt: "2026-07-25T01:00:00.000Z",
+    },
+  ],
+  roomLocations: [{ id: "55000000-0000-4000-8000-000000000001", name: "101" }],
+  pagination: { page: 1, pageSize: 20, total: 2, totalPages: 1 },
+};
+
+export function FacilityManagementStory() {
+  return (
+    <main className="min-h-screen bg-canvas p-4 md:p-8">
+      <div className="mx-auto max-w-hotel-detail">
+        <FacilityManagementPanel
+          hotelId={hotel.id}
+          initialData={facilityInitialData}
+        />
+      </div>
+    </main>
+  );
+}
+
+export function HotelDetailFacilityStory() {
+  return (
+    <HotelShell
+      currentPath={`/hotels/${hotel.id}`}
+      hotelName={hotel.name}
+      principal={{
+        companyId: "10000000-0000-4000-8000-000000000001",
+        displayName: "호텔 관리자",
+        identityId: "20000000-0000-4000-8000-000000000001",
+        sessionId: "30000000-0000-4000-8000-000000000001",
+        userId: "40000000-0000-4000-8000-000000000001",
+        userType: "INTERNAL_STAFF",
+      }}
+    >
+      <HotelDetailView
+        facilityInitialData={facilityInitialData}
+        relationshipInitialData={relationshipInitialData}
+        roomInitialData={roomInitialData}
+        result={{ ok: true, hotel }}
+      />
+    </HotelShell>
+  );
+}
 
 export function HotelDetailStory() {
   return (

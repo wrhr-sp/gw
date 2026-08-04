@@ -55,6 +55,17 @@ export {
   type InspectionRepository,
 } from "./inspections";
 export {
+  createPostgresFacilityRepository,
+  type FacilityActor,
+  type FacilityEntity,
+  type FacilityMutationInput,
+  type FacilityMutationResult,
+  type FacilityMutationValue,
+  type FacilityRepository,
+  type FacilityResource,
+  type FacilityWorkspaceResult,
+} from "./facilities";
+export {
   createPostgresRoomRepository,
   type ChangeRoomStatusInput,
   type CreateRoomInput,

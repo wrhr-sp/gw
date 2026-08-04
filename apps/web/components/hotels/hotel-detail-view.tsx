@@ -1,11 +1,13 @@
 import type { HotelBasicInformation } from "@werehere/contracts";
 import { Button, FeatureGuide, PageHeader, StatusBadge } from "@werehere/ui";
 import { hotelFeatureGuides } from "../../lib/feature-guides";
+import type { FacilityInitialData, FacilityInitialFailure } from "../../lib/server-facilities";
 import type { HotelApiFailure } from "../../lib/server-hotels";
 import type {
   RoomInitialData,
   RoomInitialFailure,
 } from "../../lib/server-rooms";
+import { FacilityManagementPanel } from "./facility-management-panel";
 import { hotelStatusPresentation } from "./hotel-status";
 import { RelationshipManagementPanel } from "./relationship-management-panel";
 import type { RelationshipInitialData } from "./relationship-management-panel";
@@ -16,12 +18,16 @@ type HotelDetailViewResult =
   | { ok: false; error: HotelApiFailure };
 
 export function HotelDetailView({
+  facilityInitialData,
+  facilityInitialFailure,
   result,
   retryHref = "",
   relationshipInitialData,
   roomInitialData,
   roomInitialFailure,
 }: {
+  facilityInitialData?: FacilityInitialData | undefined;
+  facilityInitialFailure?: FacilityInitialFailure | undefined;
   result: HotelDetailViewResult;
   retryHref?: string;
   relationshipInitialData?: RelationshipInitialData;
@@ -92,6 +98,14 @@ export function HotelDetailView({
             >
               객실관리
             </a>
+            {facilityInitialData || facilityInitialFailure ? (
+              <a
+                className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
+                href="#hotel-facilities-title"
+              >
+                시설물관리
+              </a>
+            ) : null}
             <a
               className="inline-flex min-h-11 items-center px-1 text-sm font-semibold text-muted hover:text-primary"
               href={`/hotels/${encodeURIComponent(result.hotel.id)}/inspections`}
@@ -178,6 +192,13 @@ export function HotelDetailView({
             initialData={roomInitialData}
             initialFailure={roomInitialFailure}
           />
+          {facilityInitialData || facilityInitialFailure ? (
+            <FacilityManagementPanel
+              hotelId={result.hotel.id}
+              initialData={facilityInitialData}
+              initialFailure={facilityInitialFailure}
+            />
+          ) : null}
           <RelationshipManagementPanel
             hotelId={result.hotel.id}
             hotelName={result.hotel.name}

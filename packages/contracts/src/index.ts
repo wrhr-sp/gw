@@ -798,6 +798,172 @@ export const hotelRoomOwnerDetailResponseSchema = z
   })
   .strict();
 
+export const hotelFacilityReferenceStatusSchema = z.enum([
+  "ACTIVE",
+  "INACTIVE",
+  "DELETED",
+]);
+export type HotelFacilityReferenceStatus = z.infer<
+  typeof hotelFacilityReferenceStatusSchema
+>;
+
+const hotelFacilityReferenceNameSchema = z
+  .string()
+  .trim()
+  .min(1, { error: "이름을 입력해 주세요." })
+  .max(100, { error: "이름은 100자 이하여야 합니다." });
+const hotelFacilityReferenceReasonSchema = z
+  .string()
+  .trim()
+  .min(2, { error: "변경 사유를 2자 이상 입력해 주세요." })
+  .max(500, { error: "변경 사유는 500자 이하여야 합니다." });
+
+export const hotelFacilityLocationSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ROOM"), roomId: z.uuid() }).strict(),
+  z
+    .object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid() })
+    .strict(),
+]);
+export type HotelFacilityLocation = z.infer<typeof hotelFacilityLocationSchema>;
+
+export const createHotelCommonAreaRequestSchema = z
+  .object({ name: hotelFacilityReferenceNameSchema })
+  .strict();
+export const createHotelFacilityTypeRequestSchema = z
+  .object({ name: hotelFacilityReferenceNameSchema })
+  .strict();
+export const updateHotelFacilityReferenceRequestSchema = z
+  .object({ name: hotelFacilityReferenceNameSchema, version: z.number().int().positive() })
+  .strict();
+export const changeHotelFacilityReferenceStatusRequestSchema = z
+  .object({
+    status: z.enum(["ACTIVE", "INACTIVE"]),
+    reason: hotelFacilityReferenceReasonSchema,
+    version: z.number().int().positive(),
+  })
+  .strict();
+export const deleteHotelFacilityReferenceRequestSchema = z
+  .object({ reason: hotelFacilityReferenceReasonSchema, version: z.number().int().positive() })
+  .strict();
+export const createHotelFacilityRequestSchema = z
+  .object({
+    facilityTypeId: z.uuid(),
+    location: hotelFacilityLocationSchema,
+    name: hotelFacilityReferenceNameSchema,
+  })
+  .strict();
+export const updateHotelFacilityRequestSchema = z
+  .object({
+    facilityTypeId: z.uuid(),
+    location: hotelFacilityLocationSchema,
+    name: hotelFacilityReferenceNameSchema,
+    version: z.number().int().positive(),
+  })
+  .strict();
+
+export type CreateHotelCommonAreaRequest = z.infer<
+  typeof createHotelCommonAreaRequestSchema
+>;
+export type CreateHotelFacilityTypeRequest = z.infer<
+  typeof createHotelFacilityTypeRequestSchema
+>;
+export type UpdateHotelFacilityReferenceRequest = z.infer<
+  typeof updateHotelFacilityReferenceRequestSchema
+>;
+export type ChangeHotelFacilityReferenceStatusRequest = z.infer<
+  typeof changeHotelFacilityReferenceStatusRequestSchema
+>;
+export type DeleteHotelFacilityReferenceRequest = z.infer<
+  typeof deleteHotelFacilityReferenceRequestSchema
+>;
+export type CreateHotelFacilityRequest = z.infer<
+  typeof createHotelFacilityRequestSchema
+>;
+export type UpdateHotelFacilityRequest = z.infer<
+  typeof updateHotelFacilityRequestSchema
+>;
+
+const hotelFacilityReferenceBaseFields = {
+  createdAt: z.iso.datetime(),
+  hotelId: z.uuid(),
+  id: z.uuid(),
+  name: hotelFacilityReferenceNameSchema,
+  status: hotelFacilityReferenceStatusSchema,
+  updatedAt: z.iso.datetime(),
+  version: z.number().int().positive(),
+} as const;
+export const hotelCommonAreaSchema = z.object(hotelFacilityReferenceBaseFields).strict();
+export const hotelFacilityTypeSchema = z.object(hotelFacilityReferenceBaseFields).strict();
+export type HotelCommonArea = z.infer<typeof hotelCommonAreaSchema>;
+export type HotelFacilityType = z.infer<typeof hotelFacilityTypeSchema>;
+
+const hotelFacilityLocationSnapshotSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ROOM"), roomId: z.uuid(), name: z.string().min(1) }).strict(),
+  z.object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid(), name: z.string().min(1) }).strict(),
+]);
+export const hotelFacilitySchema = z
+  .object({
+    ...hotelFacilityReferenceBaseFields,
+    facilityType: hotelFacilityTypeSchema.pick({ id: true, name: true, status: true }),
+    location: hotelFacilityLocationSnapshotSchema,
+  })
+  .strict();
+export type HotelFacility = z.infer<typeof hotelFacilitySchema>;
+
+export const hotelFacilityListQuerySchema = z
+  .object({
+    q: z.string().trim().min(1).max(100).optional(),
+    status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
+    facilityTypeId: z.uuid().optional(),
+    locationType: z.enum(["ROOM", "COMMON_AREA"]).optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type HotelFacilityListQuery = z.infer<typeof hotelFacilityListQuerySchema>;
+
+const hotelFacilityPaginationSchema = z
+  .object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+  })
+  .strict();
+export const hotelFacilityWorkspaceResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        capabilities: z.object({ canManage: z.boolean() }).strict(),
+        commonAreas: z.array(hotelCommonAreaSchema),
+        facilityTypes: z.array(hotelFacilityTypeSchema),
+        facilities: z.array(hotelFacilitySchema),
+        roomLocations: z.array(
+          z.object({ id: z.uuid(), name: z.string().min(1) }).strict(),
+        ),
+        pagination: hotelFacilityPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const hotelFacilityMutationResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        resource: z.union([
+          hotelCommonAreaSchema,
+          hotelFacilityTypeSchema,
+          hotelFacilitySchema,
+        ]),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
 const hotelPath = (hotelId: string) =>
   `/api/hotels/${encodeURIComponent(hotelId)}` as const;
 
@@ -831,6 +997,29 @@ export const hotelRoutes = {
     `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/status` as const,
   roomDelete: (hotelId: string, roomId: string) =>
     `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/delete` as const,
+  facilityWorkspace: (hotelId: string) =>
+    `${hotelPath(hotelId)}/facility-master-data` as const,
+  commonAreas: (hotelId: string) => `${hotelPath(hotelId)}/common-areas` as const,
+  commonArea: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}` as const,
+  commonAreaStatus: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}/status` as const,
+  commonAreaDelete: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}/delete` as const,
+  facilityTypes: (hotelId: string) => `${hotelPath(hotelId)}/facility-types` as const,
+  facilityType: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facility-types/${encodeURIComponent(id)}` as const,
+  facilityTypeStatus: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facility-types/${encodeURIComponent(id)}/status` as const,
+  facilityTypeDelete: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facility-types/${encodeURIComponent(id)}/delete` as const,
+  facilities: (hotelId: string) => `${hotelPath(hotelId)}/facilities` as const,
+  facility: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facilities/${encodeURIComponent(id)}` as const,
+  facilityStatus: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facilities/${encodeURIComponent(id)}/status` as const,
+  facilityDelete: (hotelId: string, id: string) =>
+    `${hotelPath(hotelId)}/facilities/${encodeURIComponent(id)}/delete` as const,
   inspections: (hotelId: string) =>
     `${hotelPath(hotelId)}/inspections` as const,
   issues: (hotelId: string) => `${hotelPath(hotelId)}/issues` as const,

@@ -481,10 +481,7 @@ try {
       "0032_hotel_inspection_evidence_processing",
       "0032_hotel_inspection_evidence_processing.sql",
     ],
-    [
-      "0033_hotel_file_upload_scope",
-      "0033_hotel_file_upload_scope.sql",
-    ],
+    ["0033_hotel_file_upload_scope", "0033_hotel_file_upload_scope.sql"],
     [
       "0034_hotel_inspection_evidence_submission",
       "0034_hotel_inspection_evidence_submission.sql",
@@ -493,6 +490,7 @@ try {
       "0035_hotel_inspection_review_and_file_view",
       "0035_hotel_inspection_review_and_file_view.sql",
     ],
+    ["0036_hotel_facility_master_data", "0036_hotel_facility_master_data.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -513,6 +511,7 @@ try {
     "0033_hotel_file_upload_scope",
     "0034_hotel_inspection_evidence_submission",
     "0035_hotel_inspection_review_and_file_view",
+    "0036_hotel_facility_master_data",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(
@@ -1554,6 +1553,16 @@ try {
     `;
   }
 
+  const [facilityMasterDataState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0036_hotel_facility_master_data'
+    ) as contracted
+  `;
+  if (!facilityMasterDataState) {
+    fail("Preview facility master-data marker state is unavailable");
+  }
+
   if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
     await owner.unsafe(`
       revoke all privileges on all tables in schema public from werehere_preview_runtime;
@@ -1823,6 +1832,12 @@ try {
       housekeeping_hotel_links, hotel_owner_assignments,
       hotel_room_types, hotel_rooms, hotel_room_status_history
       ${
+        facilityMasterDataState.contracted
+          ? `, hotel_common_areas, hotel_facility_types, hotel_facilities,
+      hotel_common_area_history, hotel_facility_type_history, hotel_facility_history`
+          : ""
+      }
+      ${
         inspectionProcessState.contracted
           ? `, process_definitions, process_definition_revisions,
       process_stage_snapshots, process_transition_snapshots, hotel_process_defaults,
@@ -1943,6 +1958,57 @@ try {
     grant execute on function public.hotel_room_write_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, uuid, uuid,
       text, text, text, text, text, uuid
+    ) to ${apiRuntimeRole};
+    `
+        : ""
+    }
+    ${
+      facilityMasterDataState.contracted
+        ? `
+    do $exact_facility_command_acl$
+    declare
+      acl_record record;
+    begin
+      for acl_record in
+        select procedure_record.oid::regprocedure::text as signature,
+               acl.grantee,
+               grantee_role.rolname as grantee_name
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          cross join lateral pg_catalog.aclexplode(coalesce(
+            procedure_record.proacl,
+            pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+          )) acl
+          left join pg_catalog.pg_roles grantee_role
+            on grantee_role.oid = acl.grantee
+         where procedure_namespace.nspname = 'public'
+           and procedure_record.proname = 'hotel_facility_reference_command_v1'
+           and acl.privilege_type = 'EXECUTE'
+           and acl.grantee <> procedure_record.proowner
+      loop
+        if acl_record.grantee = 0::oid then
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from public cascade',
+            acl_record.signature
+          );
+        else
+          execute pg_catalog.format(
+            'revoke all privileges on function %s from %I cascade',
+            acl_record.signature,
+            acl_record.grantee_name
+          );
+        end if;
+      end loop;
+    end
+    $exact_facility_command_acl$;
+    revoke all privileges on function public.hotel_facility_reference_command_v1(
+      uuid, uuid, text, text, uuid, integer, jsonb, text,
+      uuid, uuid, uuid, text, text, text, text, text, uuid
+    ) from public, ${reconcilerRole}${legacyPolicyGrant};
+    grant execute on function public.hotel_facility_reference_command_v1(
+      uuid, uuid, text, text, uuid, integer, jsonb, text,
+      uuid, uuid, uuid, text, text, text, text, text, uuid
     ) to ${apiRuntimeRole};
     `
         : ""
@@ -2522,6 +2588,9 @@ try {
     inspectionProcessRolloutState.contracted ? "CONTRACT" : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
+      ? "CONTRACT"
+      : "EXPAND",
     requiredInspectionProcessPhase,
     requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
     requiredRoomSchemaPhase: requiredRoomRolloutPhase,
@@ -2538,6 +2607,9 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
+        ? "CONTRACT"
+        : "EXPAND",
       requiredInspectionProcessPhase,
       requiredLoginIdHistoryPhase: requiredLoginIdHistoryRolloutPhase,
       requiredRoomSchemaPhase: requiredRoomRolloutPhase,

@@ -1238,6 +1238,158 @@ assert_readiness() {
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant update on public.hotel_facilities to werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+run_provision CONTRACT >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant select on public.hotel_facilities to werehere_preview_reconciler' >/dev/null
+RECONCILER_FACILITY_DAMAGE="$(readiness_status "$RECONCILER_URL" RECONCILER)"
+if [[ "$RECONCILER_FACILITY_DAMAGE" != "SCHEMA_NOT_READY" ]]; then
+  printf 'Reconciler facility table ACL damage was %s, expected SCHEMA_NOT_READY.\n' \
+    "$RECONCILER_FACILITY_DAMAGE" >&2
+  exit 1
+fi
+run_provision CONTRACT >/dev/null
+RECONCILER_FACILITY_RESTORED="$(readiness_status "$RECONCILER_URL" RECONCILER)"
+if [[ "$RECONCILER_FACILITY_RESTORED" != "READY" ]]; then
+  printf 'Reconciler facility table ACL restore was %s, expected READY.\n' \
+    "$RECONCILER_FACILITY_RESTORED" >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_stale_function_grantee nologin noinherit;
+grant execute on function public.hotel_facility_reference_command_v1(
+  uuid, uuid, text, text, uuid, integer, jsonb, text,
+  uuid, uuid, uuid, text, text, text, text, text, uuid
+) to preview_stale_function_grantee with grant option;
+SQL
+assert_readiness SCHEMA_NOT_READY
+run_provision CONTRACT >/dev/null
+assert_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop role preview_stale_function_grantee' >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.hotel_facilities
+  drop constraint hotel_facilities_location_exactly_one_check;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.hotel_facilities
+  add constraint hotel_facilities_location_exactly_one_check check (
+    (location_type = 'ROOM' and room_id is not null and common_area_id is null)
+    or (location_type = 'COMMON_AREA' and room_id is null and common_area_id is not null)
+  );
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.hotel_facilities
+  add constraint hotel_facilities_unexpected_ready_damage check (version > 0);
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_facilities drop constraint hotel_facilities_unexpected_ready_damage' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_facilities add column unexpected_ready_damage text' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.hotel_facilities drop column unexpected_ready_damage' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop index public.hotel_facilities_room_name_key' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create unique index hotel_facilities_room_name_key
+  on public.hotel_facilities(
+    company_id, branch_id, facility_type_id, room_id, normalized_name
+  ) where location_type = 'ROOM';
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'create index hotel_facilities_unexpected_ready_damage on public.hotel_facilities(updated_at)' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop index public.hotel_facilities_unexpected_ready_damage' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop trigger hotel_facilities_lifecycle on public.hotel_facilities' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create trigger hotel_facilities_lifecycle
+  before update on public.hotel_facilities
+  for each row execute function public.enforce_hotel_facility_reference_lifecycle();
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create trigger hotel_facilities_unexpected_ready_damage
+  before insert on public.hotel_facilities
+  for each row execute function public.reject_hotel_facility_reference_delete();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop trigger hotel_facilities_unexpected_ready_damage on public.hotel_facilities' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop trigger hotel_rooms_facility_location_guard on public.hotel_rooms' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create trigger hotel_rooms_facility_location_guard
+  before update of status on public.hotel_rooms
+  for each row execute function public.enforce_hotel_room_facility_location_lifecycle();
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'drop policy hotel_facilities_company_isolation on public.hotel_facilities' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create policy hotel_facilities_company_isolation on public.hotel_facilities
+using (
+  case
+    when public.runtime_is_schema_owner() then true
+    when current_user = 'werehere_auth_session_definer' then true
+    when current_user = 'werehere_tenant_authority_definer' then true
+    when public.runtime_has_capability('API_RUNTIME')
+      then company_id = public.api_current_company_id()
+    when public.runtime_has_capability('RECONCILER')
+      then company_id = public.reconciler_current_company_id()
+    else false
+  end
+)
+with check (
+  case
+    when public.runtime_is_schema_owner() then true
+    when current_user = 'werehere_auth_session_definer' then true
+    when current_user = 'werehere_tenant_authority_definer' then true
+    when public.runtime_has_capability('API_RUNTIME')
+      then company_id = public.api_current_company_id()
+    when public.runtime_has_capability('RECONCILER')
+      then company_id = public.reconciler_current_company_id()
+    else false
+  end
+);
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version='0036_hotel_facility_master_data'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values('0036_hotel_facility_master_data')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'grant usage on schema public to public' >/dev/null
 # Contract-compatible identity-lock staging intentionally uses the exact
 # EXPAND schema ACL with the identity-lock column ACL.
