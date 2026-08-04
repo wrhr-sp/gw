@@ -5,7 +5,7 @@
 아래 순서가 유일한 단계 정본입니다. 이 순서와 충돌하는 과거의 기능별 전체검토·전체통합검증·fresh review 단계 배치는 폐기합니다.
 
 ```text
-[기능 구현 → focused 검증 → commit/push → PR·GitHub checks·merge/정리] 반복
+[기능 구현 → focused 검증 → commit/push → PR·GitHub checks·merge/정리 → 동일 merged main Preview 배포·read-back·smoke] 반복
 → 승인된 MVP 전체 구현 완료
 → 세로 기능 하나씩 검토·수정·GitHub 반영
 → 전체 통합 검증
@@ -29,12 +29,12 @@
 - 비개발자가 이해할 수 있도록 결론 → 쉬운 설명 → 세부 근거 순서로 보고합니다.
 - 검증하지 않은 결과를 완료로 말하지 않습니다.
 
-## GitHub 자동 후속작업
+## GitHub·Preview 자동 후속작업
 
-- 착수 승인된 구현 사이클이 focused Green·관련 테스트/build·mutation seal까지 완료되면, 기능별 전체검토나 fresh review를 추가하지 않고 해당 branch의 commit, push, PR 생성, GitHub checks 확인, PR merge, 원격·로컬 branch와 worktree 정리까지 연속 실행합니다.
-- CI·리뷰가 실패하면 merge하지 않고 같은 승인 사이클 안에서 원인을 수정하고 다시 검증합니다. 검증 실패·미완료·unsealed 상태를 백업 명목으로 완료 commit하거나 merge하지 않습니다.
-- 카드·승인범위에 release/deploy/배포가 명시된 사이클은 해당 배포와 read-back·smoke까지 자동 후속작업에 포함합니다. 명시되지 않은 배포는 자동으로 추가하지 않습니다.
-- Production 실데이터 변경, secret 입력·교체, DNS/custom domain, 유료 리소스, 파괴 작업, 승인 제품범위·구현방식의 실질 변경은 자동 후속작업에 포함하지 않고 별도 승인을 받습니다.
+- 착수 승인된 개발 사이클이 Red → Green → 사양검토 → 품질검토 → 테스트·build → mutation seal까지 완료되면, 별도 후속 승인 없이 해당 작업 branch의 commit, push, PR 생성, CI 확인, PR merge, 원격·로컬 작업 branch 정리에 이어 **동일 merged main을 Preview에 배포하고 DB provisioning·Reconciler/API/Web release·read-back·공개 smoke까지 연속 실행합니다.**
+- CI·리뷰 또는 Preview 배포·smoke가 실패하면 완료로 보고하지 않고 같은 승인 사이클 안에서 원인을 수정하고 다시 검증·GitHub 반영·Preview 배포합니다. Worker rollback과 DB migration 복구 상태를 구분하며 live URL·배포 SHA·smoke 결과를 read-back하기 전에는 완료로 판정하지 않습니다.
+- Preview 배포는 별도 `release/deploy/배포` 문구가 없어도 승인된 개발 사이클의 기본 자동 후속작업입니다. Production 배포는 승인범위에 명시된 경우에만 read-back·smoke까지 포함합니다.
+- Production 실데이터 변경, Production DB, secret 입력·교체, DNS/custom domain, 유료 리소스, 파괴 작업, 승인 제품범위·구현방식의 실질 변경은 자동 후속작업에 포함하지 않고 별도 승인을 받습니다.
 - commit·push는 GitHub 원격 백업으로 간주하며, 장기 미커밋 상태나 `/tmp` 단독 worktree를 허용하지 않습니다. 외부 장애로 push가 막히면 저장소 밖 durable patch bundle을 만들고 read-back한 뒤 차단사항을 보고합니다.
 
 ## 제품 경계
@@ -70,7 +70,7 @@
 
 ## 구현
 
-- 구현 정본 순서는 PRD → 기능 명세 → 화면·사용자 흐름 → 데이터·권한·API 설계 → 기능별 오픈소스·공개 API 후보 비교와 사용자 선택 → 테스트·완료 기준 → 구현 계획 → Red → Green → focused 검증 → GitHub 후속작업입니다. 세로검토·전체 통합검증·immutable artifact·fresh 3-way review는 승인된 MVP 전체 구현 뒤에 수행합니다.
+- 구현 정본 순서는 PRD → 기능 명세 → 화면·사용자 흐름 → 데이터·권한·API 설계 → 기능별 오픈소스·공개 API 후보 비교와 사용자 선택 → 테스트·완료 기준 → 구현 계획 → Red → Green → focused 검증 → GitHub 후속작업 → 동일 merged main Preview 배포·read-back·smoke입니다. 세로검토·전체 통합검증·immutable artifact·fresh 3-way review는 승인된 MVP 전체 구현 뒤에 수행합니다.
 - 새 기능은 Web UI → 실제 API → Service/Repository → PostgreSQL 저장·재조회 → 권한·감사 흐름을 완성합니다.
 - mock, placeholder, static sample 성공, in-memory fallback, 가짜 성공을 금지합니다.
 - DB·R2·schema가 없으면 안정 오류코드로 안전 실패합니다.
