@@ -677,6 +677,12 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).toContain(
       "grant execute on function public.hotel_inspection_checklist_v2_command(",
     );
+    expect(provisionSource).toContain(
+      "inspectionTargetChecklistState.contracted",
+    );
+    expect(provisionSource).toContain(
+      '? `grant execute on function public.hotel_inspection_checklist_v2_command(',
+    );
     expect(provisionSource).not.toContain(
       "grant select on table public.inspection_checklist_v2_revisions",
     );
