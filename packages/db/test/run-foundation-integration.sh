@@ -559,6 +559,7 @@ assert_room_constraints_exact() {
         "hotel_room_status_history:hotel_room_status_history_room_hotel_fkey"
         "inspection_item_snapshots:inspection_item_snapshots_company_id_branch_id_room_id_fkey"
         "hotel_facilities:hotel_facilities_room_fkey"
+        "inspection_execution_targets:inspection_execution_targets_room_fkey"
       )
     fi
     definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" \
@@ -1070,6 +1071,7 @@ HOTEL_FILE_UPLOAD_SCOPE_MIGRATION="$ROOT_DIR/packages/db/migrations/0033_hotel_f
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_MIGRATION="$ROOT_DIR/packages/db/migrations/0034_hotel_inspection_evidence_submission.sql"
 HOTEL_INSPECTION_REVIEW_MIGRATION="$ROOT_DIR/packages/db/migrations/0035_hotel_inspection_review_and_file_view.sql"
 HOTEL_FACILITY_MASTER_DATA_MIGRATION="$ROOT_DIR/packages/db/migrations/0036_hotel_facility_master_data.sql"
+HOTEL_INSPECTION_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0037_hotel_inspection_execution_targets.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1079,6 +1081,7 @@ HOTEL_INSPECTION_PROCESS_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-p
 HOTEL_PROCESS_REVIEWER_CANDIDATES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-process-reviewer-candidates-integration.sql"
 HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-routine-integration.sql"
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
+HOTEL_INSPECTION_TARGET_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-targets-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-submission-integration.sql"
 HOTEL_INSPECTION_REVIEW_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-review-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
@@ -1228,6 +1231,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_TARGET_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1359,6 +1366,12 @@ NODE
   EXECUTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_EXECUTION_TEST_SQL")"
   if [[ "$EXECUTION_RESULT" != *"HOTEL_INSPECTION_EXECUTION_OK"* ]]; then
     printf '%s\n' "$EXECUTION_RESULT" >&2
+    exit 1
+  fi
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_TARGET_MIGRATION" >/dev/null
+  TARGET_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_TARGET_TEST_SQL")"
+  if [[ "$TARGET_RESULT" != *"HOTEL_INSPECTION_TARGET_FOUNDATION_OK"* ]]; then
+    printf '%s\n' "$TARGET_RESULT" >&2
     exit 1
   fi
   ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
@@ -1594,6 +1607,219 @@ if [[ "$EXECUTION_RESULT" != *"HOTEL_INSPECTION_EXECUTION_OK"* ]]; then
   printf '%s\n' "$EXECUTION_RESULT" >&2
   exit 1
 fi
+
+run_target_preflight_failure_probe() {
+  local mode="$1"
+  local suffix="1"
+  if [[ "$mode" == "conflict" ]]; then suffix="2"; fi
+  local clone_name="werehere_target_${mode}_test"
+  local clone_url="postgres://postgres@127.0.0.1:$PORT/$clone_name"
+  dropdb -h 127.0.0.1 -p "$PORT" -U postgres --if-exists "$clone_name"
+  createdb -h 127.0.0.1 -p "$PORT" -U postgres \
+    --template werehere_hotel_test "$clone_name"
+  psql -X -v ON_ERROR_STOP=1 -d "$clone_url" >/dev/null <<SQL
+with sample as (
+  select * from public.process_executions order by created_at,id limit 1
+)
+insert into public.process_executions (
+  id,company_id,branch_id,application_type,resource_id,definition_id,
+  revision_id,state,version,created_by
+)
+select '7ad00000-0000-4000-8000-00000000000${suffix}'::uuid,
+       company_id,branch_id,application_type,
+       '7ae00000-0000-4000-8000-00000000000${suffix}'::uuid,
+       definition_id,revision_id,'PENDING_INPUT',1,created_by
+  from sample;
+with sample as (
+  select * from public.hotel_inspections order by created_at,id limit 1
+)
+insert into public.hotel_inspections (
+  id,company_id,branch_id,source,business_date,due_at,status,
+  process_execution_id,version,created_by
+)
+select '7ae00000-0000-4000-8000-00000000000${suffix}'::uuid,
+       company_id,branch_id,'MANUAL',business_date,due_at,'PENDING_INPUT',
+       '7ad00000-0000-4000-8000-00000000000${suffix}'::uuid,
+       1,created_by
+  from sample;
+SQL
+  if [[ "$mode" == "conflict" ]]; then
+    psql -X -v ON_ERROR_STOP=1 -d "$clone_url" >/dev/null <<'SQL'
+with sample as (
+  select * from public.inspection_item_snapshots order by created_at,id limit 1
+)
+insert into public.inspection_item_snapshots (
+  id,company_id,branch_id,inspection_id,room_id,source_item_id,
+  checklist_revision_id,name,description,is_required,display_order,
+  default_severity
+)
+select '7af00000-0000-4000-8000-000000000001',company_id,branch_id,
+       '7ae00000-0000-4000-8000-000000000002',room_id,
+       '7af10000-0000-4000-8000-000000000001',checklist_revision_id,
+       name,description,is_required,display_order,default_severity
+  from sample;
+with sample as (
+  select * from public.inspection_item_snapshots
+   where id='7af00000-0000-4000-8000-000000000001'
+)
+insert into public.inspection_item_snapshots (
+  id,company_id,branch_id,inspection_id,room_id,source_item_id,
+  checklist_revision_id,name,description,is_required,display_order,
+  default_severity
+)
+select '7af00000-0000-4000-8000-000000000002',company_id,branch_id,
+       inspection_id,room_id,'7af10000-0000-4000-8000-000000000002',
+       checklist_revision_id,name,description,is_required,display_order,
+       default_severity
+  from sample;
+alter table public.inspection_item_snapshots
+  disable trigger inspection_item_snapshots_append_only;
+update public.inspection_item_snapshots
+   set room_number_snapshot=room_number_snapshot || '-conflict'
+ where id='7af00000-0000-4000-8000-000000000002';
+alter table public.inspection_item_snapshots
+  enable trigger inspection_item_snapshots_append_only;
+SQL
+  fi
+  set +e
+  local migration_log
+  migration_log="$(psql -X -v ON_ERROR_STOP=1 -d "$clone_url" \
+    -f "$HOTEL_INSPECTION_TARGET_MIGRATION" 2>&1)"
+  local migration_status="$?"
+  set -e
+  local expected_message='inspection target backfill requires at least one item'
+  if [[ "$mode" == "conflict" ]]; then
+    expected_message='inspection target backfill snapshot conflict'
+  fi
+  if [[ "$migration_status" -eq 0 ]] ||
+     ! grep -Fq "$expected_message" <<<"$migration_log"; then
+    printf '%s\n' "$migration_log" >&2
+    printf 'Target %s preflight did not fail safely.\n' "$mode" >&2
+    exit 1
+  fi
+  local rollback_state
+  rollback_state="$(psql -X -v ON_ERROR_STOP=1 -At -d "$clone_url" -c \
+    "select (to_regclass('public.inspection_execution_targets') is null)::integer || ':' || count(*) from public.schema_migrations where version='0037_hotel_inspection_execution_targets'")"
+  if [[ "$rollback_state" != "1:0" ]]; then
+    printf 'Target %s preflight left partial schema state: %s\n' \
+      "$mode" "$rollback_state" >&2
+    exit 1
+  fi
+  dropdb -h 127.0.0.1 -p "$PORT" -U postgres "$clone_name"
+}
+
+run_target_preflight_failure_probe zero
+run_target_preflight_failure_probe conflict
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" >/dev/null <<'SQL'
+do $$ begin
+  if not exists (
+    select 1 from pg_roles where rolname='werehere_target_default_acl_test'
+  ) then
+    create role werehere_target_default_acl_test noinherit;
+  end if;
+end $$;
+alter default privileges in schema public
+  grant select on tables to werehere_target_default_acl_test;
+alter default privileges in schema public
+  grant execute on functions to werehere_target_default_acl_test;
+SQL
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_TARGET_MIGRATION" >/dev/null
+TARGET_DEFAULT_ACL_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -c "select (select count(*) from pg_class target_table cross join lateral aclexplode(coalesce(target_table.relacl,acldefault('r'::\"char\",target_table.relowner))) target_acl join pg_roles target_role on target_role.oid=target_acl.grantee where target_table.oid='public.inspection_execution_targets'::regclass and target_role.rolname='werehere_target_default_acl_test') + (select count(*) from pg_proc capture_function cross join lateral aclexplode(coalesce(capture_function.proacl,acldefault('f'::\"char\",capture_function.proowner))) capture_acl join pg_roles capture_role on capture_role.oid=capture_acl.grantee where capture_function.oid='public.inspection_item_execution_target_capture_v1()'::regprocedure and capture_role.rolname='werehere_target_default_acl_test')")"
+if [[ "$TARGET_DEFAULT_ACL_COUNT" != "0" ]]; then
+  printf 'Target migration retained unexpected default ACLs: %s\n' \
+    "$TARGET_DEFAULT_ACL_COUNT" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" >/dev/null <<'SQL'
+alter default privileges in schema public
+  revoke select on tables from werehere_target_default_acl_test;
+alter default privileges in schema public
+  revoke execute on functions from werehere_target_default_acl_test;
+drop role werehere_target_default_acl_test;
+SQL
+printf '%s\n' 'HOTEL_INSPECTION_TARGET_DEFAULT_ACL_OK'
+TARGET_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_TARGET_TEST_SQL")"
+if [[ "$TARGET_RESULT" != *"HOTEL_INSPECTION_TARGET_FOUNDATION_OK"* ]]; then
+  printf '%s\n' "$TARGET_RESULT" >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" >/dev/null <<'SQL'
+with sample as (
+  select * from public.process_executions order by created_at,id limit 1
+)
+insert into public.process_executions (
+  id,company_id,branch_id,application_type,resource_id,definition_id,
+  revision_id,state,version,created_by
+)
+select '7b100000-0000-4000-8000-000000000001',company_id,branch_id,
+       application_type,'7b200000-0000-4000-8000-000000000001',
+       definition_id,revision_id,'PENDING_INPUT',1,created_by
+  from sample;
+with sample as (
+  select * from public.hotel_inspections order by created_at,id limit 1
+)
+insert into public.hotel_inspections (
+  id,company_id,branch_id,source,business_date,due_at,status,
+  process_execution_id,version,created_by
+)
+select '7b200000-0000-4000-8000-000000000001',company_id,branch_id,
+       'MANUAL',business_date,due_at,'PENDING_INPUT',
+       '7b100000-0000-4000-8000-000000000001',1,created_by
+  from sample;
+SQL
+TARGET_CONCURRENCY_LOG_A="$(mktemp)"
+TARGET_CONCURRENCY_LOG_B="$(mktemp)"
+insert_concurrent_target_item() {
+  local item_id="$1"
+  local room_id="$2"
+  local log_file="$3"
+  psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" >"$log_file" 2>&1 <<SQL
+with sample as (
+  select * from public.inspection_item_snapshots order by created_at,id limit 1
+)
+insert into public.inspection_item_snapshots (
+  id,company_id,branch_id,inspection_id,room_id,source_item_id,
+  checklist_revision_id,name,description,is_required,display_order,
+  default_severity
+)
+select '$item_id',company_id,branch_id,
+       '7b200000-0000-4000-8000-000000000001','$room_id'::uuid,
+       '$item_id'::uuid,checklist_revision_id,name,description,
+       is_required,display_order,default_severity
+  from sample;
+SQL
+}
+TARGET_CONCURRENCY_ROOM="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -c \
+  'select room_id from public.inspection_item_snapshots order by created_at,id limit 1')"
+insert_concurrent_target_item \
+  '7b300000-0000-4000-8000-000000000001' "$TARGET_CONCURRENCY_ROOM" \
+  "$TARGET_CONCURRENCY_LOG_A" &
+TARGET_PID_A=$!
+insert_concurrent_target_item \
+  '7b300000-0000-4000-8000-000000000002' "$TARGET_CONCURRENCY_ROOM" \
+  "$TARGET_CONCURRENCY_LOG_B" &
+TARGET_PID_B=$!
+TARGET_STATUS_A=0
+TARGET_STATUS_B=0
+wait "$TARGET_PID_A" || TARGET_STATUS_A=$?
+wait "$TARGET_PID_B" || TARGET_STATUS_B=$?
+if [[ "$TARGET_STATUS_A" -ne 0 || "$TARGET_STATUS_B" -ne 0 ]]; then
+  sed -e 's/postgresql:\/\/[^ ]*/[REDACTED]/g' "$TARGET_CONCURRENCY_LOG_A" >&2
+  sed -e 's/postgresql:\/\/[^ ]*/[REDACTED]/g' "$TARGET_CONCURRENCY_LOG_B" >&2
+  rm -f "$TARGET_CONCURRENCY_LOG_A" "$TARGET_CONCURRENCY_LOG_B"
+  exit 1
+fi
+rm -f "$TARGET_CONCURRENCY_LOG_A" "$TARGET_CONCURRENCY_LOG_B"
+TARGET_CONVERGENCE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -c \
+  "select count(distinct item.execution_target_id) || ':' || count(distinct target.id) from public.inspection_item_snapshots item join public.inspection_execution_targets target on target.company_id=item.company_id and target.id=item.execution_target_id where item.inspection_id='7b200000-0000-4000-8000-000000000001'")"
+if [[ "$TARGET_CONVERGENCE" != "1:1" ]]; then
+  printf 'Concurrent target capture did not converge: %s\n' \
+    "$TARGET_CONVERGENCE" >&2
+  exit 1
+fi
+printf '%s\n' 'HOTEL_INSPECTION_TARGET_CONCURRENCY_OK'
+
 EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_TEST_SQL")"
 if [[ "$EVIDENCE_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK"* ]]; then
   printf '%s\n' "$EVIDENCE_RESULT" >&2
