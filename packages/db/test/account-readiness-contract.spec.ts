@@ -630,7 +630,7 @@ describe("account administration readiness contract", () => {
 
   it("keeps runtime readiness opaque while reporting a safe provisioning checkpoint", () => {
     expect(source).toContain(
-      "onSchemaNotReady?: (checkpoint: string) => void;",
+      "onSchemaNotReady?: (checkpoint: string) => unknown;",
     );
     expect(source).toContain("const schemaNotReady = () => {");
     expect(source).toContain("options.onSchemaNotReady?.(");
