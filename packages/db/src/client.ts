@@ -1526,7 +1526,7 @@ export async function probeDatabaseReadiness(
     requiredLoginIdHistoryPhase?: "CONTRACT" | "EXPAND";
     requiredInspectionProcessPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
-    onSchemaNotReady?: (checkpoint: string) => void;
+    onSchemaNotReady?: (checkpoint: string) => unknown;
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
@@ -1541,7 +1541,16 @@ export async function probeDatabaseReadiness(
           !line.includes("schemaNotReady"),
       );
     const line = caller?.match(/client\.ts:(\d+):\d+/u)?.[1];
-    options.onSchemaNotReady?.(`CLIENT_${line ?? "UNKNOWN"}`);
+    try {
+      const observation = options.onSchemaNotReady?.(
+        `CLIENT_${line ?? "UNKNOWN"}`,
+      );
+      if (observation !== undefined) {
+        void Promise.resolve(observation).catch(() => undefined);
+      }
+    } catch {
+      // Diagnostics must never alter the canonical readiness result.
+    }
     return { status: "SCHEMA_NOT_READY" } as const;
   };
 
