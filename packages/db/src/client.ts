@@ -1526,9 +1526,24 @@ export async function probeDatabaseReadiness(
     requiredLoginIdHistoryPhase?: "CONTRACT" | "EXPAND";
     requiredInspectionProcessPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
+    onSchemaNotReady?: (checkpoint: string) => void;
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
+
+  const schemaNotReady = () => {
+    const stack = new Error("SCHEMA_NOT_READY").stack ?? "";
+    const caller = stack
+      .split("\n")
+      .find(
+        (line) =>
+          line.includes("/packages/db/src/client.ts:") &&
+          !line.includes("schemaNotReady"),
+      );
+    const line = caller?.match(/client\.ts:(\d+):\d+/u)?.[1];
+    options.onSchemaNotReady?.(`CLIENT_${line ?? "UNKNOWN"}`);
+    return { status: "SCHEMA_NOT_READY" } as const;
+  };
 
   const sql = postgres(databaseUrl, {
     max: 1,
@@ -1548,7 +1563,7 @@ export async function probeDatabaseReadiness(
     `;
     const tables = new Set(tableRows.map((row) => row.table_name));
     if (REQUIRED_TABLES.some((table) => !tables.has(table)))
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
 
     const columnRows = await sql<{ table_name: string; column_name: string }[]>`
       select table_record.relname as table_name,
@@ -1569,7 +1584,7 @@ export async function probeDatabaseReadiness(
         ([table, column]) => !columns.has(`${table}.${column}`),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const migrationRows = await sql<
@@ -1791,7 +1806,7 @@ export async function probeDatabaseReadiness(
       migrationRows[0].hotel_integrity_marker_count !== 1 ||
       migrationRows[0].hotel_support_overlap_marker_count !== 1
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (roomSchemaPhase === "CONTRACT") {
       const [roomCommand] = await sql<
@@ -1918,7 +1933,7 @@ export async function probeDatabaseReadiness(
         (await sourceSha256(roomCommand.source)) !==
           HOTEL_ROOM_LIFECYCLE_COMMAND_V1_PROSRC_SHA256
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
       const [roomWriteCommand] = await sql<
         {
@@ -2045,7 +2060,7 @@ export async function probeDatabaseReadiness(
         (await sourceSha256(roomWriteCommand.source)) !==
           HOTEL_ROOM_WRITE_COMMAND_V1_PROSRC_SHA256
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     } else {
       const [legacyRoomCommand] = await sql<
@@ -2063,7 +2078,7 @@ export async function probeDatabaseReadiness(
         legacyRoomCommand.exists ||
         legacyRoomCommand.write_exists
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     }
     if (inspectionProcessPhase === "CONTRACT") {
@@ -2178,7 +2193,7 @@ export async function probeDatabaseReadiness(
         inspectionTables.direct_mutation_acl_count !== 0 ||
         inspectionTables.direct_column_mutation_acl_count !== 0
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
       const [fileAccessSchema] = await sql<{ digest: string }[]>`
         select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(
@@ -2226,7 +2241,7 @@ export async function probeDatabaseReadiness(
         )), 'hex') as digest
       `;
       if (fileAccessSchema?.digest !== HOTEL_FILE_ACCESS_SCHEMA_SHA256) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
       const [evidenceRevisionConstraint] = await sql<{ exact: boolean }[]>`
         select exists (
@@ -2246,7 +2261,7 @@ export async function probeDatabaseReadiness(
         ) as exact
       `;
       if (!evidenceRevisionConstraint?.exact) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
       for (const contract of HOTEL_INSPECTION_COMMAND_CONTRACTS) {
         const [command] = await sql<
@@ -2342,7 +2357,7 @@ export async function probeDatabaseReadiness(
           command.executable !== (options.capability === contract.capability) ||
           (await sourceSha256(command.source)) !== contract.digest
         ) {
-          return { status: "SCHEMA_NOT_READY" };
+          return schemaNotReady();
         }
       }
 
@@ -2404,7 +2419,7 @@ export async function probeDatabaseReadiness(
           helper.return_signature !== contract.result ||
           (await sourceSha256(helper.source)) !== contract.digest
         ) {
-          return { status: "SCHEMA_NOT_READY" };
+          return schemaNotReady();
         }
       }
 
@@ -2429,7 +2444,7 @@ export async function probeDatabaseReadiness(
         ) as exact
       `;
       if (!legacyInspectionCommandAcl?.exact) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
 
       const [finalizerCapability] = await sql<{ exact: boolean }[]>`
@@ -2458,7 +2473,7 @@ export async function probeDatabaseReadiness(
             )
         ) as exact
       `;
-      if (!finalizerCapability?.exact) return { status: "SCHEMA_NOT_READY" };
+      if (!finalizerCapability?.exact) return schemaNotReady();
     }
     if (loginIdHistoryPhase === "CONTRACT") {
       const operationColumns = await sql<
@@ -2509,7 +2524,7 @@ export async function probeDatabaseReadiness(
           );
         })
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     }
     if (
@@ -2517,7 +2532,7 @@ export async function probeDatabaseReadiness(
         ([table, column]) => !columns.has(`${table}.${column}`),
       )
     )
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     const [hotelPermissionCatalog] = await sql<{ count: number }[]>`
       select count(*)::integer as count from permissions
       where code in (
@@ -2533,7 +2548,7 @@ export async function probeDatabaseReadiness(
       hotelPermissionCatalog?.count !==
       (inspectionProcessPhase === "CONTRACT" ? 14 : 7)
     )
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
 
     const [definerMembershipTopology] = await sql<
       { exact_zero_or_neon_pair: boolean }[]
@@ -2562,7 +2577,7 @@ export async function probeDatabaseReadiness(
       )
     `;
     if (!definerMembershipTopology?.exact_zero_or_neon_pair) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [legacyAuthFunction] = await sql<
@@ -2585,7 +2600,7 @@ export async function probeDatabaseReadiness(
       (schemaPhase === "CONTRACT" && legacyAuthFunction.exists) ||
       (schemaPhase === "EXPAND" && legacyAuthFunction.executable)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [authFunction] = await sql<
@@ -2695,7 +2710,7 @@ export async function probeDatabaseReadiness(
           ? AUTH_CREATE_SESSION_V2_PROSRC_SHA256
           : AUTH_CREATE_SESSION_V2_EXPAND_PROSRC_SHA256)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const authSupportFunctions = await sql<
@@ -2828,7 +2843,7 @@ export async function probeDatabaseReadiness(
       ],
     ]);
     if (authSupportFunctions.length !== expectedAuthSupportDigests.size) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     for (const authSupportFunction of authSupportFunctions) {
       const expectedDigest = expectedAuthSupportDigests.get(
@@ -2849,7 +2864,7 @@ export async function probeDatabaseReadiness(
           authSupportFunction.non_owner_execute_count !== 1) ||
         (await sourceSha256(authSupportFunction.source)) !== expectedDigest
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     }
 
@@ -2954,7 +2969,7 @@ export async function probeDatabaseReadiness(
       (await sourceSha256(userSessionRevokeFunction.source)) !==
         AUTH_REVOKE_USER_SESSIONS_V1_PROSRC_SHA256
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const tenantAuthorityFunctions = await sql<
@@ -3123,7 +3138,7 @@ export async function probeDatabaseReadiness(
     if (
       tenantAuthorityFunctions.length !== expectedTenantAuthorityFunctions.size
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     for (const helper of tenantAuthorityFunctions) {
       const expected = expectedTenantAuthorityFunctions.get(
@@ -3153,7 +3168,7 @@ export async function probeDatabaseReadiness(
         helper.unexpected_execute_count !== 0 ||
         (await sourceSha256(helper.source)) !== expectedDigest
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     }
 
@@ -3164,7 +3179,7 @@ export async function probeDatabaseReadiness(
              public.runtime_has_capability(${options.capability === "API_RUNTIME" ? "RECONCILER" : "API_RUNTIME"}) as unexpected
     `;
     if (!capabilityIdentity?.expected || capabilityIdentity.unexpected) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [capabilityTopology] = await sql<
@@ -3201,7 +3216,7 @@ export async function probeDatabaseReadiness(
       capabilityTopology.reconciler_count === 1 &&
       capabilityTopology.legacy_api_count === 0;
     if (!expandTopologyReady && !contractTopologyReady) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [runtimeRole] = await sql<
@@ -3248,7 +3263,7 @@ export async function probeDatabaseReadiness(
       runtimeRole.role_member ||
       runtimeRole.table_owner
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const schemaPrivilegeRows = await sql<
@@ -3286,7 +3301,7 @@ export async function probeDatabaseReadiness(
         ? "CONTRACT"
         : null;
     if (!observedSchemaAclPhase) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const publicSchemaUsageAllowed = observedSchemaAclPhase === "EXPAND";
 
@@ -3318,7 +3333,7 @@ export async function probeDatabaseReadiness(
         )
     `;
     if (!schemaAclClosure || schemaAclClosure.unexpected_count !== 0) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const sequencePrivilegeRows = await sql<
@@ -3337,7 +3352,7 @@ export async function probeDatabaseReadiness(
         and acl.grantee <> sequence_record.relowner
     `;
     if (sequencePrivilegeRows.length !== 0) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [sequenceOwnerTopology] = await sql<{ unexpected_count: number }[]>`
@@ -3356,7 +3371,7 @@ export async function probeDatabaseReadiness(
       !sequenceOwnerTopology ||
       sequenceOwnerTopology.unexpected_count !== 0
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [reconciliationDiscovery] = await sql<
@@ -3386,7 +3401,7 @@ export async function probeDatabaseReadiness(
       reconciliationDiscovery.executable !==
         (options.capability === "RECONCILER")
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const [registryPrivilege] = await sql<{ direct_access: boolean }[]>`
@@ -3397,7 +3412,7 @@ export async function probeDatabaseReadiness(
           as direct_access
     `;
     if (!registryPrivilege || registryPrivilege.direct_access) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const constraintRows = await sql<
@@ -3435,7 +3450,7 @@ export async function probeDatabaseReadiness(
         exactDispatchConstraint.definition !==
           REQUIRED_ACCOUNT_PROVIDER_EXACT_DISPATCH_CHECK)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_CONSTRAINTS.some(
@@ -3447,7 +3462,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_FOREIGN_KEY_CONSTRAINTS.some(
@@ -3461,7 +3476,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_PRIMARY_KEY_CONSTRAINTS.some(
@@ -3475,7 +3490,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_UNIQUE_CONSTRAINTS.some(
@@ -3489,7 +3504,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const expandRoomNumberConstraint = constraints.find(
       (constraint) =>
@@ -3505,7 +3520,7 @@ export async function probeDatabaseReadiness(
       (roomSchemaPhase === "CONTRACT" &&
         expandRoomNumberConstraint !== undefined)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const legacyLoginIdTargetConstraint = constraints.find(
       (constraint) =>
@@ -3521,7 +3536,7 @@ export async function probeDatabaseReadiness(
       (loginIdHistoryPhase === "CONTRACT" &&
         legacyLoginIdTargetConstraint !== undefined)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       loginIdHistoryPhase === "CONTRACT" &&
@@ -3536,7 +3551,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_EXCLUSION_CONSTRAINTS.some(
@@ -3550,7 +3565,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const requiredRoomCheckConstraints =
       roomSchemaPhase === "CONTRACT"
@@ -3588,7 +3603,7 @@ export async function probeDatabaseReadiness(
           ].includes(constraint.name),
         ))
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       schemaPhase === "CONTRACT" &&
@@ -3603,7 +3618,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (
       REQUIRED_SECURITY_CHECK_CONSTRAINTS.some(
@@ -3617,7 +3632,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const indexRows = await sql<{ index_name: string; definition: string }[]>`
@@ -3645,7 +3660,7 @@ export async function probeDatabaseReadiness(
           ROOM_CONTRACT_INDEX_NAMES.has(index.index_name),
         ))
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const loginIdTargetHistoryIndex = indexRows.find(
@@ -3659,7 +3674,7 @@ export async function probeDatabaseReadiness(
           normalizeDefinition(loginIdTargetHistoryIndex.definition) !==
             LOGIN_ID_TARGET_HISTORY_INDEX.definition))
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const permissionRows = await sql<{ permission_ready: boolean }[]>`
@@ -3668,7 +3683,7 @@ export async function probeDatabaseReadiness(
       where code in ('HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND')
     `;
     if (!permissionRows[0]?.permission_ready)
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
 
     const tablePrivilegeRows = await sql<
       { grantable: boolean; label: string; role_name: string | null }[]
@@ -3702,7 +3717,7 @@ export async function probeDatabaseReadiness(
         and table_record.relname = 'schema_migrations'
         and table_record.relkind in ('r', 'p')
     `;
-    if (!migrationOwner) return { status: "SCHEMA_NOT_READY" };
+    if (!migrationOwner) return schemaNotReady();
     const expectedTablePrivileges = new Set<string>();
     const addExpectedTablePrivileges = (
       roleName: string,
@@ -3773,7 +3788,7 @@ export async function probeDatabaseReadiness(
       ) ||
       tablePrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const columnPrivilegeRows = await sql<
@@ -3898,7 +3913,7 @@ export async function probeDatabaseReadiness(
       !approvedAclTuple ||
       columnPrivilegeRows.some((row) => row.grantable || !row.role_name)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     const triggerRows = await sql<
@@ -3992,7 +4007,7 @@ export async function probeDatabaseReadiness(
           ROOM_CONTRACT_TRIGGER_NAMES.has(trigger.trigger_name),
         ))
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     if (inspectionProcessPhase === "CONTRACT") {
       const evidenceTriggerContracts = new Map([
@@ -4018,7 +4033,7 @@ export async function probeDatabaseReadiness(
           !trigger.function_contract_safe ||
           (await sourceSha256(trigger.function_source)) !== expectedDigest
         ) {
-          return { status: "SCHEMA_NOT_READY" };
+          return schemaNotReady();
         }
       }
     }
@@ -4034,7 +4049,7 @@ export async function probeDatabaseReadiness(
       (await sourceSha256(loginRegistryTrigger.function_source)) !==
         PREVENT_LOGIN_ID_REGISTRY_MUTATION_PROSRC_SHA256
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const hotelHistoryTriggers = triggerRows.filter(
       (trigger) => trigger.function_name === "reject_hotel_relationship_delete",
@@ -4055,7 +4070,7 @@ export async function probeDatabaseReadiness(
         )
       ).some((safe) => !safe)
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const roomTriggerContracts = new Map<
       string,
@@ -4138,7 +4153,7 @@ export async function probeDatabaseReadiness(
         !trigger.function_contract_safe ||
         (await sourceSha256(trigger.function_source)) !== expected.digest
       ) {
-        return { status: "SCHEMA_NOT_READY" };
+        return schemaNotReady();
       }
     }
 
@@ -4222,7 +4237,7 @@ export async function probeDatabaseReadiness(
         },
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
     const protectedRlsTables = new Set(
       REQUIRED_RLS_POLICIES.map((required) => required.table),
@@ -4243,7 +4258,7 @@ export async function probeDatabaseReadiness(
           ),
       )
     ) {
-      return { status: "SCHEMA_NOT_READY" };
+      return schemaNotReady();
     }
 
     return { status: "READY" };
