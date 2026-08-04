@@ -854,6 +854,30 @@ grep -qi '^set-cookie: __Host-hotel_oauth_browser=.*Max-Age=0' "$TMP_DIR/callbac
 grep -qi '^location: /login?error=invalid-flow' "$TMP_DIR/callback.headers"
 grep -qi '^set-cookie: __Host-hotel_session=.*Max-Age=0' "$TMP_DIR/logout.headers"
 
+TARGET_FOUNDATION_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" <<'SQL'
+select
+  (select count(*) from public.schema_migrations
+    where version = '0037_hotel_inspection_execution_targets')::text || '|' ||
+  (select count(*) from pg_catalog.pg_class table_record
+    join pg_catalog.pg_namespace table_namespace on table_namespace.oid = table_record.relnamespace
+    where table_namespace.nspname = 'public'
+      and table_record.relname = 'inspection_execution_targets'
+      and table_record.relrowsecurity and table_record.relforcerowsecurity)::text || '|' ||
+  (select count(*) from public.inspection_item_snapshots
+    where execution_target_id is null)::text;
+SQL
+)"
+if [[ "$TARGET_FOUNDATION_STATE" != "1|1|0" ]]; then
+  printf 'HOTEL_INSPECTION_TARGET_FOUNDATION_MISMATCH\n' >&2
+  exit 1
+fi
+if psql -X -v ON_ERROR_STOP=1 -d "$RUNTIME_DATABASE_URL" \
+  -c 'select count(*) from public.inspection_execution_targets' >/dev/null 2>&1; then
+  printf 'API runtime unexpectedly received direct inspection target SELECT privilege.\n' >&2
+  exit 1
+fi
+printf 'HOTEL_INSPECTION_TARGET_FOUNDATION_OK\n'
+
 printf 'WORKER_AUTH_RUNTIME_SMOKE_OK\n'
 printf 'WORKER_HOTEL_RUNTIME_SMOKE_OK\n'
 printf 'WORKER_ROOM_RUNTIME_SMOKE_OK\n'

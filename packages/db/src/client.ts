@@ -22,6 +22,18 @@ const REJECT_HOTEL_FACILITY_REFERENCE_DELETE_PROSRC_SHA256 =
   "5146f6c0f034c27f9a7958ca8f9b1635342427f0a3f918356fa5a84ce0529b12";
 const REJECT_HOTEL_FACILITY_HISTORY_CHANGE_PROSRC_SHA256 =
   "0f13b723903ecccbf5926338a5abded7c459e5efde41238120a60229e29d3e3e";
+const INSPECTION_ITEM_EXECUTION_TARGET_CAPTURE_V1_PROSRC_SHA256 =
+  "84f7d37719bae15bff3b058ff1ece3529e06e898a0773bd84439a935eae8a832";
+const INSPECTION_TARGET_COLUMN_SHAPE_SHA256 =
+  "5041ac012f78b3178783c296cdfb5cb8889f03f505ee8744e4651e3e696de72e";
+const INSPECTION_TARGET_CONSTRAINT_SHAPE_SHA256 =
+  "701080fbb7b2aa036f99ff8710bfb8833d474b1c224d4c53e3ab23844b7608df";
+const INSPECTION_TARGET_INDEX_SHAPE_SHA256 =
+  "7bd5fdf3dc3dd75efd84bac5e0e886046bf2afd98d56f95cd33b6eaf94638e07";
+const INSPECTION_TARGET_POLICY_SHAPE_SHA256 =
+  "a976d9c8151fa8d257f4725de04b888f833e44df7060c68e1cf068c24e3e6061";
+const INSPECTION_TARGET_TRIGGER_SHAPE_SHA256 =
+  "0e2cbd0f147fe788c6ca1ef6ca8f7ef44d081b068452fa5e32e33fab865c9a6a";
 const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
   "2df7d2a8c90a059efdf7eaa66ecd8d5f5a5144115ad46385ed8b3c18c41678e5";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
@@ -2000,6 +2012,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_evidence_submission_marker_count: number;
         hotel_inspection_review_marker_count: number;
         hotel_facility_master_data_marker_count: number;
+        hotel_inspection_target_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2079,8 +2092,11 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_review_marker_count,
              count(*) filter (
                where version = '0036_hotel_facility_master_data'
-             )::integer as hotel_facility_master_data_marker_count
-      from public.schema_migrations
+             )::integer as hotel_facility_master_data_marker_count,
+             count(*) filter (
+               where version = '0037_hotel_inspection_execution_targets'
+             )::integer as hotel_inspection_target_marker_count
+             from public.schema_migrations
       where version in (
         '0001_platform_foundation',
         '0002_auth_session_runtime',
@@ -2114,7 +2130,8 @@ export async function probeDatabaseReadiness(
         '0033_hotel_file_upload_scope',
         '0034_hotel_inspection_evidence_submission',
         '0035_hotel_inspection_review_and_file_view',
-        '0036_hotel_facility_master_data'
+        '0036_hotel_facility_master_data',
+        '0037_hotel_inspection_execution_targets'
       )
     `;
     const schemaPhase =
@@ -2180,6 +2197,12 @@ export async function probeDatabaseReadiness(
         ? "CONTRACT"
         : migrationRows[0]?.hotel_facility_master_data_marker_count === 0
           ? "EXPAND"
+          : null;
+    const inspectionTargetPhase =
+      migrationRows[0]?.hotel_inspection_target_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_inspection_target_marker_count === 0
+          ? "PRE_EXPAND"
           : null;
     const facilityTableNames = [
       "hotel_common_areas",
@@ -2254,6 +2277,379 @@ export async function probeDatabaseReadiness(
         return schemaNotReady();
       }
     }
+    if (inspectionTargetPhase) {
+      const [targetFoundation] = await sql<
+        {
+          capture_function_count: number;
+          capture_function_safe_count: number;
+          capture_function_source: string | null;
+          constraint_count: number;
+          expected_constraint_count: number;
+          index_count: number;
+          item_column_count: number;
+          item_column_not_null_count: number;
+          item_fk_count: number;
+          item_trigger_count: number;
+          owner_safe_count: number;
+          policy_count: number;
+          policy_named_count: number;
+          runtime_acl_count: number;
+          table_count: number;
+          target_column_count: number;
+          target_trigger_count: number;
+          target_trigger_named_count: number;
+          force_rls_count: number;
+          rls_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer
+             from pg_class target_table
+             join pg_namespace target_namespace on target_namespace.oid=target_table.relnamespace
+            where target_namespace.nspname='public'
+              and target_table.relname='inspection_execution_targets'
+              and target_table.relkind='r') as table_count,
+          (select count(*)::integer
+             from pg_class target_table
+             join pg_namespace target_namespace on target_namespace.oid=target_table.relnamespace
+            where target_namespace.nspname='public'
+              and target_table.relname='inspection_execution_targets'
+              and target_table.relrowsecurity) as rls_count,
+          (select count(*)::integer
+             from pg_class target_table
+             join pg_namespace target_namespace on target_namespace.oid=target_table.relnamespace
+            where target_namespace.nspname='public'
+              and target_table.relname='inspection_execution_targets'
+              and target_table.relforcerowsecurity) as force_rls_count,
+          (select count(*)::integer
+             from pg_class target_table
+             join pg_namespace target_namespace on target_namespace.oid=target_table.relnamespace
+             join pg_class migration_table on migration_table.relname='schema_migrations'
+             join pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+            where target_namespace.nspname='public'
+              and migration_namespace.nspname='public'
+              and target_table.relname='inspection_execution_targets'
+              and target_table.relowner=migration_table.relowner) as owner_safe_count,
+          (select count(*)::integer
+             from pg_attribute target_column
+            where target_column.attrelid=to_regclass('public.inspection_execution_targets')
+              and target_column.attnum>0 and not target_column.attisdropped) as target_column_count,
+          (select count(*)::integer
+             from pg_attribute item_column
+            where item_column.attrelid=to_regclass('public.inspection_item_snapshots')
+              and item_column.attname='execution_target_id'
+              and item_column.attnum>0 and not item_column.attisdropped) as item_column_count,
+          (select count(*)::integer
+             from pg_attribute item_column
+            where item_column.attrelid=to_regclass('public.inspection_item_snapshots')
+              and item_column.attname='execution_target_id'
+              and item_column.attnotnull
+              and item_column.attnum>0 and not item_column.attisdropped) as item_column_not_null_count,
+          (select count(*)::integer
+             from pg_constraint target_constraint
+            where target_constraint.conrelid=to_regclass('public.inspection_execution_targets')
+              and target_constraint.contype<>'n') as constraint_count,
+          (select count(*)::integer
+             from pg_constraint target_constraint
+            where target_constraint.conrelid=to_regclass('public.inspection_execution_targets')
+              and target_constraint.conname in (
+                'inspection_execution_targets_pkey',
+                'inspection_execution_targets_company_id_id_key',
+                'inspection_execution_targets_tenant_execution_id_key',
+                'inspection_execution_targets_execution_fkey',
+                'inspection_execution_targets_room_fkey',
+                'inspection_execution_targets_facility_fkey',
+                'inspection_execution_targets_type_check',
+                'inspection_execution_targets_exactly_one_check'
+              )) as expected_constraint_count,
+          (select count(*)::integer
+             from pg_constraint item_constraint
+            where item_constraint.conrelid=to_regclass('public.inspection_item_snapshots')
+              and item_constraint.conname='inspection_item_execution_target_fkey'
+              and item_constraint.contype='f') as item_fk_count,
+          (select count(*)::integer
+             from pg_index target_index
+            where target_index.indrelid=to_regclass('public.inspection_execution_targets')) as index_count,
+          (select count(*)::integer
+             from pg_policy target_policy
+            where target_policy.polrelid=to_regclass('public.inspection_execution_targets')) as policy_count,
+          (select count(*)::integer
+             from pg_policy target_policy
+            where target_policy.polrelid=to_regclass('public.inspection_execution_targets')
+              and target_policy.polname='inspection_execution_targets_company_isolation') as policy_named_count,
+          (select count(*)::integer
+             from pg_trigger target_trigger
+            where target_trigger.tgrelid=to_regclass('public.inspection_execution_targets')
+              and not target_trigger.tgisinternal) as target_trigger_count,
+          (select count(*)::integer
+             from pg_trigger target_trigger
+            where target_trigger.tgrelid=to_regclass('public.inspection_execution_targets')
+              and target_trigger.tgname='inspection_execution_targets_append_only'
+              and target_trigger.tgenabled='O' and not target_trigger.tgisinternal) as target_trigger_named_count,
+          (select count(*)::integer
+             from pg_trigger item_trigger
+            where item_trigger.tgrelid=to_regclass('public.inspection_item_snapshots')
+              and item_trigger.tgname='inspection_item_execution_target_capture'
+              and item_trigger.tgenabled='O' and not item_trigger.tgisinternal) as item_trigger_count,
+          (select count(*)::integer
+             from pg_proc capture_function
+             join pg_namespace capture_namespace on capture_namespace.oid=capture_function.pronamespace
+            where capture_namespace.nspname='public'
+              and capture_function.proname='inspection_item_execution_target_capture_v1'
+              and pg_get_function_identity_arguments(capture_function.oid)='') as capture_function_count,
+          (select count(*)::integer
+             from pg_proc capture_function
+             join pg_namespace capture_namespace on capture_namespace.oid=capture_function.pronamespace
+             join pg_language capture_language on capture_language.oid=capture_function.prolang
+             join pg_class migration_table on migration_table.relname='schema_migrations'
+             join pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+            where capture_namespace.nspname='public'
+              and migration_namespace.nspname='public'
+              and capture_function.proname='inspection_item_execution_target_capture_v1'
+              and pg_get_function_identity_arguments(capture_function.oid)=''
+              and capture_function.prosecdef
+              and capture_function.proowner=migration_table.relowner
+              and capture_language.lanname='plpgsql'
+              and capture_function.provolatile='v'
+              and capture_function.proparallel='u'
+              and not capture_function.proleakproof
+              and capture_function.proconfig=array['search_path=pg_catalog']::text[]
+              and pg_get_function_result(capture_function.oid)='trigger'
+              and not exists (
+                select 1
+                  from aclexplode(coalesce(
+                    capture_function.proacl,
+                    acldefault('f',capture_function.proowner)
+                  )) capture_acl
+                 where capture_acl.privilege_type='EXECUTE'
+                   and capture_acl.grantee<>capture_function.proowner
+              )) as capture_function_safe_count,
+          (select capture_function.prosrc::text
+             from pg_proc capture_function
+             join pg_namespace capture_namespace on capture_namespace.oid=capture_function.pronamespace
+            where capture_namespace.nspname='public'
+              and capture_function.proname='inspection_item_execution_target_capture_v1'
+              and pg_get_function_identity_arguments(capture_function.oid)=''
+            limit 1) as capture_function_source,
+          ((select count(*)::integer
+              from pg_class target_table
+              join pg_namespace target_namespace on target_namespace.oid=target_table.relnamespace
+              cross join lateral aclexplode(coalesce(
+                target_table.relacl,acldefault('r'::"char",target_table.relowner)
+              )) target_acl
+             where target_namespace.nspname='public'
+               and target_table.relname='inspection_execution_targets'
+               and target_acl.grantee<>target_table.relowner)
+           +
+           (select count(*)::integer
+              from pg_attribute target_column
+              cross join lateral aclexplode(target_column.attacl) target_column_acl
+             where target_column.attrelid=to_regclass('public.inspection_execution_targets')
+               and target_column.attnum>0
+               and not target_column.attisdropped
+               and target_column_acl.grantee<>(
+                 select target_table.relowner
+                   from pg_class target_table
+                  where target_table.oid=target_column.attrelid
+               ))) as runtime_acl_count
+      `;
+      const targetExpected = inspectionTargetPhase === "EXPAND" ? 1 : 0;
+      let targetCatalogSafe = targetExpected === 0;
+      if (targetExpected === 1) {
+        const targetColumnShape = await sql<
+          {
+            column_name: string;
+            data_type: string;
+            default_expression: string;
+            generated: string;
+            identity: string;
+            not_null: boolean;
+            ordinal_position: number;
+            table_name: string;
+          }[]
+        >`
+          select table_record.relname::text as table_name,
+                 column_record.attnum::integer as ordinal_position,
+                 column_record.attname::text as column_name,
+                 format_type(column_record.atttypid,column_record.atttypmod)::text as data_type,
+                 column_record.attnotnull as not_null,
+                 coalesce(pg_get_expr(default_record.adbin,default_record.adrelid),'')::text as default_expression,
+                 column_record.attgenerated::text as generated,
+                 column_record.attidentity::text as identity
+            from pg_attribute column_record
+            join pg_class table_record on table_record.oid=column_record.attrelid
+            join pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            left join pg_attrdef default_record
+              on default_record.adrelid=column_record.attrelid
+             and default_record.adnum=column_record.attnum
+           where table_namespace.nspname='public'
+             and (
+               table_record.relname='inspection_execution_targets'
+               or (
+                 table_record.relname='inspection_item_snapshots'
+                 and column_record.attname='execution_target_id'
+               )
+             )
+             and column_record.attnum>0
+             and not column_record.attisdropped
+           order by table_record.relname,column_record.attnum
+        `;
+        const targetConstraintShape = await sql<
+          {
+            constraint_name: string;
+            constraint_type: string;
+            definition: string;
+            deferred: boolean;
+            deferrable: boolean;
+            table_name: string;
+            validated: boolean;
+          }[]
+        >`
+          select table_record.relname::text as table_name,
+                 constraint_record.conname::text as constraint_name,
+                 constraint_record.contype::text as constraint_type,
+                 constraint_record.condeferrable as deferrable,
+                 constraint_record.condeferred as deferred,
+                 constraint_record.convalidated as validated,
+                 pg_get_constraintdef(constraint_record.oid,true)::text as definition
+            from pg_constraint constraint_record
+            join pg_class table_record on table_record.oid=constraint_record.conrelid
+            join pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'
+             and constraint_record.contype<>'n'
+             and (
+               table_record.relname='inspection_execution_targets'
+               or (
+                 table_record.relname='inspection_item_snapshots'
+                 and constraint_record.conname='inspection_item_execution_target_fkey'
+               )
+             )
+           order by table_record.relname,constraint_record.conname
+        `;
+        const targetIndexShape = await sql<
+          { definition: string; index_name: string; table_name: string }[]
+        >`
+          select table_record.relname::text as table_name,
+                 index_class.relname::text as index_name,
+                 pg_get_indexdef(index_class.oid)::text as definition
+            from pg_index index_record
+            join pg_class table_record on table_record.oid=index_record.indrelid
+            join pg_class index_class on index_class.oid=index_record.indexrelid
+            join pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'
+             and table_record.relname='inspection_execution_targets'
+           order by index_class.relname
+        `;
+        const targetPolicyShape = await sql<
+          {
+            command: string;
+            name: string;
+            permissive: boolean;
+            qualified_expression: string;
+            roles: string[];
+            with_check_expression: string;
+          }[]
+        >`
+          select policy_record.polname::text as name,
+                 policy_record.polpermissive as permissive,
+                 policy_record.polcmd::text as command,
+                 array(
+                   select coalesce(role_record.rolname,'PUBLIC')::text
+                     from unnest(policy_record.polroles) role_oid
+                     left join pg_roles role_record on role_record.oid=role_oid
+                    order by role_oid
+                 )::text[] as roles,
+                 coalesce(pg_get_expr(policy_record.polqual,policy_record.polrelid),'')::text as qualified_expression,
+                 coalesce(pg_get_expr(policy_record.polwithcheck,policy_record.polrelid),'')::text as with_check_expression
+            from pg_policy policy_record
+           where policy_record.polrelid=to_regclass('public.inspection_execution_targets')
+           order by policy_record.polname
+        `;
+        const targetTriggerShape = await sql<
+          {
+            definition: string;
+            enabled: string;
+            function_name: string;
+            table_name: string;
+            trigger_name: string;
+          }[]
+        >`
+          select table_record.relname::text as table_name,
+                 trigger_record.tgname::text as trigger_name,
+                 trigger_record.tgenabled::text as enabled,
+                 trigger_record.tgfoid::regprocedure::text as function_name,
+                 pg_get_triggerdef(trigger_record.oid,true)::text as definition
+            from pg_trigger trigger_record
+            join pg_class table_record on table_record.oid=trigger_record.tgrelid
+            join pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'
+             and not trigger_record.tgisinternal
+             and (
+               table_record.relname='inspection_execution_targets'
+               or (
+                 table_record.relname='inspection_item_snapshots'
+                 and trigger_record.tgname='inspection_item_execution_target_capture'
+               )
+             )
+           order by table_record.relname,trigger_record.tgname
+        `;
+        const targetCatalogDigests = {
+          columns: await sourceSha256(JSON.stringify(targetColumnShape)),
+          constraints: await sourceSha256(
+            JSON.stringify(targetConstraintShape),
+          ),
+          indexes: await sourceSha256(JSON.stringify(targetIndexShape)),
+          policies: await sourceSha256(JSON.stringify(targetPolicyShape)),
+          triggers: await sourceSha256(JSON.stringify(targetTriggerShape)),
+        };
+        targetCatalogSafe =
+          targetCatalogDigests.columns ===
+            INSPECTION_TARGET_COLUMN_SHAPE_SHA256 &&
+          targetCatalogDigests.constraints ===
+            INSPECTION_TARGET_CONSTRAINT_SHAPE_SHA256 &&
+          targetCatalogDigests.indexes ===
+            INSPECTION_TARGET_INDEX_SHAPE_SHA256 &&
+          targetCatalogDigests.policies ===
+            INSPECTION_TARGET_POLICY_SHAPE_SHA256 &&
+          targetCatalogDigests.triggers ===
+            INSPECTION_TARGET_TRIGGER_SHAPE_SHA256;
+      }
+      const captureSourceSafe =
+        targetExpected === 0
+          ? targetFoundation?.capture_function_source === null
+          : targetFoundation?.capture_function_source !== null &&
+            targetFoundation?.capture_function_source !== undefined &&
+            (await sourceSha256(targetFoundation.capture_function_source)) ===
+              INSPECTION_ITEM_EXECUTION_TARGET_CAPTURE_V1_PROSRC_SHA256;
+      if (
+        !targetFoundation ||
+        targetFoundation.table_count !== targetExpected ||
+        targetFoundation.rls_count !== targetExpected ||
+        targetFoundation.force_rls_count !== targetExpected ||
+        targetFoundation.owner_safe_count !== targetExpected ||
+        targetFoundation.target_column_count !==
+          (targetExpected === 1 ? 19 : 0) ||
+        targetFoundation.item_column_count !== targetExpected ||
+        targetFoundation.item_column_not_null_count !== targetExpected ||
+        targetFoundation.constraint_count !== (targetExpected === 1 ? 8 : 0) ||
+        targetFoundation.expected_constraint_count !==
+          (targetExpected === 1 ? 8 : 0) ||
+        targetFoundation.item_fk_count !== targetExpected ||
+        targetFoundation.index_count !== (targetExpected === 1 ? 5 : 0) ||
+        targetFoundation.policy_count !== targetExpected ||
+        targetFoundation.policy_named_count !== targetExpected ||
+        targetFoundation.target_trigger_count !== targetExpected ||
+        targetFoundation.target_trigger_named_count !== targetExpected ||
+        targetFoundation.item_trigger_count !== targetExpected ||
+        targetFoundation.capture_function_count !== targetExpected ||
+        targetFoundation.capture_function_safe_count !== targetExpected ||
+        !captureSourceSafe ||
+        !targetCatalogSafe ||
+        targetFoundation.runtime_acl_count !== 0
+      ) {
+        return schemaNotReady();
+      }
+    }
     if (
       !schemaPhase ||
       !roomSchemaPhase ||
@@ -2261,6 +2657,7 @@ export async function probeDatabaseReadiness(
       !loginIdHistoryPhase ||
       !inspectionProcessPhase ||
       !facilityMasterDataPhase ||
+      !inspectionTargetPhase ||
       (options.requiredFacilityMasterDataPhase !== undefined &&
         facilityMasterDataPhase !== options.requiredFacilityMasterDataPhase) ||
       (facilityMasterDataPhase === "CONTRACT" &&
@@ -2623,7 +3020,8 @@ export async function probeDatabaseReadiness(
                       'inspection_item_snapshots', 'inspection_item_results',
                       'inspection_item_result_history', 'hotel_file_uploads',
                       'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
-                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants',
+                      'inspection_execution_targets'
                     )
                     and acl.grantee <> protected_table.relowner
                     and acl.privilege_type in ('INSERT', 'UPDATE', 'DELETE')
@@ -2656,7 +3054,8 @@ export async function probeDatabaseReadiness(
                       'inspection_item_snapshots', 'inspection_item_results',
                       'inspection_item_result_history', 'hotel_file_uploads',
                       'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
-                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants',
+                      'inspection_execution_targets'
                     )
                     and acl.grantee <> protected_table.relowner
                     and acl.privilege_type in ('INSERT', 'UPDATE', 'REFERENCES')
@@ -2682,14 +3081,19 @@ export async function probeDatabaseReadiness(
              'inspection_item_snapshots', 'inspection_item_results',
              'inspection_item_result_history', 'hotel_file_uploads',
              'hotel_file_scan_jobs', 'hotel_file_versions', 'hotel_file_links',
-                      'hotel_file_access_rate_windows', 'hotel_file_access_grants'
+                      'hotel_file_access_rate_windows', 'hotel_file_access_grants',
+                      'inspection_execution_targets'
            )
       `;
       if (
-        inspectionTables?.table_count !== 23 ||
-        inspectionTables.rls_count !== 23 ||
-        inspectionTables.force_rls_count !== 23 ||
-        inspectionTables.owner_safe_count !== 23 ||
+        inspectionTables?.table_count !==
+          23 + (inspectionTargetPhase === "EXPAND" ? 1 : 0) ||
+        inspectionTables.rls_count !==
+          23 + (inspectionTargetPhase === "EXPAND" ? 1 : 0) ||
+        inspectionTables.force_rls_count !==
+          23 + (inspectionTargetPhase === "EXPAND" ? 1 : 0) ||
+        inspectionTables.owner_safe_count !==
+          23 + (inspectionTargetPhase === "EXPAND" ? 1 : 0) ||
         inspectionTables.direct_mutation_acl_count !== 0 ||
         inspectionTables.direct_column_mutation_acl_count !== 0
       ) {

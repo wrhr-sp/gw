@@ -2317,6 +2317,153 @@ if [[ "$BOOTSTRAP_REPLAY_RESULT" != "$BOOTSTRAP_VERSION_AFTER"$'\n'"$BOOTSTRAP_A
 fi
 BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 
+TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0037_hotel_inspection_execution_targets'")"
+TARGETLESS_ITEM_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c 'select count(*) from public.inspection_item_snapshots where execution_target_id is null')"
+if [[ "$TARGET_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
+  printf '%s\n' 'Inspection target marker/backfill closure was not ready.' >&2
+  exit 1
+fi
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant select on public.inspection_execution_targets to werehere_preview_api_runtime' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'revoke select on public.inspection_execution_targets from werehere_preview_api_runtime' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.inspection_execution_targets
+  drop constraint inspection_execution_targets_type_check;
+alter table public.inspection_execution_targets
+  add constraint inspection_execution_targets_type_check
+  check (target_type is not null);
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.inspection_execution_targets
+  drop constraint inspection_execution_targets_type_check;
+alter table public.inspection_execution_targets
+  add constraint inspection_execution_targets_type_check
+  check (target_type in ('ROOM', 'FACILITY'));
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.inspection_execution_targets_room_key;
+create index inspection_execution_targets_room_key
+  on public.inspection_execution_targets (
+    company_id, branch_id, execution_id, room_id
+  ) where target_type = 'ROOM';
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.inspection_execution_targets_room_key;
+create unique index inspection_execution_targets_room_key
+  on public.inspection_execution_targets (
+    company_id, branch_id, execution_id, room_id
+  ) where target_type = 'ROOM';
+SQL
+assert_readiness READY
+
+TARGET_POLICY_USING="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select pg_get_expr(polqual,polrelid) from pg_policy where polrelid='public.inspection_execution_targets'::regclass and polname='inspection_execution_targets_company_isolation'")"
+TARGET_POLICY_CHECK="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select pg_get_expr(polwithcheck,polrelid) from pg_policy where polrelid='public.inspection_execution_targets'::regclass and polname='inspection_execution_targets_company_isolation'")"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter policy inspection_execution_targets_company_isolation on public.inspection_execution_targets using (true) with check (true)' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "alter policy inspection_execution_targets_company_isolation on public.inspection_execution_targets using ($TARGET_POLICY_USING) with check ($TARGET_POLICY_CHECK)" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_execution_targets_append_only
+  on public.inspection_execution_targets;
+create trigger inspection_execution_targets_append_only
+before update on public.inspection_execution_targets
+for each row execute function public.reject_hotel_immutable_change();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_execution_targets_append_only
+  on public.inspection_execution_targets;
+create trigger inspection_execution_targets_append_only
+before update or delete on public.inspection_execution_targets
+for each row execute function public.reject_hotel_immutable_change();
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+do $$ begin
+  if not exists (
+    select 1 from pg_roles where rolname='werehere_target_unregistered_test'
+  ) then
+    create role werehere_target_unregistered_test noinherit;
+  end if;
+end $$;
+grant select on public.inspection_execution_targets
+  to werehere_target_unregistered_test;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke select on public.inspection_execution_targets
+  from werehere_target_unregistered_test;
+grant select (id) on public.inspection_execution_targets
+  to werehere_target_unregistered_test;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke select (id) on public.inspection_execution_targets
+  from werehere_target_unregistered_test;
+grant execute on function public.inspection_item_execution_target_capture_v1()
+  to werehere_target_unregistered_test;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+revoke execute on function public.inspection_item_execution_target_capture_v1()
+  from werehere_target_unregistered_test;
+drop role werehere_target_unregistered_test;
+SQL
+assert_readiness READY
+
+TARGET_CAPTURE_DEFINITION="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select pg_get_functiondef('public.inspection_item_execution_target_capture_v1()'::regprocedure)")"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create or replace function public.inspection_item_execution_target_capture_v1()
+returns trigger
+language plpgsql
+volatile
+security definer
+set search_path = pg_catalog
+as $function$
+begin
+  return new;
+end
+$function$;
+SQL
+assert_readiness SCHEMA_NOT_READY
+printf '%s\n' "$TARGET_CAPTURE_DEFINITION" | \
+  psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter function public.inspection_item_execution_target_capture_v1() set search_path = public' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter function public.inspection_item_execution_target_capture_v1() set search_path = pg_catalog' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.inspection_item_snapshots disable trigger inspection_item_execution_target_capture' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'alter table public.inspection_item_snapshots enable trigger inspection_item_execution_target_capture' >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version='0037_hotel_inspection_execution_targets'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values ('0037_hotel_inspection_execution_targets')" >/dev/null
+assert_readiness READY
+
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c "delete from schema_migrations where version = '0022_hotel_room_contract_hardening'" \
   >/dev/null

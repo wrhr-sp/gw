@@ -491,6 +491,10 @@ try {
       "0035_hotel_inspection_review_and_file_view.sql",
     ],
     ["0036_hotel_facility_master_data", "0036_hotel_facility_master_data.sql"],
+    [
+      "0037_hotel_inspection_execution_targets",
+      "0037_hotel_inspection_execution_targets.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -512,6 +516,7 @@ try {
     "0034_hotel_inspection_evidence_submission",
     "0035_hotel_inspection_review_and_file_view",
     "0036_hotel_facility_master_data",
+    "0037_hotel_inspection_execution_targets",
   ]);
   const migrations = contractPhase
     ? allMigrations.filter(

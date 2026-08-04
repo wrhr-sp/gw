@@ -597,9 +597,7 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).toContain(
       "grant execute on function public.hotel_file_upload_scope_v1(",
     );
-    expect(foundationIntegrationSource).toContain(
-      "HOTEL_FILE_UPLOAD_SCOPE_OK",
-    );
+    expect(foundationIntegrationSource).toContain("HOTEL_FILE_UPLOAD_SCOPE_OK");
   });
 
   it("binds readiness and Preview grants to evidence submission v2", () => {
@@ -625,6 +623,35 @@ describe("account administration readiness contract", () => {
     );
     expect(foundationIntegrationSource).toContain(
       "HOTEL_INSPECTION_EVIDENCE_CONCURRENCY_OK",
+    );
+  });
+
+  it("binds readiness to the additive inspection target foundation", () => {
+    for (const contract of [
+      "0037_hotel_inspection_execution_targets",
+      "hotel_inspection_target_marker_count",
+      "inspectionTargetPhase",
+      'inspectionTargetPhase === "EXPAND"',
+      "inspection_execution_targets",
+      "inspection_item_execution_target_capture_v1",
+      "INSPECTION_TARGET_COLUMN_SHAPE_SHA256",
+      "INSPECTION_TARGET_CONSTRAINT_SHAPE_SHA256",
+      "INSPECTION_TARGET_INDEX_SHAPE_SHA256",
+      "INSPECTION_TARGET_POLICY_SHAPE_SHA256",
+      "INSPECTION_TARGET_TRIGGER_SHAPE_SHA256",
+      "targetCatalogSafe",
+      "target_column.attacl",
+      "capture_acl.grantee<>capture_function.proowner",
+      "runtime_acl_count",
+      "item_column_not_null_count",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(provisionSource).toContain(
+      "0037_hotel_inspection_execution_targets.sql",
+    );
+    expect(provisionSource).not.toContain(
+      "grant select on table public.inspection_execution_targets",
     );
   });
 
