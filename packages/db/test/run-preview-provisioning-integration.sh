@@ -23,6 +23,7 @@ drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
 drop role if exists preview_stale_definer_member;
+drop role if exists preview_stale_runtime_capability;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists cloud_admin;
@@ -49,6 +50,7 @@ drop role if exists werehere_preview_runtime;
 drop role if exists werehere_preview_api_runtime;
 drop role if exists werehere_preview_reconciler;
 drop role if exists preview_stale_definer_member;
+drop role if exists preview_stale_runtime_capability;
 drop role if exists preview_foreign_definer_grantor;
 drop role if exists werehere_preview_migration_owner;
 drop role if exists cloud_admin;
@@ -717,8 +719,20 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 update hotel_rooms set room_number = 'PREFLIGHT-91'
  where id = '7f000000-0000-4000-8000-000000000091';
+create role preview_stale_runtime_capability nologin noinherit;
+insert into runtime_database_capabilities (role_name, capability)
+values ('preview_stale_runtime_capability', 'API_RUNTIME');
 SQL
 run_provision CONTRACT >/dev/null
+STALE_CAPABILITY_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select count(*) from runtime_database_capabilities
+where role_name = 'preview_stale_runtime_capability';
+SQL
+)"
+if [[ "$STALE_CAPABILITY_COUNT" != "0" ]]; then
+  printf '%s\n' 'Contract provisioning retained a stale runtime capability.' >&2
+  exit 1
+fi
 INSPECTION_PROCESS_CONTRACT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select (
   (select count(*) = 1 from schema_migrations

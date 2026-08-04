@@ -1455,7 +1455,7 @@ try {
     if (contractCompatibleAclPhase) {
       await sql`
         delete from runtime_database_capabilities
-        where role_name = 'werehere_preview_runtime'
+        where role_name not in (${apiRuntimeRole}, ${reconcilerRole})
       `;
     }
     capabilityRows = await sql<{ capability: string; role_name: string }[]>`
