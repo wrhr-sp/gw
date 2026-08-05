@@ -1006,6 +1006,7 @@ jobs:
         run: |
           set -o pipefail
           node scripts/smoke-account-preview.mjs | tee /tmp/preview-account-smoke.log
+          grep -qx 'PREVIEW_PROCESS_WORKS_UI_SMOKE_OK' /tmp/preview-account-smoke.log
           grep -qx 'PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK' /tmp/preview-account-smoke.log
 
       - name: Verify hosted Preview Console credential and callback before contract

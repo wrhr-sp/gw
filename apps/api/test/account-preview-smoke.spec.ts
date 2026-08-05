@@ -51,6 +51,11 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain("assignments = await api(path, { token });");
     expect(source).toContain("savedFacilityItem?.name !== itemName");
     expect(source).toContain("await desktopFacilityInput.inputValue()");
+    expect(source).toContain('journeyFailureCode = "PROCESS_WORKS_UI"');
+    expect(source).toContain("PREVIEW_PROCESS_WORKS_UI_SMOKE_OK");
+    expect(source).toContain('getByRole("region", { name: "업무 처리 흐름" })');
+    expect(source).toContain('getByLabel("상태 이름")');
+    expect(source).toContain("Hosted process UI canonical read-back failed");
     expect(source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_SCOPE"')).toBeLessThan(
       source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_V2"'),
     );
@@ -159,6 +164,7 @@ describe("hosted Preview account-management smoke", () => {
       "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE",
       "INSPECTION_CHECKLIST_V2_UI_NAVIGATE",
       "INSPECTION_CHECKLIST_V2_UI_REPLAY",
+      "PROCESS_WORKS_UI",
     ]) {
       const readbackFailure = spawnSync(
         process.execPath,
@@ -931,8 +937,9 @@ describe("hosted Preview account-management smoke", () => {
   it("allows only the final non-sensitive success marker in output code", () => {
     expect(source).toContain('redirect: "manual"');
     expect(source.match(/console\./gu)).toEqual(["console."]);
+    expect(source).toContain("writeSuccess: () =>");
     expect(source).toContain(
-      'writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK")',
+      "PREVIEW_PROCESS_WORKS_UI_SMOKE_OK\\nPREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK",
     );
     expect(source).toContain("await finalizePreviewSmoke({");
     expect(`${source}\n${helperSource}`).not.toMatch(
