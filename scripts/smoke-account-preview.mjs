@@ -960,12 +960,14 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       throw new Error("Hosted checklist UI changed the idempotency key on same-body replay");
     }
 
-    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_READBACK";
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_RELOAD";
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_VALUE";
     await page
       .getByDisplayValue(itemName)
       .waitFor({ state: "visible", timeout: 60_000 });
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE";
     await assertAccessible(page, "desktop");
   } finally {
     await browser.close();
