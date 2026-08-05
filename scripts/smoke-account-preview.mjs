@@ -701,6 +701,7 @@ async function verifyHostedRelationshipManagement({
 
 async function verifyHostedChecklistV2(hotelId, token) {
   const path = `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2`;
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_INITIAL_READ";
   const initial = await api(path, { token });
   const current = initial?.data?.checklist ?? null;
   const existingItems = Array.isArray(current?.items) ? current.items : [];
@@ -750,6 +751,7 @@ async function verifyHostedChecklistV2(hotelId, token) {
       defaultSeverity: "OBSERVATION",
     });
   const reason = `Preview v2 저장 검증 ${runSuffix}`;
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_SAVE";
   const saved = await api(path, {
     method: "PUT",
     token,
@@ -757,6 +759,7 @@ async function verifyHostedChecklistV2(hotelId, token) {
     body: { version: current?.version ?? 0, reason, items },
   });
   const receipt = saved?.data?.checklist;
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_CANONICAL_READ";
   const read = (await api(path, { token }))?.data?.checklist;
   const material = (checklist) =>
     JSON.stringify({
@@ -765,6 +768,7 @@ async function verifyHostedChecklistV2(hotelId, token) {
       reason: checklist?.reason,
       items: checklist?.items,
     });
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_CANONICAL_COMPARE";
   const ids = receipt?.items?.map((item) => item.itemId) ?? [];
   if (
     !receipt ||
@@ -777,6 +781,7 @@ async function verifyHostedChecklistV2(hotelId, token) {
   ) {
     throw new Error("Preview checklist v2 canonical read-back failed");
   }
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_LEGACY_READ";
   const legacy = await api(
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist`,
     { token },

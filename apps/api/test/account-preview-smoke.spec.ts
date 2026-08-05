@@ -124,6 +124,11 @@ describe("hosted Preview account-management smoke", () => {
       "ACCOUNT_CREATE_IDENTITY_MATCH",
       "ACCOUNT_CREATE_RESPONSE_SCHEMA",
       "INSPECTION_CHECKLIST_V2",
+      "INSPECTION_CHECKLIST_V2_CANONICAL_COMPARE",
+      "INSPECTION_CHECKLIST_V2_CANONICAL_READ",
+      "INSPECTION_CHECKLIST_V2_INITIAL_READ",
+      "INSPECTION_CHECKLIST_V2_LEGACY_READ",
+      "INSPECTION_CHECKLIST_V2_SAVE",
       "INSPECTION_CHECKLIST_V2_UI",
       "INSPECTION_CHECKLIST_V2_UI_COMMITTED_RESPONSE_LOSS",
       "INSPECTION_CHECKLIST_V2_UI_DESKTOP_READBACK",
@@ -203,6 +208,17 @@ describe("hosted Preview account-management smoke", () => {
         }),
       ).rejects.toThrow(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${failureCode}`);
     }
+  });
+
+  it("sets checklist canonical comparison stage before receipt parsing", () => {
+    const compareStagePosition = source.indexOf(
+      'journeyFailureCode = "INSPECTION_CHECKLIST_V2_CANONICAL_COMPARE"',
+    );
+    const receiptItemParsingPosition = source.indexOf(
+      "const ids = receipt?.items?.map((item) => item.itemId) ?? [];",
+    );
+    expect(compareStagePosition).toBeGreaterThan(-1);
+    expect(receiptItemParsingPosition).toBeGreaterThan(compareStagePosition);
   });
 
   it("verifies canonical housekeeping multi-hotel material fields", () => {
