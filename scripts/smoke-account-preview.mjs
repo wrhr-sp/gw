@@ -999,7 +999,12 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     const stageName = "Preview 확인";
     const definitionsPath = `/api/admin/process-definitions?hotelId=${encodeURIComponent(hotelId)}`;
     const currentDefinitions =
-      (await api(definitionsPath, { token }))?.data?.definitions ?? [];
+      (
+        await api(definitionsPath, {
+          token,
+          expectedStatuses: [200, 404],
+        })
+      )?.data?.definitions ?? [];
     const currentDefinition = currentDefinitions.find(
       (definition) => definition.name === processName,
     );
