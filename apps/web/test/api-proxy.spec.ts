@@ -374,6 +374,38 @@ describe("same-origin API runtime proxy", () => {
     expect(response.status).toBe(503);
   });
 
+  it("proxies only checklist v1 and v2 read and replace methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+
+    for (const suffix of ["inspection-checklist", "inspection-checklist/v2"]) {
+      const path = ["hotels", hotelId, ...suffix.split("/")];
+      const url = `https://hotel.example.test/api/${path.join("/")}`;
+      expect(
+        (
+          await GET(new Request(url), {
+            params: Promise.resolve({ path }),
+          })
+        ).status,
+      ).toBe(200);
+      expect(
+        (
+          await PUT(new Request(url, { method: "PUT" }), {
+            params: Promise.resolve({ path }),
+          })
+        ).status,
+      ).toBe(200);
+      const rejected = await POST(new Request(url, { method: "POST" }), {
+        params: Promise.resolve({ path }),
+      });
+      expect(rejected.status).toBe(405);
+      expect(rejected.headers.get("allow")).toBe("GET, PUT");
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(4);
+  });
+
   it("proxies only the approved hotel collection and detail methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));

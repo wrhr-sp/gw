@@ -37,6 +37,14 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspection-checklist(?:/v2)?$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET", "PUT"]);
+  }
+  if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/files/upload-init$`, "iu").test(
       apiPath,
     )
