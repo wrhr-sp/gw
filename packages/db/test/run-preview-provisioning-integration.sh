@@ -773,12 +773,13 @@ select
   and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc, 'UTF8')), 'hex')
          from pg_catalog.pg_proc where oid = 'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'::pg_catalog.regprocedure)
       = '43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6'
-  and (select count(*) = 3
+  and (select count(*) = 4
          from public.permission_grants
         where id in (
           '73000000-0000-4000-8000-000000000011'::uuid,
           '73000000-0000-4000-8000-000000000012'::uuid,
-          '73000000-0000-4000-8000-000000000013'::uuid
+          '73000000-0000-4000-8000-000000000013'::uuid,
+          '73000000-0000-4000-8000-000000000014'::uuid
         )
           and company_id = '70000000-0000-4000-8000-000000000001'::uuid
           and branch_id is null
@@ -786,7 +787,7 @@ select
           and subject_id = '71000000-0000-4000-8000-000000000001'::uuid
           and permission_code in (
             'HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG',
-            'HOTEL_FACILITY_READ'
+            'HOTEL_FACILITY_READ', 'PROCESS_DEFINITION_MANAGE'
           )
           and effect = 'ALLOW'
           and valid_until is null
