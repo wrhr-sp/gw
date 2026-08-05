@@ -281,7 +281,8 @@ where company_id = '$COMPANY_ID'
   and subject_id = '71000000-0000-4000-8000-000000000001'
   and permission_code in (
     'HOTEL_MANAGE', 'USER_READ', 'USER_CREATE', 'USER_SUSPEND',
-    'HOTEL_ROOM_READ', 'HOTEL_ROOM_MANAGE', 'HOTEL_ROOM_TYPE_MANAGE'
+    'HOTEL_ROOM_READ', 'HOTEL_ROOM_MANAGE', 'HOTEL_ROOM_TYPE_MANAGE',
+    'HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG'
   )
   and effect = 'ALLOW' and branch_id is null and valid_until is null;
 select count(*) from auth_sessions
@@ -771,7 +772,21 @@ select
       = 'be20318aa8c8b3acb29e1b3d24c54ac43c4b4b761319df867b567c2f08ae6fad'
   and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc, 'UTF8')), 'hex')
          from pg_catalog.pg_proc where oid = 'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'::pg_catalog.regprocedure)
-      = '43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6';
+      = '43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6'
+  and (select count(*) = 2
+         from public.permission_grants
+        where id in (
+          '73000000-0000-4000-8000-000000000011'::uuid,
+          '73000000-0000-4000-8000-000000000012'::uuid
+        )
+          and company_id = '70000000-0000-4000-8000-000000000001'::uuid
+          and branch_id is null
+          and subject_type = 'USER'
+          and subject_id = '71000000-0000-4000-8000-000000000001'::uuid
+          and permission_code in ('HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG')
+          and effect = 'ALLOW'
+          and valid_until is null
+          and version = 1);
 SQL
 )"
 if [[ "$CHECKLIST_MIGRATION_BEFORE_DEPLOY" != "t" ]]; then

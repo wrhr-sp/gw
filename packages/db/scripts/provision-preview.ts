@@ -39,6 +39,10 @@ const previewHotelRoomReadGrantId = "73000000-0000-4000-8000-000000000008";
 const previewHotelRoomManageGrantId = "73000000-0000-4000-8000-000000000009";
 const previewHotelRoomTypeManageGrantId =
   "73000000-0000-4000-8000-000000000010";
+const previewHotelInspectionRunGrantId =
+  "73000000-0000-4000-8000-000000000011";
+const previewHotelInspectionConfigGrantId =
+  "73000000-0000-4000-8000-000000000012";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -1229,6 +1233,22 @@ try {
         "Existing Preview room permission grants do not match the approved seed",
       );
     }
+    const inspectionPermissionRows = await sql<{ code: string }[]>`
+      select code
+        from permissions
+       where code in ('HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG')
+       order by code
+    `;
+    const inspectionPermissionCodes = new Set(
+      inspectionPermissionRows.map((permission) => permission.code),
+    );
+    if (
+      inspectionPermissionCodes.size !== 0 &&
+      inspectionPermissionCodes.size !== 2
+    ) {
+      fail("Preview inspection permission catalog is partially provisioned");
+    }
+    const inspectionPermissionsReady = inspectionPermissionCodes.size === 2;
     await sql`
         insert into permission_grants (
           id, company_id, branch_id, subject_type, subject_id,
@@ -1239,6 +1259,17 @@ try {
         (${previewHotelStatusGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_STATUS_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔상태 권한')
         on conflict (id) do nothing
       `;
+    if (inspectionPermissionsReady) {
+      await sql`
+        insert into permission_grants (
+          id, company_id, branch_id, subject_type, subject_id,
+          permission_code, effect, valid_from, valid_until, granted_by, reason
+        ) values
+        (${previewHotelInspectionRunGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_RUN', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 실행 권한'),
+        (${previewHotelInspectionConfigGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_CONFIG', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 설정 권한')
+        on conflict (id) do nothing
+      `;
+    }
     const relationshipGrants = await sql<
       {
         branch_id: string | null;
@@ -1259,7 +1290,13 @@ try {
                to_char(valid_from at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"') as valid_from,
                valid_until::text, granted_by::text, version
         from permission_grants
-        where id in (${previewHotelAssignmentGrantId}::uuid, ${previewHotelOwnerGrantId}::uuid, ${previewHotelStatusGrantId}::uuid)
+        where id in (
+          ${previewHotelAssignmentGrantId}::uuid,
+          ${previewHotelOwnerGrantId}::uuid,
+          ${previewHotelStatusGrantId}::uuid,
+          ${previewHotelInspectionRunGrantId}::uuid,
+          ${previewHotelInspectionConfigGrantId}::uuid
+        )
         order by permission_code
       `;
     const exactRelationshipGrants = new Map([
@@ -1267,8 +1304,18 @@ try {
       ["HOTEL_OWNER_MANAGE", previewHotelOwnerGrantId],
       ["HOTEL_STATUS_MANAGE", previewHotelStatusGrantId],
     ]);
+    if (inspectionPermissionsReady) {
+      exactRelationshipGrants.set(
+        "HOTEL_INSPECTION_RUN",
+        previewHotelInspectionRunGrantId,
+      );
+      exactRelationshipGrants.set(
+        "HOTEL_INSPECTION_CONFIG",
+        previewHotelInspectionConfigGrantId,
+      );
+    }
     if (
-      relationshipGrants.length !== 3 ||
+      relationshipGrants.length !== exactRelationshipGrants.size ||
       relationshipGrants.some(
         (grant) =>
           exactRelationshipGrants.get(grant.permission_code) !== grant.id ||

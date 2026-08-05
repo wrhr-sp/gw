@@ -42,6 +42,18 @@ describe("hosted Preview account-management smoke", () => {
     ).not.toThrow();
   });
 
+  it("establishes canonical staff scope before the hosted checklist journey", () => {
+    expect(source).toContain(
+      "async function ensureHostedChecklistScope(hotelId, token, principal)",
+    );
+    expect(source).toContain('relationshipType: "STAFF"');
+    expect(source).toContain('assignmentType: "PRIMARY"');
+    expect(source).toContain("assignments = await api(path, { token });");
+    expect(source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_SCOPE"')).toBeLessThan(
+      source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_V2"'),
+    );
+  });
+
   it("does not expose runtime secret inputs through the real process stdout or stderr", () => {
     const sentinels = [
       "provisioner-secret-sentinel",
@@ -123,6 +135,7 @@ describe("hosted Preview account-management smoke", () => {
       "ACCOUNT_CREATE_ATTEMPT_READBACK",
       "ACCOUNT_CREATE_IDENTITY_MATCH",
       "ACCOUNT_CREATE_RESPONSE_SCHEMA",
+      "INSPECTION_CHECKLIST_SCOPE",
       "INSPECTION_CHECKLIST_V2",
       "INSPECTION_CHECKLIST_V2_CANONICAL_COMPARE",
       "INSPECTION_CHECKLIST_V2_CANONICAL_READ",

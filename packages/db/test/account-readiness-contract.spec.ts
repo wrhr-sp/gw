@@ -57,6 +57,20 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("seeds exact Preview inspection permissions for the hosted checklist journey", () => {
+    expect(provisionSource).toContain(
+      '"73000000-0000-4000-8000-000000000011"',
+    );
+    expect(provisionSource).toContain(
+      '"73000000-0000-4000-8000-000000000012"',
+    );
+    expect(provisionSource).toContain("'HOTEL_INSPECTION_RUN', 'ALLOW'");
+    expect(provisionSource).toContain("'HOTEL_INSPECTION_CONFIG', 'ALLOW'");
+    expect(previewProvisioningIntegrationSource).toContain(
+      "'HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG'",
+    );
+  });
+
   it("tracks a new room rollout independently from an already contracted base", () => {
     expect(source).toContain("requiredRoomSchemaPhase?:");
     expect(source).toContain("const roomSchemaPhase =");
