@@ -406,6 +406,53 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(4);
   });
 
+  it("proxies only process definition list, create, and UUID update methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const collectionPath = ["admin", "process-definitions"];
+    const collectionUrl = `https://hotel.example.test/api/${collectionPath.join("/")}`;
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+
+    expect(
+      (
+        await GET(new Request(`${collectionUrl}?hotelId=${hotelId}`), {
+          params: Promise.resolve({ path: collectionPath }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await POST(new Request(collectionUrl, { method: "POST" }), {
+          params: Promise.resolve({ path: collectionPath }),
+        })
+      ).status,
+    ).toBe(200);
+    const definitionId = "58000000-0000-4000-8000-000000000001";
+    const detailPath = [...collectionPath, definitionId];
+    const detailUrl = `https://hotel.example.test/api/${detailPath.join("/")}`;
+    expect(
+      (
+        await PUT(new Request(detailUrl, { method: "PUT" }), {
+          params: Promise.resolve({ path: detailPath }),
+        })
+      ).status,
+    ).toBe(200);
+    const rejectedCollectionUpdate = await PUT(
+      new Request(collectionUrl, { method: "PUT" }),
+      { params: Promise.resolve({ path: collectionPath }) },
+    );
+    expect(rejectedCollectionUpdate.status).toBe(405);
+    expect(rejectedCollectionUpdate.headers.get("allow")).toBe("GET, POST");
+    const rejectedDetailCreate = await POST(
+      new Request(detailUrl, { method: "POST" }),
+      { params: Promise.resolve({ path: detailPath }) },
+    );
+    expect(rejectedDetailCreate.status).toBe(405);
+    expect(rejectedDetailCreate.headers.get("allow")).toBe("PUT");
+    expect(upstreamFetch).toHaveBeenCalledTimes(3);
+  });
+
   it("proxies only the approved hotel collection and detail methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));

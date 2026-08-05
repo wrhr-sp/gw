@@ -32,10 +32,18 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
+  ["admin/process-definitions", new Set(["GET", "POST"])],
   ["account/initial-password", new Set(["POST"])],
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
+  if (
+    new RegExp(`^admin/process-definitions/${UUID_PATH_PATTERN}$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["PUT"]);
+  }
   if (
     new RegExp(
       `^hotels/${UUID_PATH_PATTERN}/inspection-checklist(?:/v2)?$`,
