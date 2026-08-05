@@ -236,6 +236,19 @@ async function api(
       error.previewFailureCode =
         `INSPECTION_CHECKLIST_V2_INITIAL_READ_${safeCode}`;
     }
+    if (journeyFailureCode === "PROCESS_WORKS_UI_READ") {
+      const processReadCodes = new Set([
+        "AUTHENTICATION_REQUIRED",
+        "DB_NOT_CONFIGURED",
+        "FORBIDDEN",
+        "INTERNAL_ERROR",
+        "RESOURCE_NOT_FOUND",
+        "SCHEMA_NOT_READY",
+        "VALIDATION_ERROR",
+      ]);
+      const safeCode = processReadCodes.has(code) ? code : "OTHER";
+      error.previewFailureCode = `PROCESS_WORKS_UI_READ_${safeCode}`;
+    }
     throw error;
   }
   if (response.status === 204) return null;
