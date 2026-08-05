@@ -379,6 +379,18 @@ try {
       fail("Preview ownership preflight failed before database mutation");
     }
   }
+  let checklistExpandPrerequisitesPresent = false;
+  if (existingMigrationMarker?.exists) {
+    const [checklistPrerequisites] = await owner<{ exact: boolean }[]>`
+      select count(*) = 2 as exact
+        from public.schema_migrations
+       where version in (
+         '0036_hotel_facility_master_data',
+         '0037_hotel_inspection_execution_targets'
+       )
+    `;
+    checklistExpandPrerequisitesPresent = checklistPrerequisites?.exact === true;
+  }
 
   await updateLocalCiDefinerMembership(
     migrationOwnerIdentity.role_name,
@@ -499,6 +511,10 @@ try {
       "0038_hotel_inspection_checklist_targets",
       "0038_hotel_inspection_checklist_targets.sql",
     ],
+    [
+      "0039_hotel_inspection_checklist_v2_hardening",
+      "0039_hotel_inspection_checklist_v2_hardening.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -521,13 +537,27 @@ try {
     "0035_hotel_inspection_review_and_file_view",
     "0036_hotel_facility_master_data",
     "0037_hotel_inspection_execution_targets",
-    "0038_hotel_inspection_checklist_targets",
   ]);
+  const prerequisiteGatedExpandMigrations = new Set([
+    "0038_hotel_inspection_checklist_targets",
+    "0039_hotel_inspection_checklist_v2_hardening",
+  ]);
+  const freshBootstrapRequested =
+    process.env.PREVIEW_PROVISION_FRESH_BOOTSTRAP_FULL === "1";
+  const freshBootstrap =
+    freshBootstrapRequested && existingMigrationMarker?.exists !== true;
   const migrations = contractPhase
     ? allMigrations.filter(
         ([version]) => version !== "0010_global_login_id_contract",
       )
-    : allMigrations.filter(([version]) => !contractOnlyMigrations.has(version));
+    : freshBootstrap
+      ? allMigrations
+      : allMigrations.filter(
+        ([version]) =>
+          !contractOnlyMigrations.has(version) &&
+          (!prerequisiteGatedExpandMigrations.has(version) ||
+            checklistExpandPrerequisitesPresent),
+      );
 
   const readContractBaseState = async () => {
     const [objects] = await owner<
@@ -734,6 +764,10 @@ try {
     await owner.unsafe(
       await readFile(resolve(migrationDirectory, fileName), "utf8"),
     );
+  }
+  if (freshBootstrap) {
+    contractCompatibleAclPhase = true;
+    identityLockPhase = true;
   }
 
   await owner.begin(async (sql) => {
@@ -1436,12 +1470,14 @@ try {
 
   if (provisionPhase === "EXPAND") {
     const latestContractBaseState = await readContractBaseState();
+    const expectedContractMarkerCount = freshBootstrap
+      ? 4
+      : contractBaseState.contract_marker_count;
     if (
       !latestContractBaseState.users_exists ||
       !latestContractBaseState.auth_identities_exists ||
       !latestContractBaseState.login_id_registry_exists ||
-      latestContractBaseState.contract_marker_count !==
-        contractBaseState.contract_marker_count
+      latestContractBaseState.contract_marker_count !== expectedContractMarkerCount
     ) {
       fail("Preview contract base changed before ACL reconciliation");
     }
@@ -1573,12 +1609,16 @@ try {
     fail("Preview facility master-data marker state is unavailable");
   }
   const [inspectionTargetChecklistState] = await owner<
-    { contracted: boolean }[]
+    { expanded: boolean; hardened: boolean }[]
   >`
     select exists (
       select 1 from public.schema_migrations
       where version = '0038_hotel_inspection_checklist_targets'
-    ) as contracted
+    ) as expanded,
+    exists (
+      select 1 from public.schema_migrations
+      where version = '0039_hotel_inspection_checklist_v2_hardening'
+    ) as hardened
   `;
   if (!inspectionTargetChecklistState) {
     fail("Preview inspection checklist target marker state is unavailable");
@@ -2063,6 +2103,9 @@ try {
              'hotel_inspection_executions_read_v1',
              'hotel_inspection_command_v2',
              'hotel_inspection_checklist_v2_command',
+             'hotel_inspection_checklist_v3_command',
+             'inspection_checklist_v2_snapshot_v1',
+             'inspection_checklist_v1_sync_v2',
              'hotel_file_command_v1', 'hotel_file_upload_scope_v1',
              'hotel_file_scan_command_v1',
              'hotel_file_scan_candidates_v1',
@@ -2125,8 +2168,16 @@ try {
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};
     ${
-      inspectionTargetChecklistState.contracted
+      inspectionTargetChecklistState.expanded
         ? `grant execute on function public.hotel_inspection_checklist_v2_command(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
+    ${
+      inspectionTargetChecklistState.hardened
+        ? `grant execute on function public.hotel_inspection_checklist_v3_command(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};`

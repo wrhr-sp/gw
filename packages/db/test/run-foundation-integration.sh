@@ -87,6 +87,7 @@ GRANT EXECUTE ON FUNCTION
   hotel_inspection_executions_read_v1(uuid,uuid,uuid,jsonb,text),
   hotel_inspection_command_v2(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
   hotel_file_upload_scope_v1(uuid,uuid,text),
   hotel_inspection_reviews_read_v1(uuid,uuid,uuid,jsonb,text),
@@ -124,6 +125,14 @@ begin
       'grant execute on function public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I',
       capability_role.role_name
     );
+    if pg_catalog.to_regprocedure(
+      'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+    ) is not null then
+      execute format(
+        'grant execute on function public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I',
+        capability_role.role_name
+      );
+    end if;
   end loop;
 end
 $grant_checklist_v2$;
@@ -379,6 +388,40 @@ NODE
   )
 }
 
+assert_checklist_expand_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local sync_definition
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter function public.inspection_checklist_v2_snapshot_v1(uuid,uuid) security invoker' \
+    >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter function public.inspection_checklist_v2_snapshot_v1(uuid,uuid) security definer' \
+    >/dev/null
+  assert_schema_ready "$probe_url"
+  sync_definition="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" -c \
+    "select pg_catalog.pg_get_functiondef('public.inspection_checklist_v1_sync_v2()'::pg_catalog.regprocedure)")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.inspection_checklist_v1_sync_v2()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+begin
+  return new;
+end
+$function$;
+SQL
+  assert_schema_not_ready "$probe_url"
+  printf '%s\n' "$sync_definition" | \
+    psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_INSPECTION_CHECKLIST_EXPAND_READINESS_DAMAGE_OK\n'
+}
+
 assert_checklist_v2_readiness_damage() {
   local admin_url="$1"
   local probe_url="$2"
@@ -400,6 +443,33 @@ alter table public.inspection_checklist_v2_item_exclusions
     (target_type = 'FACILITY' and room_type_id is null and facility_type_id is not null)
   );
 SQL
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter function public.inspection_checklist_v2_snapshot_v1(uuid, uuid)
+  security invoker;
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter function public.inspection_checklist_v2_snapshot_v1(uuid, uuid)
+  security definer;
+SQL
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+create or replace function public.inspection_checklist_v1_sync_v2()
+returns trigger
+language plpgsql
+security definer
+set search_path = pg_catalog
+as $function$
+begin
+  return new;
+end
+$function$;
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -f "$ROOT_DIR/packages/db/migrations/0039_hotel_inspection_checklist_v2_hardening.sql" \
+    >/dev/null
   assert_schema_ready "$probe_url"
   printf 'HOTEL_INSPECTION_CHECKLIST_V2_READINESS_DAMAGE_OK\n'
 }
@@ -1128,6 +1198,7 @@ HOTEL_INSPECTION_REVIEW_MIGRATION="$ROOT_DIR/packages/db/migrations/0035_hotel_i
 HOTEL_FACILITY_MASTER_DATA_MIGRATION="$ROOT_DIR/packages/db/migrations/0036_hotel_facility_master_data.sql"
 HOTEL_INSPECTION_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0037_hotel_inspection_execution_targets.sql"
 HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0038_hotel_inspection_checklist_targets.sql"
+HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0039_hotel_inspection_checklist_v2_hardening.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1296,6 +1367,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1435,6 +1510,7 @@ NODE
     exit 1
   fi
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION" >/dev/null
   grant_checklist_v2_api_capabilities "$TEST_DATABASE_URL"
   ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
   if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
@@ -1889,6 +1965,9 @@ fi
 printf '%s\n' 'HOTEL_INSPECTION_TARGET_CONCURRENCY_OK'
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null
+grant_checklist_v2_api_capabilities "$ADMIN_URL"
+assert_checklist_expand_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION" >/dev/null
 grant_checklist_v2_api_capabilities "$ADMIN_URL"
 
 EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_TEST_SQL")"

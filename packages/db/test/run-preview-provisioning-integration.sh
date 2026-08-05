@@ -31,6 +31,7 @@ drop role if exists preview_wrong_database_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
 drop role if exists preview_stale_table_acl_grantee;
+drop role if exists preview_checklist_helper_grantee;
 SQL
   elif [[ -d "$DATA_DIR" ]]; then
     "$PG_BIN/pg_ctl" -D "$DATA_DIR" -m immediate -w stop >/dev/null 2>&1 || true
@@ -58,6 +59,7 @@ drop role if exists preview_wrong_database_owner;
 drop role if exists preview_stale_function_grantee;
 drop role if exists preview_stale_acl_grantee;
 drop role if exists preview_stale_table_acl_grantee;
+drop role if exists preview_checklist_helper_grantee;
 create role werehere_preview_migration_owner login createrole password 'preview-migration-integration-password';
 create database werehere_preview_ci owner werehere_preview_migration_owner;
 create database werehere_production_ci;
@@ -77,6 +79,7 @@ else
   createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres -O "$MIGRATION_OWNER" werehere_preview_ci
   createdb -h "$SOCKET_DIR" -p "$PORT" -U postgres werehere_production_ci
 fi
+ADMIN_SERVER_URL="$(node -e 'const u = new URL(process.argv[1]); u.pathname = "/postgres"; console.log(u.toString())' "$ADMIN_PREVIEW_URL")"
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 do $role$
@@ -719,6 +722,96 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 update hotel_rooms set room_number = 'PREFLIGHT-91'
  where id = '7f000000-0000-4000-8000-000000000091';
+SQL
+for migration in \
+  0024_preview_bootstrap_session_revocations \
+  0025_hotel_room_reference_lifecycle \
+  0026_hotel_inspection_process_and_files \
+  0027_hotel_file_finalizer_recovery \
+  0028_hotel_process_default_read_contract \
+  0029_hotel_process_reviewer_candidates \
+  0030_hotel_inspection_routine_contract \
+  0031_hotel_inspection_execution_contract \
+  0032_hotel_inspection_evidence_processing \
+  0033_hotel_file_upload_scope \
+  0034_hotel_inspection_evidence_submission \
+  0035_hotel_inspection_review_and_file_view \
+  0036_hotel_facility_master_data \
+  0037_hotel_inspection_execution_targets
+do
+  marker_count="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
+    -c "select count(*) from public.schema_migrations where version='${migration}'")"
+  if [[ "$marker_count" == "0" ]]; then
+    psql -X -v ON_ERROR_STOP=1 -d "$PREVIEW_URL" \
+      -f "$ROOT_DIR/packages/db/migrations/${migration}.sql" >/dev/null
+  fi
+done
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c 'grant select on all tables in schema public to werehere_preview_api_runtime' \
+  >/dev/null
+run_provision EXPAND >/dev/null
+CHECKLIST_MIGRATION_BEFORE_DEPLOY="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select
+  (select count(*) = 1 from public.schema_migrations
+    where version = '0038_hotel_inspection_checklist_targets')
+  and (select count(*) = 1 from public.schema_migrations
+    where version = '0039_hotel_inspection_checklist_v2_hardening')
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc, 'UTF8')), 'hex')
+         from pg_catalog.pg_proc where oid = 'public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'::pg_catalog.regprocedure)
+      = 'be20318aa8c8b3acb29e1b3d24c54ac43c4b4b761319df867b567c2f08ae6fad'
+  and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc, 'UTF8')), 'hex')
+         from pg_catalog.pg_proc where oid = 'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'::pg_catalog.regprocedure)
+      = '43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6';
+SQL
+)"
+if [[ "$CHECKLIST_MIGRATION_BEFORE_DEPLOY" != "t" ]]; then
+  printf '%s\n' 'Checklist v2 migration-before-deploy EXPAND did not converge.' >&2
+  exit 1
+fi
+printf '%s\n' 'PREVIEW_CHECKLIST_V2_MIGRATION_BEFORE_DEPLOY_OK'
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create role preview_checklist_helper_grantee nologin noinherit;
+grant execute on function public.inspection_checklist_v2_snapshot_v1(uuid, uuid)
+  to preview_checklist_helper_grantee with grant option;
+grant execute on function public.inspection_checklist_v1_sync_v2()
+  to preview_checklist_helper_grantee with grant option;
+SQL
+run_provision EXPAND >/dev/null
+CHECKLIST_HELPER_ACL_RECOVERED="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select not exists (
+  select 1
+    from pg_catalog.pg_proc procedure_record
+    join pg_catalog.pg_namespace procedure_namespace
+      on procedure_namespace.oid = procedure_record.pronamespace
+    cross join lateral pg_catalog.aclexplode(coalesce(
+      procedure_record.proacl,
+      pg_catalog.acldefault('f'::"char", procedure_record.proowner)
+    )) acl
+   where procedure_namespace.nspname = 'public'
+     and procedure_record.proname in (
+       'inspection_checklist_v2_snapshot_v1',
+       'inspection_checklist_v1_sync_v2'
+     )
+     and acl.grantee <> procedure_record.proowner
+);
+SQL
+)"
+if [[ "$CHECKLIST_HELPER_ACL_RECOVERED" != "t" ]]; then
+  printf '%s\n' 'Checklist privileged helper ACL did not recover.' >&2
+  exit 1
+fi
+printf '%s\n' 'PREVIEW_CHECKLIST_HELPER_ACL_RECOVERY_OK'
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 create role preview_stale_runtime_capability nologin noinherit;
 insert into runtime_database_capabilities (role_name, capability)
 values ('preview_stale_runtime_capability', 'API_RUNTIME');
@@ -2319,8 +2412,9 @@ BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 
 TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0037_hotel_inspection_execution_targets'")"
 CHECKLIST_TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0038_hotel_inspection_checklist_targets'")"
+CHECKLIST_HARDENING_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0039_hotel_inspection_checklist_v2_hardening'")"
 TARGETLESS_ITEM_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c 'select count(*) from public.inspection_item_snapshots where execution_target_id is null')"
-if [[ "$TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_TARGET_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
+if [[ "$TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_HARDENING_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
   printf '%s\n' 'Inspection target/checklist marker and backfill closure was not ready.' >&2
   exit 1
 fi
@@ -2473,6 +2567,13 @@ psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version='0039_hotel_inspection_checklist_v2_hardening'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values ('0039_hotel_inspection_checklist_v2_hardening')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c "delete from schema_migrations where version = '0022_hotel_room_contract_hardening'" \
   >/dev/null
 set +e
@@ -2518,5 +2619,49 @@ for runtime_url in "$API_RUNTIME_URL" "$RECONCILER_URL"; do
     exit 1
   fi
 done
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_SERVER_URL" >/dev/null <<SQL
+drop database werehere_preview_ci with (force);
+create database werehere_preview_ci owner $MIGRATION_OWNER;
+SQL
+PREVIEW_PROVISION_FRESH_BOOTSTRAP_FULL=1 run_provision EXPAND >/dev/null
+API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
+FRESH_PREDEPLOY_READY="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select
+  (select count(*) = 2 from public.schema_migrations where version in (
+    '0038_hotel_inspection_checklist_targets',
+    '0039_hotel_inspection_checklist_v2_hardening'
+  ))
+  and to_regprocedure('public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)') is not null
+  and to_regprocedure('public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)') is not null
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  );
+SQL
+)"
+if [[ "$FRESH_PREDEPLOY_READY" != "t" ]]; then
+  printf '%s\n' 'Fresh Preview did not reach checklist hardening before Worker deploy.' >&2
+  exit 1
+fi
+(
+  cd "$ROOT_DIR"
+  TEST_READY_URL="$API_RUNTIME_URL" pnpm --filter @werehere/db exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Fresh Preview runtime URL is missing");
+const result = await probeDatabaseReadiness(databaseUrl, { capability: "API_RUNTIME" });
+if (result.status !== "READY") {
+  throw new Error(`Fresh Preview predeploy readiness failed: ${result.status}`);
+}
+NODE
+)
+printf '%s\n' 'PREVIEW_FRESH_FULL_MIGRATION_BEFORE_DEPLOY_OK'
 
 printf '%s\n' 'PREVIEW_PROVISIONING_INTEGRATION_OK'

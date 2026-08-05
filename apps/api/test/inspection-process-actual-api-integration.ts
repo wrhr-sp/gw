@@ -126,6 +126,25 @@ async function main() {
     ).data.checklist;
     if (!checklistRead)
       throw new Error("actual checklist v2 backfill was not readable");
+    const checklistSaveBody = JSON.stringify({
+      version: checklistRead.version,
+      reason: "actual API 시설물 점검항목 저장",
+      items: [
+        ...checklistRead.items,
+        {
+          itemId: null,
+          targetType: "FACILITY",
+          source: "TARGET_TYPE_ADDED",
+          facilityTypeId: "7ab00000-0000-4000-8000-000000000001",
+          excludedFacilityTypeIds: [],
+          name: "actual API 시설물 확인",
+          description: null,
+          isRequired: true,
+          displayOrder: 900,
+          defaultSeverity: "MAJOR",
+        },
+      ],
+    });
     const checklistSaveResponse = await app.request(checklistPath, {
       method: "PUT",
       headers: {
@@ -133,25 +152,7 @@ async function main() {
         cookie: `__Host-hotel_session=${token}`,
         "idempotency-key": "actual-api-checklist-v2-1",
       },
-      body: JSON.stringify({
-        version: checklistRead.version,
-        reason: "actual API 시설물 점검항목 저장",
-        items: [
-          ...checklistRead.items,
-          {
-            itemId: null,
-            targetType: "FACILITY",
-            source: "TARGET_TYPE_ADDED",
-            facilityTypeId: "7ab00000-0000-4000-8000-000000000001",
-            excludedFacilityTypeIds: [],
-            name: "actual API 시설물 확인",
-            description: null,
-            isRequired: true,
-            displayOrder: 900,
-            defaultSeverity: "MAJOR",
-          },
-        ],
-      }),
+      body: checklistSaveBody,
     });
     if (checklistSaveResponse.status !== 200)
       throw new Error(
@@ -160,6 +161,25 @@ async function main() {
     const checklistSave = inspectionChecklistV2ResponseSchema.parse(
       await checklistSaveResponse.json(),
     ).data.checklist;
+    const checklistReplayResponse = await app.request(checklistPath, {
+      method: "PUT",
+      headers: {
+        "content-type": "application/json",
+        cookie: `__Host-hotel_session=${token}`,
+        "idempotency-key": "actual-api-checklist-v2-1",
+      },
+      body: checklistSaveBody,
+    });
+    const checklistReplay = inspectionChecklistV2ResponseSchema.parse(
+      await checklistReplayResponse.json(),
+    ).data.checklist;
+    if (
+      checklistReplayResponse.status !== 200 ||
+      !checklistSave ||
+      !checklistReplay ||
+      JSON.stringify(checklistReplay) !== JSON.stringify(checklistSave)
+    )
+      throw new Error("actual checklist v2 committed replay mismatch");
     const checklistVerifyResponse = await app.request(checklistPath, {
       headers: { cookie: `__Host-hotel_session=${token}` },
     });

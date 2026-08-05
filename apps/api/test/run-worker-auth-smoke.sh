@@ -160,6 +160,10 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
   ),
+  public.hotel_inspection_checklist_v3_command(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
+  ),
   public.hotel_file_command_v1(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid

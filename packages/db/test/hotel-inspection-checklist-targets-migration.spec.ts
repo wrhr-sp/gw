@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migrationUrl = new URL("../migrations/0038_hotel_inspection_checklist_targets.sql", import.meta.url);
+const hardeningUrl = new URL("../migrations/0039_hotel_inspection_checklist_v2_hardening.sql", import.meta.url);
 const readinessUrl = new URL("../src/client.ts", import.meta.url);
 const provisionerUrl = new URL("../scripts/provision-preview.ts", import.meta.url);
 const foundationUrl = new URL("./run-foundation-integration.sh", import.meta.url);
@@ -27,10 +28,51 @@ describe("hotel inspection checklist target contract", () => {
     ]) expect(migration).toContain(contract.replaceAll(" ", ""));
   });
 
+  it("hardens legacy bridging, item lineage, bounds, and exact readiness", () => {
+    const hardening = source(hardeningUrl);
+    for (const contract of [
+      "0039_hotel_inspection_checklist_v2_hardening",
+      "v_previous_revision_id",
+      "previous_item.target_type = 'facility'",
+      "itemisnew",
+      "> 400",
+      "> 100",
+      "existing_revision.version = p_expected_version",
+      "jsonb_exists_all",
+      "jsonb_object_keys",
+      "excludedfacilitytypeids",
+      "excludedroomtypeids",
+      "coalesce(pg_catalog.jsonb_typeof",
+    ]) expect(hardening).toContain(contract);
+    const readiness = source(readinessUrl);
+    for (const contract of [
+      "inspection_checklist_v2_snapshot_v1",
+      "inspection_checklist_v1_sync_v2",
+      "0039_hotel_inspection_checklist_v2_hardening",
+    ]) expect(readiness).toContain(contract);
+    const provisioner = source(provisionerUrl);
+    expect(provisioner).toContain("0039_hotel_inspection_checklist_v2_hardening.sql");
+    const contractOnlyStart = provisioner.indexOf("const contractonlymigrations");
+    const contractOnlyEnd = provisioner.indexOf(
+      "const prerequisitegatedexpandmigrations",
+      contractOnlyStart,
+    );
+    const contractOnly = provisioner.slice(contractOnlyStart, contractOnlyEnd);
+    expect(contractOnly).not.toContain("0038_hotel_inspection_checklist_targets");
+    expect(contractOnly).not.toContain("0039_hotel_inspection_checklist_v2_hardening");
+    const gatedExpand = provisioner.slice(
+      contractOnlyEnd,
+      provisioner.indexOf("const migrations", contractOnlyEnd),
+    );
+    expect(gatedExpand).toContain("0038_hotel_inspection_checklist_targets");
+    expect(gatedExpand).toContain("0039_hotel_inspection_checklist_v2_hardening");
+    expect(provisioner).toContain("checklistexpandprerequisitespresent");
+  });
+
   it("registers provisioning, readiness, Worker, and real PostgreSQL journeys", () => {
     for (const [url, contracts] of [
       [readinessUrl, ["hotel_inspection_checklist_target_marker_count", "inspectionTargetChecklistPhase"]],
-      [provisionerUrl, ["0038_hotel_inspection_checklist_targets.sql", "hotel_inspection_checklist_v2_command"]],
+      [provisionerUrl, ["0038_hotel_inspection_checklist_targets.sql", "hotel_inspection_checklist_v3_command"]],
       [foundationUrl, ["hotel-inspection-checklist-targets-integration.sql", "HOTEL_INSPECTION_CHECKLIST_TARGETS_OK"]],
       [previewUrl, ["0038_hotel_inspection_checklist_targets", "CHECKLIST_TARGET_MARKER_COUNT"]],
       [workerUrl, ["hotel_inspection_checklist_v2_command", "HOTEL_INSPECTION_CHECKLIST_TARGETS_WORKER_OK"]],

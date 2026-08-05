@@ -20,7 +20,12 @@ import {
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
 );
+const requireFromWeb = createRequire(
+  new URL("../apps/web/package.json", import.meta.url),
+);
 const postgres = requireFromDb("postgres");
+const axeModule = requireFromWeb("@axe-core/playwright");
+const AxeBuilder = axeModule.default ?? axeModule;
 
 const baseUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
@@ -694,6 +699,219 @@ async function verifyHostedRelationshipManagement({
   }
 }
 
+async function verifyHostedChecklistV2(hotelId, token) {
+  const path = `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2`;
+  const initial = await api(path, { token });
+  const current = initial?.data?.checklist ?? null;
+  const existingItems = Array.isArray(current?.items) ? current.items : [];
+  const items = existingItems.map((item) => ({
+    itemId: item.itemId,
+    targetType: item.targetType,
+    source: item.source,
+    ...(item.targetType === "ROOM"
+      ? {
+          roomTypeId: item.roomTypeId,
+          excludedRoomTypeIds: item.excludedRoomTypeIds,
+        }
+      : {
+          facilityTypeId: item.facilityTypeId,
+          excludedFacilityTypeIds: item.excludedFacilityTypeIds,
+        }),
+    name: item.name,
+    description: item.description,
+    isRequired: item.isRequired,
+    displayOrder: item.displayOrder,
+    defaultSeverity: item.defaultSeverity,
+  }));
+  if (!items.some((item) => item.targetType === "ROOM"))
+    items.push({
+      itemId: null,
+      targetType: "ROOM",
+      source: "HOTEL_COMMON",
+      roomTypeId: null,
+      excludedRoomTypeIds: [],
+      name: "Preview 객실 공통 점검",
+      description: null,
+      isRequired: true,
+      displayOrder: 10,
+      defaultSeverity: "OBSERVATION",
+    });
+  if (!items.some((item) => item.targetType === "FACILITY"))
+    items.push({
+      itemId: null,
+      targetType: "FACILITY",
+      source: "HOTEL_COMMON",
+      facilityTypeId: null,
+      excludedFacilityTypeIds: [],
+      name: "Preview 시설물 공통 점검",
+      description: null,
+      isRequired: true,
+      displayOrder: 20,
+      defaultSeverity: "OBSERVATION",
+    });
+  const reason = `Preview v2 저장 검증 ${runSuffix}`;
+  const saved = await api(path, {
+    method: "PUT",
+    token,
+    idempotencyKey: `preview-checklist-v2-${runSuffix}-${hotelId}`,
+    body: { version: current?.version ?? 0, reason, items },
+  });
+  const receipt = saved?.data?.checklist;
+  const read = (await api(path, { token }))?.data?.checklist;
+  const material = (checklist) =>
+    JSON.stringify({
+      id: checklist?.id,
+      version: checklist?.version,
+      reason: checklist?.reason,
+      items: checklist?.items,
+    });
+  const ids = receipt?.items?.map((item) => item.itemId) ?? [];
+  if (
+    !receipt ||
+    !read ||
+    receipt.reason !== reason ||
+    ids.length !== items.length ||
+    new Set(ids).size !== ids.length ||
+    ids.some((id) => typeof id !== "string" || id.length < 32) ||
+    material(receipt) !== material(read)
+  ) {
+    throw new Error("Preview checklist v2 canonical read-back failed");
+  }
+  const legacy = await api(
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist`,
+    { token },
+  );
+  if (
+    legacy?.data?.checklist?.items?.some(
+      (item) => "targetType" in item || "facilityTypeId" in item,
+    )
+  ) {
+    throw new Error("Preview checklist v1 projection leaked FACILITY fields");
+  }
+  return read;
+}
+
+async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
+  const browser = await chromium.launch({ headless: true });
+  const path = `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2`;
+  const endpoint = `${baseUrl}${path}`;
+  const facilityItem = canonicalChecklist?.items?.find(
+    (item) => item.targetType === "FACILITY",
+  );
+  if (!facilityItem) {
+    throw new Error("Hosted checklist UI requires a canonical FACILITY item");
+  }
+  const itemName = "Preview UI 시설물 점검";
+  const reason = `Preview UI 응답 유실 재시도 ${runSuffix}`;
+  const assertAccessible = async (page, viewport) => {
+    const accessibility = await new AxeBuilder({ page }).analyze();
+    const blocking = accessibility.violations.filter((violation) =>
+      ["serious", "critical"].includes(violation.impact ?? ""),
+    );
+    if (blocking.length > 0) {
+      throw new Error(
+        `Hosted checklist UI ${viewport} accessibility failed: ${blocking
+          .map((violation) => violation.id)
+          .join(",")}`,
+      );
+    }
+  };
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+    });
+    await context.addCookies([
+      {
+        name: cookieName,
+        value: token,
+        url: baseUrl,
+        httpOnly: true,
+        secure: true,
+        sameSite: "Lax",
+      },
+    ]);
+    const page = await context.newPage();
+    const idempotencyKeys = [];
+    page.on("request", (request) => {
+      if (request.method() === "PUT" && request.url() === endpoint) {
+        idempotencyKeys.push(request.headers()["idempotency-key"] ?? "");
+      }
+    });
+    let responseDroppedAfterCommit = false;
+    await page.route(endpoint, async (route) => {
+      if (
+        route.request().method() === "PUT" &&
+        !responseDroppedAfterCommit
+      ) {
+        const committed = await route.fetch();
+        if (!committed.ok()) {
+          throw new Error(
+            `Hosted checklist UI commit failed before response loss: ${committed.status()}`,
+          );
+        }
+        responseDroppedAfterCommit = true;
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_NAVIGATE";
+    await page.goto(
+      `${baseUrl}/hotels/${encodeURIComponent(hotelId)}/inspections/settings`,
+      { waitUntil: "domcontentloaded", timeout: 60_000 },
+    );
+    await page
+      .getByRole("heading", { name: "점검 설정" })
+      .waitFor({ state: "visible", timeout: 60_000 });
+    await assertAccessible(page, "mobile");
+    const facilityInput = page
+      .locator(`[data-checklist-item-id="${facilityItem.itemId}"]`)
+      .getByRole("textbox", { name: /^항목 이름 /u });
+    await facilityInput.waitFor({ state: "visible", timeout: 60_000 });
+    await facilityInput.fill(itemName);
+    await page.getByLabel("변경사유").fill(reason);
+
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_COMMITTED_RESPONSE_LOSS";
+    await page.getByRole("button", { name: "체크리스트 저장" }).click();
+    await page.waitForFunction(() => document.querySelector('[data-checklist-status]')?.textContent?.includes("네트워크 응답을 확인하지 못했습니다"), undefined, { timeout: 60_000 });
+    if (!responseDroppedAfterCommit) {
+      throw new Error("Hosted checklist UI did not simulate committed response loss");
+    }
+
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_REPLAY";
+    const replayResponse = page.waitForResponse(
+      (response) => response.request().method() === "PUT" && response.url() === endpoint,
+      { timeout: 60_000 },
+    );
+    await page.getByRole("button", { name: "체크리스트 저장" }).click();
+    const replay = await replayResponse;
+    if (!replay.ok()) {
+      throw new Error(`Hosted checklist UI replay failed: ${replay.status()}`);
+    }
+    await page
+      .getByText("체크리스트를 저장하고 다시 확인했습니다.")
+      .waitFor({ state: "visible", timeout: 60_000 });
+    if (
+      idempotencyKeys.length < 2 ||
+      !idempotencyKeys[0] ||
+      idempotencyKeys[0] !== idempotencyKeys[1]
+    ) {
+      throw new Error("Hosted checklist UI changed the idempotency key on same-body replay");
+    }
+
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_READBACK";
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page
+      .getByDisplayValue(itemName)
+      .waitFor({ state: "visible", timeout: 60_000 });
+    await assertAccessible(page, "desktop");
+  } finally {
+    await browser.close();
+  }
+}
+
 try {
   journeyFailureCode = "ADMIN_SESSION_CREATE";
   const adminSession = await createSession(bootstrapSubject, "ADMIN_SESSION");
@@ -737,6 +955,13 @@ try {
   if (hotelIds.length !== 2 || new Set(hotelIds).size !== 2) {
     throw new Error("Preview smoke requires two distinct eligible hotels");
   }
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2";
+  const canonicalChecklist = await verifyHostedChecklistV2(
+    hotelIds[0],
+    adminToken,
+  );
+  journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI";
+  await verifyHostedChecklistUi(hotelIds[0], adminToken, canonicalChecklist);
 
   journeyFailureCode = "ACCOUNT_CREATE";
   accountCreateRequestStarted = true;

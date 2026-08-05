@@ -1676,7 +1676,10 @@ export const inspectionChecklistV2ItemSourceSchema = z.enum([
   "TARGET_TYPE_ADDED",
 ]);
 const inspectionChecklistV2ItemBaseFields = {
-  itemId: z.uuid().nullable(),
+  itemId: z
+    .uuid()
+    .nullable()
+    .describe("null은 신규 항목, UUID는 직전 정본 revision의 기존 항목 ID"),
   source: inspectionChecklistV2ItemSourceSchema,
   name: z.string().trim().min(1).max(150),
   description: z.string().trim().min(1).max(1000).nullable(),

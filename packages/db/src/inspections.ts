@@ -211,7 +211,7 @@ export function createPostgresInspectionRepository(
         if (input.action === "SAVE_CHECKLIST_V2") {
           return one(
             await transaction<CommandRow[]>`
-              select * from public.hotel_inspection_checklist_v2_command(
+              select * from public.hotel_inspection_checklist_v3_command(
                 ${input.companyId}::uuid, ${input.hotelId}::uuid,
                 ${input.resourceId}::uuid, ${input.action}::text,
                 ${input.expectedVersion}::integer,
@@ -327,7 +327,7 @@ export function createPostgresInspectionRepository(
         if (input.action === "READ_CHECKLIST_V2") {
           return one(
             await transaction<CommandRow[]>`
-              select * from public.hotel_inspection_checklist_v2_command(
+              select * from public.hotel_inspection_checklist_v3_command(
                 ${input.companyId}::uuid, ${input.hotelId}::uuid,
                 null::uuid, ${input.action}::text, 0,
                 '{}'::jsonb, ${input.sessionToken}::text,
