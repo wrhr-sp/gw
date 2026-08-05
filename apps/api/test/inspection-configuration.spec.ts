@@ -216,7 +216,12 @@ describe("inspection configuration service", () => {
         operationPath: `/api/hotels/${hotelId}/inspection-checklist/v2`,
         value: expect.objectContaining({
           revisionId: expect.any(String),
-          items: [expect.objectContaining({ itemId: expect.any(String) })],
+          items: [
+            expect.objectContaining({
+              itemId: expect.any(String),
+              itemIsNew: true,
+            }),
+          ],
         }),
       }),
     );

@@ -32,6 +32,12 @@ async function structuredFailure(response: Response, fallback: string) {
   if (!parsed.success)
     return { code: "INVALID_ERROR_RESPONSE", error: fallback, message: fallback, retryable: true };
   const { code, message, retryable } = parsed.data.error;
+  const hasUnsafeControlCharacter = [...message].some((character) => {
+    const code = character.charCodeAt(0);
+    return (code < 32 && code !== 9 && code !== 10 && code !== 13) || code === 127;
+  });
+  if (message.length > 500 || hasUnsafeControlCharacter)
+    return { code: "INVALID_ERROR_RESPONSE", error: fallback, message: fallback, retryable: true };
   return { code, error: code === "RESOURCE_NOT_FOUND" ? code : message, message, retryable };
 }
 
@@ -253,13 +259,11 @@ export async function fetchInspectionConfiguration(hotelId: string) {
         : !candidatesResponse.ok
           ? candidatesResponse
           : routinesResponse;
-  const parsed = hotelErrorResponseSchema.safeParse(
-    await response.json().catch(() => undefined),
-  );
   return {
     ok: false as const,
-    error: parsed.success
-      ? parsed.data.error.message
-      : "점검 설정을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    ...(await structuredFailure(
+      response,
+      "점검 설정을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    )),
   };
 }

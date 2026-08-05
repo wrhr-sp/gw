@@ -219,4 +219,35 @@ describe("inspection configuration SSR v2 fetch", () => {
       expect.objectContaining({ cache: "no-store" }),
     );
   });
+
+  it("preserves a structured checklist error for route decisions", async () => {
+    fetchApi.mockReset();
+    fetchApi
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            ok: false,
+            data: null,
+            error: {
+              code: "RESOURCE_NOT_FOUND",
+              fieldErrors: [],
+              message: "호텔을 찾을 수 없습니다.",
+              retryable: false,
+              retryAfterSeconds: null,
+              traceId: "9f000000-0000-4000-8000-000000000001",
+            },
+          },
+          { status: 404 },
+        ),
+      )
+      .mockResolvedValue(Response.json({ ok: true, data: {}, error: null }));
+
+    await expect(fetchInspectionConfiguration(hotelId)).resolves.toMatchObject({
+      code: "RESOURCE_NOT_FOUND",
+      error: "RESOURCE_NOT_FOUND",
+      message: "호텔을 찾을 수 없습니다.",
+      ok: false,
+      retryable: false,
+    });
+  });
 });

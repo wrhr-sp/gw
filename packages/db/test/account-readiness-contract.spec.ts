@@ -658,16 +658,24 @@ describe("account administration readiness contract", () => {
   it("binds readiness to the versioned checklist target contract", () => {
     for (const contract of [
       "0038_hotel_inspection_checklist_targets",
+      "0039_hotel_inspection_checklist_v2_hardening",
       "hotel_inspection_checklist_target_marker_count",
       "inspectionTargetChecklistPhase",
       'inspectionTargetChecklistPhase === "CONTRACT"',
+      'checklistPhase: "EXPAND"',
+      'checklistPhase: "CONTRACT"',
+      'checklistPhase: "BOTH"',
+      'inspectionTargetChecklistPhase !== "PRE_CONTRACT"',
       "inspection_checklist_v2_revisions",
       "inspection_checklist_v2_items",
       "inspection_checklist_v2_item_exclusions",
-      "hotel_inspection_checklist_v2_command",
+      "hotel_inspection_checklist_v3_command",
       "INSPECTION_CHECKLIST_V2_CATALOG_SHA256",
       "343da317f244109e0f1feddb00929e1a8e27c05826253d6882573b5310c9e70f",
-      "be20318aa8c8b3acb29e1b3d24c54ac43c4b4b761319df867b567c2f08ae6fad",
+      "43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6",
+      "f125e50d5092bc0b7be01630c66c0de0e0358db59093d304a7ccbbd063c0f763",
+      "6ad9e61b62ca3fd69c649f478c8099b140c7ccdb63ec5795702949cbe09fd0a6",
+      "1da65ae93bfb923888096aee98b5d655e4b416426000f632237613d99aa10d60",
     ]) {
       expect(source).toContain(contract);
     }
@@ -675,13 +683,16 @@ describe("account administration readiness contract", () => {
       "0038_hotel_inspection_checklist_targets.sql",
     );
     expect(provisionSource).toContain(
-      "grant execute on function public.hotel_inspection_checklist_v2_command(",
+      "0039_hotel_inspection_checklist_v2_hardening.sql",
     );
     expect(provisionSource).toContain(
-      "inspectionTargetChecklistState.contracted",
+      "grant execute on function public.hotel_inspection_checklist_v3_command(",
     );
     expect(provisionSource).toContain(
-      '? `grant execute on function public.hotel_inspection_checklist_v2_command(',
+      "inspectionTargetChecklistState.hardened",
+    );
+    expect(provisionSource).toContain(
+      '? `grant execute on function public.hotel_inspection_checklist_v3_command(',
     );
     expect(provisionSource).not.toContain(
       "grant select on table public.inspection_checklist_v2_revisions",

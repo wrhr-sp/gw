@@ -607,6 +607,7 @@ export function createInspectionService(
         items: value.items.map((item) => ({
           ...item,
           itemId: item.itemId ?? crypto.randomUUID(),
+          itemIsNew: item.itemId === null,
           snapshotId: crypto.randomUUID(),
           legacySnapshotId: crypto.randomUUID(),
         })),

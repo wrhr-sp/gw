@@ -1150,13 +1150,14 @@ describe("hotel platform contracts", () => {
 
   it("keeps the additive checklist v2 target union typed and cross-target safe", () => {
     const facilityTypeId = "53000000-0000-4000-8000-000000000001";
+    const existingItemId = "d8200000-0000-4000-8000-000000000001";
     expect(inspectionChecklistTargetTypeSchema.options).toEqual(["ROOM", "FACILITY"]);
     const parsed = createInspectionChecklistRevisionV2RequestSchema.parse({
       version: 1,
       reason: "시설물 점검기준 추가",
       items: [
         {
-          itemId: null,
+          itemId: existingItemId,
           targetType: "ROOM",
           source: "HOTEL_COMMON",
           roomTypeId: null,
@@ -1194,6 +1195,7 @@ describe("hotel platform contracts", () => {
       ],
     });
     expect(parsed.items).toHaveLength(3);
+    expect(parsed.items[0]?.itemId).toBe(existingItemId);
     expect(
       createInspectionChecklistRevisionV2RequestSchema.safeParse({
         version: 1,

@@ -102,6 +102,14 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
+    digest: "43f5a8f47676e86a0e6fff337d3579c487fac0f01f95565fd8d5d72700e727c6",
+    name: "hotel_inspection_checklist_v3_command",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
     digest: "d041635b8383bd77f4c95b94d72827f210165c6e4d14d32130a88f7c1d017499",
     name: "hotel_file_command_v1",
     result: "TABLE(command_status text, result_snapshot jsonb)",
@@ -180,6 +188,36 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
 ] as const;
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
+  {
+    checklistPhase: "BOTH",
+    digest: "f125e50d5092bc0b7be01630c66c0de0e0358db59093d304a7ccbbd063c0f763",
+    language: "sql",
+    name: "inspection_checklist_v2_snapshot_v1",
+    result: "jsonb",
+    securityDefiner: true,
+    signature: "public.inspection_checklist_v2_snapshot_v1(uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    checklistPhase: "EXPAND",
+    digest: "6ad9e61b62ca3fd69c649f478c8099b140c7ccdb63ec5795702949cbe09fd0a6",
+    language: "plpgsql",
+    name: "inspection_checklist_v1_sync_v2",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.inspection_checklist_v1_sync_v2()",
+    volatility: "v",
+  },
+  {
+    checklistPhase: "CONTRACT",
+    digest: "1da65ae93bfb923888096aee98b5d655e4b416426000f632237613d99aa10d60",
+    language: "plpgsql",
+    name: "inspection_checklist_v1_sync_v2",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.inspection_checklist_v1_sync_v2()",
+    volatility: "v",
+  },
   {
     digest: "c1d8a461d30311e62203102d77f14ee302f062112514546c7029f9564a640b4a",
     language: "sql",
@@ -2042,6 +2080,7 @@ export async function probeDatabaseReadiness(
         hotel_facility_master_data_marker_count: number;
         hotel_inspection_target_marker_count: number;
         hotel_inspection_checklist_target_marker_count: number;
+        hotel_inspection_checklist_hardening_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2127,7 +2166,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_target_marker_count,
              count(*) filter (
                where version = '0038_hotel_inspection_checklist_targets'
-             )::integer as hotel_inspection_checklist_target_marker_count
+             )::integer as hotel_inspection_checklist_target_marker_count,
+             count(*) filter (
+               where version = '0039_hotel_inspection_checklist_v2_hardening'
+             )::integer as hotel_inspection_checklist_hardening_marker_count
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2164,7 +2206,8 @@ export async function probeDatabaseReadiness(
         '0035_hotel_inspection_review_and_file_view',
         '0036_hotel_facility_master_data',
         '0037_hotel_inspection_execution_targets',
-        '0038_hotel_inspection_checklist_targets'
+        '0038_hotel_inspection_checklist_targets',
+        '0039_hotel_inspection_checklist_v2_hardening'
       )
     `;
     const schemaPhase =
@@ -2238,11 +2281,16 @@ export async function probeDatabaseReadiness(
           ? "PRE_EXPAND"
           : null;
     const inspectionTargetChecklistPhase =
-      migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1
+      migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 1
         ? "CONTRACT"
-        : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 0
-          ? "PRE_CONTRACT"
-          : null;
+        : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1 &&
+            migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 0
+          ? "EXPAND"
+          : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 0 &&
+              migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 0
+            ? "PRE_CONTRACT"
+            : null;
     const facilityTableNames = [
       "hotel_common_areas",
       "hotel_facility_types",
@@ -2690,7 +2738,13 @@ export async function probeDatabaseReadiness(
       }
     }
     const checklistTargetExpected =
-      inspectionTargetChecklistPhase === "CONTRACT" ? 1 : 0;
+      inspectionTargetChecklistPhase === "PRE_CONTRACT" ? 0 : 1;
+    const checklistFunctionExpected =
+      inspectionTargetChecklistPhase === "CONTRACT"
+        ? 4
+        : inspectionTargetChecklistPhase === "EXPAND"
+          ? 3
+          : 0;
     const [checklistTargetFoundation] = await sql<
       {
         function_count: number;
@@ -2740,7 +2794,8 @@ export async function probeDatabaseReadiness(
            and procedure_record.proname in (
              'inspection_checklist_v2_snapshot_v1',
              'inspection_checklist_v1_sync_v2',
-             'hotel_inspection_checklist_v2_command'
+             'hotel_inspection_checklist_v2_command',
+             'hotel_inspection_checklist_v3_command'
            )) as function_count,
         (select count(*)::integer from pg_catalog.pg_trigger trigger_record
           join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid
@@ -2908,7 +2963,7 @@ export async function probeDatabaseReadiness(
       checklistTargetFoundation.rls_count !== checklistTargetExpected * 3 ||
       checklistTargetFoundation.force_rls_count !== checklistTargetExpected * 3 ||
       checklistTargetFoundation.owner_safe_count !== checklistTargetExpected * 3 ||
-      checklistTargetFoundation.function_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.function_count !== checklistFunctionExpected ||
       checklistTargetFoundation.trigger_count !== checklistTargetExpected * 4 ||
       checklistTargetFoundation.policy_count !== checklistTargetExpected * 3 ||
       !checklistCatalogSafe ||
@@ -3439,11 +3494,13 @@ export async function probeDatabaseReadiness(
         return schemaNotReady();
       }
       const activeInspectionCommandContracts =
-        HOTEL_INSPECTION_COMMAND_CONTRACTS.filter(
-          (contract) =>
-            contract.name !== "hotel_inspection_checklist_v2_command" ||
-            inspectionTargetChecklistPhase === "CONTRACT",
-        );
+        HOTEL_INSPECTION_COMMAND_CONTRACTS.filter((contract) => {
+          if (contract.name === "hotel_inspection_checklist_v2_command")
+            return inspectionTargetChecklistPhase !== "PRE_CONTRACT";
+          if (contract.name === "hotel_inspection_checklist_v3_command")
+            return inspectionTargetChecklistPhase === "CONTRACT";
+          return true;
+        });
       for (const contract of activeInspectionCommandContracts) {
         const [command] = await sql<
           {
@@ -3542,7 +3599,15 @@ export async function probeDatabaseReadiness(
         }
       }
 
-      for (const contract of HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS) {
+      const activeInspectionInternalFunctionContracts =
+        HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
+          if (!("checklistPhase" in contract)) return true;
+          if (contract.checklistPhase === "BOTH")
+            return inspectionTargetChecklistPhase === "EXPAND" ||
+              inspectionTargetChecklistPhase === "CONTRACT";
+          return contract.checklistPhase === inspectionTargetChecklistPhase;
+        });
+      for (const contract of activeInspectionInternalFunctionContracts) {
         const [helper] = await sql<
           {
             acl_safe: boolean;
@@ -5867,7 +5932,7 @@ export async function probeDatabaseReadiness(
             required.table !== "hotel_file_access_grants")) &&
         (facilityMasterDataPhase === "CONTRACT" ||
           !HOTEL_FACILITY_RLS_TABLES.has(required.table)) &&
-        (inspectionTargetChecklistPhase === "CONTRACT" ||
+        (inspectionTargetChecklistPhase !== "PRE_CONTRACT" ||
           !INSPECTION_CHECKLIST_V2_RLS_TABLES.has(required.table)),
     );
     if (

@@ -27,9 +27,9 @@ export default async function InspectionSettingsPage({
     fetchRoomInitialData(hotelId),
     fetchFacilityInitialData(hotelId),
   ]);
-  if (!configuration.ok && configuration.error === "RESOURCE_NOT_FOUND")
+  if (!configuration.ok && configuration.code === "RESOURCE_NOT_FOUND")
     notFound();
-  if (!configuration.ok) return <Failure message={configuration.error} />;
+  if (!configuration.ok) return <Failure message={configuration.message} />;
   if (!roomData.ok) return <Failure message={roomData.error.message} />;
   if (!facilityData.ok)
     return <Failure message={facilityData.error.message} />;
