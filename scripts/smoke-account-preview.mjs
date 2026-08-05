@@ -980,6 +980,68 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     }
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE";
     await assertAccessible(page, "desktop");
+
+    journeyFailureCode = "PROCESS_WORKS_UI";
+    const processName = "Preview Works 검토";
+    const stageName = "Preview 확인";
+    const definitionsPath = `/api/admin/process-definitions?hotelId=${encodeURIComponent(hotelId)}`;
+    const currentDefinitions =
+      (await api(definitionsPath, { token }))?.data?.definitions ?? [];
+    const currentDefinition = currentDefinitions.find(
+      (definition) => definition.name === processName,
+    );
+    if (currentDefinition) {
+      await page
+        .getByRole("button", {
+          name: `${processName} v${currentDefinition.version} 수정`,
+        })
+        .click();
+    } else {
+      await page.getByRole("button", { name: "새 프로세스" }).click();
+      await page.getByLabel("프로세스 이름").fill(processName);
+    }
+    const processFlow = page.getByRole("region", { name: "업무 처리 흐름" });
+    await processFlow.waitFor({ state: "visible", timeout: 60_000 });
+    if ((await processFlow.getByText(stageName, { exact: true }).count()) === 0) {
+      await processFlow.getByRole("button", { name: "단계 추가" }).click();
+      const stateNames = page.getByLabel("상태 이름");
+      const stateCount = await stateNames.count();
+      if (stateCount < 3) {
+        throw new Error("Hosted process UI did not add a business status");
+      }
+      await stateNames.nth(stateCount - 2).fill(stageName);
+    }
+    if ((await page.getByText("단계 키", { exact: true }).count()) !== 0) {
+      throw new Error("Hosted process UI exposed internal stage keys");
+    }
+    await page
+      .getByRole("button", {
+        name: currentDefinition ? "프로세스 수정 저장" : "프로세스 생성",
+      })
+      .click();
+    await page
+      .getByText(/^프로세스 v\d+을 저장하고 다시 확인했습니다\.$/u)
+      .waitFor({ state: "visible", timeout: 60_000 });
+    const canonicalDefinitions =
+      (await api(definitionsPath, { token }))?.data?.definitions ?? [];
+    const canonicalDefinition = canonicalDefinitions.find(
+      (definition) => definition.name === processName,
+    );
+    const canonicalStage = canonicalDefinition?.stages?.find(
+      (stage) => stage.name === stageName && stage.isFinal === false,
+    );
+    if (
+      !canonicalDefinition ||
+      !canonicalStage ||
+      !canonicalDefinition.transitions?.some(
+        (transition) => transition.fromStageKey === canonicalStage.key,
+      )
+    ) {
+      throw new Error("Hosted process UI canonical read-back failed");
+    }
+    await page.setViewportSize({ width: 390, height: 844 });
+    await assertAccessible(page, "process-mobile");
+
   } finally {
     await browser.close();
   }
@@ -1364,7 +1426,10 @@ try {
       ]),
     journeyError,
     journeyFailureCode,
-    writeSuccess: () => console.log("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK"),
+    writeSuccess: () =>
+      console.log(
+        "PREVIEW_PROCESS_WORKS_UI_SMOKE_OK\nPREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK",
+      ),
   });
 } catch (error) {
   const message = error instanceof Error ? error.message : "";
