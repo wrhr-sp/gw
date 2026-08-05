@@ -49,6 +49,8 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('relationshipType: "STAFF"');
     expect(source).toContain('assignmentType: "PRIMARY"');
     expect(source).toContain("assignments = await api(path, { token });");
+    expect(source).toContain("savedFacilityItem?.name !== itemName");
+    expect(source).toContain("await desktopFacilityInput.inputValue()");
     expect(source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_SCOPE"')).toBeLessThan(
       source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_V2"'),
     );

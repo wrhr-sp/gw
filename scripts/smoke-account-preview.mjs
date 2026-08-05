@@ -964,9 +964,20 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_VALUE";
-    await page
-      .getByDisplayValue(itemName)
-      .waitFor({ state: "visible", timeout: 60_000 });
+    const canonicalAfterReplay = (await api(path, { token }))?.data?.checklist;
+    const savedFacilityItem = canonicalAfterReplay?.items?.find(
+      (item) => item.itemId === facilityItem.itemId,
+    );
+    if (savedFacilityItem?.name !== itemName) {
+      throw new Error("Hosted checklist UI canonical item read-back failed");
+    }
+    const desktopFacilityInput = page
+      .locator(`[data-checklist-item-id="${facilityItem.itemId}"]`)
+      .getByRole("textbox", { name: /^항목 이름 /u });
+    await desktopFacilityInput.waitFor({ state: "visible", timeout: 60_000 });
+    if ((await desktopFacilityInput.inputValue()) !== itemName) {
+      throw new Error("Hosted checklist UI rendered item read-back failed");
+    }
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE";
     await assertAccessible(page, "desktop");
   } finally {
