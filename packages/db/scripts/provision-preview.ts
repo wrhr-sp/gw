@@ -45,6 +45,8 @@ const previewHotelInspectionConfigGrantId =
   "73000000-0000-4000-8000-000000000012";
 const previewHotelFacilityReadGrantId =
   "73000000-0000-4000-8000-000000000013";
+const previewProcessDefinitionManageGrantId =
+  "73000000-0000-4000-8000-000000000014";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -1238,7 +1240,10 @@ try {
     const inspectionPermissionRows = await sql<{ code: string }[]>`
       select code
         from permissions
-       where code in ('HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG')
+       where code in (
+         'HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG',
+         'PROCESS_DEFINITION_MANAGE'
+       )
        order by code
     `;
     const inspectionPermissionCodes = new Set(
@@ -1246,11 +1251,11 @@ try {
     );
     if (
       inspectionPermissionCodes.size !== 0 &&
-      inspectionPermissionCodes.size !== 2
+      inspectionPermissionCodes.size !== 3
     ) {
       fail("Preview inspection permission catalog is partially provisioned");
     }
-    const inspectionPermissionsReady = inspectionPermissionCodes.size === 2;
+    const inspectionPermissionsReady = inspectionPermissionCodes.size === 3;
     const [facilityReadPermission] = await sql<{ code: string }[]>`
       select code
         from permissions
@@ -1275,7 +1280,8 @@ try {
           permission_code, effect, valid_from, valid_until, granted_by, reason
         ) values
         (${previewHotelInspectionRunGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_RUN', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 실행 권한'),
-        (${previewHotelInspectionConfigGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_CONFIG', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 설정 권한')
+        (${previewHotelInspectionConfigGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_CONFIG', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 설정 권한'),
+        (${previewProcessDefinitionManageGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'PROCESS_DEFINITION_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 점검프로세스 권한')
         on conflict (id) do nothing
       `;
     }
@@ -1319,7 +1325,8 @@ try {
           ${previewHotelStatusGrantId}::uuid,
           ${previewHotelInspectionRunGrantId}::uuid,
           ${previewHotelInspectionConfigGrantId}::uuid,
-          ${previewHotelFacilityReadGrantId}::uuid
+          ${previewHotelFacilityReadGrantId}::uuid,
+          ${previewProcessDefinitionManageGrantId}::uuid
         )
         order by permission_code
       `;
@@ -1336,6 +1343,10 @@ try {
       exactRelationshipGrants.set(
         "HOTEL_INSPECTION_CONFIG",
         previewHotelInspectionConfigGrantId,
+      );
+      exactRelationshipGrants.set(
+        "PROCESS_DEFINITION_MANAGE",
+        previewProcessDefinitionManageGrantId,
       );
     }
     if (facilityReadPermissionReady) {

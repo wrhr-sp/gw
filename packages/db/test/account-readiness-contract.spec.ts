@@ -67,9 +67,13 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).toContain(
       '"73000000-0000-4000-8000-000000000013"',
     );
+    expect(provisionSource).toContain(
+      '"73000000-0000-4000-8000-000000000014"',
+    );
     expect(provisionSource).toContain("'HOTEL_INSPECTION_RUN', 'ALLOW'");
     expect(provisionSource).toContain("'HOTEL_INSPECTION_CONFIG', 'ALLOW'");
     expect(provisionSource).toContain("'HOTEL_FACILITY_READ', 'ALLOW'");
+    expect(provisionSource).toContain("'PROCESS_DEFINITION_MANAGE', 'ALLOW'");
     expect(previewProvisioningIntegrationSource).toContain(
       "'HOTEL_INSPECTION_RUN', 'HOTEL_INSPECTION_CONFIG'",
     );
