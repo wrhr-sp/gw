@@ -51,7 +51,7 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain("assignments = await api(path, { token });");
     expect(source).toContain("savedFacilityItem?.name !== itemName");
     expect(source).toContain("await desktopFacilityInput.inputValue()");
-    expect(source).toContain('journeyFailureCode = "PROCESS_WORKS_UI"');
+    expect(source).toContain('journeyFailureCode = "PROCESS_WORKS_UI_READ"');
     expect(source).toContain("PREVIEW_PROCESS_WORKS_UI_SMOKE_OK");
     expect(source).toContain('getByRole("region", { name: "업무 처리 흐름" })');
     expect(source).toContain('getByLabel("상태 이름")');
@@ -164,7 +164,12 @@ describe("hosted Preview account-management smoke", () => {
       "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE",
       "INSPECTION_CHECKLIST_V2_UI_NAVIGATE",
       "INSPECTION_CHECKLIST_V2_UI_REPLAY",
-      "PROCESS_WORKS_UI",
+      "PROCESS_WORKS_UI_ACCESSIBILITY",
+      "PROCESS_WORKS_UI_ADD",
+      "PROCESS_WORKS_UI_CANONICAL",
+      "PROCESS_WORKS_UI_OPEN",
+      "PROCESS_WORKS_UI_READ",
+      "PROCESS_WORKS_UI_SAVE",
     ]) {
       const readbackFailure = spawnSync(
         process.execPath,
