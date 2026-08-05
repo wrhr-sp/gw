@@ -56,6 +56,10 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('getByRole("region", { name: "업무 처리 흐름" })');
     expect(source).toContain('getByLabel("상태 이름")');
     expect(source).toContain("Hosted process UI canonical read-back failed");
+    expect(source).toContain("expectedStatuses: [200, 404]");
+    expect(source).toContain(
+      "const canonicalDefinitions =\n      (await api(definitionsPath, { token }))?.data?.definitions ?? [];",
+    );
     expect(source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_SCOPE"')).toBeLessThan(
       source.indexOf('journeyFailureCode = "INSPECTION_CHECKLIST_V2"'),
     );
