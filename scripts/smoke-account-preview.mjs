@@ -981,7 +981,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_AXE";
     await assertAccessible(page, "desktop");
 
-    journeyFailureCode = "PROCESS_WORKS_UI";
+    journeyFailureCode = "PROCESS_WORKS_UI_READ";
     const processName = "Preview Works 검토";
     const stageName = "Preview 확인";
     const definitionsPath = `/api/admin/process-definitions?hotelId=${encodeURIComponent(hotelId)}`;
@@ -990,6 +990,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     const currentDefinition = currentDefinitions.find(
       (definition) => definition.name === processName,
     );
+    journeyFailureCode = "PROCESS_WORKS_UI_OPEN";
     if (currentDefinition) {
       await page
         .getByRole("button", {
@@ -1002,6 +1003,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     }
     const processFlow = page.getByRole("region", { name: "업무 처리 흐름" });
     await processFlow.waitFor({ state: "visible", timeout: 60_000 });
+    journeyFailureCode = "PROCESS_WORKS_UI_ADD";
     if ((await processFlow.getByText(stageName, { exact: true }).count()) === 0) {
       await processFlow.getByRole("button", { name: "단계 추가" }).click();
       const stateNames = page.getByLabel("상태 이름");
@@ -1014,6 +1016,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     if ((await page.getByText("단계 키", { exact: true }).count()) !== 0) {
       throw new Error("Hosted process UI exposed internal stage keys");
     }
+    journeyFailureCode = "PROCESS_WORKS_UI_SAVE";
     await page
       .getByRole("button", {
         name: currentDefinition ? "프로세스 수정 저장" : "프로세스 생성",
@@ -1022,6 +1025,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     await page
       .getByText(/^프로세스 v\d+을 저장하고 다시 확인했습니다\.$/u)
       .waitFor({ state: "visible", timeout: 60_000 });
+    journeyFailureCode = "PROCESS_WORKS_UI_CANONICAL";
     const canonicalDefinitions =
       (await api(definitionsPath, { token }))?.data?.definitions ?? [];
     const canonicalDefinition = canonicalDefinitions.find(
@@ -1039,6 +1043,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     ) {
       throw new Error("Hosted process UI canonical read-back failed");
     }
+    journeyFailureCode = "PROCESS_WORKS_UI_ACCESSIBILITY";
     await page.setViewportSize({ width: 390, height: 844 });
     await assertAccessible(page, "process-mobile");
 
