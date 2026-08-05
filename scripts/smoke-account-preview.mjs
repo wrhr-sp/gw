@@ -712,6 +712,48 @@ async function verifyHostedRelationshipManagement({
   }
 }
 
+async function ensureHostedChecklistScope(hotelId, token, principal) {
+  const path = `/api/hotels/${encodeURIComponent(hotelId)}/assignments`;
+  const hasActiveStaffAssignment = (value) =>
+    (value?.data?.assignments ?? []).some(
+      (assignment) =>
+        assignment?.userId === principal.userId &&
+        assignment?.relationshipType === "STAFF" &&
+        assignment?.terminatedAt === null &&
+        assignment?.startDate <= assignmentStartDate &&
+        (assignment?.endDate === null ||
+          assignment.endDate >= assignmentStartDate),
+    );
+  let assignments = await api(path, { token });
+  if (hasActiveStaffAssignment(assignments)) return;
+
+  const detail = await api(`/api/hotels/${encodeURIComponent(hotelId)}`, {
+    token,
+  });
+  const hotelVersion = detail?.data?.hotel?.version;
+  if (!Number.isInteger(hotelVersion) || hotelVersion < 1) {
+    throw new Error("Preview checklist scope requires a canonical hotel version");
+  }
+  await api(path, {
+    method: "POST",
+    token,
+    idempotencyKey: `preview-checklist-admin-scope-${hotelId}`,
+    expectedStatuses: [200, 201],
+    body: {
+      userId: principal.userId,
+      relationshipType: "STAFF",
+      assignmentType: "PRIMARY",
+      startDate: assignmentStartDate,
+      reason: "Preview 점검항목 실제 권한 검증 배정",
+      hotelVersion,
+    },
+  });
+  assignments = await api(path, { token });
+  if (!hasActiveStaffAssignment(assignments)) {
+    throw new Error("Preview checklist staff assignment read-back failed");
+  }
+}
+
 async function verifyHostedChecklistV2(hotelId, token) {
   const path = `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2`;
   journeyFailureCode = "INSPECTION_CHECKLIST_V2_INITIAL_READ";
@@ -973,6 +1015,8 @@ try {
   if (hotelIds.length !== 2 || new Set(hotelIds).size !== 2) {
     throw new Error("Preview smoke requires two distinct eligible hotels");
   }
+  journeyFailureCode = "INSPECTION_CHECKLIST_SCOPE";
+  await ensureHostedChecklistScope(hotelIds[0], adminToken, adminPrincipal);
   journeyFailureCode = "INSPECTION_CHECKLIST_V2";
   const canonicalChecklist = await verifyHostedChecklistV2(
     hotelIds[0],
