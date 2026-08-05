@@ -43,6 +43,8 @@ const previewHotelInspectionRunGrantId =
   "73000000-0000-4000-8000-000000000011";
 const previewHotelInspectionConfigGrantId =
   "73000000-0000-4000-8000-000000000012";
+const previewHotelFacilityReadGrantId =
+  "73000000-0000-4000-8000-000000000013";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -1249,6 +1251,13 @@ try {
       fail("Preview inspection permission catalog is partially provisioned");
     }
     const inspectionPermissionsReady = inspectionPermissionCodes.size === 2;
+    const [facilityReadPermission] = await sql<{ code: string }[]>`
+      select code
+        from permissions
+       where code = 'HOTEL_FACILITY_READ'
+    `;
+    const facilityReadPermissionReady =
+      facilityReadPermission?.code === "HOTEL_FACILITY_READ";
     await sql`
         insert into permission_grants (
           id, company_id, branch_id, subject_type, subject_id,
@@ -1267,6 +1276,20 @@ try {
         ) values
         (${previewHotelInspectionRunGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_RUN', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 실행 권한'),
         (${previewHotelInspectionConfigGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_INSPECTION_CONFIG', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 호텔점검 설정 권한')
+        on conflict (id) do nothing
+      `;
+    }
+    if (facilityReadPermissionReady) {
+      await sql`
+        insert into permission_grants (
+          id, company_id, branch_id, subject_type, subject_id,
+          permission_code, effect, valid_from, valid_until, granted_by, reason
+        ) values (
+          ${previewHotelFacilityReadGrantId}::uuid, ${previewCompanyId}::uuid,
+          null, 'USER', ${previewUserId}::uuid, 'HOTEL_FACILITY_READ', 'ALLOW',
+          '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid,
+          'Preview 초기 관리자 시설물조회 권한'
+        )
         on conflict (id) do nothing
       `;
     }
@@ -1295,7 +1318,8 @@ try {
           ${previewHotelOwnerGrantId}::uuid,
           ${previewHotelStatusGrantId}::uuid,
           ${previewHotelInspectionRunGrantId}::uuid,
-          ${previewHotelInspectionConfigGrantId}::uuid
+          ${previewHotelInspectionConfigGrantId}::uuid,
+          ${previewHotelFacilityReadGrantId}::uuid
         )
         order by permission_code
       `;
@@ -1312,6 +1336,12 @@ try {
       exactRelationshipGrants.set(
         "HOTEL_INSPECTION_CONFIG",
         previewHotelInspectionConfigGrantId,
+      );
+    }
+    if (facilityReadPermissionReady) {
+      exactRelationshipGrants.set(
+        "HOTEL_FACILITY_READ",
+        previewHotelFacilityReadGrantId,
       );
     }
     if (
