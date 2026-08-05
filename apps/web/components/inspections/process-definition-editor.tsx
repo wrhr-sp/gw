@@ -124,7 +124,7 @@ export function ProcessDefinitionEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const idempotencyKey = useRef(crypto.randomUUID());
-  const { control, handleSubmit, register, reset, watch } =
+  const { control, getValues, handleSubmit, register, reset, setValue, watch } =
     useForm<ProcessForm>({
       defaultValues: newProcess(firstReviewerId),
     });
@@ -135,6 +135,79 @@ export function ProcessDefinitionEditor({
     keyName: "formKey",
   });
   const watchedStages = watch("stages");
+  const watchedTransitions = watch("transitions");
+
+  function addBusinessStage() {
+    const currentStages = getValues("stages");
+    const currentTransitions = getValues("transitions");
+    const finalIndex = currentStages.findIndex((stage) => stage.isFinal);
+    const insertAt = finalIndex < 0 ? currentStages.length : finalIndex;
+    const previous = currentStages[insertAt - 1];
+    const next = currentStages[insertAt];
+    let sequence = currentStages.filter((stage) => !stage.isFinal).length + 1;
+    let key = `REVIEW_${sequence}`;
+    const keys = new Set(currentStages.map((stage) => stage.key));
+    while (keys.has(key)) {
+      sequence += 1;
+      key = `REVIEW_${sequence}`;
+    }
+    const stage = {
+      ...newProcess(firstReviewerId).stages[0]!,
+      key,
+      name: `검토 ${sequence}`,
+    };
+    stages.insert(insertAt, stage);
+    const rewired = currentTransitions.map((transition) =>
+      previous &&
+      next &&
+      transition.fromStageKey === previous.key &&
+      transition.toStageKey === next.key &&
+      transition.event === "APPROVE"
+        ? { ...transition, toStageKey: key }
+        : transition,
+    );
+    if (
+      previous &&
+      !rewired.some(
+        (transition) =>
+          transition.fromStageKey === previous.key &&
+          transition.toStageKey === key &&
+          transition.event === "APPROVE",
+      )
+    )
+      rewired.push({
+        fromStageKey: previous.key,
+        event: "APPROVE",
+        choiceValue: "",
+        toStageKey: key,
+      });
+    if (next)
+      rewired.push({
+        fromStageKey: key,
+        event: "APPROVE",
+        choiceValue: "",
+        toStageKey: next.key,
+      });
+    transitions.replace(rewired);
+  }
+
+  function removeBusinessStage(index: number) {
+    const currentStages = getValues("stages");
+    const removed = currentStages[index];
+    if (!removed || removed.isFinal) return;
+    const successor = currentStages[index + 1];
+    const nextTransitions = getValues("transitions")
+      .filter((transition) => transition.fromStageKey !== removed.key)
+      .map((transition) =>
+        transition.toStageKey === removed.key && successor
+          ? { ...transition, toStageKey: successor.key }
+          : transition,
+      );
+    transitions.replace(nextTransitions);
+    stages.remove(index);
+    if (getValues("startStageKey") === removed.key && successor)
+      setValue("startStageKey", successor.key);
+  }
 
   function edit(definition: Definition) {
     if (definition.scope !== "HOTEL" || definition.hotelId !== hotelId) {
@@ -256,10 +329,10 @@ export function ProcessDefinitionEditor({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-semibold" id="process-editor-title">
-            호텔 프로세스 정의
+            검토 프로세스 설정
           </h3>
           <p className="mt-1 text-sm text-muted">
-            검토단계·담당자·기한·이동경로를 순서대로 설정합니다.
+            업무상태를 순서대로 놓고 담당자·기한·처리 결과를 설정합니다.
           </p>
         </div>
         <Button
@@ -306,234 +379,279 @@ export function ProcessDefinitionEditor({
       </div>
 
       <form className="mt-5 space-y-6" onSubmit={submit}>
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="text-sm font-semibold">
+        <div className="grid gap-4 md:max-w-xl">
+          <label className="text-sm font-semibold" htmlFor="process-name">
             프로세스 이름
             <input
+              id="process-name"
               className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
               {...register("name")}
             />
           </label>
-          <label className="text-sm font-semibold">
-            시작단계
-            <select
-              className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-              {...register("startStageKey")}
-            >
-              {watchedStages.map((stage, index) => (
-                <option key={`${stage.key}-${index}`} value={stage.key}>
-                  {stage.name || stage.key || `단계 ${index + 1}`}
-                </option>
-              ))}
-            </select>
-          </label>
+          <input type="hidden" {...register("startStageKey")} />
         </div>
 
+        <section
+          aria-label="업무 처리 흐름"
+          className="rounded-panel border border-border bg-surface p-4"
+          role="region"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h4 className="font-semibold">업무 처리 흐름</h4>
+              <p className="mt-1 text-sm text-muted">
+                PC에서는 왼쪽부터, 모바일에서는 위에서 아래 순서로 처리됩니다.
+              </p>
+            </div>
+            <Button
+              className="min-h-11 shrink-0"
+              onClick={addBusinessStage}
+              type="button"
+              variant="secondary"
+            >
+              단계 추가
+            </Button>
+          </div>
+          <ol className="mt-4 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:overflow-x-auto sm:pb-2">
+            <li className="flex min-h-11 shrink-0 items-center justify-center rounded-full border-2 border-border bg-surface px-5 text-sm font-bold">
+              START
+            </li>
+            {watchedStages.map((stage, index) => (
+              <React.Fragment key={`${stage.key}-${index}`}>
+                <li
+                  aria-hidden="true"
+                  className="text-center text-xl text-muted sm:rotate-0"
+                >
+                  <span className="sm:hidden">↓</span>
+                  <span className="hidden sm:inline">→</span>
+                </li>
+                <li
+                  className={`min-h-11 min-w-36 shrink-0 rounded-control border px-4 py-3 text-center font-semibold ${
+                    stage.isFinal
+                      ? "border-foreground bg-surface text-foreground"
+                      : "border-brand/40 bg-brand/10 text-foreground"
+                  }`}
+                >
+                  {stage.name || `업무상태 ${index + 1}`}
+                </li>
+              </React.Fragment>
+            ))}
+          </ol>
+        </section>
+
         <fieldset className="space-y-3">
-          <legend className="font-semibold">검토단계</legend>
+          <legend className="font-semibold">업무상태 설정</legend>
           {stages.fields.map((field, index) => (
             <article
               className="rounded-control border border-border p-4"
               key={field.formKey}
             >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h5 className="font-semibold">
+                  {field.isFinal ? "완료 상태" : `업무상태 ${index + 1}`}
+                </h5>
+                {!field.isFinal ? (
+                  <Button
+                    className="min-h-11"
+                    disabled={stages.fields.filter((stage) => !stage.isFinal).length <= 1}
+                    onClick={() => removeBusinessStage(index)}
+                    type="button"
+                    variant="secondary"
+                  >
+                    상태 삭제
+                  </Button>
+                ) : null}
+              </div>
+              <input type="hidden" {...register(`stages.${index}.key`)} />
+              <input type="hidden" {...register(`stages.${index}.isFinal`)} />
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <label className="text-sm font-semibold">
-                  단계 키
-                  <input
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    {...register(`stages.${index}.key`)}
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  단계 이름
+                  상태 이름
                   <input
                     className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
                     {...register(`stages.${index}.name`)}
                   />
                 </label>
-                <label className="text-sm font-semibold">
-                  주 검토자
-                  <select
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    {...register(`stages.${index}.reviewerUserId`)}
-                  >
-                    <option value="">선택</option>
-                    {reviewerCandidates.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm font-semibold">
-                  대리인 선택
-                  <select
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    {...register(`stages.${index}.delegateUserId`)}
-                  >
-                    <option value="">사용 안 함</option>
-                    {reviewerCandidates.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm font-semibold">
-                  대리 시작
-                  <input
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    type="datetime-local"
-                    {...register(`stages.${index}.delegateStartsAt`)}
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  대리 종료
-                  <input
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    type="datetime-local"
-                    {...register(`stages.${index}.delegateEndsAt`)}
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  처리기한
-                  <input
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    min="1"
-                    max="365"
-                    type="number"
-                    {...register(`stages.${index}.dueAmount`)}
-                  />
-                </label>
-                <label className="text-sm font-semibold">
-                  기한 단위
-                  <select
-                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                    {...register(`stages.${index}.dueUnit`)}
-                  >
-                    <option value="HOURS">시간</option>
-                    <option value="DAYS">일</option>
-                  </select>
-                </label>
-                <label className="flex min-h-11 items-center gap-2 text-sm font-semibold">
-                  <input
-                    type="checkbox"
-                    {...register(`stages.${index}.isFinal`)}
-                  />
-                  최종단계
-                </label>
+                {field.isFinal ? (
+                  <>
+                    <input type="hidden" {...register(`stages.${index}.reviewerUserId`)} />
+                    <input type="hidden" {...register(`stages.${index}.delegateUserId`)} />
+                    <input type="hidden" {...register(`stages.${index}.delegateStartsAt`)} />
+                    <input type="hidden" {...register(`stages.${index}.delegateEndsAt`)} />
+                    <input type="hidden" {...register(`stages.${index}.dueAmount`)} />
+                    <input type="hidden" {...register(`stages.${index}.dueUnit`)} />
+                  </>
+                ) : (
+                  <>
+                    <label className="text-sm font-semibold">
+                      주 검토자
+                      <select
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        {...register(`stages.${index}.reviewerUserId`)}
+                      >
+                        <option value="">선택</option>
+                        {reviewerCandidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-sm font-semibold">
+                      대리인 선택
+                      <select
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        {...register(`stages.${index}.delegateUserId`)}
+                      >
+                        <option value="">사용 안 함</option>
+                        {reviewerCandidates.map((candidate) => (
+                          <option key={candidate.id} value={candidate.id}>
+                            {candidate.displayName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="text-sm font-semibold">
+                      대리 시작
+                      <input
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        type="datetime-local"
+                        {...register(`stages.${index}.delegateStartsAt`)}
+                      />
+                    </label>
+                    <label className="text-sm font-semibold">
+                      대리 종료
+                      <input
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        type="datetime-local"
+                        {...register(`stages.${index}.delegateEndsAt`)}
+                      />
+                    </label>
+                    <label className="text-sm font-semibold">
+                      처리기한
+                      <input
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        min="1"
+                        max="365"
+                        type="number"
+                        {...register(`stages.${index}.dueAmount`)}
+                      />
+                    </label>
+                    <label className="text-sm font-semibold">
+                      기한 단위
+                      <select
+                        className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                        {...register(`stages.${index}.dueUnit`)}
+                      >
+                        <option value="HOURS">시간</option>
+                        <option value="DAYS">일</option>
+                      </select>
+                    </label>
+                  </>
+                )}
               </div>
-              <Button
-                className="mt-3 min-h-11"
-                disabled={stages.fields.length <= 1}
-                onClick={() => stages.remove(index)}
-                type="button"
-                variant="secondary"
-              >
-                단계 삭제
-              </Button>
             </article>
           ))}
-          <Button
-            className="min-h-11"
-            onClick={() => {
-              const sequence = stages.fields.length + 1;
-              stages.append({
-                ...newProcess(firstReviewerId).stages[0]!,
-                key: `REVIEW_${sequence}`,
-                name: `검토 ${sequence}`,
-              });
-            }}
-            type="button"
-            variant="secondary"
-          >
-            단계 추가
-          </Button>
         </fieldset>
 
         <fieldset className="space-y-3">
-          <legend className="font-semibold">단계 이동</legend>
+          <legend className="font-semibold">처리 결과</legend>
+          <p className="text-sm text-muted">
+            각 업무상태에서 처리한 결과에 따라 이동할 다음 상태를 정합니다.
+          </p>
           {transitions.fields.map((field, index) => (
             <article
-              className="grid gap-3 rounded-control border border-border p-4 sm:grid-cols-2 lg:grid-cols-5"
+              className="rounded-control border border-border p-4"
               key={field.formKey}
             >
-              <label className="text-sm font-semibold">
-                출발단계
-                <select
-                  className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                  {...register(`transitions.${index}.fromStageKey`)}
+              <input
+                type="hidden"
+                {...register(`transitions.${index}.fromStageKey`)}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h5 className="font-semibold">
+                  {watchedStages.find(
+                    (stage) => stage.key === field.fromStageKey,
+                  )?.name ?? "업무상태"}에서
+                </h5>
+                <Button
+                  className="min-h-11"
+                  onClick={() => transitions.remove(index)}
+                  type="button"
+                  variant="secondary"
                 >
-                  {watchedStages.map((stage, stageIndex) => (
-                    <option
-                      key={`${stage.key}-${stageIndex}`}
-                      value={stage.key}
-                    >
-                      {stage.name || stage.key}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="text-sm font-semibold">
-                처리
-                <select
-                  className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                  {...register(`transitions.${index}.event`)}
-                >
-                  <option value="APPROVE">승인</option>
-                  <option value="REJECT">반려</option>
-                  <option value="SELECT">선택</option>
-                </select>
-              </label>
-              <label className="text-sm font-semibold">
-                선택값
-                <input
-                  className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                  {...register(`transitions.${index}.choiceValue`)}
-                />
-              </label>
-              <label className="text-sm font-semibold">
-                도착단계
-                <select
-                  className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
-                  {...register(`transitions.${index}.toStageKey`)}
-                >
-                  {watchedStages.map((stage, stageIndex) => (
-                    <option
-                      key={`${stage.key}-${stageIndex}`}
-                      value={stage.key}
-                    >
-                      {stage.name || stage.key}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Button
-                className="min-h-11 self-end"
-                onClick={() => transitions.remove(index)}
-                type="button"
-                variant="secondary"
-              >
-                이동 삭제
-              </Button>
+                  결과 삭제
+                </Button>
+              </div>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <label className="text-sm font-semibold">
+                  처리 결과
+                  <select
+                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                    {...register(`transitions.${index}.event`)}
+                  >
+                    <option value="APPROVE">승인하면</option>
+                    <option value="REJECT">반려하면</option>
+                    <option value="SELECT">선택하면</option>
+                  </select>
+                </label>
+                {watchedTransitions[index]?.event === "SELECT" ? (
+                  <label className="text-sm font-semibold">
+                    선택 항목 이름
+                    <input
+                      className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                      {...register(`transitions.${index}.choiceValue`)}
+                    />
+                  </label>
+                ) : (
+                  <input
+                    type="hidden"
+                    value=""
+                    {...register(`transitions.${index}.choiceValue`)}
+                  />
+                )}
+                <label className="text-sm font-semibold">
+                  이동할 업무상태
+                  <select
+                    className="mt-2 min-h-11 w-full rounded-control border border-border px-3"
+                    {...register(`transitions.${index}.toStageKey`)}
+                  >
+                    {watchedStages.map((stage, stageIndex) => (
+                      <option
+                        key={`${stage.key}-${stageIndex}`}
+                        value={stage.key}
+                      >
+                        {stage.name || `업무상태 ${stageIndex + 1}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
             </article>
           ))}
-          <Button
-            className="min-h-11"
-            onClick={() =>
-              transitions.append({
-                fromStageKey: watchedStages[0]?.key ?? "",
-                event: "APPROVE",
-                choiceValue: "",
-                toStageKey:
-                  watchedStages[1]?.key ?? watchedStages[0]?.key ?? "",
-              })
-            }
-            type="button"
-            variant="secondary"
-          >
-            이동 추가
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {watchedStages.map((stage, stageIndex) =>
+              stage.isFinal ? null : (
+                <Button
+                  className="min-h-11"
+                  key={`${stage.key}-add-result`}
+                  onClick={() =>
+                    transitions.append({
+                      fromStageKey: stage.key,
+                      event: "APPROVE",
+                      choiceValue: "",
+                      toStageKey:
+                        watchedStages[stageIndex + 1]?.key ?? stage.key,
+                    })
+                  }
+                  type="button"
+                  variant="secondary"
+                >
+                  {stage.name || `업무상태 ${stageIndex + 1}`} 처리 결과 추가
+                </Button>
+              ),
+            )}
+          </div>
         </fieldset>
 
         <div

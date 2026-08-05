@@ -117,6 +117,19 @@
 - Scheduled Reconciler는 기한초과·알림·중지된 실행 탐지만 담당하며 자동승인·자동반려·자동이동·임의 담당자변경을 하지 않는다.
 - PostgreSQL command는 회사·호텔 scope, RLS·`FORCE ROW LEVEL SECURITY`, 활성 session·사용자·배정·동적 기능권한·개인 회수 우선·자료상태와 현재 stage·version·guard·완료조건을 같은 transaction에서 요청마다 다시 검증한다.
 
+### 4.2.1 프로세스 설정 프론트엔드 정본 복구 — 2026-08-05
+
+- 대장이 승인한 사용자 흐름은 다우오피스 Works의 프로세스 관리처럼 `START → 업무상태 → 업무상태 → 완료`를 가로 흐름으로 보고 상태를 추가·설정하는 방식이다.
+- 사용자는 프로세스 이름, 순서가 있는 업무상태, 상태별 주 검토자·대리인·처리기한, 처리 결과와 이동할 업무상태를 업무 용어로 설정한다.
+- `stage key`, 시작 stage key, 상태머신 event enum, 출발·도착 key, transition matrix 같은 내부 구현 필드는 사용자 화면에 노출하지 않는다.
+- Web adapter가 상태 순서와 사용자 선택으로 stable stage key와 transition payload를 결정적으로 만들고 기존 strict Contracts로 전달한다. PostgreSQL definition/revision/execution 정본과 기존 실행 snapshot은 변경하지 않는다.
+- 기존 정의를 수정할 때도 저장된 stage·transition을 업무상태와 화살표로 역변환하며, 저장하지 않은 기존 revision이나 실행 snapshot을 rewrite하지 않는다.
+- PC에서는 가로 process canvas와 상태별 설정카드를 제공하고, 모바일에서는 같은 순서를 세로 카드 흐름으로 재배치한다. 390px에서 가로 PC canvas 축소판을 제공하지 않는다.
+- 구현 참고 정본은 다우오피스 공식 Works 페이지의 drag-and-drop 업무 구성 설명과 공식 2022 Works 업데이트의 “프로세스 관리 UI 개선—직관적인 다이어그램 형태의 설정 방식”이다. 외부 Works runtime·코드·서비스는 사용하거나 복제하지 않는다.
+- 공식 근거:
+  - <https://daouoffice.com/works.jsp>
+  - <https://daouoffice.com/new_update_works.jsp>
+
 ### 4.3 흡수하는 장점과 포기하는 장점
 
 흡수:

@@ -7,7 +7,7 @@ const hotelId = "50000000-0000-4000-8000-000000000001";
 const reviewerId = "20000000-0000-4000-8000-000000000001";
 
 describe("process definition editor", () => {
-  it("renders an action-first accessible hotel process graph editor", () => {
+  it("renders a Works-style business flow without exposing graph internals", () => {
     const markup = renderToStaticMarkup(
       <ProcessDefinitionEditor
         definitions={[]}
@@ -19,18 +19,27 @@ describe("process definition editor", () => {
       />,
     );
 
-    expect(markup).toContain("호텔 프로세스 정의");
+    expect(markup).toContain("검토 프로세스 설정");
     expect(markup).toContain("프로세스 이름");
-    expect(markup).toContain("시작단계");
+    expect(markup).toContain("업무 처리 흐름");
+    expect(markup).toContain("START");
+    expect(markup).toContain("검토");
+    expect(markup).toContain("완료");
     expect(markup).toContain("주 검토자");
     expect(markup).toContain("객실 점검 검토자");
     expect(markup).toContain("대리인 선택");
     expect(markup).toContain("처리기한");
-    expect(markup).toContain("단계 이동");
+    expect(markup).toContain("처리 결과");
+    expect(markup).toContain("승인하면");
+    expect(markup).toContain("단계 추가");
     expect(markup).toContain("프로세스 생성");
     expect(markup).toContain('aria-live="polite"');
     expect(markup).toContain("min-h-11");
     expect(markup).not.toContain("저장하고 다시 확인했습니다");
+    expect(markup).not.toContain("단계 키");
+    expect(markup).not.toContain("출발단계");
+    expect(markup).not.toContain("도착단계");
+    expect(markup).not.toContain("선택값");
   });
 
   it("fails closed when the hotel has no reviewer candidates", () => {
