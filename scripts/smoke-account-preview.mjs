@@ -1035,11 +1035,42 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       throw new Error("Hosted process UI exposed internal stage keys");
     }
     journeyFailureCode = "PROCESS_WORKS_UI_SAVE";
+    const processMutationResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url() === `${baseUrl}/api/admin/process-definitions`,
+      { timeout: 60_000 },
+    );
     await page
       .getByRole("button", {
         name: currentDefinition ? "프로세스 수정 저장" : "프로세스 생성",
       })
       .click();
+    const processMutation = await processMutationResponse;
+    if (!processMutation.ok()) {
+      let code = "OTHER";
+      try {
+        const parsed = await processMutation.json();
+        const candidate = parsed?.error?.code;
+        const safeCodes = new Set([
+          "AUTHENTICATION_REQUIRED",
+          "DB_NOT_CONFIGURED",
+          "FORBIDDEN",
+          "IDEMPOTENCY_CONFLICT",
+          "INTERNAL_ERROR",
+          "RESOURCE_NOT_FOUND",
+          "SCHEMA_NOT_READY",
+          "VALIDATION_ERROR",
+          "VERSION_CONFLICT",
+        ]);
+        if (safeCodes.has(candidate)) code = candidate;
+      } catch {
+        // Only an allowlisted stable error code may leave this process.
+      }
+      const error = new Error("Hosted process UI save failed");
+      error.previewFailureCode = `PROCESS_WORKS_UI_SAVE_${code}`;
+      throw error;
+    }
     await page
       .getByText(/^프로세스 v\d+을 저장하고 다시 확인했습니다\.$/u)
       .waitFor({ state: "visible", timeout: 60_000 });
