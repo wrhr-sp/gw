@@ -223,6 +223,19 @@ async function api(
     ) {
       error.previewFailureCode = `ACCOUNT_CREATE_${code}`;
     }
+    if (journeyFailureCode === "INSPECTION_CHECKLIST_V2_INITIAL_READ") {
+      const checklistReadCodes = new Set([
+        "AUTHENTICATION_REQUIRED",
+        "DB_NOT_CONFIGURED",
+        "FORBIDDEN",
+        "INTERNAL_ERROR",
+        "RESOURCE_NOT_FOUND",
+        "SCHEMA_NOT_READY",
+      ]);
+      const safeCode = checklistReadCodes.has(code) ? code : "OTHER";
+      error.previewFailureCode =
+        `INSPECTION_CHECKLIST_V2_INITIAL_READ_${safeCode}`;
+    }
     throw error;
   }
   if (response.status === 204) return null;
