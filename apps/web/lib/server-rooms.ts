@@ -62,11 +62,14 @@ async function failure(response: Response): Promise<RoomInitialFailure> {
 
 export async function fetchRoomInitialData(
   hotelId: string,
+  options: { page?: number; pageSize?: number } = {},
 ): Promise<
   { ok: true; data: RoomInitialData } | { ok: false; error: RoomInitialFailure }
 > {
+  const page = options.page ?? 1;
+  const pageSize = options.pageSize ?? 20;
   const [roomsResponse, roomTypesResponse] = await Promise.all([
-    request(`${hotelRoutes.rooms(hotelId)}?page=1&pageSize=20`),
+    request(`${hotelRoutes.rooms(hotelId)}?page=${page}&pageSize=${pageSize}`),
     request(hotelRoutes.roomTypes(hotelId)),
   ]);
   if (roomsResponse.status === 401 || roomTypesResponse.status === 401)
@@ -108,4 +111,42 @@ export async function fetchRoomInitialData(
       status: 502,
     },
   };
+}
+
+export async function fetchAllRoomInspectionData(
+  hotelId: string,
+): Promise<
+  { ok: true; data: RoomInitialData } | { ok: false; error: RoomInitialFailure }
+> {
+  const first = await fetchRoomInitialData(hotelId, { page: 1, pageSize: 100 });
+  if (!first.ok) return first;
+  const rooms = [...first.data.rooms];
+  const seen = new Set(rooms.map((room) => room.id));
+  for (let page = 2; page <= first.data.pagination.totalPages; page += 1) {
+    const next = await fetchRoomInitialData(hotelId, { page, pageSize: 100 });
+    if (!next.ok) return next;
+    for (const room of next.data.rooms) {
+      if (seen.has(room.id))
+        return {
+          ok: false,
+          error: {
+            code: "INTERNAL_ERROR",
+            message: "객실 전체 목록이 페이지 사이에서 변경되었습니다.",
+            status: 409,
+          },
+        };
+      seen.add(room.id);
+      rooms.push(room);
+    }
+  }
+  if (rooms.length !== first.data.pagination.total)
+    return {
+      ok: false,
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "객실 전체 목록을 완전하게 불러오지 못했습니다.",
+        status: 409,
+      },
+    };
+  return { ok: true, data: { ...first.data, rooms } };
 }

@@ -91,7 +91,7 @@ GRANT SELECT ON
   inspection_checklist_revisions, inspection_checklist_items,
   inspection_checklist_item_exclusions, inspection_routines,
   inspection_routine_revisions, inspection_routine_rounds,
-  hotel_inspections, inspection_item_snapshots, inspection_item_results,
+  hotel_inspections, inspection_item_results,
   inspection_item_result_history, hotel_file_uploads, hotel_file_versions,
   hotel_file_links, hotel_file_finalizer_capabilities
 TO $RUNTIME_ROLE;
@@ -149,10 +149,22 @@ GRANT EXECUTE ON FUNCTION
     uuid, uuid, uuid, integer, jsonb, text, text, text,
     text, text, uuid, uuid, uuid
   ),
+  public.hotel_inspection_routines_read_v2(uuid, uuid, uuid, text),
+  public.hotel_inspection_routine_command_v2(
+    uuid, uuid, uuid, integer, jsonb, text, text, text,
+    text, text, uuid, uuid, uuid
+  ),
   public.hotel_inspection_executions_read_v1(
     uuid, uuid, uuid, jsonb, text
   ),
+  public.hotel_inspection_execution_read_v2(
+    uuid, uuid, uuid, jsonb, text
+  ),
   public.hotel_inspection_command_v2(
+    uuid, uuid, uuid, text, integer, jsonb, text, uuid,
+    text, text, text, text, uuid, uuid
+  ),
+  public.hotel_inspection_command_v3(
     uuid, uuid, uuid, text, integer, jsonb, text, uuid,
     text, text, text, text, uuid, uuid
   ),
@@ -200,7 +212,9 @@ GRANT EXECUTE ON FUNCTION public.jsonb_reject_plaintext_password_keys(jsonb),
   public.hotel_file_scan_candidates_v1(integer),
   public.hotel_file_access_recover_expired_v1(integer),
   public.hotel_inspection_claim_materialization_v1(uuid, bytea, integer),
-  public.hotel_inspection_complete_materialization_v1(uuid, bigint, bytea, uuid)
+  public.hotel_inspection_claim_next_materialization_v2(bytea, integer),
+  public.hotel_inspection_complete_materialization_v1(uuid, bigint, bytea, uuid),
+  public.hotel_inspection_complete_materialization_v2(uuid, bigint, bytea, uuid)
 TO $RECONCILER_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RECONCILER_ROLE', 'RECONCILER')

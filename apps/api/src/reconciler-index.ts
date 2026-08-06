@@ -8,6 +8,11 @@ import {
   type FileReconcilerBindings,
 } from "./files/factory";
 
+import {
+  reconcileInspectionMaterializationsFromBindings,
+  type InspectionMaterializerBindings,
+} from "./inspections/materializer-factory";
+
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
 };
@@ -15,7 +20,9 @@ type ScheduledExecutionContext = {
 const worker = {
   scheduled(
     _controller: unknown,
-    env: AccountReconcilerBindings & FileReconcilerBindings,
+    env: AccountReconcilerBindings &
+      FileReconcilerBindings &
+      InspectionMaterializerBindings,
     context: ScheduledExecutionContext,
   ) {
     context.waitUntil(
@@ -23,6 +30,7 @@ const worker = {
         reconcileAccountProviderJobsFromBindings(env),
         reconcileHotelFileEvidenceFromBindings(env),
         recoverExpiredHotelFileAccessGrantsFromBindings(env),
+        reconcileInspectionMaterializationsFromBindings(env),
       ]),
     );
   },

@@ -34,18 +34,21 @@ function execution(id: string, roomNumber: string) {
       state: "PENDING_INPUT" as const,
       version: 1,
     },
-    rooms: [
+    targets: [
       {
-        id: id.replace(/^91/u, "52"),
-        roomNumber,
-        floorLabel: "7층",
-        roomTypeName: "스탠다드 더블",
+        id: id.replace(/^91/u, "53"),
+        type: "ROOM" as const,
+        roomId: id.replace(/^91/u, "52"),
+        roomNumberSnapshot: roomNumber,
+        floorLabelSnapshot: "7층",
+        roomTypeNameSnapshot: "스탠다드 더블",
       },
     ],
     items: [
       {
         id: id.replace(/^91/u, "95"),
-        roomId: id.replace(/^91/u, "52"),
+        executionTargetId: id.replace(/^91/u, "53"),
+        targetType: "ROOM" as const,
         itemId: "96000000-0000-4000-8000-000000000001",
         name: "욕실 청결",
         description: null,
@@ -91,7 +94,7 @@ describe("inspection execution SSR fetch", () => {
           },
           error: null,
         });
-      if (path.endsWith(`/inspections/${first.id}`))
+      if (path.endsWith(`/inspections/v2/${first.id}`))
         return Response.json({
           ok: true,
           data: { inspection: first },
@@ -110,11 +113,11 @@ describe("inspection execution SSR fetch", () => {
       selectedInspection: { id: first.id, items: [{ name: "욕실 청결" }] },
     });
     expect(fetchApi).toHaveBeenCalledWith(
-      `/api/hotels/${hotelId}/inspections?page=2&pageSize=100&status=PENDING_INPUT`,
+      `/api/hotels/${hotelId}/inspections/v2?page=2&pageSize=100&status=PENDING_INPUT`,
       expect.objectContaining({ cache: "no-store" }),
     );
     expect(fetchApi).toHaveBeenLastCalledWith(
-      `/api/hotels/${hotelId}/inspections/${first.id}`,
+      `/api/hotels/${hotelId}/inspections/v2/${first.id}`,
       expect.objectContaining({ cache: "no-store" }),
     );
   });
@@ -217,6 +220,15 @@ describe("inspection configuration SSR v2 fetch", () => {
       1,
       `/api/hotels/${hotelId}/inspection-checklist/v2`,
       expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(fetchApi).toHaveBeenNthCalledWith(
+      5,
+      `/api/hotels/${hotelId}/inspection-routines/v2`,
+      expect.objectContaining({ cache: "no-store" }),
+    );
+    expect(fetchApi).not.toHaveBeenCalledWith(
+      `/api/hotels/${hotelId}/inspection-routines`,
+      expect.anything(),
     );
   });
 

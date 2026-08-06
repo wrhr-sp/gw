@@ -79,7 +79,68 @@ describe("inspection process service", () => {
     expect(result).toEqual(readResult.payload.inspection);
   });
 
-  it("adds server-owned IDs and expected version to an abnormal result mutation", async () => {
+  it("creates a facility manual inspection through v3 and reads the v2 canonical execution", async () => {
+    const inspectionId = "c3000000-0000-4000-8000-000000000002";
+    const commandV3 = vi.fn().mockResolvedValue({
+      status: "CREATED",
+      payload: { id: inspectionId },
+    });
+    const inspection = {
+      id: inspectionId,
+      hotelId: inspectionHotelId,
+      targets: [
+        {
+          id: "c4000000-0000-4000-8000-000000000002",
+          targetType: "FACILITY",
+          facilityId: "89000000-0000-4000-8000-000000000002",
+        },
+      ],
+      items: [],
+    };
+    const readInspectionV2 = vi.fn().mockResolvedValue({
+      status: "OK",
+      payload: { inspection },
+    });
+    const service = createInspectionService({
+      close: vi.fn(),
+      command: vi.fn(),
+      commandV3,
+      readInspection: vi.fn(),
+      readInspectionV2,
+    });
+    const value = {
+      processDefinitionId: null,
+      targets: [
+        {
+          type: "FACILITY" as const,
+          facilityId: "89000000-0000-4000-8000-000000000002",
+          selectedItemIds: ["c5000000-0000-4000-8000-000000000002"],
+        },
+      ],
+    };
+
+    await expect(
+      service.createManualInspectionV2(
+        principal,
+        inspectionHotelId,
+        value,
+        "facility-manual-1",
+      ),
+    ).resolves.toEqual(inspection);
+    expect(commandV3).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "CREATE_MANUAL_V2",
+        companyId: principal.companyId,
+        operationPath: `/api/hotels/${inspectionHotelId}/inspections/v2/manual`,
+        sessionToken: principal.sessionToken,
+      }),
+    );
+    expect(readInspectionV2).toHaveBeenCalledWith(
+      expect.objectContaining({ inspectionId, sessionToken: principal.sessionToken }),
+    );
+  });
+
+  it("passes server-owned IDs to save-result and verifies the returned snapshot", async () => {
     const savedInspection = {
       id: "c3000000-0000-4000-8000-000000000001",
       items: [
@@ -140,6 +201,66 @@ describe("inspection process service", () => {
     });
     expect(input.value.resultId).toMatch(/^[0-9a-f-]{36}$/u);
     expect(input.value.historyId).toMatch(/^[0-9a-f-]{36}$/u);
+  });
+
+  it("saves a facility result through v3 and verifies the v2 canonical snapshot", async () => {
+    const inspectionId = "c3000000-0000-4000-8000-000000000002";
+    const itemSnapshotId = "c5000000-0000-4000-8000-000000000002";
+    const savedInspection = {
+      id: inspectionId,
+      items: [
+        {
+          id: itemSnapshotId,
+          targetType: "FACILITY",
+          result: {
+            version: 1,
+            result: "NORMAL",
+            description: null,
+            severity: null,
+            fileVersionIds: [],
+          },
+        },
+      ],
+    };
+    const commandV3 = vi.fn().mockResolvedValue({ status: "CREATED", payload: savedInspection });
+    const readInspectionV2 = vi.fn().mockResolvedValue({
+      status: "OK",
+      payload: { inspection: savedInspection },
+    });
+    const service = createInspectionService({
+      close: vi.fn(),
+      command: vi.fn(),
+      commandV3,
+      readInspection: vi.fn(),
+      readInspectionV2,
+    });
+    const value = {
+      itemSnapshotId,
+      version: 0,
+      result: "NORMAL" as const,
+      description: null,
+      severity: null,
+      fileVersionIds: [],
+      changeReason: null,
+    };
+
+    await expect(
+      service.saveResultV2(
+        principal,
+        inspectionHotelId,
+        inspectionId,
+        itemSnapshotId,
+        value,
+        "facility-result-1",
+      ),
+    ).resolves.toEqual(savedInspection);
+    expect(commandV3).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: "SAVE_RESULT",
+        operationPath: `/api/hotels/${inspectionHotelId}/inspections/v2/${inspectionId}/items/${itemSnapshotId}/result`,
+      }),
+    );
+    expect(readInspectionV2).toHaveBeenCalled();
   });
 
   it("keeps the request hash stable when a committed manual creation is retried", async () => {
@@ -313,6 +434,83 @@ describe("inspection HTTP API", () => {
       inspection.hotelId,
       expect.any(Object),
       "manual-inspection-http-1",
+    );
+  });
+
+  it("creates a facility manual inspection through the authenticated v2 route", async () => {
+    const facilityId = "89000000-0000-4000-8000-000000000002";
+    const inspection = {
+      id: "c3000000-0000-4000-8000-000000000002",
+      hotelId: inspectionHotelId,
+      source: "MANUAL",
+      businessDate: "2026-08-02",
+      dueAt: "2026-08-02T09:00:00.000Z",
+      status: "PENDING_INPUT",
+      version: 1,
+      process: {
+        executionId: "c4000000-0000-4000-8000-000000000002",
+        definitionId: "c1000000-0000-4000-8000-000000000001",
+        revisionId: "c2000000-0000-4000-8000-000000000001",
+        currentStageKey: null,
+        currentStageName: null,
+        state: "PENDING_INPUT",
+        version: 1,
+      },
+      targets: [
+        {
+          id: "c6000000-0000-4000-8000-000000000002",
+          type: "FACILITY",
+          facilityId,
+          facilityNameSnapshot: "지하 소화펌프",
+          facilityTypeNameSnapshot: "소방시설",
+          facilityLocationNameSnapshot: "지하 1층 기계실",
+        },
+      ],
+      items: [],
+      createdAt: "2026-08-02T00:00:00.000Z",
+      updatedAt: "2026-08-02T00:00:00.000Z",
+    } as const;
+    const createManualInspectionV2 = vi.fn(async () => inspection);
+    const authService = {
+      resolvePrincipal: vi.fn(async () => principal),
+    } as unknown as AuthService;
+    const inspectionService = {
+      createManualInspectionV2,
+    } as unknown as InspectionService;
+    const app = createApp({ authService, inspectionService });
+
+    const response = await app.request(
+      `/api/hotels/${inspectionHotelId}/inspections/v2/manual`,
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          cookie: "__Host-hotel_session=opaque-session-token",
+          "idempotency-key": "facility-manual-http-1",
+        },
+        body: JSON.stringify({
+          processDefinitionId: null,
+          targets: [
+            {
+              type: "FACILITY",
+              facilityId,
+              selectedItemIds: ["c5000000-0000-4000-8000-000000000002"],
+            },
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      ok: true,
+      data: { inspection: { id: inspection.id, targets: [{ type: "FACILITY" }] } },
+    });
+    expect(createManualInspectionV2).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionToken: "opaque-session-token" }),
+      inspectionHotelId,
+      expect.objectContaining({ targets: [expect.objectContaining({ type: "FACILITY", facilityId })] }),
+      "facility-manual-http-1",
     );
   });
 

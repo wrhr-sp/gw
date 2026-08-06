@@ -523,6 +523,14 @@ try {
       "0039_hotel_inspection_checklist_v2_hardening",
       "0039_hotel_inspection_checklist_v2_hardening.sql",
     ],
+    [
+      "0040_hotel_inspection_facility_execution",
+      "0040_hotel_inspection_facility_execution.sql",
+    ],
+    [
+      "0041_hotel_inspection_facility_execution_contract",
+      "0041_hotel_inspection_facility_execution_contract.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -545,10 +553,12 @@ try {
     "0035_hotel_inspection_review_and_file_view",
     "0036_hotel_facility_master_data",
     "0037_hotel_inspection_execution_targets",
+    "0041_hotel_inspection_facility_execution_contract",
   ]);
   const prerequisiteGatedExpandMigrations = new Set([
     "0038_hotel_inspection_checklist_targets",
     "0039_hotel_inspection_checklist_v2_hardening",
+    "0040_hotel_inspection_facility_execution",
   ]);
   const freshBootstrapRequested =
     process.env.PREVIEW_PROVISION_FRESH_BOOTSTRAP_FULL === "1";
@@ -1697,7 +1707,12 @@ try {
     fail("Preview facility master-data marker state is unavailable");
   }
   const [inspectionTargetChecklistState] = await owner<
-    { expanded: boolean; hardened: boolean }[]
+    {
+      expanded: boolean;
+      facilityExecution: boolean;
+      facilityExecutionContract: boolean;
+      hardened: boolean;
+    }[]
   >`
     select exists (
       select 1 from public.schema_migrations
@@ -1706,10 +1721,24 @@ try {
     exists (
       select 1 from public.schema_migrations
       where version = '0039_hotel_inspection_checklist_v2_hardening'
-    ) as hardened
+    ) as hardened,
+    exists (
+      select 1 from public.schema_migrations
+      where version = '0040_hotel_inspection_facility_execution'
+    ) as "facilityExecution",
+    exists (
+      select 1 from public.schema_migrations
+      where version = '0041_hotel_inspection_facility_execution_contract'
+    ) as "facilityExecutionContract"
   `;
   if (!inspectionTargetChecklistState) {
     fail("Preview inspection checklist target marker state is unavailable");
+  }
+  if (
+    inspectionTargetChecklistState.facilityExecutionContract &&
+    !inspectionTargetChecklistState.facilityExecution
+  ) {
+    fail("Preview facility execution contract marker is partial");
   }
 
   if (contractCompatibleAclPhase && legacyRuntimeState?.exists) {
@@ -2165,6 +2194,8 @@ try {
     ${
       inspectionProcessState.contracted
         ? `
+    revoke all privileges on table public.inspection_item_snapshots
+      from ${apiRuntimeRole}, ${reconcilerRole}${legacyPolicyGrant};
     do $exact_inspection_command_acl$
     declare
       acl_record record;
@@ -2199,6 +2230,15 @@ try {
              'hotel_file_scan_candidates_v1',
              'hotel_inspection_claim_materialization_v1',
              'hotel_inspection_complete_materialization_v1',
+             'hotel_inspection_routines_read_v2',
+             'hotel_inspection_routine_command_v2',
+             'inspection_routine_snapshot_v2',
+             'inspection_item_execution_target_capture_v2',
+             'inspection_execution_snapshot_v2',
+             'hotel_inspection_execution_read_v2',
+             'hotel_inspection_command_v3',
+             'hotel_inspection_claim_next_materialization_v2',
+             'hotel_inspection_complete_materialization_v2',
              'hotel_active_actor_v1',
              'hotel_process_reviewer_is_eligible_v1',
              'hotel_process_actor_is_assigned_v1',
@@ -2269,6 +2309,30 @@ try {
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};`
+        : ""
+    }
+    ${
+      inspectionTargetChecklistState.facilityExecution
+        ? `grant execute on function public.hotel_inspection_routines_read_v2(
+      uuid, uuid, uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_routine_command_v2(
+      uuid, uuid, uuid, integer, jsonb, text, text, text, text, text,
+      uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_execution_read_v2(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_command_v3(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
+      text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inspection_claim_next_materialization_v2(
+      bytea, integer
+    ) to ${reconcilerRole};
+    grant execute on function public.hotel_inspection_complete_materialization_v2(
+      uuid, bigint, bytea, uuid
+    ) to ${reconcilerRole};`
         : ""
     }
     grant execute on function public.hotel_file_command_v1(

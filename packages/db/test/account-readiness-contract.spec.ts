@@ -21,6 +21,17 @@ const previewProvisioningIntegrationSource = readFileSync(
   new URL("./run-preview-provisioning-integration.sh", import.meta.url),
   "utf8",
 );
+const facilityExecutionMigrationSource = readFileSync(
+  new URL("../migrations/0040_hotel_inspection_facility_execution.sql", import.meta.url),
+  "utf8",
+);
+const facilityExecutionContractMigrationSource = readFileSync(
+  new URL(
+    "../migrations/0041_hotel_inspection_facility_execution_contract.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 describe("account administration readiness contract", () => {
   it("requires exact EXPAND and CONTRACT migration marker sets", () => {
@@ -681,6 +692,22 @@ describe("account administration readiness contract", () => {
     for (const contract of [
       "0038_hotel_inspection_checklist_targets",
       "0039_hotel_inspection_checklist_v2_hardening",
+      "0040_hotel_inspection_facility_execution",
+      "0041_hotel_inspection_facility_execution_contract",
+      "hotel_inspection_facility_execution_marker_count",
+      "hotel_inspection_facility_execution_contract_marker_count",
+      "inspectionFacilityExecutionPhase",
+      "INSPECTION_FACILITY_EXECUTION_EXPAND_CATALOG_SHA256",
+      "INSPECTION_FACILITY_EXECUTION_CONTRACT_CATALOG_SHA256",
+      "aac7218141858d5a7a96973c5fff13ceac308a017ab37722ac8e23116d4ed211",
+      "960aff7e8edf3d100d334a5f674cba53b08d73b7a336739b8042435bb6e63e5b",
+      "hotel_inspection_command_v3",
+      "hotel_inspection_claim_next_materialization_v2",
+      "hotel_inspection_complete_materialization_v2",
+      "inspection_routine_claim_invalidation",
+      "inspection_submission_nonempty",
+      'inspectionFacilityExecutionPhase !== "PRE_CONTRACT"',
+      "inspection_item_execution_target_capture_v2",
       "hotel_inspection_checklist_target_marker_count",
       "inspectionTargetChecklistPhase",
       'inspectionTargetChecklistPhase === "CONTRACT"',
@@ -701,11 +728,50 @@ describe("account administration readiness contract", () => {
     ]) {
       expect(source).toContain(contract);
     }
+    for (const contract of [
+      "materialized_occurrence_count",
+      "inspection_submission_nonempty_v2",
+      "claim_generation = routine.claim_generation + 1",
+      "receipt.expires_at<=v_now",
+    ]) {
+      expect(facilityExecutionMigrationSource).toContain(contract);
+    }
     expect(provisionSource).toContain(
       "0038_hotel_inspection_checklist_targets.sql",
     );
     expect(provisionSource).toContain(
       "0039_hotel_inspection_checklist_v2_hardening.sql",
+    );
+    expect(provisionSource).toContain(
+      "0040_hotel_inspection_facility_execution.sql",
+    );
+    expect(provisionSource).toContain(
+      "0041_hotel_inspection_facility_execution_contract.sql",
+    );
+    expect(facilityExecutionMigrationSource).not.toContain(
+      "drop trigger inspection_item_execution_target_capture",
+    );
+    expect(facilityExecutionContractMigrationSource).toContain(
+      "execute function public.inspection_item_execution_target_capture_v2()",
+    );
+    for (const damageContract of [
+      "inspection_item_snapshots_target_exactly_one_check",
+      "inspection_item_snapshots_facility_item_key",
+      "after insert on public.inspection_item_snapshots",
+    ]) {
+      expect(previewProvisioningIntegrationSource).toContain(damageContract);
+    }
+    expect(provisionSource).toContain(
+      "inspectionTargetChecklistState.facilityExecution",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_inspection_command_v3(",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_inspection_claim_next_materialization_v2(",
+    );
+    expect(provisionSource).toContain(
+      "grant execute on function public.hotel_inspection_complete_materialization_v2(",
     );
     expect(provisionSource).toContain(
       "grant execute on function public.hotel_inspection_checklist_v3_command(",

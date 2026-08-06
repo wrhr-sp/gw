@@ -139,6 +139,29 @@ $grant_checklist_v2$;
 SQL
 }
 
+grant_facility_execution_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $grant_facility_execution$
+declare capability_role record;
+begin
+  for capability_role in select role_name, capability from public.runtime_database_capabilities where capability in ('API_RUNTIME','RECONCILER')
+  loop
+    if capability_role.capability = 'API_RUNTIME' then
+      execute format('grant execute on function public.hotel_inspection_routines_read_v2(uuid,uuid,uuid,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_inspection_routine_command_v2(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_inspection_execution_read_v2(uuid,uuid,uuid,jsonb,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_inspection_command_v3(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    else
+      execute format('grant execute on function public.hotel_inspection_claim_next_materialization_v2(bytea,integer) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_inspection_complete_materialization_v2(uuid,bigint,bytea,uuid) to %I', capability_role.role_name);
+    end if;
+  end loop;
+end
+$grant_facility_execution$;
+SQL
+}
+
 run_actual_inspection_api_probe() {
   local admin_url="$1"
   local api_probe_url probe_status
@@ -152,6 +175,65 @@ run_actual_inspection_api_probe() {
   probe_status=$?
   set -e
   cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+run_actual_facility_inspection_api_probe() {
+  local admin_url="$1"
+  local api_probe_url probe_status
+  api_probe_url="$(configure_api_probe_role "$admin_url")"
+  grant_facility_execution_capabilities "$admin_url"
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$api_probe_url" \
+      INSPECTION_FACILITY_SQL="$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL" \
+      pnpm exec tsx apps/api/test/inspection-facility-execution-actual-api-integration.ts
+  )
+  probe_status=$?
+  set -e
+  cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+run_actual_scheduled_inspection_materializer_probe() {
+  local admin_url="$1"
+  local probe_status
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c "update public.runtime_database_capabilities set capability='RECONCILER' where role_name=session_user" >/dev/null
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$admin_url" pnpm exec tsx <<'NODE'
+import { createPostgresInspectionMaterializerRepository } from "./packages/db/src/index.ts";
+import { reconcileInspectionMaterializations } from "./apps/api/src/inspections/materializer.ts";
+
+const repository = createPostgresInspectionMaterializerRepository(
+  process.env.TEST_READY_URL,
+);
+try {
+  const summary = await reconcileInspectionMaterializations({
+    batchSize: 10,
+    repository,
+  });
+  if (
+    summary.claimedCount < 1 ||
+    summary.claimedCount >= 10 ||
+    summary.completedCount < 1 ||
+    summary.createdInspectionCount < 1
+  ) {
+    throw new Error(`unexpected scheduled materializer summary: ${JSON.stringify(summary)}`);
+  }
+  console.log("HOTEL_INSPECTION_SCHEDULED_MATERIALIZER_ACTUAL_OK");
+} finally {
+  await repository.close();
+}
+NODE
+  )
+  probe_status=$?
+  set -e
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c "update public.runtime_database_capabilities set capability='API_RUNTIME' where role_name=session_user" >/dev/null
   return "$probe_status"
 }
 
@@ -999,6 +1081,7 @@ $acl_restore$;
 drop role gw_room_acl_drift;
 SQL
 
+
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
 create function public.hotel_room_lifecycle_command_v1()
 returns void language sql as 'select';
@@ -1199,6 +1282,8 @@ HOTEL_FACILITY_MASTER_DATA_MIGRATION="$ROOT_DIR/packages/db/migrations/0036_hote
 HOTEL_INSPECTION_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0037_hotel_inspection_execution_targets.sql"
 HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/0038_hotel_inspection_checklist_targets.sql"
 HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0039_hotel_inspection_checklist_v2_hardening.sql"
+HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0040_hotel_inspection_facility_execution.sql"
+HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0041_hotel_inspection_facility_execution_contract.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1210,6 +1295,7 @@ HOTEL_INSPECTION_ROUTINE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-r
 HOTEL_INSPECTION_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-integration.sql"
 HOTEL_INSPECTION_TARGET_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-execution-targets-integration.sql"
 HOTEL_INSPECTION_CHECKLIST_TARGET_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-checklist-targets-integration.sql"
+HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-facility-execution-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_SUBMISSION_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-submission-integration.sql"
 HOTEL_INSPECTION_REVIEW_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-review-integration.sql"
 HOTEL_INSPECTION_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-inspection-evidence-integration.sql"
@@ -1371,6 +1457,14 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$GLOBAL_LOGIN_CONTRACT_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
@@ -1512,6 +1606,9 @@ NODE
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION" >/dev/null
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION" >/dev/null
   grant_checklist_v2_api_capabilities "$TEST_DATABASE_URL"
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION" >/dev/null
+  grant_facility_execution_capabilities "$TEST_DATABASE_URL"
   ROUTINE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_ROUTINE_TEST_SQL")"
   if [[ "$ROUTINE_RESULT" != *"HOTEL_INSPECTION_ROUTINE_OK"* ]]; then
     printf '%s\n' "$ROUTINE_RESULT" >&2
@@ -1533,6 +1630,13 @@ NODE
     printf '%s\n' "$CHECKLIST_TARGET_RESULT" >&2
     exit 1
   fi
+  FACILITY_EXECUTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL")"
+  if [[ "$FACILITY_EXECUTION_RESULT" != *"HOTEL_INSPECTION_FACILITY_EXECUTION_ACTUAL_OK"* ]]; then
+    printf '%s\n' "$FACILITY_EXECUTION_RESULT" >&2
+    exit 1
+  fi
+  run_actual_facility_inspection_api_probe "$TEST_DATABASE_URL"
+  run_actual_scheduled_inspection_materializer_probe "$TEST_DATABASE_URL"
   psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" \
     -c "alter table schema_migrations rename column version to malformed_version" >/dev/null
   (
@@ -1969,6 +2073,11 @@ grant_checklist_v2_api_capabilities "$ADMIN_URL"
 assert_checklist_expand_readiness_damage "$ADMIN_URL" "$PROBE_URL"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION" >/dev/null
 grant_checklist_v2_api_capabilities "$ADMIN_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION" >/dev/null
+grant_facility_execution_capabilities "$ADMIN_URL"
+assert_schema_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION" >/dev/null
+assert_schema_ready "$PROBE_URL"
 
 EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_EVIDENCE_TEST_SQL")"
 if [[ "$EVIDENCE_RESULT" != *"HOTEL_INSPECTION_EVIDENCE_PROCESSING_OK"* ]]; then
@@ -1998,6 +2107,7 @@ assert_schema_not_ready "$PROBE_URL"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
   -c "alter trigger damaged_file_links_parent_guard on public.hotel_file_links rename to hotel_file_links_parent_guard" >/dev/null
 
+
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" \
   -c "revoke execute on function public.hotel_file_scan_candidates_v1(integer) from gw_runtime_probe" >/dev/null
 assert_schema_not_ready "$PROBE_URL"
@@ -2024,6 +2134,13 @@ if [[ "$CHECKLIST_TARGET_RESULT" != *"HOTEL_INSPECTION_CHECKLIST_TARGETS_OK"* ]]
   printf '%s\n' "$CHECKLIST_TARGET_RESULT" >&2
   exit 1
 fi
+FACILITY_EXECUTION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL")"
+if [[ "$FACILITY_EXECUTION_RESULT" != *"HOTEL_INSPECTION_FACILITY_EXECUTION_ACTUAL_OK"* ]]; then
+  printf '%s\n' "$FACILITY_EXECUTION_RESULT" >&2
+  exit 1
+fi
+run_actual_facility_inspection_api_probe "$ADMIN_URL"
+run_actual_scheduled_inspection_materializer_probe "$ADMIN_URL"
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table schema_migrations rename column version to malformed_version" >/dev/null

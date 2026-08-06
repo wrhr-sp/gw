@@ -34,6 +34,10 @@ const INSPECTION_TARGET_POLICY_SHAPE_SHA256 =
   "a976d9c8151fa8d257f4725de04b888f833e44df7060c68e1cf068c24e3e6061";
 const INSPECTION_TARGET_TRIGGER_SHAPE_SHA256 =
   "0e2cbd0f147fe788c6ca1ef6ca8f7ef44d081b068452fa5e32e33fab865c9a6a";
+const INSPECTION_FACILITY_EXECUTION_EXPAND_CATALOG_SHA256 =
+  "aac7218141858d5a7a96973c5fff13ceac308a017ab37722ac8e23116d4ed211";
+const INSPECTION_FACILITY_EXECUTION_CONTRACT_CATALOG_SHA256 =
+  "960aff7e8edf3d100d334a5f674cba53b08d73b7a336739b8042435bb6e63e5b";
 const INSPECTION_CHECKLIST_V2_CATALOG_SHA256 =
   "343da317f244109e0f1feddb00929e1a8e27c05826253d6882573b5310c9e70f";
 const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
@@ -186,6 +190,60 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     result: "TABLE(recovered_count integer)",
     signature: "public.hotel_file_access_recover_expired_v1(integer)",
   },
+  {
+    capability: "API_RUNTIME",
+    digest: "5a6babcf0f5dbc77bbf0fff2919666a6a538a57a57586ad4b74246acd3cdfd5e",
+    facilityExecution: true,
+    name: "hotel_inspection_routines_read_v2",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_inspection_routines_read_v2(uuid,uuid,uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "ceda696e98949210e8fd10238f518f031b56c7a8171856a10ac84457620e3e72",
+    facilityExecution: true,
+    name: "hotel_inspection_routine_command_v2",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_routine_command_v2(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "9f6dcaa9500c421f9eba5a2a2c2470b6811a28fd0288a9579e8568efb99e95a4",
+    facilityExecution: true,
+    name: "hotel_inspection_execution_read_v2",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_execution_read_v2(uuid,uuid,uuid,jsonb,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "0ba2ad337de70e4b02734db1836c04412a89bd99697b79a45735d67cf4628a96",
+    facilityExecution: true,
+    name: "hotel_inspection_command_v3",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_inspection_command_v3(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "fafef12aa0e67f339ad233036e3d25419d32e6eeeb89ee8c5806214dc530aad8",
+    facilityExecution: true,
+    name: "hotel_inspection_claim_next_materialization_v2",
+    result:
+      "TABLE(result_status text, company_id uuid, routine_id uuid, claim_generation bigint, from_date date, through_date date)",
+    signature:
+      "public.hotel_inspection_claim_next_materialization_v2(bytea,integer)",
+  },
+  {
+    capability: "RECONCILER",
+    digest: "d70c01660e42567cdd6fc89b80223f79adab051386bc4ff9057fd6b1e7c52030",
+    facilityExecution: true,
+    name: "hotel_inspection_complete_materialization_v2",
+    result: "TABLE(result_status text, created_count integer)",
+    signature:
+      "public.hotel_inspection_complete_materialization_v2(uuid,bigint,bytea,uuid)",
+  },
 ] as const;
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
   {
@@ -254,6 +312,56 @@ const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
     result: "jsonb",
     securityDefiner: false,
     signature: "public.hotel_inspection_review_snapshot_v1(uuid,uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    digest: "0d092ec51f2d375ce70540f4b9261bf46baf32ad9eba6b918c08359b70bff327",
+    facilityExecution: true,
+    language: "sql",
+    name: "inspection_routine_snapshot_v2",
+    result: "jsonb",
+    securityDefiner: true,
+    signature: "public.inspection_routine_snapshot_v2(uuid,uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    digest: "88c8f1923766a7bddd3ad7e684ace31999063e6243e0c2b865088d2f608e986a",
+    facilityExecution: true,
+    language: "plpgsql",
+    name: "inspection_routine_invalidate_claim_v2",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.inspection_routine_invalidate_claim_v2()",
+    volatility: "v",
+  },
+  {
+    digest: "ecbf519f31d8d56051812832bda9234fd03119db5e180961d5403e348dc07eb4",
+    facilityExecution: true,
+    language: "plpgsql",
+    name: "inspection_submission_nonempty_v2",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.inspection_submission_nonempty_v2()",
+    volatility: "v",
+  },
+  {
+    digest: "1f3369f754e81de95a0b7899e3d691d054bbf36b8ce98c526ab41ddc4959cb90",
+    facilityExecution: true,
+    language: "plpgsql",
+    name: "inspection_item_execution_target_capture_v2",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.inspection_item_execution_target_capture_v2()",
+    volatility: "v",
+  },
+  {
+    digest: "5624aaa2c96e8ee6a2bd00d5ce2a52cdfaef50790516fcd6a1ed41229d7e790e",
+    facilityExecution: true,
+    language: "sql",
+    name: "inspection_execution_snapshot_v2",
+    result: "jsonb",
+    securityDefiner: true,
+    signature: "public.inspection_execution_snapshot_v2(uuid,uuid,uuid)",
     volatility: "s",
   },
 ] as const;
@@ -2081,6 +2189,8 @@ export async function probeDatabaseReadiness(
         hotel_inspection_target_marker_count: number;
         hotel_inspection_checklist_target_marker_count: number;
         hotel_inspection_checklist_hardening_marker_count: number;
+        hotel_inspection_facility_execution_marker_count: number;
+        hotel_inspection_facility_execution_contract_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2169,7 +2279,13 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_checklist_target_marker_count,
              count(*) filter (
                where version = '0039_hotel_inspection_checklist_v2_hardening'
-             )::integer as hotel_inspection_checklist_hardening_marker_count
+             )::integer as hotel_inspection_checklist_hardening_marker_count,
+             count(*) filter (
+               where version = '0040_hotel_inspection_facility_execution'
+             )::integer as hotel_inspection_facility_execution_marker_count,
+             count(*) filter (
+               where version = '0041_hotel_inspection_facility_execution_contract'
+             )::integer as hotel_inspection_facility_execution_contract_marker_count
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2207,7 +2323,9 @@ export async function probeDatabaseReadiness(
         '0036_hotel_facility_master_data',
         '0037_hotel_inspection_execution_targets',
         '0038_hotel_inspection_checklist_targets',
-        '0039_hotel_inspection_checklist_v2_hardening'
+        '0039_hotel_inspection_checklist_v2_hardening',
+        '0040_hotel_inspection_facility_execution',
+        '0041_hotel_inspection_facility_execution_contract'
       )
     `;
     const schemaPhase =
@@ -2289,6 +2407,17 @@ export async function probeDatabaseReadiness(
           ? "EXPAND"
           : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 0 &&
               migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 0
+            ? "PRE_CONTRACT"
+            : null;
+    const inspectionFacilityExecutionPhase =
+      migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 1 &&
+      migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 1 &&
+            migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 0
+          ? "EXPAND"
+          : migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 0 &&
+              migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 0
             ? "PRE_CONTRACT"
             : null;
     const facilityTableNames = [
@@ -2698,8 +2827,9 @@ export async function probeDatabaseReadiness(
             INSPECTION_TARGET_INDEX_SHAPE_SHA256 &&
           targetCatalogDigests.policies ===
             INSPECTION_TARGET_POLICY_SHAPE_SHA256 &&
-          targetCatalogDigests.triggers ===
-            INSPECTION_TARGET_TRIGGER_SHAPE_SHA256;
+          (inspectionFacilityExecutionPhase === "CONTRACT" ||
+            targetCatalogDigests.triggers ===
+              INSPECTION_TARGET_TRIGGER_SHAPE_SHA256);
       }
       const captureSourceSafe =
         targetExpected === 0
@@ -2733,6 +2863,175 @@ export async function probeDatabaseReadiness(
         !captureSourceSafe ||
         !targetCatalogSafe ||
         targetFoundation.runtime_acl_count !== 0
+      ) {
+        return schemaNotReady();
+      }
+    }
+    if (
+      inspectionFacilityExecutionPhase === "EXPAND" ||
+      inspectionFacilityExecutionPhase === "CONTRACT"
+    ) {
+      const [facilityExecutionCatalog] = await sql<
+        {
+          column_count: number;
+          column_shape_count: number;
+          constraint_count: number;
+          force_rls: boolean;
+          index_count: number;
+          named_constraint_count: number;
+          named_index_count: number;
+          rls: boolean;
+          runtime_acl_count: number;
+          schema_digest: string;
+          target_trigger_safe_count: number;
+          trigger_count: number;
+          trigger_safe_count: number;
+        }[]
+      >`
+        select
+          pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(pg_catalog.jsonb_build_object(
+            'columns', (select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+              column_record.attnum,column_record.attname,
+              pg_catalog.format_type(column_record.atttypid,column_record.atttypmod),
+              column_record.attnotnull,
+              coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid),'')
+            ) order by column_record.attnum)
+              from pg_catalog.pg_attribute column_record
+              left join pg_catalog.pg_attrdef default_record
+                on default_record.adrelid=column_record.attrelid
+               and default_record.adnum=column_record.attnum
+             where column_record.attrelid='public.inspection_item_snapshots'::regclass
+               and column_record.attnum>0 and not column_record.attisdropped),
+            'constraints', (select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+              constraint_record.conname,constraint_record.contype,
+              constraint_record.convalidated,
+              pg_catalog.pg_get_constraintdef(constraint_record.oid,true)
+            ) order by constraint_record.conname)
+              from pg_catalog.pg_constraint constraint_record
+             where constraint_record.conrelid='public.inspection_item_snapshots'::regclass
+               and constraint_record.contype<>'n'),
+            'indexes', (select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+              index_class.relname,index_record.indisunique,index_record.indisprimary,
+              index_record.indisvalid,pg_catalog.pg_get_indexdef(index_record.indexrelid),
+              coalesce(pg_catalog.pg_get_expr(index_record.indpred,index_record.indrelid),'')
+            ) order by index_class.relname)
+              from pg_catalog.pg_index index_record
+              join pg_catalog.pg_class index_class on index_class.oid=index_record.indexrelid
+             where index_record.indrelid='public.inspection_item_snapshots'::regclass),
+            'triggers', (select pg_catalog.jsonb_agg(pg_catalog.jsonb_build_array(
+              table_record.relname,trigger_record.tgname,trigger_record.tgenabled,
+              pg_catalog.pg_get_triggerdef(trigger_record.oid,true)
+            ) order by table_record.relname,trigger_record.tgname)
+              from pg_catalog.pg_trigger trigger_record
+              join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid
+             where trigger_record.tgrelid in (
+               'public.inspection_item_snapshots'::regclass,
+               'public.inspection_execution_targets'::regclass,
+               'public.inspection_routines'::regclass,
+               'public.hotel_inspections'::regclass
+             ) and not trigger_record.tgisinternal)
+          )::text,'UTF8')),'hex') as schema_digest,
+          (select count(*)::integer from pg_catalog.pg_attribute column_record
+            where column_record.attrelid='public.inspection_item_snapshots'::regclass
+              and column_record.attnum>0 and not column_record.attisdropped) as column_count,
+          (select count(*)::integer from pg_catalog.pg_attribute column_record
+            where column_record.attrelid='public.inspection_item_snapshots'::regclass
+              and column_record.attnum>0 and not column_record.attisdropped
+              and (
+                (column_record.attname='room_id' and not column_record.attnotnull and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='uuid')
+                or (column_record.attname in ('room_number_snapshot','floor_label_snapshot','room_type_name_snapshot') and not column_record.attnotnull and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='text')
+                or (column_record.attname='floor_sort_key_snapshot' and not column_record.attnotnull and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='integer')
+                or (column_record.attname in ('facility_id','checklist_v2_revision_id') and not column_record.attnotnull and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='uuid')
+                or (column_record.attname in ('facility_name_snapshot','facility_type_name_snapshot','facility_location_name_snapshot') and not column_record.attnotnull and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='text')
+              )) as column_shape_count,
+          (select count(*)::integer from pg_catalog.pg_constraint constraint_record
+            where constraint_record.conrelid='public.inspection_item_snapshots'::regclass
+              and constraint_record.contype<>'n') as constraint_count,
+          (select count(*)::integer from pg_catalog.pg_constraint constraint_record
+            where constraint_record.conrelid='public.inspection_item_snapshots'::regclass
+              and constraint_record.conname in (
+                'inspection_item_execution_target_fkey',
+                'inspection_item_snapshots_facility_fkey',
+                'inspection_item_snapshots_checklist_v2_revision_fkey',
+                'inspection_item_snapshots_target_exactly_one_check'
+              )
+              and constraint_record.convalidated) as named_constraint_count,
+          (select count(*)::integer from pg_catalog.pg_index index_record
+            where index_record.indrelid='public.inspection_item_snapshots'::regclass) as index_count,
+          (select count(*)::integer from pg_catalog.pg_index index_record
+            join pg_catalog.pg_class index_class on index_class.oid=index_record.indexrelid
+            where index_record.indrelid='public.inspection_item_snapshots'::regclass
+              and index_record.indisunique
+              and index_record.indpred is not null
+              and index_class.relname in (
+                'inspection_item_snapshots_room_item_key',
+                'inspection_item_snapshots_facility_item_key'
+              )) as named_index_count,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            where trigger_record.tgrelid in (
+              'public.inspection_item_snapshots'::regclass,
+              'public.inspection_execution_targets'::regclass,
+              'public.inspection_routines'::regclass,
+              'public.hotel_inspections'::regclass
+            ) and not trigger_record.tgisinternal) as trigger_count,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            where not trigger_record.tgisinternal
+              and trigger_record.tgenabled='O'
+              and (
+                (trigger_record.tgrelid='public.inspection_routines'::regclass
+                  and trigger_record.tgname='inspection_routine_claim_invalidation'
+                  and trigger_record.tgfoid='public.inspection_routine_invalidate_claim_v2()'::regprocedure
+                  and pg_catalog.pg_get_triggerdef(trigger_record.oid,true)=
+                    'CREATE TRIGGER inspection_routine_claim_invalidation BEFORE UPDATE OF current_revision_id, status ON inspection_routines FOR EACH ROW EXECUTE FUNCTION inspection_routine_invalidate_claim_v2()')
+                or
+                (trigger_record.tgrelid='public.hotel_inspections'::regclass
+                  and trigger_record.tgname='inspection_submission_nonempty'
+                  and trigger_record.tgfoid='public.inspection_submission_nonempty_v2()'::regprocedure
+                  and pg_catalog.pg_get_triggerdef(trigger_record.oid,true)=
+                    'CREATE TRIGGER inspection_submission_nonempty BEFORE UPDATE OF status ON hotel_inspections FOR EACH ROW EXECUTE FUNCTION inspection_submission_nonempty_v2()')
+              )) as trigger_safe_count,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            where trigger_record.tgrelid='public.inspection_execution_targets'::regclass
+              and not trigger_record.tgisinternal
+              and trigger_record.tgname='inspection_execution_targets_append_only'
+              and trigger_record.tgenabled='O'
+              and trigger_record.tgfoid='public.reject_hotel_immutable_change()'::regprocedure
+              and pg_catalog.pg_get_triggerdef(trigger_record.oid,true) =
+                'CREATE TRIGGER inspection_execution_targets_append_only BEFORE DELETE OR UPDATE ON inspection_execution_targets FOR EACH ROW EXECUTE FUNCTION reject_hotel_immutable_change()') as target_trigger_safe_count,
+          (select table_record.relrowsecurity from pg_catalog.pg_class table_record
+            where table_record.oid='public.inspection_item_snapshots'::regclass) as rls,
+          (select table_record.relforcerowsecurity from pg_catalog.pg_class table_record
+            where table_record.oid='public.inspection_item_snapshots'::regclass) as force_rls,
+          ((select count(*)::integer from pg_catalog.pg_class table_record
+             cross join lateral pg_catalog.aclexplode(coalesce(table_record.relacl,pg_catalog.acldefault('r'::"char",table_record.relowner))) acl
+            where table_record.oid='public.inspection_item_snapshots'::regclass
+              and acl.grantee<>table_record.relowner)
+           +
+           (select count(*)::integer from pg_catalog.pg_attribute column_record
+             cross join lateral pg_catalog.aclexplode(column_record.attacl) acl
+            where column_record.attrelid='public.inspection_item_snapshots'::regclass
+              and column_record.attnum>0 and not column_record.attisdropped
+              and acl.grantee<>(select table_record.relowner from pg_catalog.pg_class table_record where table_record.oid=column_record.attrelid))) as runtime_acl_count
+      `;
+      if (
+        !facilityExecutionCatalog ||
+        facilityExecutionCatalog.column_count !== 23 ||
+        facilityExecutionCatalog.column_shape_count !== 10 ||
+        facilityExecutionCatalog.constraint_count !== 10 ||
+        facilityExecutionCatalog.named_constraint_count !== 4 ||
+        facilityExecutionCatalog.index_count !== 4 ||
+        facilityExecutionCatalog.named_index_count !== 2 ||
+        facilityExecutionCatalog.trigger_count !==
+          (inspectionFacilityExecutionPhase === "EXPAND" ? 6 : 5) ||
+        facilityExecutionCatalog.trigger_safe_count !== 2 ||
+        facilityExecutionCatalog.schema_digest !==
+          (inspectionFacilityExecutionPhase === "EXPAND"
+            ? INSPECTION_FACILITY_EXECUTION_EXPAND_CATALOG_SHA256
+            : INSPECTION_FACILITY_EXECUTION_CONTRACT_CATALOG_SHA256) ||
+        facilityExecutionCatalog.target_trigger_safe_count !== 1 ||
+        !facilityExecutionCatalog.rls ||
+        !facilityExecutionCatalog.force_rls ||
+        facilityExecutionCatalog.runtime_acl_count !== 0
       ) {
         return schemaNotReady();
       }
@@ -3495,6 +3794,8 @@ export async function probeDatabaseReadiness(
       }
       const activeInspectionCommandContracts =
         HOTEL_INSPECTION_COMMAND_CONTRACTS.filter((contract) => {
+          if ("facilityExecution" in contract)
+            return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (contract.name === "hotel_inspection_checklist_v2_command")
             return inspectionTargetChecklistPhase !== "PRE_CONTRACT";
           if (contract.name === "hotel_inspection_checklist_v3_command")
@@ -3502,6 +3803,7 @@ export async function probeDatabaseReadiness(
           return true;
         });
       for (const contract of activeInspectionCommandContracts) {
+        const expectedDigest = contract.digest;
         const [command] = await sql<
           {
             executable: boolean;
@@ -3593,7 +3895,7 @@ export async function probeDatabaseReadiness(
           !command.execute_acl_safe ||
           command.return_signature !== contract.result ||
           command.executable !== (options.capability === contract.capability) ||
-          (await sourceSha256(command.source)) !== contract.digest
+          (await sourceSha256(command.source)) !== expectedDigest
         ) {
           return schemaNotReady();
         }
@@ -3601,6 +3903,8 @@ export async function probeDatabaseReadiness(
 
       const activeInspectionInternalFunctionContracts =
         HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
+          if ("facilityExecution" in contract)
+            return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (!("checklistPhase" in contract)) return true;
           if (contract.checklistPhase === "BOTH")
             return inspectionTargetChecklistPhase === "EXPAND" ||
@@ -5333,6 +5637,14 @@ export async function probeDatabaseReadiness(
                   label.split(":", 1)[0] ?? "",
                 ),
             );
+      if (
+        inspectionFacilityExecutionPhase !== "PRE_CONTRACT" &&
+        role.capability === "API_RUNTIME"
+      ) {
+        roleTablePrivileges = roleTablePrivileges.filter(
+          (label) => label !== "inspection_item_snapshots:SELECT",
+        );
+      }
       if (
         facilityMasterDataPhase === "CONTRACT" &&
         role.capability === "API_RUNTIME"

@@ -70,6 +70,7 @@ const panelElement = (
 ) =>
   (
     <InspectionConfigurationPanel
+      facilities={[]}
       facilityTypes={[
         {
           hotelId,

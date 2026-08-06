@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { InspectionConfigurationPanel } from "../../../../../components/inspections/inspection-configuration-panel";
 import { fetchInspectionConfiguration } from "../../../../../lib/server-inspections";
-import { fetchFacilityInitialData } from "../../../../../lib/server-facilities";
-import { fetchRoomInitialData } from "../../../../../lib/server-rooms";
+import { fetchAllFacilityInspectionData } from "../../../../../lib/server-facilities";
+import { fetchAllRoomInspectionData } from "../../../../../lib/server-rooms";
 
 function Failure({ message }: { message: string }) {
   return (
@@ -24,8 +24,8 @@ export default async function InspectionSettingsPage({
   const { hotelId } = await params;
   const [configuration, roomData, facilityData] = await Promise.all([
     fetchInspectionConfiguration(hotelId),
-    fetchRoomInitialData(hotelId),
-    fetchFacilityInitialData(hotelId),
+    fetchAllRoomInspectionData(hotelId),
+    fetchAllFacilityInspectionData(hotelId),
   ]);
   if (!configuration.ok && configuration.code === "RESOURCE_NOT_FOUND")
     notFound();
@@ -36,6 +36,7 @@ export default async function InspectionSettingsPage({
   return (
     <InspectionConfigurationPanel
       hotelId={hotelId}
+      facilities={facilityData.data.facilities}
       facilityTypes={facilityData.data.facilityTypes}
       initialChecklist={configuration.checklist}
       initialRoutines={configuration.routines}

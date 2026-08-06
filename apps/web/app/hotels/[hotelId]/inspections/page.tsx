@@ -4,7 +4,8 @@ import {
   fetchInspectionConfiguration,
   fetchInspectionExecutions,
 } from "../../../../lib/server-inspections";
-import { fetchRoomInitialData } from "../../../../lib/server-rooms";
+import { fetchAllFacilityInspectionData } from "../../../../lib/server-facilities";
+import { fetchAllRoomInspectionData } from "../../../../lib/server-rooms";
 
 function Failure({ message }: { message: string }) {
   return (
@@ -26,21 +27,41 @@ export default async function InspectionExecutionPage({
   params: Promise<{ hotelId: string }>;
 }) {
   const { hotelId } = await params;
-  const [executions, configuration, roomData] = await Promise.all([
+  const [executions, configuration, roomData, facilityData] = await Promise.all([
     fetchInspectionExecutions(hotelId),
     fetchInspectionConfiguration(hotelId),
-    fetchRoomInitialData(hotelId),
+    fetchAllRoomInspectionData(hotelId),
+    fetchAllFacilityInspectionData(hotelId),
   ]);
   if (!executions.ok && executions.error === "RESOURCE_NOT_FOUND") notFound();
   if (!executions.ok) return <Failure message={executions.error} />;
   if (!configuration.ok) return <Failure message={configuration.error} />;
   if (!roomData.ok) return <Failure message={roomData.error.message} />;
+  if (!facilityData.ok)
+    return <Failure message={facilityData.error.message} />;
 
   return (
     <InspectionExecutionWorkspace
       checklistItems={(configuration.checklist?.items ?? []).map((item) => ({
+        excludedFacilityTypeIds:
+          item.targetType === "FACILITY" ? item.excludedFacilityTypeIds : [],
+        excludedRoomTypeIds:
+          item.targetType === "ROOM" ? item.excludedRoomTypeIds : [],
+        facilityTypeId:
+          item.targetType === "FACILITY" ? item.facilityTypeId : null,
         id: item.itemId,
         name: item.name,
+        roomTypeId: item.targetType === "ROOM" ? item.roomTypeId : null,
+        source: item.source,
+        targetType: item.targetType,
+      }))}
+      facilities={facilityData.data.facilities.map((facility) => ({
+        id: facility.id,
+        locationName: facility.location.name,
+        name: facility.name,
+        status: facility.status,
+        typeId: facility.facilityType.id,
+        typeName: facility.facilityType.name,
       }))}
       hotelId={hotelId}
       initialInspections={executions.inspections}
@@ -49,6 +70,7 @@ export default async function InspectionExecutionPage({
         floorLabel: room.floorLabel,
         id: room.id,
         roomNumber: room.roomNumber,
+        roomTypeId: room.roomType.id,
         status: room.status,
       }))}
     />
