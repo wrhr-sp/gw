@@ -8,7 +8,9 @@ import {
   type CreateInspectionChecklistRevisionRequest,
   type CreateInspectionChecklistRevisionV2Request,
   type CreateInspectionRoutineRequest,
+  type CreateInspectionRoutineV2Request,
   type CreateManualInspectionRequest,
+  type CreateManualInspectionV2Request,
   type CreateProcessDefinitionRequest,
   type InspectionExecutionListQuery,
   type InspectionReviewListQuery,
@@ -113,12 +115,38 @@ export interface InspectionService {
     value: CreateInspectionRoutineRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
+  listRoutinesV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+  ): Promise<unknown[]>;
+  getRoutineV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    routineId: string,
+  ): Promise<unknown>;
+  saveRoutineV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    routineId: string | null,
+    value: CreateInspectionRoutineV2Request,
+    idempotencyKey: string,
+  ): Promise<unknown>;
   listInspections(
     principal: MutationPrincipal,
     hotelId: string,
     query: InspectionExecutionListQuery,
   ): Promise<unknown>;
   getInspection(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
+  ): Promise<unknown>;
+  listInspectionsV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    query: InspectionExecutionListQuery,
+  ): Promise<unknown>;
+  getInspectionV2(
     principal: MutationPrincipal,
     hotelId: string,
     inspectionId: string,
@@ -139,6 +167,12 @@ export interface InspectionService {
     value: CreateManualInspectionRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
+  createManualInspectionV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    value: CreateManualInspectionV2Request,
+    idempotencyKey: string,
+  ): Promise<unknown>;
   saveResult(
     principal: MutationPrincipal,
     hotelId: string,
@@ -147,7 +181,22 @@ export interface InspectionService {
     value: SaveInspectionItemResultRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
+  saveResultV2(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
+    itemSnapshotId: string,
+    value: SaveInspectionItemResultRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
   submit(
+    principal: MutationPrincipal,
+    hotelId: string,
+    inspectionId: string,
+    value: SubmitRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
+  submitV2(
     principal: MutationPrincipal,
     hotelId: string,
     inspectionId: string,
@@ -288,9 +337,13 @@ export function createInspectionService(
       itemSnapshotId: string;
       value: SaveInspectionItemResultRequest;
     };
+    useV2?: boolean;
     value: unknown;
   }) {
-    const result = await repository.command({
+    const mutation = input.useV2 ? repository.commandV3 : repository.command;
+    if (!mutation)
+      throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+    const result = await mutation({
       action: input.action,
       auditEventId: crypto.randomUUID(),
       companyId: input.principal.companyId,
@@ -329,7 +382,12 @@ export function createInspectionService(
       typeof result.payload.id === "string"
         ? result.payload.id
         : input.inspectionId;
-    const read = await repository.readInspection({
+    const readInspection = input.useV2
+      ? repository.readInspectionV2
+      : repository.readInspection;
+    if (!readInspection)
+      throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+    const read = await readInspection({
       companyId: input.principal.companyId,
       hotelId: input.hotelId,
       inspectionId: resourceId,
@@ -717,6 +775,69 @@ export function createInspectionService(
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload;
     },
+    async listRoutinesV2(principal, hotelId) {
+      const routineRead = repository.routineReadV2;
+      if (!routineRead)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await routineRead({
+        companyId: principal.companyId,
+        hotelId,
+        routineId: null,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (!result.payload || typeof result.payload !== "object" ||
+          !("routines" in result.payload) || !Array.isArray(result.payload.routines))
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.routines;
+    },
+    async getRoutineV2(principal, hotelId, routineId) {
+      const routineRead = repository.routineReadV2;
+      if (!routineRead)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await routineRead({
+        companyId: principal.companyId,
+        hotelId,
+        routineId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (!result.payload || typeof result.payload !== "object" || !("routine" in result.payload))
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.routine;
+    },
+    async saveRoutineV2(principal, hotelId, routineId, value, idempotencyKey) {
+      const routineMutation = repository.routineMutationV2;
+      if (!routineMutation)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const resourceId = routineId ?? crypto.randomUUID();
+      const operationPath = routineId
+        ? inspectionRoutes.routineV2(hotelId, routineId)
+        : inspectionRoutes.routinesV2(hotelId);
+      const httpMethod = routineId ? "PUT" : "POST";
+      const result = await routineMutation({
+        auditEventId: crypto.randomUUID(),
+        companyId: principal.companyId,
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod,
+        idempotencyKey,
+        idempotencyRecordId: crypto.randomUUID(),
+        operationPath,
+        requestHash: await hash({ method: httpMethod, path: operationPath, value }),
+        resourceId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(),
+        value,
+      });
+      if (!["OK", "REPLAYED"].includes(result.status)) failure(result.status);
+      if (!result.payload)
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
     async listInspections(principal, hotelId, query) {
       const listInspections = repository.listInspections;
       if (!listInspections)
@@ -753,6 +874,40 @@ export function createInspectionService(
         typeof result.payload !== "object" ||
         !("inspection" in result.payload)
       )
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload.inspection;
+    },
+    async listInspectionsV2(principal, hotelId, query) {
+      const listInspections = repository.listInspectionsV2;
+      if (!listInspections)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await listInspections({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId: null,
+        query,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (!result.payload || typeof result.payload !== "object" ||
+          !("inspections" in result.payload) || !("pagination" in result.payload))
+        throw new InspectionServiceError("INTERNAL_ERROR", 500);
+      return result.payload;
+    },
+    async getInspectionV2(principal, hotelId, inspectionId) {
+      const readInspection = repository.readInspectionV2;
+      if (!readInspection)
+        throw new InspectionServiceError("DB_NOT_CONFIGURED", 503);
+      const result = await readInspection({
+        companyId: principal.companyId,
+        hotelId,
+        inspectionId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+      });
+      if (result.status !== "OK") failure(result.status);
+      if (!result.payload || typeof result.payload !== "object" || !("inspection" in result.payload))
         throw new InspectionServiceError("INTERNAL_ERROR", 500);
       return result.payload.inspection;
     },
@@ -797,6 +952,26 @@ export function createInspectionService(
         },
       });
     },
+    createManualInspectionV2(principal, hotelId, value, idempotencyKey) {
+      const inspectionId = crypto.randomUUID();
+      return mutateAndRead({
+        action: "CREATE_MANUAL_V2",
+        expectedVersion: 0,
+        hotelId,
+        httpMethod: "POST",
+        idempotencyKey,
+        inspectionId,
+        operationPath: inspectionRoutes.createManualV2(hotelId),
+        principal,
+        requestValue: value,
+        useV2: true,
+        value: {
+          ...value,
+          processExecutionId: crypto.randomUUID(),
+          reason: "수시점검 생성",
+        },
+      });
+    },
     saveResult(
       principal,
       hotelId,
@@ -828,6 +1003,38 @@ export function createInspectionService(
         },
       });
     },
+    saveResultV2(
+      principal,
+      hotelId,
+      inspectionId,
+      itemSnapshotId,
+      value,
+      idempotencyKey,
+    ) {
+      return mutateAndRead({
+        action: "SAVE_RESULT",
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod: "PUT",
+        idempotencyKey,
+        inspectionId,
+        operationPath: inspectionRoutes.resultV2(
+          hotelId,
+          inspectionId,
+          itemSnapshotId,
+        ),
+        principal,
+        requestValue: value,
+        resultExpectation: { itemSnapshotId, value },
+        useV2: true,
+        value: {
+          ...value,
+          historyId: crypto.randomUUID(),
+          itemSnapshotId,
+          resultId: crypto.randomUUID(),
+        },
+      });
+    },
     submit(principal, hotelId, inspectionId, value, idempotencyKey) {
       return mutateAndRead({
         action: "SUBMIT",
@@ -839,6 +1046,21 @@ export function createInspectionService(
         operationPath: inspectionRoutes.submit(hotelId, inspectionId),
         principal,
         requestValue: value,
+        value: { historyId: crypto.randomUUID(), reason: value.reason },
+      });
+    },
+    submitV2(principal, hotelId, inspectionId, value, idempotencyKey) {
+      return mutateAndRead({
+        action: "SUBMIT",
+        expectedVersion: value.version,
+        hotelId,
+        httpMethod: "POST",
+        idempotencyKey,
+        inspectionId,
+        operationPath: inspectionRoutes.submitV2(hotelId, inspectionId),
+        principal,
+        requestValue: value,
+        useV2: true,
         value: { historyId: crypto.randomUUID(), reason: value.reason },
       });
     },

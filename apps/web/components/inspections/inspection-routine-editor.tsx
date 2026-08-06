@@ -1,16 +1,19 @@
 "use client";
 
 import {
-  createInspectionRoutineRequestSchema,
-  inspectionRoutineListResponseSchema,
-  inspectionRoutineResponseSchema,
+  createInspectionRoutineV2RequestSchema,
+  inspectionRoutineV2ListResponseSchema,
+  inspectionRoutineV2ResponseSchema,
+  inspectionRoutineV2Schema,
   inspectionRoutes,
+  type HotelFacility,
+  type HotelFacilityType,
   type HotelRoomType,
-  type InspectionRoutine,
 } from "@werehere/contracts";
 import { Button, StatusBadge } from "@werehere/ui";
 import React, { useMemo, useRef, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import type { z } from "zod";
 
 const DAYS = [
   ["MONDAY", "월요일"],
@@ -31,8 +34,18 @@ const RECURRENCES = [
   ["INTERVAL_MONTHS", "N개월마다"],
 ] as const;
 
-type TargetType = "FLOOR" | "HOTEL" | "ROOM_TYPE" | "ROOMS";
+type InspectionRoutineV2 = z.infer<typeof inspectionRoutineV2Schema>;
+type TargetType =
+  | "FACILITIES"
+  | "FACILITY_HOTEL"
+  | "FACILITY_TYPES"
+  | "ROOMS"
+  | "ROOM_FLOORS"
+  | "ROOM_HOTEL"
+  | "ROOM_TYPES";
 type FormRound = {
+  facilityIds: string[];
+  facilityTypeIds: string[];
   floorLabels: string[];
   order: number;
   roomIds: string[];
@@ -66,11 +79,13 @@ export type RoomOption = {
 type DefinitionOption = { id: string; name: string };
 
 const emptyRound = (order = 1): FormRound => ({
+  facilityIds: [],
+  facilityTypeIds: [],
   floorLabels: [],
   order,
   roomIds: [],
   roomTypeIds: [],
-  targetType: "HOTEL",
+  targetType: "ROOM_HOTEL",
 });
 
 const emptyForm = (): FormValue => ({
@@ -89,7 +104,7 @@ const emptyForm = (): FormValue => ({
   version: 0,
 });
 
-function routineForm(routine: InspectionRoutine): FormValue {
+function routineForm(routine: InspectionRoutineV2): FormValue {
   const recurrence = routine.revision.recurrence;
   return {
     dayOfMonth: recurrence.type === "MONTHLY" ? recurrence.dayOfMonth : 1,
@@ -102,12 +117,18 @@ function routineForm(routine: InspectionRoutine): FormValue {
     processDefinitionId: routine.revision.processDefinitionId,
     recurrenceType: recurrence.type,
     rounds: routine.revision.rounds.map((round) => ({
+      facilityIds:
+        round.target.type === "FACILITIES" ? round.target.facilityIds : [],
+      facilityTypeIds:
+        round.target.type === "FACILITY_TYPES"
+          ? round.target.facilityTypeIds
+          : [],
       floorLabels:
-        round.target.type === "FLOOR" ? round.target.floorLabels : [],
+        round.target.type === "ROOM_FLOORS" ? round.target.floorLabels : [],
       order: round.order,
       roomIds: round.target.type === "ROOMS" ? round.target.roomIds : [],
       roomTypeIds:
-        round.target.type === "ROOM_TYPE" ? round.target.roomTypeIds : [],
+        round.target.type === "ROOM_TYPES" ? round.target.roomTypeIds : [],
       targetType: round.target.type,
     })),
     startDate: routine.revision.startDate,
@@ -118,14 +139,23 @@ function routineForm(routine: InspectionRoutine): FormValue {
 
 function target(round: FormRound) {
   switch (round.targetType) {
-    case "FLOOR":
-      return { type: "FLOOR" as const, floorLabels: round.floorLabels };
-    case "ROOM_TYPE":
-      return { type: "ROOM_TYPE" as const, roomTypeIds: round.roomTypeIds };
+    case "ROOM_FLOORS":
+      return { type: "ROOM_FLOORS" as const, floorLabels: round.floorLabels };
+    case "ROOM_TYPES":
+      return { type: "ROOM_TYPES" as const, roomTypeIds: round.roomTypeIds };
     case "ROOMS":
       return { type: "ROOMS" as const, roomIds: round.roomIds };
+    case "FACILITY_TYPES":
+      return {
+        type: "FACILITY_TYPES" as const,
+        facilityTypeIds: round.facilityTypeIds,
+      };
+    case "FACILITIES":
+      return { type: "FACILITIES" as const, facilityIds: round.facilityIds };
+    case "FACILITY_HOTEL":
+      return { type: "FACILITY_HOTEL" as const };
     default:
-      return { type: "HOTEL" as const };
+      return { type: "ROOM_HOTEL" as const };
   }
 }
 
@@ -197,6 +227,8 @@ function CheckboxGroup({
 export function InspectionRoutineEditor({
   checklistRevisionId,
   definitions,
+  facilities,
+  facilityTypes,
   hotelId,
   initialRoutines,
   rooms,
@@ -204,16 +236,19 @@ export function InspectionRoutineEditor({
 }: {
   checklistRevisionId: string | null;
   definitions: DefinitionOption[];
+  facilities: HotelFacility[];
+  facilityTypes: HotelFacilityType[];
   hotelId: string;
-  initialRoutines: InspectionRoutine[];
+  initialRoutines: InspectionRoutineV2[];
   rooms: RoomOption[];
   roomTypes: HotelRoomType[];
 }) {
   const [routines, setRoutines] = useState(initialRoutines);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const idempotencyKey = useRef(crypto.randomUUID());
+  const routineOperation = useRef<{ body: string; key: string } | null>(null);
   const { control, handleSubmit, register, reset, setValue, watch } =
     useForm<FormValue>({ defaultValues: emptyForm() });
   const rounds = useFieldArray({ control, name: "rounds" });
@@ -242,12 +277,22 @@ export function InspectionRoutineEditor({
   const roomTypeOptions = roomTypes
     .filter((roomType) => roomType.isActive)
     .map((roomType) => ({ id: roomType.id, label: roomType.name }));
+  const facilityTypeOptions = facilityTypes
+    .filter((facilityType) => facilityType.status === "ACTIVE")
+    .map((facilityType) => ({ id: facilityType.id, label: facilityType.name }));
+  const facilityOptions = facilities
+    .filter((facility) => facility.status === "ACTIVE")
+    .map((facility) => ({
+      id: facility.id,
+      label: `${facility.name} · ${facility.facilityType.name} · ${facility.location.name}`,
+    }));
 
-  function selectRoutine(routine: InspectionRoutine | null) {
+  function selectRoutine(routine: InspectionRoutineV2 | null) {
     setSelectedId(routine?.id ?? null);
     reset(routine ? routineForm(routine) : emptyForm());
     setMessage(null);
-    idempotencyKey.current = crypto.randomUUID();
+    setValidationErrors({});
+    routineOperation.current = null;
   }
 
   const submit = handleSubmit(async (value) => {
@@ -255,7 +300,7 @@ export function InspectionRoutineEditor({
       setMessage("체크리스트를 먼저 저장해 주세요.");
       return;
     }
-    const request = createInspectionRoutineRequestSchema.safeParse({
+    const request = createInspectionRoutineV2RequestSchema.safeParse({
       name: value.name,
       status: value.status,
       version: value.version,
@@ -271,32 +316,53 @@ export function InspectionRoutineEditor({
       })),
     });
     if (!request.success) {
-      setMessage(request.error.issues[0]?.message ?? "입력값을 확인해 주세요.");
+      const issue = request.error.issues[0];
+      const root = issue?.path[0];
+      const key =
+        root === "rounds"
+          ? `round-${typeof issue?.path[1] === "number" ? issue.path[1] : 0}`
+          : root === "recurrence" || root === "localDueTime"
+            ? "recurrence"
+            : root === "endDate"
+              ? "endDate"
+              : root === "startDate"
+                ? "startDate"
+                : "name";
+      const errorText = issue?.message ?? "입력값을 확인해 주세요.";
+      setValidationErrors({ [key]: errorText });
+      setMessage(errorText);
+      window.setTimeout(() => document.getElementById(`routine-${key}`)?.focus(), 0);
       return;
     }
+    setValidationErrors({});
+    const body = JSON.stringify(request.data);
+    const previous = routineOperation.current;
+    const operation =
+      previous?.body === body ? previous : { body, key: crypto.randomUUID() };
+    routineOperation.current = operation;
     setSaving(true);
     setMessage(null);
     try {
       const path = selectedId
-        ? inspectionRoutes.routine(hotelId, selectedId)
-        : inspectionRoutes.routines(hotelId);
+        ? inspectionRoutes.routineV2(hotelId, selectedId)
+        : inspectionRoutes.routinesV2(hotelId);
       const response = await fetch(path, {
         method: selectedId ? "PUT" : "POST",
         headers: {
           "content-type": "application/json",
-          "idempotency-key": idempotencyKey.current,
+          "idempotency-key": operation.key,
         },
-        body: JSON.stringify(request.data),
+        body,
       });
-      const mutation = inspectionRoutineResponseSchema.safeParse(
+      const mutation = inspectionRoutineV2ResponseSchema.safeParse(
         await response.json().catch(() => undefined),
       );
       if (!response.ok || !mutation.success)
         throw new Error("정기점검 루틴을 저장하지 못했습니다.");
-      const readResponse = await fetch(inspectionRoutes.routines(hotelId), {
+      const readResponse = await fetch(inspectionRoutes.routinesV2(hotelId), {
         cache: "no-store",
       });
-      const read = inspectionRoutineListResponseSchema.safeParse(
+      const read = inspectionRoutineV2ListResponseSchema.safeParse(
         await readResponse.json().catch(() => undefined),
       );
       const readRoutines = read.success ? read.data.data.routines : null;
@@ -307,13 +373,14 @@ export function InspectionRoutineEditor({
         !readResponse.ok ||
         !readRoutines ||
         !canonical ||
-        canonical.version !== mutation.data.data.routine.version
+        JSON.stringify(canonical) !==
+          JSON.stringify(mutation.data.data.routine)
       )
         throw new Error("저장된 루틴을 다시 확인하지 못했습니다.");
       setRoutines(readRoutines);
       setSelectedId(canonical.id);
       reset(routineForm(canonical));
-      idempotencyKey.current = crypto.randomUUID();
+      routineOperation.current = null;
       setMessage("정기점검 루틴을 저장하고 다시 확인했습니다.");
     } catch (error) {
       setMessage(
@@ -340,8 +407,9 @@ export function InspectionRoutineEditor({
             정기점검 루틴
           </h2>
           <p className="mt-1 text-sm text-muted">
-            체크리스트 revision {checklistRevisionId ?? "미설정"}을 고정해 점검
-            일정을 만듭니다.
+            {checklistRevisionId
+              ? "저장된 체크리스트 기준을 고정해 점검 일정을 만듭니다."
+              : "저장된 체크리스트 기준이 없어 루틴을 설정할 수 없습니다."}
           </p>
         </div>
         <Button
@@ -385,9 +453,23 @@ export function InspectionRoutineEditor({
           <label className="grid gap-1 text-sm font-medium">
             루틴 이름
             <input
+              aria-describedby={validationErrors.name ? "routine-name-error" : undefined}
+              aria-invalid={validationErrors.name ? "true" : undefined}
               className="min-h-11 rounded-control border border-border px-3"
-              {...register("name")}
+              id="routine-name"
+              {...register("name", {
+                onChange: () => setValidationErrors((current) => {
+                  const next = { ...current };
+                  delete next.name;
+                  return next;
+                }),
+              })}
             />
+            {validationErrors.name ? (
+              <span className="text-sm text-red-700" id="routine-name-error" role="alert">
+                {validationErrors.name}
+              </span>
+            ) : null}
           </label>
           <label className="grid gap-1 text-sm font-medium">
             상태
@@ -433,7 +515,13 @@ export function InspectionRoutineEditor({
           </label>
         </div>
 
-        <fieldset className="rounded-control border border-border p-4">
+        <fieldset
+          aria-describedby={validationErrors.recurrence ? "routine-recurrence-error" : undefined}
+          aria-invalid={validationErrors.recurrence ? "true" : undefined}
+          className="rounded-control border border-border p-4 outline-none focus:ring-2 focus:ring-primary"
+          id="routine-recurrence"
+          tabIndex={-1}
+        >
           <legend className="px-1 text-sm font-semibold">
             실행 주기와 기한
           </legend>
@@ -492,18 +580,34 @@ export function InspectionRoutineEditor({
             <label className="grid gap-1 text-sm font-medium">
               시작일
               <input
+                aria-describedby={validationErrors.startDate ? "routine-startDate-error" : undefined}
+                aria-invalid={validationErrors.startDate ? "true" : undefined}
                 className="min-h-11 rounded-control border border-border px-3"
+                id="routine-startDate"
                 type="date"
                 {...register("startDate")}
               />
+              {validationErrors.startDate ? (
+                <span className="text-sm text-red-700" id="routine-startDate-error" role="alert">
+                  {validationErrors.startDate}
+                </span>
+              ) : null}
             </label>
             <label className="grid gap-1 text-sm font-medium">
               종료일(선택)
               <input
+                aria-describedby={validationErrors.endDate ? "routine-endDate-error" : undefined}
+                aria-invalid={validationErrors.endDate ? "true" : undefined}
                 className="min-h-11 rounded-control border border-border px-3"
+                id="routine-endDate"
                 type="date"
                 {...register("endDate")}
               />
+              {validationErrors.endDate ? (
+                <span className="text-sm text-red-700" id="routine-endDate-error" role="alert">
+                  {validationErrors.endDate}
+                </span>
+              ) : null}
             </label>
             <label className="grid gap-1 text-sm font-medium">
               호텔 현지 완료시각
@@ -514,6 +618,11 @@ export function InspectionRoutineEditor({
               />
             </label>
           </div>
+          {validationErrors.recurrence ? (
+            <p className="mt-3 text-sm text-red-700" id="routine-recurrence-error" role="alert">
+              {validationErrors.recurrence}
+            </p>
+          ) : null}
           {recurrenceType === "MONTHLY" ? (
             <p className="mt-3 text-xs text-muted">
               해당 날짜가 없는 달은 마지막 날로 당기지 않고 건너뜁니다.
@@ -541,8 +650,12 @@ export function InspectionRoutineEditor({
             const round = watchedRounds[index] ?? emptyRound(index + 1);
             return (
               <fieldset
-                className="rounded-control border border-border p-4"
+                aria-describedby={validationErrors[`round-${index}`] ? `routine-round-${index}-error` : undefined}
+                aria-invalid={validationErrors[`round-${index}`] ? "true" : undefined}
+                className="rounded-control border border-border p-4 outline-none focus:ring-2 focus:ring-primary"
+                id={`routine-round-${index}`}
                 key={field.id}
+                tabIndex={-1}
               >
                 <legend className="px-1 text-sm font-semibold">
                   {index + 1}회차
@@ -554,13 +667,16 @@ export function InspectionRoutineEditor({
                       className="min-h-11 rounded-control border border-border px-3"
                       {...register(`rounds.${index}.targetType`)}
                     >
-                      <option value="HOTEL">호텔 전체</option>
-                      <option value="FLOOR">층</option>
-                      <option value="ROOM_TYPE">객실유형</option>
+                      <option value="ROOM_HOTEL">호텔 전체 객실</option>
+                      <option value="ROOM_FLOORS">객실 층</option>
+                      <option value="ROOM_TYPES">객실유형</option>
                       <option value="ROOMS">개별 객실</option>
+                      <option value="FACILITY_HOTEL">호텔 전체 시설물</option>
+                      <option value="FACILITY_TYPES">시설물유형</option>
+                      <option value="FACILITIES">개별 시설물</option>
                     </select>
                   </label>
-                  {round.targetType === "FLOOR" ? (
+                  {round.targetType === "ROOM_FLOORS" ? (
                     <CheckboxGroup
                       label="층 선택"
                       options={floorOptions}
@@ -572,7 +688,7 @@ export function InspectionRoutineEditor({
                       }
                     />
                   ) : null}
-                  {round.targetType === "ROOM_TYPE" ? (
+                  {round.targetType === "ROOM_TYPES" ? (
                     <CheckboxGroup
                       label="객실유형 선택"
                       options={roomTypeOptions}
@@ -596,6 +712,30 @@ export function InspectionRoutineEditor({
                       }
                     />
                   ) : null}
+                  {round.targetType === "FACILITY_TYPES" ? (
+                    <CheckboxGroup
+                      label="시설물유형 선택"
+                      options={facilityTypeOptions}
+                      selected={round.facilityTypeIds}
+                      onChange={(next) =>
+                        setValue(`rounds.${index}.facilityTypeIds`, next, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  ) : null}
+                  {round.targetType === "FACILITIES" ? (
+                    <CheckboxGroup
+                      label="시설물 선택"
+                      options={facilityOptions}
+                      selected={round.facilityIds}
+                      onChange={(next) =>
+                        setValue(`rounds.${index}.facilityIds`, next, {
+                          shouldDirty: true,
+                        })
+                      }
+                    />
+                  ) : null}
                   {mode === "ROTATING" && rounds.fields.length > 2 ? (
                     <Button
                       className="min-h-11 self-start"
@@ -607,6 +747,15 @@ export function InspectionRoutineEditor({
                     </Button>
                   ) : null}
                 </div>
+                {validationErrors[`round-${index}`] ? (
+                  <p
+                    className="mt-3 text-sm text-red-700"
+                    id={`routine-round-${index}-error`}
+                    role="alert"
+                  >
+                    {validationErrors[`round-${index}`]}
+                  </p>
+                ) : null}
               </fieldset>
             );
           })}

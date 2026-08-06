@@ -50,8 +50,10 @@ import {
   createInspectionChecklistRevisionV2RequestSchema,
   inspectionChecklistTargetTypeSchema,
   createInspectionRoutineRequestSchema,
+  createInspectionRoutineV2RequestSchema,
   inspectionRoutineListResponseSchema,
   createManualInspectionRequestSchema,
+  createManualInspectionV2RequestSchema,
   createProcessDefinitionRequestSchema,
   processDefaultResponseSchema,
   processReviewerCandidatesResponseSchema,
@@ -61,6 +63,7 @@ import {
   hotelFileUploadInitRequestSchema,
   hotelFileUploadStatusResponseSchema,
   inspectionExecutionListQuerySchema,
+  inspectionExecutionV2Schema,
   inspectionReviewHistorySchema,
   inspectionReviewListQuerySchema,
   inspectionReviewListResponseSchema,
@@ -82,6 +85,99 @@ import {
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("keeps facility inspection execution additive, typed, and strict", () => {
+    const roomId = "52000000-0000-4000-8000-000000000001";
+    const facilityId = "55000000-0000-4000-8000-000000000001";
+    const facilityTypeId = "53000000-0000-4000-8000-000000000001";
+    const itemId = "56000000-0000-4000-8000-000000000001";
+
+    expect(
+      createManualInspectionV2RequestSchema.parse({
+        processDefinitionId: null,
+        targets: [
+          { type: "ROOM", roomId, selectedItemIds: [itemId] },
+          { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
+        ],
+      }).targets.map((target) => target.type),
+    ).toEqual(["ROOM", "FACILITY"]);
+    expect(
+      createManualInspectionV2RequestSchema.safeParse({
+        processDefinitionId: null,
+        targets: [
+          { type: "FACILITY", facilityId, roomId, selectedItemIds: [itemId] },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(
+      createManualInspectionV2RequestSchema.safeParse({
+        processDefinitionId: null,
+        targets: [
+          { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
+          { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
+        ],
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createInspectionRoutineV2RequestSchema.parse({
+        name: "시설물 월간점검",
+        status: "ACTIVE",
+        version: 0,
+        mode: "FIXED",
+        recurrence: { type: "MONTHLY", dayOfMonth: 1 },
+        startDate: "2026-08-05",
+        endDate: null,
+        localDueTime: "15:00",
+        processDefinitionId: null,
+        rounds: [
+          {
+            order: 1,
+            target: { type: "FACILITY_TYPES", facilityTypeIds: [facilityTypeId] },
+          },
+        ],
+      }).rounds[0]?.target.type,
+    ).toBe("FACILITY_TYPES");
+    expect(
+      createInspectionRoutineV2RequestSchema.safeParse({
+        name: "잘못된 혼합",
+        status: "ACTIVE",
+        version: 0,
+        mode: "FIXED",
+        recurrence: { type: "DAILY" },
+        startDate: "2026-08-05",
+        endDate: null,
+        localDueTime: "15:00",
+        processDefinitionId: null,
+        rounds: [
+          {
+            order: 1,
+            target: {
+              type: "FACILITIES",
+              facilityIds: [facilityId],
+              roomIds: [roomId],
+            },
+          },
+        ],
+      }).success,
+    ).toBe(false);
+    expect(inspectionRoutes.routinesV2(roomId)).toContain(
+      "/inspection-routines/v2",
+    );
+    expect(inspectionRoutes.listV2(roomId)).toContain("/inspections/v2");
+    expect(inspectionRoutes.createManualV2(roomId)).toContain(
+      "/inspections/v2/manual",
+    );
+    expect(inspectionRoutes.detailV2(roomId, facilityId)).toContain(
+      `/inspections/v2/${facilityId}`,
+    );
+    expect(
+      inspectionExecutionV2Schema.safeParse({
+        id: roomId,
+        hotelId: roomId,
+      }).success,
+    ).toBe(false);
+  });
+
   it("keeps facility master data typed, versioned, and lifecycle-safe", () => {
     expect(hotelFacilityReferenceStatusSchema.options).toEqual([
       "ACTIVE",

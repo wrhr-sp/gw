@@ -47,6 +47,13 @@ export {
   type HotelRepository,
 } from "./hotels";
 export {
+  createPostgresInspectionMaterializerRepository,
+  type InspectionMaterializationClaim,
+  type InspectionMaterializationClaimResult,
+  type InspectionMaterializationCompleteResult,
+  type InspectionMaterializerRepository,
+} from "./inspection-materializer";
+export {
   createPostgresInspectionRepository,
   type InspectionActor,
   type InspectionApiRepository,

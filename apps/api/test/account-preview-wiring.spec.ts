@@ -372,6 +372,9 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerEntry).toContain(
       "reconcileHotelFileEvidenceFromBindings(env)",
     );
+    expect(reconcilerEntry).toContain(
+      "reconcileInspectionMaterializationsFromBindings(env)",
+    );
     expect(reconcilerEntry).toContain("Promise.all([");
     expect(reconcilerEntry).not.toContain("fetch(");
     expect(reconcilerEntry).not.toContain("API_HYPERDRIVE");

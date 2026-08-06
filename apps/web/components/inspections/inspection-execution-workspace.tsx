@@ -1,16 +1,16 @@
 "use client";
 
 import {
-  createManualInspectionRequestSchema,
+  createManualInspectionV2RequestSchema,
   hotelErrorResponseSchema,
   hotelFileRoutes,
   hotelFileUploadCompleteRequestSchema,
   hotelFileUploadInitRequestSchema,
   hotelFileUploadInitResponseSchema,
   hotelFileUploadStatusResponseSchema,
-  inspectionExecutionListResponseSchema,
-  inspectionExecutionResponseSchema,
-  inspectionExecutionSchema,
+  inspectionExecutionV2ListResponseSchema,
+  inspectionExecutionV2ResponseSchema,
+  inspectionExecutionV2Schema,
   inspectionRoutes,
   saveInspectionItemResultRequestSchema,
   submitInspectionRequestSchema,
@@ -25,9 +25,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { z } from "zod";
 
-type Inspection = z.infer<typeof inspectionExecutionSchema>;
+type Inspection = z.infer<typeof inspectionExecutionV2Schema>;
 type InspectionSummary = z.infer<
-  typeof inspectionExecutionListResponseSchema
+  typeof inspectionExecutionV2ListResponseSchema
 >["data"]["inspections"][number];
 type Item = Inspection["items"][number];
 type ResultValue = "ABNORMAL" | "CAUTION" | "NORMAL";
@@ -48,17 +48,40 @@ type EvidenceEntry = {
   status: "FAILED" | "READY" | "SCANNING" | "UPLOADING";
 };
 type DraftForm = { drafts: Record<string, Draft> };
-type ManualForm = { roomId: string; selectedItemIds: string[] };
+type ManualForm = {
+  targetId: string;
+  targetType: "FACILITY" | "ROOM";
+  selectedItemIds: string[];
+};
 type SaveResultRequest = z.infer<typeof saveInspectionItemResultRequestSchema>;
 
 type RoomOption = {
   floorLabel: string;
   id: string;
   roomNumber: string;
+  roomTypeId: string;
   status: string;
 };
 
-type ChecklistOption = { id: string; name: string };
+type FacilityOption = {
+  id: string;
+  locationName: string;
+  name: string;
+  status: string;
+  typeId: string;
+  typeName: string;
+};
+
+type ChecklistOption = {
+  excludedFacilityTypeIds: string[];
+  excludedRoomTypeIds: string[];
+  facilityTypeId: string | null;
+  id: string;
+  name: string;
+  roomTypeId: string | null;
+  source: "HOTEL_COMMON" | "TARGET_TYPE_ADDED";
+  targetType: "FACILITY" | "ROOM";
+};
 
 const resultLabels: Record<ResultValue, string> = {
   ABNORMAL: "이상",
@@ -76,6 +99,41 @@ const severityLabels: Record<Severity, string> = {
   MINOR: "경미",
   OBSERVATION: "관찰",
 };
+
+function inspectionSummaryMatches(
+  summary: InspectionSummary,
+  inspection: Inspection,
+) {
+  const expected = Object.fromEntries(
+    Object.entries(inspection).filter(([key]) => key !== "items"),
+  ) as InspectionSummary;
+  return JSON.stringify(summary) === JSON.stringify(expected);
+}
+
+function manualInspectionMatches(
+  inspection: Inspection,
+  request: z.infer<typeof createManualInspectionV2RequestSchema>,
+) {
+  if (inspection.source !== "MANUAL" || inspection.targets.length !== request.targets.length)
+    return false;
+  return request.targets.every((target, index) => {
+    const savedTarget = inspection.targets[index];
+    const targetMatches =
+      target.type === "ROOM"
+        ? savedTarget?.type === "ROOM" && savedTarget.roomId === target.roomId
+        : savedTarget?.type === "FACILITY" &&
+          savedTarget.facilityId === target.facilityId;
+    if (!targetMatches || !savedTarget) return false;
+    const savedItemIds = inspection.items
+      .filter((item) => item.executionTargetId === savedTarget.id)
+      .map((item) => item.itemId)
+      .sort();
+    return (
+      JSON.stringify(savedItemIds) ===
+      JSON.stringify([...target.selectedItemIds].sort())
+    );
+  });
+}
 
 function draftFromItem(item: Item): Draft {
   return {
@@ -211,9 +269,14 @@ function draftsFromInspection(inspection: Inspection | null) {
   );
 }
 
-function roomLabel(inspection: Inspection | InspectionSummary) {
-  const rooms = inspection.rooms.map((room) => `${room.roomNumber}호`);
-  return rooms.length > 0 ? rooms.join(", ") : "호텔 공용 점검";
+function targetLabel(inspection: Inspection | InspectionSummary) {
+  return inspection.targets
+    .map((target) =>
+      target.type === "ROOM"
+        ? `${target.roomNumberSnapshot}호`
+        : `${target.facilityNameSnapshot} · ${target.facilityTypeNameSnapshot} · ${target.facilityLocationNameSnapshot}`,
+    )
+    .join(", ");
 }
 
 function progress(inspection: Inspection) {
@@ -232,11 +295,11 @@ async function errorMessage(response: Response) {
 }
 
 async function fetchDetail(hotelId: string, inspectionId: string) {
-  const response = await fetch(inspectionRoutes.detail(hotelId, inspectionId), {
+  const response = await fetch(inspectionRoutes.detailV2(hotelId, inspectionId), {
     cache: "no-store",
   });
   if (!response.ok) throw new Error(await errorMessage(response));
-  const parsed = inspectionExecutionResponseSchema.safeParse(
+  const parsed = inspectionExecutionV2ResponseSchema.safeParse(
     await response.json().catch(() => undefined),
   );
   if (!parsed.success)
@@ -248,19 +311,35 @@ async function fetchAllPendingInspections(hotelId: string) {
   const inspections: InspectionSummary[] = [];
   let page = 1;
   let totalPages = 1;
+  let expectedPageSize: number | null = null;
+  let expectedTotal: number | null = null;
   do {
     const response = await fetch(
-      `${inspectionRoutes.list(hotelId)}?page=${page}&pageSize=100&status=PENDING_INPUT`,
+      `${inspectionRoutes.listV2(hotelId)}?page=${page}&pageSize=100&status=PENDING_INPUT`,
       { cache: "no-store" },
     );
     if (!response.ok) throw new Error(await errorMessage(response));
-    const parsed = inspectionExecutionListResponseSchema.safeParse(
+    const parsed = inspectionExecutionV2ListResponseSchema.safeParse(
       await response.json().catch(() => undefined),
     );
     if (!parsed.success)
       throw new Error("점검 목록 재조회 응답이 올바르지 않습니다.");
+    const pagination = parsed.data.data.pagination;
+    if (page === 1) {
+      totalPages = pagination.totalPages;
+      expectedPageSize = pagination.pageSize;
+      expectedTotal = pagination.total;
+    } else if (
+      pagination.page !== page ||
+      pagination.pageSize !== expectedPageSize ||
+      pagination.total !== expectedTotal ||
+      pagination.totalPages !== totalPages
+    ) {
+      throw new Error("점검 목록 페이지가 조회 중 변경되어 제출 결과를 확인하지 못했습니다.");
+    }
+    if (pagination.page !== page)
+      throw new Error("점검 목록 페이지 응답이 요청과 일치하지 않습니다.");
     inspections.push(...parsed.data.data.inspections);
-    totalPages = parsed.data.data.pagination.totalPages;
     page += 1;
     if (page > 100 && page <= totalPages)
       throw new Error("점검 목록이 너무 많아 저장 결과를 확인하지 못했습니다.");
@@ -270,6 +349,7 @@ async function fetchAllPendingInspections(hotelId: string) {
 
 type InspectionExecutionWorkspaceProps = {
   checklistItems: ChecklistOption[];
+  facilities: FacilityOption[];
   hotelId: string;
   initialInspections: InspectionSummary[];
   initialSelectedInspection: Inspection | null;
@@ -278,6 +358,7 @@ type InspectionExecutionWorkspaceProps = {
 
 function InspectionExecutionWorkspaceContent({
   checklistItems,
+  facilities,
   hotelId,
   initialInspections,
   initialSelectedInspection,
@@ -294,17 +375,29 @@ function InspectionExecutionWorkspaceContent({
   const [message, setMessage] = useState<string | null>(null);
   const [manualOpen, setManualOpen] = useState(false);
   const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitErrorSequence, setSubmitErrorSequence] = useState(0);
   const submitButtonRef = useRef<HTMLButtonElement>(null);
+  const submitErrorRef = useRef<HTMLParagraphElement>(null);
+  const manualItemsRef = useRef<HTMLFieldSetElement>(null);
   const saveOperations = useRef<
     Record<string, { body: string; key: string } | undefined>
   >({});
   const manualOperation = useRef<{ body: string; key: string } | null>(null);
-  const submitOperation = useRef<{ body: string; key: string } | null>(null);
+  const submitOperation = useRef<{
+    body: string;
+    inspectionId: string;
+    key: string;
+  } | null>(null);
   const { getValues, register, reset, setValue, watch } = useForm<DraftForm>({
     defaultValues: { drafts: draftsFromInspection(initialSelectedInspection) },
   });
   const manualForm = useForm<ManualForm>({
-    defaultValues: { roomId: "", selectedItemIds: [] },
+    defaultValues: {
+      targetId: "",
+      targetType: "ROOM",
+      selectedItemIds: [],
+    },
   });
   const uploadMutation = useMutation({
     mutationFn: async (value: {
@@ -370,12 +463,12 @@ function InspectionExecutionWorkspaceContent({
       const body = JSON.stringify(request);
       const previous = submitOperation.current;
       const operation =
-        previous?.body === body
+        previous?.inspectionId === inspection.id && previous.body === body
           ? previous
-          : { body, key: crypto.randomUUID() };
+          : { body, inspectionId: inspection.id, key: crypto.randomUUID() };
       submitOperation.current = operation;
       const response = await fetch(
-        inspectionRoutes.submit(hotelId, inspection.id),
+        inspectionRoutes.submitV2(hotelId, inspection.id),
         {
           body,
           headers: {
@@ -386,7 +479,7 @@ function InspectionExecutionWorkspaceContent({
         },
       );
       if (!response.ok) throw new Error(await errorMessage(response));
-      const parsed = inspectionExecutionResponseSchema.safeParse(
+      const parsed = inspectionExecutionV2ResponseSchema.safeParse(
         await response.json().catch(() => undefined),
       );
       if (!parsed.success || parsed.data.data.inspection.status !== "IN_REVIEW")
@@ -394,25 +487,34 @@ function InspectionExecutionWorkspaceContent({
       const read = await fetchDetail(hotelId, inspection.id);
       if (read.status !== "IN_REVIEW" || read.version !== parsed.data.data.inspection.version)
         throw new Error("점검 제출 후 서버 상태가 일치하지 않습니다.");
-      return read;
+      const pendingInspections = await fetchAllPendingInspections(hotelId);
+      if (pendingInspections.some((candidate) => candidate.id === inspection.id))
+        throw new Error("점검 제출 후 수행 목록이 아직 갱신되지 않았습니다. 다시 확인해 주세요.");
+      return { inspection: read, pendingInspections };
     },
     onError: (error) => {
-      setMessage(
+      const errorText =
         error instanceof Error
           ? error.message
-          : "점검을 제출하지 못했습니다. 입력값은 유지됩니다.",
-      );
+          : "점검을 제출하지 못했습니다. 입력값은 유지됩니다.";
+      setSubmitError(errorText);
+      setSubmitErrorSequence((current) => current + 1);
+      setMessage(errorText);
     },
-    onSuccess: (inspection) => {
+    onSuccess: ({ inspection, pendingInspections }) => {
       submitOperation.current = null;
+      setSubmitError(null);
       setSubmitOpen(false);
-      setInspections((current) =>
-        current.filter((candidate) => candidate.id !== inspection.id),
-      );
+      setInspections(pendingInspections);
       applyCanonical(inspection);
       setMessage("점검을 제출했습니다. 검토가 끝날 때까지 수정할 수 없습니다.");
     },
   });
+  useEffect(() => {
+    if (!submitError) return;
+    const frame = window.requestAnimationFrame(() => submitErrorRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [submitError, submitErrorSequence]);
   useEffect(() => {
     if (dirtyIds.size === 0) return;
     const warnBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -430,7 +532,30 @@ function InspectionExecutionWorkspaceContent({
     ? progress(selected)
     : { answered: 0, total: 0 };
   const activeRooms = rooms.filter((room) => room.status === "ACTIVE");
+  const activeFacilities = facilities.filter(
+    (facility) => facility.status === "ACTIVE",
+  );
+  const manualTargetType = manualForm.watch("targetType");
+  const manualTargetId = manualForm.watch("targetId");
+  const selectedTypeId =
+    manualTargetType === "ROOM"
+      ? activeRooms.find((room) => room.id === manualTargetId)?.roomTypeId
+      : activeFacilities.find((facility) => facility.id === manualTargetId)?.typeId;
+  const manualChecklistItems = checklistItems.filter((item) => {
+    if (item.targetType !== manualTargetType || !selectedTypeId) return false;
+    if (manualTargetType === "ROOM")
+      return item.source === "HOTEL_COMMON"
+        ? !item.excludedRoomTypeIds.includes(selectedTypeId)
+        : item.roomTypeId === selectedTypeId;
+    return item.source === "HOTEL_COMMON"
+      ? !item.excludedFacilityTypeIds.includes(selectedTypeId)
+      : item.facilityTypeId === selectedTypeId;
+  });
   const manualSelectedItems = manualForm.watch("selectedItemIds") ?? [];
+  manualForm.register("selectedItemIds", {
+    validate: (value) => value.length > 0 || "점검항목을 하나 이상 선택해 주세요.",
+  });
+  const manualErrors = manualForm.formState.errors;
   const activeEvidence = activeItem ? (evidenceByItem[activeItem.id] ?? []) : [];
   const activeReadyEvidence = activeEvidence.filter(
     (entry) => entry.status === "READY" && entry.fileVersionId,
@@ -623,8 +748,9 @@ function InspectionExecutionWorkspaceContent({
       fetchDetail(hotelId, inspectionId),
       fetchAllPendingInspections(hotelId),
     ]);
-    if (!nextList.some((item) => item.id === inspectionId))
-      throw new Error("저장한 점검이 목록에서 확인되지 않습니다.");
+    const summary = nextList.find((item) => item.id === inspectionId);
+    if (!summary || !inspectionSummaryMatches(summary, inspection))
+      throw new Error("저장한 점검이 목록의 canonical 값과 일치하지 않습니다.");
     setInspections(nextList);
     return inspection;
   }
@@ -654,7 +780,7 @@ function InspectionExecutionWorkspaceContent({
       previous?.body === body ? previous : { body, key: crypto.randomUUID() };
     saveOperations.current[itemId] = operation;
     const response = await fetch(
-      inspectionRoutes.result(hotelId, canonical.id, itemId),
+      inspectionRoutes.resultV2(hotelId, canonical.id, itemId),
       {
         method: "PUT",
         headers: {
@@ -675,7 +801,7 @@ function InspectionExecutionWorkspaceContent({
       }
       throw new Error(failure);
     }
-    const mutation = inspectionExecutionResponseSchema.safeParse(
+    const mutation = inspectionExecutionV2ResponseSchema.safeParse(
       await response.json().catch(() => undefined),
     );
     if (!mutation.success)
@@ -777,10 +903,20 @@ function InspectionExecutionWorkspaceContent({
 
   const createManual = manualForm.handleSubmit(async (value) => {
     if (saving) return;
-    const request = createManualInspectionRequestSchema.safeParse({
+    const request = createManualInspectionV2RequestSchema.safeParse({
       processDefinitionId: null,
       targets: [
-        { roomId: value.roomId, selectedItemIds: value.selectedItemIds },
+        value.targetType === "ROOM"
+          ? {
+              type: "ROOM",
+              roomId: value.targetId,
+              selectedItemIds: value.selectedItemIds,
+            }
+          : {
+              type: "FACILITY",
+              facilityId: value.targetId,
+              selectedItemIds: value.selectedItemIds,
+            },
       ],
     });
     if (!request.success) {
@@ -797,7 +933,7 @@ function InspectionExecutionWorkspaceContent({
       previous?.body === body ? previous : { body, key: crypto.randomUUID() };
     manualOperation.current = operation;
     try {
-      const response = await fetch(inspectionRoutes.createManual(hotelId), {
+      const response = await fetch(inspectionRoutes.createManualV2(hotelId), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -806,12 +942,19 @@ function InspectionExecutionWorkspaceContent({
         body,
       });
       if (!response.ok) throw new Error(await errorMessage(response));
-      const parsed = inspectionExecutionResponseSchema.safeParse(
+      const parsed = inspectionExecutionV2ResponseSchema.safeParse(
         await response.json().catch(() => undefined),
       );
       if (!parsed.success)
         throw new Error("수시점검 생성 응답이 올바르지 않습니다.");
       const inspection = await readBack(parsed.data.data.inspection.id);
+      if (
+        !manualInspectionMatches(parsed.data.data.inspection, request.data) ||
+        !manualInspectionMatches(inspection, request.data)
+      )
+        throw new Error(
+          "수시점검 생성값이 요청한 대상·항목과 일치하지 않습니다.",
+        );
       manualOperation.current = null;
       applyCanonical(inspection);
       setActiveIndex(0);
@@ -827,6 +970,13 @@ function InspectionExecutionWorkspaceContent({
     } finally {
       setSaving(false);
     }
+  }, (errors) => {
+    setMessage("수시점검 대상과 점검항목을 확인해 주세요.");
+    if (errors.targetId) {
+      manualForm.setFocus("targetId");
+      return;
+    }
+    window.setTimeout(() => manualItemsRef.current?.focus(), 0);
   });
 
   const descriptionField = activeItem
@@ -837,17 +987,15 @@ function InspectionExecutionWorkspaceContent({
     : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 pb-24 lg:pb-8">
+    <div
+      className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 pb-24 lg:pb-8"
+      data-inspection-execution-workspace
+    >
       <PageHeader
         actions={
           <Button
             className="min-h-11"
-            onClick={() =>
-              setManualOpen((current) => {
-                if (current) manualOperation.current = null;
-                return !current;
-              })
-            }
+            onClick={() => setManualOpen((current) => !current)}
             type="button"
           >
             {manualOpen ? "수시점검 닫기" : "수시점검 시작"}
@@ -885,33 +1033,79 @@ function InspectionExecutionWorkspaceContent({
             <div>
               <h2 className="font-semibold">수시점검 시작</h2>
               <p className="mt-1 text-sm text-muted">
-                객실과 실제 점검항목을 선택합니다.
+                객실 또는 시설물과 실제 점검항목을 선택합니다.
               </p>
             </div>
             <StatusBadge tone="info">신규 점검</StatusBadge>
           </div>
           <label
             className="mt-4 block text-sm font-medium"
-            htmlFor="manual-room"
+            htmlFor="manual-target-type"
           >
-            객실
+            점검 대상 유형
           </label>
           <select
             className="mt-1 min-h-11 w-full rounded-control border border-border bg-background px-3 text-sm md:max-w-sm"
-            id="manual-room"
-            {...manualForm.register("roomId")}
+            id="manual-target-type"
+            {...manualForm.register("targetType", {
+              onChange: () => {
+                manualForm.setValue("targetId", "");
+                manualForm.setValue("selectedItemIds", []);
+              },
+            })}
           >
-            <option value="">객실 선택</option>
-            {activeRooms.map((room) => (
-              <option key={room.id} value={room.id}>
-                {room.floorLabel} · {room.roomNumber}호
-              </option>
-            ))}
+            <option value="ROOM">객실</option>
+            <option value="FACILITY">시설물</option>
           </select>
-          <fieldset className="mt-4 rounded-control border border-border p-3">
+          <label
+            className="mt-4 block text-sm font-medium"
+            htmlFor="manual-target"
+          >
+            {manualTargetType === "ROOM" ? "객실" : "시설물"}
+          </label>
+          <select
+            aria-describedby={manualErrors.targetId ? "manual-target-error" : undefined}
+            aria-invalid={manualErrors.targetId ? "true" : undefined}
+            className="mt-1 min-h-11 w-full rounded-control border border-border bg-background px-3 text-sm md:max-w-sm"
+            id="manual-target"
+            {...manualForm.register("targetId", {
+              required: "점검할 대상을 선택해 주세요.",
+              onChange: () => {
+                manualForm.clearErrors(["targetId", "selectedItemIds"]);
+                manualForm.setValue("selectedItemIds", []);
+              },
+            })}
+          >
+            <option value="">
+              {manualTargetType === "ROOM" ? "객실 선택" : "시설물 선택"}
+            </option>
+            {manualTargetType === "ROOM"
+              ? activeRooms.map((room) => (
+                  <option key={room.id} value={room.id}>
+                    {room.floorLabel} · {room.roomNumber}호
+                  </option>
+                ))
+              : activeFacilities.map((facility) => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name} · {facility.typeName} · {facility.locationName}
+                  </option>
+                ))}
+          </select>
+          {manualErrors.targetId ? (
+            <p className="mt-1 text-sm text-red-700" id="manual-target-error" role="alert">
+              {manualErrors.targetId.message}
+            </p>
+          ) : null}
+          <fieldset
+            aria-describedby={manualErrors.selectedItemIds ? "manual-items-error" : undefined}
+            aria-invalid={manualErrors.selectedItemIds ? "true" : undefined}
+            className="mt-4 rounded-control border border-border p-3 outline-none focus:ring-2 focus:ring-primary"
+            ref={manualItemsRef}
+            tabIndex={-1}
+          >
             <legend className="px-1 text-sm font-medium">점검항목</legend>
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {checklistItems.map((item) => (
+              {manualChecklistItems.map((item) => (
                 <label
                   className="flex min-h-11 items-center gap-2 rounded-control px-2 hover:bg-canvas"
                   key={item.id}
@@ -924,6 +1118,7 @@ function InspectionExecutionWorkspaceContent({
                         event.target.checked
                           ? [...manualSelectedItems, item.id]
                           : manualSelectedItems.filter((id) => id !== item.id),
+                        { shouldDirty: true, shouldValidate: true },
                       )
                     }
                     type="checkbox"
@@ -932,6 +1127,11 @@ function InspectionExecutionWorkspaceContent({
                 </label>
               ))}
             </div>
+            {manualErrors.selectedItemIds ? (
+              <p className="mt-2 text-sm text-red-700" id="manual-items-error" role="alert">
+                {manualErrors.selectedItemIds.message}
+              </p>
+            ) : null}
           </fieldset>
           <Button className="mt-4 min-h-11" disabled={saving} type="submit">
             점검 생성
@@ -970,7 +1170,7 @@ function InspectionExecutionWorkspaceContent({
                   >
                     <span className="flex items-center justify-between gap-2">
                       <strong className="text-sm">
-                        {roomLabel(inspection)}
+                        {targetLabel(inspection)}
                       </strong>
                       <StatusBadge
                         tone={
@@ -1080,7 +1280,7 @@ function InspectionExecutionWorkspaceContent({
                     >
                       {inspections.map((inspection) => (
                         <option key={inspection.id} value={inspection.id}>
-                          {roomLabel(inspection)} ·{" "}
+                          {targetLabel(inspection)} ·{" "}
                           {inspection.source === "ROUTINE" ? "정기" : "수시"} ·{" "}
                           {inspection.businessDate}
                         </option>
@@ -1147,7 +1347,7 @@ function InspectionExecutionWorkspaceContent({
                 <StatusBadge
                   tone={selected.source === "ROUTINE" ? "info" : "neutral"}
                 >
-                  {roomLabel(selected)} ·{" "}
+                  {targetLabel(selected)} ·{" "}
                   {selected.source === "ROUTINE" ? "정기" : "수시"}
                 </StatusBadge>
               </div>
@@ -1464,7 +1664,10 @@ function InspectionExecutionWorkspaceContent({
           <button
             className="inline-flex min-h-[52px] w-full items-center justify-center rounded-control border border-primary bg-primary px-4 text-sm font-semibold text-white hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 sm:w-auto"
             disabled={!canSubmit || submitMutation.isPending}
-            onClick={() => setSubmitOpen(true)}
+            onClick={() => {
+              setSubmitError(null);
+              setSubmitOpen(true);
+            }}
             ref={submitButtonRef}
             type="button"
           >
@@ -1487,6 +1690,16 @@ function InspectionExecutionWorkspaceContent({
         <p className="mt-2 text-sm text-muted">
           제출하면 검토가 끝날 때까지 결과와 사진을 수정할 수 없습니다.
         </p>
+        {submitError ? (
+          <p
+            className="mt-4 rounded-control border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 outline-none focus:ring-2 focus:ring-red-600"
+            ref={submitErrorRef}
+            role="alert"
+            tabIndex={-1}
+          >
+            {submitError}
+          </p>
+        ) : null}
         <div className="mt-5 flex gap-2">
           <Button
             className="min-h-11 flex-1"
@@ -1519,7 +1732,7 @@ function InspectionExecutionWorkspaceContent({
             ? `${dirtyIds.size}개 항목이 아직 서버에 저장되지 않았습니다.`
             : "모든 화면 입력 상태를 확인했습니다.")}
       </p>
-    </main>
+    </div>
   );
 }
 

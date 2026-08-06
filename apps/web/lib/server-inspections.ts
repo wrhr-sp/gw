@@ -1,11 +1,11 @@
 import {
   hotelErrorResponseSchema,
   inspectionChecklistV2ResponseSchema,
-  inspectionExecutionListResponseSchema,
-  inspectionExecutionResponseSchema,
+  inspectionExecutionV2ListResponseSchema,
+  inspectionExecutionV2ResponseSchema,
   inspectionReviewListResponseSchema,
   inspectionReviewResponseSchema,
-  inspectionRoutineListResponseSchema,
+  inspectionRoutineV2ListResponseSchema,
   inspectionRoutes,
   processDefinitionListResponseSchema,
   processDefaultResponseSchema,
@@ -43,7 +43,7 @@ async function structuredFailure(response: Response, fallback: string) {
 
 export async function fetchInspectionExecutions(hotelId: string) {
   const firstResponse = await request(
-    `${inspectionRoutes.list(hotelId)}?page=1&pageSize=100&status=PENDING_INPUT`,
+    `${inspectionRoutes.listV2(hotelId)}?page=1&pageSize=100&status=PENDING_INPUT`,
   );
   if (firstResponse.status === 401) redirect("/login");
   if (!firstResponse.ok) {
@@ -57,7 +57,7 @@ export async function fetchInspectionExecutions(hotelId: string) {
         : "점검 수행 목록을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
     };
   }
-  const first = inspectionExecutionListResponseSchema.safeParse(
+  const first = inspectionExecutionV2ListResponseSchema.safeParse(
     await firstResponse.json().catch(() => undefined),
   );
   if (!first.success || first.data.data.pagination.totalPages > 100)
@@ -70,7 +70,7 @@ export async function fetchInspectionExecutions(hotelId: string) {
   const inspections = [...first.data.data.inspections];
   for (let page = 2; page <= first.data.data.pagination.totalPages; page += 1) {
     const pageResponse = await request(
-      `${inspectionRoutes.list(hotelId)}?page=${page}&pageSize=100&status=PENDING_INPUT`,
+      `${inspectionRoutes.listV2(hotelId)}?page=${page}&pageSize=100&status=PENDING_INPUT`,
     );
     if (pageResponse.status === 401) redirect("/login");
     if (!pageResponse.ok)
@@ -79,7 +79,7 @@ export async function fetchInspectionExecutions(hotelId: string) {
         error:
           "점검 수행 목록을 모두 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
       };
-    const parsedPage = inspectionExecutionListResponseSchema.safeParse(
+    const parsedPage = inspectionExecutionV2ListResponseSchema.safeParse(
       await pageResponse.json().catch(() => undefined),
     );
     if (
@@ -104,11 +104,11 @@ export async function fetchInspectionExecutions(hotelId: string) {
       selectedInspection: null,
     };
   const detailResponse = await request(
-    inspectionRoutes.detail(hotelId, selectedSummary.id),
+    inspectionRoutes.detailV2(hotelId, selectedSummary.id),
   );
   if (detailResponse.status === 401) redirect("/login");
   if (detailResponse.ok) {
-    const detail = inspectionExecutionResponseSchema.safeParse(
+    const detail = inspectionExecutionV2ResponseSchema.safeParse(
       await detailResponse.json().catch(() => undefined),
     );
     if (detail.success)
@@ -201,7 +201,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     ),
     request(processRoutes.hotelDefault(hotelId)),
     request(processRoutes.reviewerCandidates(hotelId)),
-    request(inspectionRoutes.routines(hotelId)),
+    request(inspectionRoutes.routinesV2(hotelId)),
   ]);
   if (
     checklistResponse.status === 401 ||
@@ -231,7 +231,7 @@ export async function fetchInspectionConfiguration(hotelId: string) {
       processReviewerCandidatesResponseSchema.safeParse(
         await candidatesResponse.json().catch(() => undefined),
       );
-    const routines = inspectionRoutineListResponseSchema.safeParse(
+    const routines = inspectionRoutineV2ListResponseSchema.safeParse(
       await routinesResponse.json().catch(() => undefined),
     );
     if (

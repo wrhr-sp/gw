@@ -48,6 +48,7 @@ export type InspectionExecutionReadInput = {
 export interface InspectionRepository {
   close(): Promise<void>;
   command(input: InspectionCommandInput): Promise<InspectionCommandResult>;
+  commandV3?(input: InspectionCommandInput): Promise<InspectionCommandResult>;
   fileCommand(input: InspectionCommandInput): Promise<InspectionCommandResult>;
   fileUploadScope?(input: {
     companyId: string;
@@ -124,11 +125,31 @@ export interface InspectionRepository {
   routineMutation?(
     input: RoutineMutationInput,
   ): Promise<InspectionCommandResult>;
+  routineReadV2?(input: {
+    companyId: string;
+    hotelId: string;
+    routineId: string | null;
+    sessionId: string;
+    sessionToken: string;
+  }): Promise<InspectionCommandResult>;
+  routineMutationV2?(
+    input: RoutineMutationInput,
+  ): Promise<InspectionCommandResult>;
   listInspections?(
+    input: InspectionExecutionReadInput,
+  ): Promise<InspectionCommandResult>;
+  listInspectionsV2?(
     input: InspectionExecutionReadInput,
   ): Promise<InspectionCommandResult>;
 
   readInspection(input: {
+    companyId: string;
+    hotelId: string;
+    inspectionId: string;
+    sessionId: string;
+    sessionToken: string;
+  }): Promise<InspectionCommandResult>;
+  readInspectionV2?(input: {
     companyId: string;
     hotelId: string;
     inspectionId: string;
@@ -144,6 +165,7 @@ export type InspectionApiRepository = Pick<
   InspectionRepository,
   | "close"
   | "command"
+  | "commandV3"
   | "inspectionQuery"
   | "processCommand"
   | "processDefaultRead"
@@ -151,8 +173,12 @@ export type InspectionApiRepository = Pick<
   | "processMutation"
   | "routineRead"
   | "routineMutation"
+  | "routineReadV2"
+  | "routineMutationV2"
   | "listInspections"
+  | "listInspectionsV2"
   | "readInspection"
+  | "readInspectionV2"
   | "readInspectionReview"
 >;
 
@@ -241,6 +267,25 @@ export function createPostgresInspectionRepository(
               ${input.requestHash}::text,
               ${input.auditEventId}::uuid,
               ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
+    async commandV3(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_command_v3(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId}::uuid, ${input.action}::text,
+              ${input.expectedVersion}::integer,
+              ${transaction.json(input.value as never)}::jsonb,
+              ${input.sessionToken}::text, ${input.idempotencyRecordId}::uuid,
+              ${input.idempotencyKey}::text, ${input.httpMethod}::text,
+              ${input.operationPath}::text, ${input.requestHash}::text,
+              ${input.auditEventId}::uuid, ${input.traceId}::uuid
             )
           `,
         );
@@ -366,6 +411,19 @@ export function createPostgresInspectionRepository(
         );
       });
     },
+    async routineReadV2(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_routines_read_v2(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.routineId}::uuid, ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
     async routineMutation(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -386,6 +444,24 @@ export function createPostgresInspectionRepository(
         );
       });
     },
+    async routineMutationV2(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_routine_command_v2(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId}::uuid, ${input.expectedVersion}::integer,
+              ${transaction.json(input.value as never)}::jsonb,
+              ${input.sessionToken}::text, ${input.idempotencyKey}::text,
+              ${input.httpMethod}::text, ${input.operationPath}::text,
+              ${input.requestHash}::text, ${input.idempotencyRecordId}::uuid,
+              ${input.auditEventId}::uuid, ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
     async listInspections(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -394,6 +470,21 @@ export function createPostgresInspectionRepository(
         return one(
           await transaction<CommandRow[]>`
             select * from public.hotel_inspection_executions_read_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.inspectionId}::uuid,
+              ${transaction.json(input.query as never)}::jsonb,
+              ${input.sessionToken}::text
+            )
+          `,
+        );
+      });
+    },
+    async listInspectionsV2(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_execution_read_v2(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.inspectionId}::uuid,
               ${transaction.json(input.query as never)}::jsonb,
@@ -504,6 +595,23 @@ export function createPostgresInspectionRepository(
             )
           `,
         );
+      });
+    },
+    async readInspectionV2(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const result = one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_inspection_execution_read_v2(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.inspectionId}::uuid, '{}'::jsonb,
+              ${input.sessionToken}::text
+            )
+          `,
+        );
+        return result.status === "OK"
+          ? { ...result, payload: { inspection: result.payload } }
+          : result;
       });
     },
   };

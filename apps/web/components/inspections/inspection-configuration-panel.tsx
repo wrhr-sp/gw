@@ -9,9 +9,10 @@ import {
   processDefaultResponseSchema,
   processDefinitionSchema,
   processRoutes,
+  inspectionRoutineV2Schema,
+  type HotelFacility,
   type HotelFacilityType,
   type HotelRoomType,
-  type InspectionRoutine,
   type ProcessReviewerCandidate,
 } from "@werehere/contracts";
 import { Button, PageHeader, StatusBadge } from "@werehere/ui";
@@ -26,6 +27,7 @@ import {
 
 type Checklist = z.infer<typeof inspectionChecklistV2RevisionSchema>;
 type Definition = z.infer<typeof processDefinitionSchema>;
+type Routine = z.infer<typeof inspectionRoutineV2Schema>;
 type FormValue = z.input<
   typeof createInspectionChecklistRevisionV2RequestSchema
 >;
@@ -123,6 +125,7 @@ function receiptIdsMatchRequest(
 
 export function InspectionConfigurationPanel({
   hotelId,
+  facilities,
   facilityTypes,
   initialChecklist,
   initialRoutines = [],
@@ -132,9 +135,10 @@ export function InspectionConfigurationPanel({
   roomTypes,
 }: {
   hotelId: string;
+  facilities: HotelFacility[];
   facilityTypes: HotelFacilityType[];
   initialChecklist: Checklist | null;
-  initialRoutines?: InspectionRoutine[];
+  initialRoutines?: Routine[];
   processDefinitions: Definition[];
   reviewerCandidates?: ProcessReviewerCandidate[];
   rooms?: RoomOption[];
@@ -764,6 +768,8 @@ export function InspectionConfigurationPanel({
       <InspectionRoutineEditor
         checklistRevisionId={saved?.id ?? null}
         definitions={definitions}
+        facilities={facilities}
+        facilityTypes={facilityTypes}
         hotelId={hotelId}
         initialRoutines={initialRoutines}
         rooms={rooms}

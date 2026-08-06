@@ -1895,6 +1895,102 @@ export type CreateInspectionRoutineRequest = z.infer<
   typeof createInspectionRoutineRequestSchema
 >;
 
+const inspectionRoutineTargetV2Schema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ROOM_HOTEL") }).strict(),
+  z.object({ type: z.literal("FACILITY_HOTEL") }).strict(),
+  z
+    .object({
+      type: z.literal("ROOM_FLOORS"),
+      floorLabels: z.array(z.string().trim().min(1).max(40)).min(1).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("ROOM_TYPES"),
+      roomTypeIds: z.array(z.uuid()).min(1).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("ROOMS"),
+      roomIds: z.array(z.uuid()).min(1).max(500),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("FACILITY_TYPES"),
+      facilityTypeIds: z.array(z.uuid()).min(1).max(100),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("FACILITIES"),
+      facilityIds: z.array(z.uuid()).min(1).max(500),
+    })
+    .strict(),
+]);
+export const createInspectionRoutineV2RequestSchema = z
+  .object({
+    name: z.string().trim().min(1).max(100),
+    status: z.enum(["ACTIVE", "INACTIVE"]),
+    version: versionFromZeroSchema,
+    mode: z.enum(["FIXED", "ROTATING"]),
+    recurrence: inspectionRecurrenceSchema,
+    startDate: z.iso.date(),
+    endDate: z.iso.date().nullable(),
+    localDueTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/u),
+    processDefinitionId: z.uuid().nullable().default(null),
+    rounds: z
+      .array(
+        z
+          .object({
+            order: z.number().int().min(1).max(100),
+            target: inspectionRoutineTargetV2Schema,
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(100),
+  })
+  .strict()
+  .superRefine((routine, context) => {
+    if (routine.endDate !== null && routine.endDate < routine.startDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["endDate"],
+        message: "종료일은 시작일보다 빠를 수 없습니다.",
+      });
+    }
+    if (routine.mode === "FIXED" && routine.rounds.length !== 1) {
+      context.addIssue({
+        code: "custom",
+        path: ["rounds"],
+        message: "고정 루틴은 회차가 하나여야 합니다.",
+      });
+    }
+    if (routine.mode === "ROTATING" && routine.rounds.length < 2) {
+      context.addIssue({
+        code: "custom",
+        path: ["rounds"],
+        message: "순환 루틴은 회차가 둘 이상이어야 합니다.",
+      });
+    }
+    const orders = routine.rounds.map((round) => round.order);
+    if (
+      new Set(orders).size !== orders.length ||
+      orders.some((order, index) => order !== index + 1)
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["rounds"],
+        message: "회차 순서는 1부터 중복 없이 연속되어야 합니다.",
+      });
+    }
+  });
+export type CreateInspectionRoutineV2Request = z.infer<
+  typeof createInspectionRoutineV2RequestSchema
+>;
+
 export const inspectionRoutineRoundSchema = z
   .object({
     id: z.uuid(),
@@ -1947,6 +2043,36 @@ export const inspectionRoutineResponseSchema = z
   })
   .strict();
 
+const inspectionRoutineRoundV2Schema = z
+  .object({
+    id: z.uuid(),
+    order: z.number().int().min(1).max(100),
+    target: inspectionRoutineTargetV2Schema,
+  })
+  .strict();
+const inspectionRoutineRevisionV2Schema = inspectionRoutineRevisionSchema
+  .omit({ rounds: true })
+  .extend({ rounds: z.array(inspectionRoutineRoundV2Schema).min(1).max(100) })
+  .strict();
+export const inspectionRoutineV2Schema = inspectionRoutineSchema
+  .omit({ revision: true })
+  .extend({ revision: inspectionRoutineRevisionV2Schema })
+  .strict();
+export const inspectionRoutineV2ListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ routines: z.array(inspectionRoutineV2Schema) }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const inspectionRoutineV2ResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ routine: inspectionRoutineV2Schema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+
 export const createManualInspectionRequestSchema = z
   .object({
     processDefinitionId: z.uuid().nullable().default(null),
@@ -1987,6 +2113,55 @@ export const createManualInspectionRequestSchema = z
   });
 export type CreateManualInspectionRequest = z.infer<
   typeof createManualInspectionRequestSchema
+>;
+
+const manualInspectionTargetV2Schema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("ROOM"),
+      roomId: z.uuid(),
+      selectedItemIds: z.array(z.uuid()).min(1).max(200),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("FACILITY"),
+      facilityId: z.uuid(),
+      selectedItemIds: z.array(z.uuid()).min(1).max(200),
+    })
+    .strict(),
+]);
+export const createManualInspectionV2RequestSchema = z
+  .object({
+    processDefinitionId: z.uuid().nullable().default(null),
+    targets: z.array(manualInspectionTargetV2Schema).min(1).max(100),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const keys = value.targets.map((target) =>
+      target.type === "ROOM"
+        ? `ROOM:${target.roomId}`
+        : `FACILITY:${target.facilityId}`,
+    );
+    if (new Set(keys).size !== keys.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["targets"],
+        message: "점검 대상은 중복될 수 없습니다.",
+      });
+    }
+    value.targets.forEach((target, index) => {
+      if (new Set(target.selectedItemIds).size !== target.selectedItemIds.length) {
+        context.addIssue({
+          code: "custom",
+          path: ["targets", index, "selectedItemIds"],
+          message: "점검항목은 중복될 수 없습니다.",
+        });
+      }
+    });
+  });
+export type CreateManualInspectionV2Request = z.infer<
+  typeof createManualInspectionV2RequestSchema
 >;
 
 export const inspectionResultSchema = z.enum(["NORMAL", "CAUTION", "ABNORMAL"]);
@@ -2168,6 +2343,62 @@ export const inspectionExecutionListResponseSchema = z
     data: z
       .object({
         inspections: z.array(inspectionExecutionSchema.omit({ items: true })),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+
+const inspectionExecutionTargetV2Schema = z.discriminatedUnion("type", [
+  z
+    .object({
+      id: z.uuid(),
+      type: z.literal("ROOM"),
+      roomId: z.uuid(),
+      roomNumberSnapshot: z.string().trim().min(1).max(20),
+      roomTypeNameSnapshot: z.string().trim().min(1).max(100),
+      floorLabelSnapshot: z.string().trim().min(1).max(40),
+    })
+    .strict(),
+  z
+    .object({
+      id: z.uuid(),
+      type: z.literal("FACILITY"),
+      facilityId: z.uuid(),
+      facilityNameSnapshot: z.string().trim().min(1).max(120),
+      facilityTypeNameSnapshot: z.string().trim().min(1).max(100),
+      facilityLocationNameSnapshot: z.string().trim().min(1).max(140),
+    })
+    .strict(),
+]);
+const inspectionItemSnapshotV2Schema = inspectionItemSnapshotSchema
+  .omit({ roomId: true })
+  .extend({
+    executionTargetId: z.uuid(),
+    targetType: z.enum(["ROOM", "FACILITY"]),
+  })
+  .strict();
+export const inspectionExecutionV2Schema = inspectionExecutionSchema
+  .omit({ rooms: true, items: true })
+  .extend({
+    targets: z.array(inspectionExecutionTargetV2Schema).min(1).max(500),
+    items: z.array(inspectionItemSnapshotV2Schema),
+  })
+  .strict();
+export const inspectionExecutionV2ResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ inspection: inspectionExecutionV2Schema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const inspectionExecutionV2ListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        inspections: z.array(inspectionExecutionV2Schema.omit({ items: true })),
         pagination: hotelRoomPaginationSchema,
       })
       .strict(),
@@ -2473,21 +2704,35 @@ export const inspectionRoutes = {
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-checklist/v2` as const,
   routines: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-routines` as const,
+  routinesV2: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-routines/v2` as const,
   routine: (hotelId: string, routineId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-routines/${encodeURIComponent(routineId)}` as const,
+  routineV2: (hotelId: string, routineId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspection-routines/v2/${encodeURIComponent(routineId)}` as const,
   list: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspections` as const,
+  listV2: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/v2` as const,
   createManual: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspections/manual` as const,
+  createManualV2: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/v2/manual` as const,
   detail: inspectionPath,
+  detailV2: (hotelId: string, inspectionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/v2/${encodeURIComponent(inspectionId)}` as const,
   reviews: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-reviews` as const,
   review: (hotelId: string, inspectionId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspection-reviews/${encodeURIComponent(inspectionId)}` as const,
   result: (hotelId: string, inspectionId: string, itemSnapshotId: string) =>
     `${inspectionPath(hotelId, inspectionId)}/items/${encodeURIComponent(itemSnapshotId)}/result` as const,
+  resultV2: (hotelId: string, inspectionId: string, itemSnapshotId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/v2/${encodeURIComponent(inspectionId)}/items/${encodeURIComponent(itemSnapshotId)}/result` as const,
   submit: (hotelId: string, inspectionId: string) =>
     `${inspectionPath(hotelId, inspectionId)}/submit` as const,
+  submitV2: (hotelId: string, inspectionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inspections/v2/${encodeURIComponent(inspectionId)}/submit` as const,
   transition: (hotelId: string, inspectionId: string) =>
     `${inspectionPath(hotelId, inspectionId)}/process/transition` as const,
 } as const;

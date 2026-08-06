@@ -1,10 +1,20 @@
+import { readFileSync } from "node:fs";
+import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { InspectionExecutionWorkspace } from "../components/inspections/inspection-execution-workspace";
 
 const hotelId = "50000000-0000-4000-8000-000000000001";
-const roomId = "52000000-0000-4000-8000-000000000001";
+const facilityId = "52000000-0000-4000-8000-000000000001";
+const targetId = "52000000-0000-4000-8000-000000000002";
 const inspectionId = "91000000-0000-4000-8000-000000000001";
+const workspaceSource = readFileSync(
+  new URL(
+    "../components/inspections/inspection-execution-workspace.tsx",
+    import.meta.url,
+  ),
+  "utf8",
+);
 
 const inspection = {
   id: inspectionId,
@@ -23,21 +33,24 @@ const inspection = {
     state: "PENDING_INPUT" as const,
     version: 1,
   },
-  rooms: [
+  targets: [
     {
-      id: roomId,
-      roomNumber: "703",
-      floorLabel: "7층",
-      roomTypeName: "스탠다드 더블",
+      id: targetId,
+      type: "FACILITY" as const,
+      facilityId,
+      facilityNameSnapshot: "보일러 1호기",
+      facilityTypeNameSnapshot: "보일러",
+      facilityLocationNameSnapshot: "지하 1층 기계실",
     },
   ],
   items: [
     {
       id: "95000000-0000-4000-8000-000000000001",
-      roomId,
+      executionTargetId: targetId,
+      targetType: "FACILITY" as const,
       itemId: "96000000-0000-4000-8000-000000000001",
-      name: "욕실 청결",
-      description: "배수와 누수를 확인합니다.",
+      name: "압력 계기 확인",
+      description: "압력과 누수를 확인합니다.",
       isRequired: true,
       displayOrder: 10,
       defaultSeverity: "MAJOR" as const,
@@ -48,29 +61,70 @@ const inspection = {
   updatedAt: "2026-08-03T00:00:00.000Z",
 };
 
-describe("inspection execution workspace", () => {
+describe("InspectionExecutionWorkspace", () => {
+  it("binds retry identity to the request target and preserves collapsed manual drafts", () => {
+    expect(workspaceSource).toContain(
+      "previous?.inspectionId === inspection.id && previous.body === body",
+    );
+    expect(workspaceSource).toContain(
+      "onClick={() => setManualOpen((current) => !current)}",
+    );
+    expect(workspaceSource).not.toContain(
+      "if (current) manualOperation.current = null",
+    );
+    expect(workspaceSource).toContain(
+      "pagination.totalPages !== totalPages",
+    );
+    for (const fingerprintCheck of [
+      "pagination.page !== page",
+      "pagination.pageSize !== expectedPageSize",
+      "pagination.total !== expectedTotal",
+      "pagination.totalPages !== totalPages",
+    ]) {
+      expect(workspaceSource).toContain(fingerprintCheck);
+    }
+    expect(workspaceSource).toContain(
+      "setSubmitErrorSequence((current) => current + 1)",
+    );
+    expect(workspaceSource).toContain("[submitError, submitErrorSequence]");
+  });
+
   it("renders canonical routine work and mobile-first item controls", () => {
     const html = renderToStaticMarkup(
       <InspectionExecutionWorkspace
         checklistItems={[
-          { id: inspection.items[0]!.itemId, name: "욕실 청결" },
+          {
+            excludedFacilityTypeIds: [],
+            excludedRoomTypeIds: [],
+            facilityTypeId: null,
+            id: inspection.items[0]!.itemId,
+            name: "압력 계기 확인",
+            roomTypeId: null,
+            source: "HOTEL_COMMON",
+            targetType: "FACILITY",
+          },
+        ]}
+        facilities={[
+          {
+            id: facilityId,
+            locationName: "지하 1층 기계실",
+            name: "보일러 1호기",
+            status: "ACTIVE",
+            typeId: "53000000-0000-4000-8000-000000000001",
+            typeName: "보일러",
+          },
         ]}
         hotelId={hotelId}
         initialInspections={[inspection]}
         initialSelectedInspection={inspection}
-        rooms={[
-          {
-            floorLabel: "7층",
-            id: roomId,
-            roomNumber: "703",
-            status: "ACTIVE",
-          },
-        ]}
+        rooms={[]}
       />,
     );
     expect(html).toContain("오늘 점검");
-    expect(html).toContain("703호");
-    expect(html).toContain("욕실 청결");
+    expect(html).toContain("보일러 1호기");
+    expect(html).toContain("보일러");
+    expect(html).toContain("지하 1층 기계실");
+    expect(html).toContain("압력 계기 확인");
     expect(html).toContain("정상");
     expect(html).toContain("주의");
     expect(html).toContain("이상");

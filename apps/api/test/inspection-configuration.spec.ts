@@ -74,8 +74,13 @@ function repository() {
     processMutation: vi.fn(),
     routineRead: vi.fn(),
     routineMutation: vi.fn(),
+    routineReadV2: vi.fn(),
+    routineMutationV2: vi.fn(),
     listInspections: vi.fn(),
+    listInspectionsV2: vi.fn(),
     readInspection: vi.fn(),
+    readInspectionV2: vi.fn(),
+    commandV3: vi.fn(),
   };
 }
 
@@ -269,6 +274,57 @@ describe("inspection configuration service", () => {
       }),
     );
     await expect(service.listRoutines(principal, hotelId)).resolves.toEqual([
+      routine,
+    ]);
+  });
+
+  it("saves and reads a facility routine through the v2 canonical authority", async () => {
+    const repo = repository();
+    const routine = {
+      id: "83000000-0000-4000-8000-000000000002",
+      hotelId,
+      name: "월간 소방시설 점검",
+      version: 1,
+    };
+    repo.routineMutationV2.mockResolvedValue({ status: "OK", payload: routine });
+    repo.routineReadV2.mockResolvedValue({
+      status: "OK",
+      payload: { routines: [routine] },
+    });
+    const service = createInspectionService(repo);
+    const value = {
+      name: routine.name,
+      status: "ACTIVE" as const,
+      version: 0,
+      mode: "FIXED" as const,
+      recurrence: { type: "MONTHLY" as const, dayOfMonth: 31 },
+      startDate: "2026-08-01",
+      endDate: null,
+      localDueTime: "15:00",
+      processDefinitionId: null,
+      rounds: [
+        {
+          order: 1,
+          target: {
+            type: "FACILITY_TYPES" as const,
+            facilityTypeIds: ["89000000-0000-4000-8000-000000000001"],
+          },
+        },
+      ],
+    };
+
+    await expect(
+      service.saveRoutineV2(principal, hotelId, null, value, "routine-v2-save-1"),
+    ).resolves.toEqual(routine);
+    expect(repo.routineMutationV2).toHaveBeenCalledWith(
+      expect.objectContaining({
+        companyId: principal.companyId,
+        operationPath: `/api/hotels/${hotelId}/inspection-routines/v2`,
+        sessionToken: principal.sessionToken,
+        value,
+      }),
+    );
+    await expect(service.listRoutinesV2(principal, hotelId)).resolves.toEqual([
       routine,
     ]);
   });

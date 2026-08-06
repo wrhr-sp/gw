@@ -10,6 +10,7 @@ describe("inspection configuration panel", () => {
     const markup = renderToStaticMarkup(
       <InspectionConfigurationPanel
         hotelId={hotelId}
+        facilities={[]}
         initialChecklist={null}
         processDefinitions={[]}
         facilityTypes={[

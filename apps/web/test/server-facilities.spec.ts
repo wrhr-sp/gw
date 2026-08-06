@@ -8,7 +8,10 @@ vi.mock("next/headers", () => ({
 }));
 vi.mock("next/navigation", () => ({ redirect }));
 vi.mock("../lib/api-transport", () => ({ fetchApi }));
-import { fetchFacilityInitialData } from "../lib/server-facilities";
+import {
+  fetchAllFacilityInspectionData,
+  fetchFacilityInitialData,
+} from "../lib/server-facilities";
 const hotelId = "50000000-0000-4000-8000-000000000001";
 const valid = {
   ok: true,
@@ -42,6 +45,59 @@ describe("facility SSR initial fetch", () => {
       }),
     );
   });
+  it("loads every facility page for inspection selectors", async () => {
+    const facilityType = {
+      id: "53000000-0000-4000-8000-000000000001",
+      hotelId,
+      name: "보일러",
+      status: "ACTIVE",
+      version: 1,
+      createdAt: "2026-08-06T00:00:00.000Z",
+      updatedAt: "2026-08-06T00:00:00.000Z",
+    };
+    const facilities = Array.from({ length: 101 }, (_, index) => ({
+      id: `54000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+      hotelId,
+      name: `시설물 ${index + 1}`,
+      status: "ACTIVE",
+      version: 1,
+      createdAt: "2026-08-06T00:00:00.000Z",
+      updatedAt: "2026-08-06T00:00:00.000Z",
+      facilityType: {
+        id: facilityType.id,
+        name: facilityType.name,
+        status: facilityType.status,
+      },
+      location: {
+        type: "COMMON_AREA",
+        commonAreaId: "55000000-0000-4000-8000-000000000001",
+        name: "기계실",
+      },
+    }));
+    fetchApi.mockImplementation(async (path: string) => {
+      const page = path.includes("page=2") ? 2 : 1;
+      return Response.json({
+        ok: true,
+        data: {
+          ...valid.data,
+          facilityTypes: [facilityType],
+          facilities: page === 1 ? facilities.slice(0, 100) : facilities.slice(100),
+          pagination: { page, pageSize: 100, total: 101, totalPages: 2 },
+        },
+        error: null,
+      });
+    });
+    const result = await fetchAllFacilityInspectionData(hotelId);
+    expect(result).toMatchObject({ ok: true });
+    if (!result.ok) throw new Error("facility pagination failed");
+    expect(result.data.facilities).toHaveLength(101);
+    expect(result.data.facilities[100]?.name).toBe("시설물 101");
+    expect(fetchApi).toHaveBeenCalledWith(
+      `/api/hotels/${hotelId}/facility-master-data?page=2&pageSize=100`,
+      expect.objectContaining({ cache: "no-store" }),
+    );
+  });
+
   it("rejects malformed success payloads", async () => {
     fetchApi.mockResolvedValue(
       Response.json({ ok: true, data: { facilities: [] }, error: null }),

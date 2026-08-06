@@ -757,6 +757,24 @@ select
     where version = '0038_hotel_inspection_checklist_targets')
   and (select count(*) = 1 from public.schema_migrations
     where version = '0039_hotel_inspection_checklist_v2_hardening')
+  and (select count(*) = 1 from public.schema_migrations
+    where version = '0040_hotel_inspection_facility_execution')
+  and (select count(*) = 0 from public.schema_migrations
+    where version = '0041_hotel_inspection_facility_execution_contract')
+  and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc,'UTF8')),'hex')
+         from pg_catalog.pg_proc
+        where oid='public.hotel_inspection_claim_materialization_v1(uuid,bytea,integer)'::pg_catalog.regprocedure)
+      = '2510f44ea768a3b8882fd373983cee2f612e44d673dc31b91d39e7115e6c27a8'
+  and (select count(*)=1 from pg_catalog.pg_trigger trigger_record
+        where trigger_record.tgrelid='public.inspection_item_snapshots'::pg_catalog.regclass
+          and not trigger_record.tgisinternal
+          and trigger_record.tgname='inspection_item_execution_target_capture'
+          and trigger_record.tgfoid='public.inspection_item_execution_target_capture_v1()'::pg_catalog.regprocedure)
+  and (select count(*)=1 from pg_catalog.pg_trigger trigger_record
+        where trigger_record.tgrelid='public.inspection_item_snapshots'::pg_catalog.regclass
+          and not trigger_record.tgisinternal
+          and trigger_record.tgname='inspection_item_room_snapshot_capture'
+          and trigger_record.tgfoid='public.inspection_item_room_snapshot_capture_v1()'::pg_catalog.regprocedure)
   and has_function_privilege(
     'werehere_preview_api_runtime',
     'public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
@@ -765,6 +783,51 @@ select
   and has_function_privilege(
     'werehere_preview_api_runtime',
     'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_routines_read_v2(uuid,uuid,uuid,text)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_routine_command_v2(uuid,uuid,uuid,integer,jsonb,text,text,text,text,text,uuid,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_execution_read_v2(uuid,uuid,uuid,jsonb,text)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_command_v3(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_inspection_claim_next_materialization_v2(bytea,integer)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_claim_next_materialization_v2(bytea,integer)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_inspection_complete_materialization_v2(uuid,bigint,bytea,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_inspection_complete_materialization_v2(uuid,bigint,bytea,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_inspection_command_v3(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
     'EXECUTE'
   )
   and (select pg_catalog.encode(pg_catalog.sha256(pg_catalog.convert_to(prosrc, 'UTF8')), 'hex')
@@ -799,13 +862,37 @@ if [[ "$CHECKLIST_MIGRATION_BEFORE_DEPLOY" != "t" ]]; then
   exit 1
 fi
 printf '%s\n' 'PREVIEW_CHECKLIST_V2_MIGRATION_BEFORE_DEPLOY_OK'
+assert_predeploy_readiness() {
+  local expected="${1:?expected readiness is required}"
+  local actual
+  local runtime_url
+  runtime_url="$(<"$API_RUNTIME_URL_FILE")"
+  actual="$(
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$runtime_url" pnpm --filter @werehere/db exec tsx <<'NODE'
+import { probeDatabaseReadiness } from "./src/client.ts";
+const databaseUrl = process.env.TEST_READY_URL;
+if (!databaseUrl) throw new Error("Predeploy readiness URL is missing");
+const result = await probeDatabaseReadiness(databaseUrl, { capability: "API_RUNTIME" });
+console.log(result.status);
+NODE
+  )"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Predeploy readiness was %s, expected %s at caller line %s.\n' \
+      "$actual" "$expected" "${BASH_LINENO[0]}" >&2
+    exit 1
+  fi
+}
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 create role preview_checklist_helper_grantee nologin noinherit;
 grant execute on function public.inspection_checklist_v2_snapshot_v1(uuid, uuid)
   to preview_checklist_helper_grantee with grant option;
 grant execute on function public.inspection_checklist_v1_sync_v2()
   to preview_checklist_helper_grantee with grant option;
+grant execute on function public.inspection_execution_snapshot_v2(uuid, uuid, uuid)
+  to preview_checklist_helper_grantee with grant option;
 SQL
+assert_predeploy_readiness SCHEMA_NOT_READY
 run_provision EXPAND >/dev/null
 CHECKLIST_HELPER_ACL_RECOVERED="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select not exists (
@@ -820,7 +907,8 @@ select not exists (
    where procedure_namespace.nspname = 'public'
      and procedure_record.proname in (
        'inspection_checklist_v2_snapshot_v1',
-       'inspection_checklist_v1_sync_v2'
+       'inspection_checklist_v1_sync_v2',
+       'inspection_execution_snapshot_v2'
      )
      and acl.grantee <> procedure_record.proowner
 );
@@ -831,6 +919,24 @@ if [[ "$CHECKLIST_HELPER_ACL_RECOVERED" != "t" ]]; then
   exit 1
 fi
 printf '%s\n' 'PREVIEW_CHECKLIST_HELPER_ACL_RECOVERY_OK'
+FACILITY_HELPER_DEFINITION="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" \
+  -c "select pg_catalog.pg_get_functiondef('public.inspection_execution_snapshot_v2(uuid,uuid,uuid)'::pg_catalog.regprocedure)")"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+create or replace function public.inspection_execution_snapshot_v2(
+  p_company_id uuid, p_branch_id uuid, p_inspection_id uuid
+)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = pg_catalog, public, pg_temp
+as $$ select '{}'::jsonb $$;
+SQL
+assert_predeploy_readiness SCHEMA_NOT_READY
+printf '%s\n' "$FACILITY_HELPER_DEFINITION" \
+  | psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null
+assert_predeploy_readiness READY
+printf '%s\n' 'PREVIEW_FACILITY_HELPER_EXPAND_DAMAGE_OK'
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
 create role preview_stale_runtime_capability nologin noinherit;
 insert into runtime_database_capabilities (role_name, capability)
@@ -1343,7 +1449,8 @@ assert_readiness() {
   local actual
   actual="$(readiness_status "$API_RUNTIME_URL" API_RUNTIME)"
   if [[ "$actual" != "$expected" ]]; then
-    printf 'API readiness was %s, expected %s.\n' "$actual" "$expected" >&2
+    printf 'API readiness was %s, expected %s at caller line %s.\n' \
+      "$actual" "$expected" "${BASH_LINENO[0]}" >&2
     exit 1
   fi
 }
@@ -2433,11 +2540,104 @@ BOOTSTRAP_LOGIN_ID="$ROTATED_BOOTSTRAP_LOGIN_ID"
 TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0037_hotel_inspection_execution_targets'")"
 CHECKLIST_TARGET_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0038_hotel_inspection_checklist_targets'")"
 CHECKLIST_HARDENING_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0039_hotel_inspection_checklist_v2_hardening'")"
+FACILITY_EXECUTION_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0040_hotel_inspection_facility_execution'")"
+FACILITY_EXECUTION_CONTRACT_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from public.schema_migrations where version='0041_hotel_inspection_facility_execution_contract'")"
+FACILITY_EXECUTION_TRIGGER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select count(*) from pg_trigger where tgrelid='public.inspection_item_snapshots'::regclass and not tgisinternal and tgname='inspection_item_execution_target_capture' and tgfoid='public.inspection_item_execution_target_capture_v2()'::regprocedure")"
 TARGETLESS_ITEM_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c 'select count(*) from public.inspection_item_snapshots where execution_target_id is null')"
-if [[ "$TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_HARDENING_MARKER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
+if [[ "$TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_TARGET_MARKER_COUNT" != "1" || "$CHECKLIST_HARDENING_MARKER_COUNT" != "1" || "$FACILITY_EXECUTION_MARKER_COUNT" != "1" || "$FACILITY_EXECUTION_CONTRACT_MARKER_COUNT" != "1" || "$FACILITY_EXECUTION_TRIGGER_COUNT" != "1" || "$TARGETLESS_ITEM_COUNT" != "0" ]]; then
   printf '%s\n' 'Inspection target/checklist marker and backfill closure was not ready.' >&2
   exit 1
 fi
+
+ROUTINE_GUARD_TRIGGER_DEFINITION="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select pg_catalog.pg_get_triggerdef(oid,true) || ';' from pg_catalog.pg_trigger where tgrelid='public.inspection_routines'::pg_catalog.regclass and tgname='inspection_routine_claim_invalidation' and not tgisinternal")"
+SUBMISSION_GUARD_TRIGGER_DEFINITION="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" -c "select pg_catalog.pg_get_triggerdef(oid,true) || ';' from pg_catalog.pg_trigger where tgrelid='public.hotel_inspections'::pg_catalog.regclass and tgname='inspection_submission_nonempty' and not tgisinternal")"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'alter table public.inspection_routines disable trigger inspection_routine_claim_invalidation' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'alter table public.inspection_routines enable trigger inspection_routine_claim_invalidation' >/dev/null
+assert_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_routine_claim_invalidation on public.inspection_routines;
+create trigger inspection_routine_claim_invalidation
+after update of next_due_date on public.inspection_routines
+for each row execute function public.inspection_submission_nonempty_v2();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'drop trigger inspection_routine_claim_invalidation on public.inspection_routines' >/dev/null
+printf '%s\n' "$ROUTINE_GUARD_TRIGGER_DEFINITION" | psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null
+assert_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'alter table public.hotel_inspections disable trigger inspection_submission_nonempty' >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'alter table public.hotel_inspections enable trigger inspection_submission_nonempty' >/dev/null
+assert_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_submission_nonempty on public.hotel_inspections;
+create trigger inspection_submission_nonempty
+after update of business_date on public.hotel_inspections
+for each row execute function public.inspection_routine_invalidate_claim_v2();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" -c 'drop trigger inspection_submission_nonempty on public.hotel_inspections' >/dev/null
+printf '%s\n' "$SUBMISSION_GUARD_TRIGGER_DEFINITION" | psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null
+assert_readiness READY
+printf '%s\n' 'PREVIEW_FACILITY_GUARD_TRIGGER_DAMAGE_OK'
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.inspection_item_snapshots
+  drop constraint inspection_item_snapshots_target_exactly_one_check;
+alter table public.inspection_item_snapshots
+  add constraint inspection_item_snapshots_target_exactly_one_check
+  check (room_id is not null or facility_id is not null);
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+alter table public.inspection_item_snapshots
+  drop constraint inspection_item_snapshots_target_exactly_one_check;
+alter table public.inspection_item_snapshots
+  add constraint inspection_item_snapshots_target_exactly_one_check check (
+    (room_id is not null and facility_id is null
+      and room_number_snapshot is not null and floor_label_snapshot is not null
+      and floor_sort_key_snapshot is not null and room_type_name_snapshot is not null
+      and facility_name_snapshot is null and facility_type_name_snapshot is null
+      and facility_location_name_snapshot is null)
+    or
+    (room_id is null and facility_id is not null
+      and room_number_snapshot is null and floor_label_snapshot is null
+      and floor_sort_key_snapshot is null and room_type_name_snapshot is null
+      and facility_name_snapshot is not null and facility_type_name_snapshot is not null
+      and facility_location_name_snapshot is not null)
+  );
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.inspection_item_snapshots_facility_item_key;
+create unique index inspection_item_snapshots_facility_item_key
+  on public.inspection_item_snapshots(company_id, inspection_id, facility_id, source_item_id)
+  where facility_id is not null and room_id is null;
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop index public.inspection_item_snapshots_facility_item_key;
+create unique index inspection_item_snapshots_facility_item_key
+  on public.inspection_item_snapshots(company_id, inspection_id, facility_id, source_item_id)
+  where facility_id is not null;
+SQL
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_item_execution_target_capture on public.inspection_item_snapshots;
+create trigger inspection_item_execution_target_capture
+after insert on public.inspection_item_snapshots
+for each row execute function public.inspection_item_execution_target_capture_v2();
+SQL
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+drop trigger inspection_item_execution_target_capture on public.inspection_item_snapshots;
+create trigger inspection_item_execution_target_capture
+before insert on public.inspection_item_snapshots
+for each row execute function public.inspection_item_execution_target_capture_v2();
+SQL
+assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c 'grant select on public.inspection_execution_targets to werehere_preview_api_runtime' >/dev/null
@@ -2594,6 +2794,13 @@ psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
 assert_readiness READY
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "delete from public.schema_migrations where version='0040_hotel_inspection_facility_execution'" >/dev/null
+assert_readiness SCHEMA_NOT_READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
+  -c "insert into public.schema_migrations(version) values ('0040_hotel_inspection_facility_execution')" >/dev/null
+assert_readiness READY
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" \
   -c "delete from schema_migrations where version = '0022_hotel_room_contract_hardening'" \
   >/dev/null
 set +e
@@ -2648,9 +2855,11 @@ PREVIEW_PROVISION_FRESH_BOOTSTRAP_FULL=1 run_provision EXPAND >/dev/null
 API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
 FRESH_PREDEPLOY_READY="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select
-  (select count(*) = 2 from public.schema_migrations where version in (
+  (select count(*) = 4 from public.schema_migrations where version in (
     '0038_hotel_inspection_checklist_targets',
-    '0039_hotel_inspection_checklist_v2_hardening'
+    '0039_hotel_inspection_checklist_v2_hardening',
+    '0040_hotel_inspection_facility_execution',
+    '0041_hotel_inspection_facility_execution_contract'
   ))
   and to_regprocedure('public.hotel_inspection_checklist_v2_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)') is not null
   and to_regprocedure('public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)') is not null

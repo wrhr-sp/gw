@@ -106,6 +106,60 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["GET"]);
   }
   if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspection-routines/v2$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET", "POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspection-routines/v2/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET", "PUT"]);
+  }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections/v2$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections/v2/manual$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/v2/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/v2/${UUID_PATH_PATTERN}/items/${UUID_PATH_PATTERN}/result$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["PUT"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/v2/${UUID_PATH_PATTERN}/submit$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections$`, "iu").test(apiPath)
   ) {
     return new Set(["GET"]);
