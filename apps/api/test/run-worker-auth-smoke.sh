@@ -211,7 +211,10 @@ GRANT EXECUTE ON FUNCTION
   ),
   public.hotel_repair_file_view_command_v1(
     uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
-  )
+  ),
+  public.hotel_calendar_capabilities_v1(uuid, text),
+  public.hotel_calendar_events_read_v1(uuid, uuid, jsonb, text),
+  public.hotel_calendar_visit_options_read_v1(uuid, uuid, text)
 TO $RUNTIME_ROLE;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')

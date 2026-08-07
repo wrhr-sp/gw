@@ -952,6 +952,33 @@ if [[ "$STALE_CAPABILITY_COUNT" != "0" ]]; then
   printf '%s\n' 'Contract provisioning retained a stale runtime capability.' >&2
   exit 1
 fi
+CALENDAR_CONTRACT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select (
+  (select count(*) = 1 from schema_migrations where version = '0043_hotel_calendar_read_model')
+  and has_function_privilege('werehere_preview_api_runtime', 'public.hotel_calendar_capabilities_v1(uuid,text)', 'EXECUTE')
+  and has_function_privilege('werehere_preview_api_runtime', 'public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text)', 'EXECUTE')
+  and has_function_privilege('werehere_preview_api_runtime', 'public.hotel_calendar_visit_options_read_v1(uuid,uuid,text)', 'EXECUTE')
+  and not has_function_privilege('werehere_preview_reconciler', 'public.hotel_calendar_capabilities_v1(uuid,text)', 'EXECUTE')
+  and not has_function_privilege('werehere_preview_reconciler', 'public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text)', 'EXECUTE')
+  and not has_function_privilege('werehere_preview_reconciler', 'public.hotel_calendar_visit_options_read_v1(uuid,uuid,text)', 'EXECUTE')
+  and (select count(*) = 8 from permission_grants
+       where company_id = '70000000-0000-4000-8000-000000000001'
+         and subject_id = '71000000-0000-4000-8000-000000000001'
+         and effect = 'ALLOW'
+         and permission_code in (
+           'HOTEL_CALENDAR_READ', 'HOTEL_CALENDAR_ALL_READ',
+           'REPAIR_VISIT_CANCELLED_READ', 'REPAIR_VISIT_CANCEL_REASON_READ',
+           'REPAIR_READ', 'REPAIR_VISIT_CREATE', 'REPAIR_VISIT_UPDATE',
+           'REPAIR_VISIT_DELETE'
+         ))
+)::text;
+SQL
+)"
+if [[ "$CALENDAR_CONTRACT" != "true" ]]; then
+  printf '%s\n' 'Calendar CONTRACT marker, bootstrap grants, or exact runtime ACL is invalid.' >&2
+  exit 1
+fi
+printf 'PREVIEW_CALENDAR_CONTRACT_OK\n'
 INSPECTION_PROCESS_CONTRACT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select (
   (select count(*) = 1 from schema_migrations

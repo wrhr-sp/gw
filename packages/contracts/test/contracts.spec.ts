@@ -3,6 +3,12 @@ import {
   accountRoutes,
   accountCapabilitiesResponseSchema,
   accountEligibleHotelsResponseSchema,
+  calendarCapabilitiesResponseSchema,
+  calendarEventSchema,
+  calendarEventsQuerySchema,
+  calendarEventsResponseSchema,
+  calendarRoutes,
+  calendarVisitOptionsResponseSchema,
   accountStatusSchema,
   accountCreateCompletionPayloadSchema,
   authenticatedPrincipalSchema,
@@ -1707,5 +1713,77 @@ describe("hotel platform contracts", () => {
     expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(`/api/hotels/${hotelId}/repair-visits/${visitId}/complete`);
     expect(repairCaseResponseSchema.safeParse({ ok: true, data: { repair: {} }, error: null }).success).toBe(false);
     expect(repairVisitResponseSchema.safeParse({ ok: true, data: { visit: {} }, error: null }).success).toBe(false);
+  });
+
+  it("defines a bounded, strict Calendar display contract without provider identifiers", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const inspectionId = "60000000-0000-4000-8000-000000000001";
+    const visitId = "a2000000-0000-4000-8000-000000000001";
+    const inspection = {
+      businessDate: "2026-08-07",
+      detailHref: `/hotels/${hotelId}/inspections`,
+      endsAt: null,
+      hotelId,
+      hotelName: "서울호텔",
+      id: inspectionId,
+      startsAt: "2026-08-07T09:00:00.000Z",
+      status: "PENDING_INPUT" as const,
+      targetSummary: "객실 2곳",
+      title: "점검 마감",
+      type: "INSPECTION" as const,
+    };
+    const repairVisit = {
+      calendarProjectionStatus: "NOT_CONNECTED" as const,
+      cancellationReason: null,
+      canUpdate: true,
+      detailHref: `/hotels/${hotelId}/repairs`,
+      endsAt: "2026-08-07T11:00:00.000Z",
+      hotelId,
+      hotelName: "서울호텔",
+      id: visitId,
+      priority: { color: "#dc2626", name: "긴급" },
+      startsAt: "2026-08-07T10:00:00.000Z",
+      status: "SCHEDULED" as const,
+      targetSummary: "703호",
+      title: "배관 점검",
+      type: "REPAIR_VISIT" as const,
+    };
+    expect(calendarEventSchema.safeParse(inspection).success).toBe(true);
+    expect(calendarEventSchema.safeParse(repairVisit).success).toBe(true);
+    expect(calendarEventSchema.safeParse({ ...repairVisit, providerEventId: "forbidden" }).success).toBe(false);
+
+    expect(calendarEventsQuerySchema.parse({ from: "2026-08-01", to: "2026-09-12" }).pageSize).toBe(200);
+    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-09-13" }).success).toBe(false);
+    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-08-01" }).success).toBe(false);
+
+    expect(calendarRoutes.hotel(hotelId)).toBe(`/api/hotels/${hotelId}/calendar`);
+    expect(calendarRoutes.hotelVisitOptions(hotelId)).toBe(`/api/hotels/${hotelId}/calendar/visit-options`);
+    expect(calendarRoutes.all).toBe("/api/calendar");
+    expect(calendarRoutes.capabilities).toBe("/api/calendar/capabilities");
+
+    expect(calendarEventsResponseSchema.safeParse({
+      ok: true,
+      data: {
+        capabilities: { canCreateVisit: true, canViewAllHotels: false },
+        events: [inspection, repairVisit],
+        hotels: [{ id: hotelId, name: "서울호텔" }],
+        pagination: { nextCursor: null },
+        range: { from: "2026-08-01", timeZone: "Asia/Seoul", to: "2026-09-12" },
+      },
+      error: null,
+    }).success).toBe(true);
+    expect(calendarCapabilitiesResponseSchema.safeParse({
+      ok: true,
+      data: { canViewAllHotels: false, hotels: [{ canCreateVisit: true, id: hotelId, name: "서울호텔" }] },
+      error: null,
+    }).success).toBe(true);
+    expect(calendarVisitOptionsResponseSchema.safeParse({
+      ok: true,
+      data: {
+        internalPerformers: [{ displayName: "김담당", userId: "20000000-0000-4000-8000-000000000001" }],
+        repairs: [{ id: "a1000000-0000-4000-8000-000000000001", priorityName: "긴급", targetName: "703호" }],
+      },
+      error: null,
+    }).success).toBe(true);
   });
 });

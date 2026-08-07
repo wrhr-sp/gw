@@ -1009,6 +1009,15 @@ jobs:
           grep -qx 'PREVIEW_PROCESS_WORKS_UI_SMOKE_OK' /tmp/preview-account-smoke.log
           grep -qx 'PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK' /tmp/preview-account-smoke.log
 
+      - name: Verify hosted Preview Calendar API and responsive UI before contract
+        id: calendar_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -o pipefail
+          node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-smoke.log
+
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
         env:

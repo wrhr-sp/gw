@@ -322,8 +322,62 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     signature:
       "public.hotel_repair_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)",
   },
+  {
+    capability: "API_RUNTIME",
+    calendarReadModel: true,
+    digest: "d9eb41741498a10a26ce04f793d35091a380fa754f941d0ba20989f36a1bf228",
+    name: "hotel_calendar_capabilities_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_calendar_capabilities_v1(uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarReadModel: true,
+    digest: "3c36b55187d36e47d690e75287aa744a1e62603982fbbe61bdb41d7f71f36b3b",
+    name: "hotel_calendar_events_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarReadModel: true,
+    digest: "13875e0dbe7eb2919e081110a86b38b58b7935a3c598eecf87c7f2c5fe723731",
+    name: "hotel_calendar_visit_options_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_calendar_visit_options_read_v1(uuid,uuid,text)",
+  },
 ] as const;
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
+  {
+    calendarReadModel: true,
+    digest: "cd31781cd3fedc85b0063cc8724139f9b6ae6836beae3fce946a6dd98b870781",
+    language: "sql",
+    name: "hotel_calendar_actor_v1",
+    result: "TABLE(session_id uuid, user_id uuid, user_type text)",
+    securityDefiner: true,
+    signature: "public.hotel_calendar_actor_v1(uuid,text)",
+    volatility: "s",
+  },
+  {
+    calendarReadModel: true,
+    digest: "18c603b6a710a9abe091890d09661e865d4a3b6ab160dcfb9877610a6b8443b9",
+    language: "sql",
+    name: "hotel_calendar_permission_allowed_v1",
+    result: "boolean",
+    securityDefiner: true,
+    signature: "public.hotel_calendar_permission_allowed_v1(uuid,uuid,uuid,text)",
+    volatility: "s",
+  },
+  {
+    calendarReadModel: true,
+    digest: "5a2bc7f04a4eb19839b411fc2051a237a6c0168dca4cd7b5e3c8f4b9f3c73ea3",
+    language: "sql",
+    name: "hotel_calendar_accessible_hotels_v1",
+    result: "TABLE(branch_id uuid, hotel_name text, can_create_visit boolean)",
+    securityDefiner: true,
+    signature: "public.hotel_calendar_accessible_hotels_v1(uuid,uuid,text)",
+    volatility: "s",
+  },
   {
     checklistPhase: "BOTH",
     digest: "f125e50d5092bc0b7be01630c66c0de0e0358db59093d304a7ccbbd063c0f763",
@@ -2272,6 +2326,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_facility_execution_marker_count: number;
         hotel_inspection_facility_execution_contract_marker_count: number;
         hotel_repair_lifecycle_marker_count: number;
+        hotel_calendar_read_model_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2369,7 +2424,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_inspection_facility_execution_contract_marker_count,
              count(*) filter (
                where version = '0042_hotel_repair_lifecycle'
-             )::integer as hotel_repair_lifecycle_marker_count
+             )::integer as hotel_repair_lifecycle_marker_count,
+             count(*) filter (
+               where version = '0043_hotel_calendar_read_model'
+             )::integer as hotel_calendar_read_model_marker_count
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2410,7 +2468,8 @@ export async function probeDatabaseReadiness(
         '0039_hotel_inspection_checklist_v2_hardening',
         '0040_hotel_inspection_facility_execution',
         '0041_hotel_inspection_facility_execution_contract',
-        '0042_hotel_repair_lifecycle'
+        '0042_hotel_repair_lifecycle',
+        '0043_hotel_calendar_read_model'
       )
     `;
     const schemaPhase =
@@ -2425,6 +2484,12 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_repair_lifecycle_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_repair_lifecycle_marker_count === 0
+          ? "PRE_CONTRACT"
+          : null;
+    const calendarReadModelPhase =
+      migrationRows[0]?.hotel_calendar_read_model_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.hotel_calendar_read_model_marker_count === 0
           ? "PRE_CONTRACT"
           : null;
     const roomSchemaPhase =
@@ -2511,7 +2576,34 @@ export async function probeDatabaseReadiness(
               migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 0
             ? "PRE_CONTRACT"
             : null;
-    if (!repairLifecyclePhase) return schemaNotReady();
+    if (!repairLifecyclePhase || !calendarReadModelPhase) return schemaNotReady();
+    if (calendarReadModelPhase === "PRE_CONTRACT") {
+      const [calendarResidue] = await sql<{ absent: boolean }[]>`
+        select not exists (
+          select 1 from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace
+            on procedure_namespace.oid = procedure_record.pronamespace
+          where procedure_namespace.nspname = 'public'
+            and procedure_record.proname = any(array[
+              'hotel_calendar_actor_v1',
+              'hotel_calendar_permission_allowed_v1',
+              'hotel_calendar_accessible_hotels_v1',
+              'hotel_calendar_capabilities_v1',
+              'hotel_calendar_events_read_v1',
+              'hotel_calendar_visit_options_read_v1'
+            ]::text[])
+        ) and not exists (
+          select 1 from public.permissions permission_record
+           where permission_record.code = any(array[
+             'HOTEL_CALENDAR_READ',
+             'HOTEL_CALENDAR_ALL_READ',
+             'REPAIR_VISIT_CANCELLED_READ',
+             'REPAIR_VISIT_CANCEL_REASON_READ'
+           ]::text[])
+        ) as absent
+      `;
+      if (!calendarResidue?.absent) return schemaNotReady();
+    }
     const repairTableNames = [
       "hotel_repair_priorities",
       "hotel_repair_priority_history",
@@ -3965,6 +4057,8 @@ export async function probeDatabaseReadiness(
       }
       const activeInspectionCommandContracts =
         HOTEL_INSPECTION_COMMAND_CONTRACTS.filter((contract) => {
+          if ("calendarReadModel" in contract)
+            return calendarReadModelPhase === "CONTRACT";
           if ("repairLifecycle" in contract)
             return (
               contract.repairLifecycle ===
@@ -4079,6 +4173,8 @@ export async function probeDatabaseReadiness(
 
       const activeInspectionInternalFunctionContracts =
         HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
+          if ("calendarReadModel" in contract)
+            return calendarReadModelPhase === "CONTRACT";
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (!("checklistPhase" in contract)) return true;

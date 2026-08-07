@@ -86,6 +86,14 @@ export {
   type UpdateRoomTypeInput,
 } from "./rooms";
 export {
+  createPostgresCalendarRepository,
+  type CalendarEventsReadInput,
+  type CalendarRepository,
+  type CalendarRepositoryResult,
+  type CalendarScopeReadInput,
+  type CalendarVisitOptionsReadInput,
+} from "./calendars";
+export {
   createPostgresRepairRepository,
   type RepairCommandInput,
   type RepairReadInput,

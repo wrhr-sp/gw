@@ -56,6 +56,12 @@ export const hotelErrorCodeSchema = z.enum([
   "REPAIR_VISIT_INVALID",
   "REPAIR_COMPLETED_LOCKED",
   "REPAIR_FOLLOW_UP_INVALID",
+  "CALENDAR_RANGE_INVALID",
+  "CALENDAR_RANGE_TOO_LARGE",
+  "CALENDAR_CURSOR_INVALID",
+  "CALENDAR_RESULT_TOO_DENSE",
+  "CALENDAR_HOTEL_REQUIRED",
+  "CALENDAR_ACCESS_FORBIDDEN",
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
   "FILE_NOT_READY",
@@ -2918,6 +2924,82 @@ export const repairVisitResponseSchema = z.object({ ok: z.literal(true), data: z
 export const repairListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
 export const repairFollowUpListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
 export const repairListQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), status: z.enum(["OPEN", "COMPLETED"]).optional() }).strict();
+
+const calendarProjectionStatusSchema = z.enum(["NOT_CONNECTED", "PENDING", "SYNCED", "ACTION_REQUIRED"]);
+const calendarBaseEventFields = {
+  id: z.uuid(),
+  hotelId: z.uuid(),
+  hotelName: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(150),
+  startsAt: z.iso.datetime(),
+  endsAt: z.iso.datetime().nullable(),
+  targetSummary: z.string().trim().min(1).max(300),
+  detailHref: z.string().regex(/^\/hotels\//u),
+} as const;
+export const calendarInspectionEventSchema = z.object({
+  ...calendarBaseEventFields,
+  type: z.literal("INSPECTION"),
+  businessDate: z.iso.date(),
+  endsAt: z.null(),
+  status: inspectionExecutionStatusSchema,
+}).strict();
+export const calendarRepairVisitEventSchema = z.object({
+  ...calendarBaseEventFields,
+  type: z.literal("REPAIR_VISIT"),
+  status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED"]),
+  priority: z.object({ name: z.string().trim().min(1).max(100), color: z.string().trim().min(1).max(50) }).strict(),
+  calendarProjectionStatus: calendarProjectionStatusSchema,
+  cancellationReason: z.string().trim().min(2).max(500).nullable(),
+  canUpdate: z.boolean(),
+}).strict();
+export const calendarEventSchema = z.discriminatedUnion("type", [calendarInspectionEventSchema, calendarRepairVisitEventSchema]);
+export type CalendarEvent = z.infer<typeof calendarEventSchema>;
+
+export const calendarEventsQuerySchema = z.object({
+  from: z.iso.date(),
+  to: z.iso.date(),
+  cursor: z.string().trim().min(1).max(2048).regex(/^[A-Za-z0-9_-]+$/u).optional(),
+  pageSize: z.coerce.number().int().min(1).max(200).default(200),
+}).strict().superRefine((value, context) => {
+  const from = Date.parse(`${value.from}T00:00:00.000Z`);
+  const to = Date.parse(`${value.to}T00:00:00.000Z`);
+  const days = (to - from) / 86_400_000;
+  if (!(days > 0)) context.addIssue({ code: "custom", path: ["to"], message: "종료일은 시작일보다 늦어야 합니다." });
+  else if (days > 42) context.addIssue({ code: "custom", path: ["to"], message: "달력 조회기간은 최대 42일입니다." });
+});
+export type CalendarEventsQuery = z.infer<typeof calendarEventsQuerySchema>;
+const calendarHotelOptionSchema = z.object({ id: z.uuid(), name: z.string().trim().min(1).max(100) }).strict();
+const calendarPageDataSchema = z.object({
+  capabilities: z.object({ canCreateVisit: z.boolean(), canViewAllHotels: z.boolean() }).strict(),
+  events: z.array(calendarEventSchema).max(200),
+  hotels: z.array(calendarHotelOptionSchema).max(1000),
+  pagination: z.object({ nextCursor: z.string().min(1).max(2048).nullable() }).strict(),
+  range: z.object({ from: z.iso.date(), to: z.iso.date(), timeZone: z.literal("Asia/Seoul") }).strict(),
+}).strict();
+export const calendarEventsResponseSchema = z.object({ ok: z.literal(true), data: calendarPageDataSchema, error: z.null() }).strict();
+export type CalendarEventsResponse = z.infer<typeof calendarEventsResponseSchema>;
+export const calendarCapabilitiesResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.object({
+    canViewAllHotels: z.boolean(),
+    hotels: z.array(calendarHotelOptionSchema.extend({ canCreateVisit: z.boolean() }).strict()).max(1000),
+  }).strict(),
+  error: z.null(),
+}).strict();
+export const calendarVisitOptionsResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.object({
+    repairs: z.array(z.object({ id: z.uuid(), targetName: z.string().min(1), priorityName: z.string().min(1) }).strict()).max(500),
+    internalPerformers: z.array(z.object({ userId: z.uuid(), displayName: z.string().min(1) }).strict()).max(500),
+  }).strict(),
+  error: z.null(),
+}).strict();
+export const calendarRoutes = {
+  all: "/api/calendar",
+  capabilities: "/api/calendar/capabilities",
+  hotel: (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}/calendar` as const,
+  hotelVisitOptions: (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}/calendar/visit-options` as const,
+} as const;
 
 const repairBasePath = (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}` as const;
 export const repairRoutes = {

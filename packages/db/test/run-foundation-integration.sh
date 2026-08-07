@@ -179,6 +179,11 @@ begin
     execute format('grant execute on function public.hotel_repair_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) to %I', capability_role.role_name);
     execute format('grant execute on function public.hotel_repair_file_upload_init_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
     execute format('grant execute on function public.hotel_repair_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid) to %I', capability_role.role_name);
+    if to_regprocedure('public.hotel_calendar_capabilities_v1(uuid,text)') is not null then
+      execute format('grant execute on function public.hotel_calendar_capabilities_v1(uuid,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_calendar_visit_options_read_v1(uuid,uuid,text) to %I', capability_role.role_name);
+    end if;
   end loop;
 end
 $grant_repair_lifecycle$;
@@ -235,6 +240,30 @@ run_actual_repair_api_probe() {
     TEST_READY_URL="$api_probe_url" \
       INSPECTION_FACILITY_SQL="$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL" \
       pnpm exec tsx apps/api/test/repair-lifecycle-actual-api-integration.ts
+  )
+  probe_status=$?
+  set -e
+  cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+run_actual_calendar_api_probe() {
+  local admin_url="$1"
+  local api_probe_url probe_status fixture_result
+  fixture_result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" -f "$HOTEL_CALENDAR_READ_MODEL_TEST_SQL")"
+  if [[ "$fixture_result" != *"HOTEL_CALENDAR_READ_MODEL_INTEGRATION_OK"* ]]; then
+    printf '%s\n' "$fixture_result" >&2
+    return 1
+  fi
+  api_probe_url="$(configure_api_probe_role "$admin_url")"
+  grant_repair_lifecycle_capabilities "$admin_url"
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$api_probe_url" \
+      TEST_ADMIN_URL="$admin_url" \
+      INSPECTION_FACILITY_SQL="$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL" \
+      pnpm exec tsx apps/api/test/calendar-read-model-actual-api-integration.ts
   )
   probe_status=$?
   set -e
@@ -1331,6 +1360,8 @@ HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations
 HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0040_hotel_inspection_facility_execution.sql"
 HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0041_hotel_inspection_facility_execution_contract.sql"
 HOTEL_REPAIR_LIFECYCLE_MIGRATION="$ROOT_DIR/packages/db/migrations/0042_hotel_repair_lifecycle.sql"
+HOTEL_CALENDAR_READ_MODEL_MIGRATION="$ROOT_DIR/packages/db/migrations/0043_hotel_calendar_read_model.sql"
+HOTEL_CALENDAR_READ_MODEL_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-calendar-read-model-integration.sql"
 HOTEL_REPAIR_LIFECYCLE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-lifecycle-integration.sql"
 HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-private-evidence-integration.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
@@ -2300,9 +2331,11 @@ psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table audit_events enable trigger audit_events_no_update" >/dev/null
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_REPAIR_LIFECYCLE_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_CALENDAR_READ_MODEL_MIGRATION" >/dev/null
 grant_repair_lifecycle_capabilities "$ADMIN_URL"
 assert_schema_ready "$PROBE_URL"
 run_actual_repair_api_probe "$ADMIN_URL"
+run_actual_calendar_api_probe "$ADMIN_URL"
 REPAIR_PRIVATE_EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL")"
 if [[ "$REPAIR_PRIVATE_EVIDENCE_RESULT" != *"HOTEL_REPAIR_PRIVATE_EVIDENCE_INTEGRATION_OK"* ]]; then
   printf '%s\n' "$REPAIR_PRIVATE_EVIDENCE_RESULT" >&2
