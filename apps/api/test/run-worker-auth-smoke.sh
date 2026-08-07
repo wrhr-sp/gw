@@ -211,11 +211,21 @@ GRANT EXECUTE ON FUNCTION
   ),
   public.hotel_repair_file_view_command_v1(
     uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
-  ),
-  public.hotel_calendar_capabilities_v1(uuid, text),
-  public.hotel_calendar_events_read_v1(uuid, uuid, jsonb, text),
-  public.hotel_calendar_visit_options_read_v1(uuid, uuid, text)
+  )
 TO $RUNTIME_ROLE;
+DO \$\$
+BEGIN
+  IF to_regprocedure('public.hotel_calendar_capabilities_v1(uuid,text)') IS NOT NULL THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.hotel_calendar_capabilities_v1(uuid,text) TO $RUNTIME_ROLE';
+  END IF;
+  IF to_regprocedure('public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text)') IS NOT NULL THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text) TO $RUNTIME_ROLE';
+  END IF;
+  IF to_regprocedure('public.hotel_calendar_visit_options_read_v1(uuid,uuid,text)') IS NOT NULL THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.hotel_calendar_visit_options_read_v1(uuid,uuid,text) TO $RUNTIME_ROLE';
+  END IF;
+END
+\$\$;
 INSERT INTO runtime_database_capabilities (role_name, capability)
 VALUES ('$RUNTIME_ROLE', 'API_RUNTIME')
 ON CONFLICT (role_name) DO UPDATE SET capability = excluded.capability;
