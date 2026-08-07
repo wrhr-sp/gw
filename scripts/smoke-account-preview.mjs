@@ -997,7 +997,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
 
     journeyFailureCode = "PROCESS_WORKS_UI_READ";
     const processName = "Preview Works 검토";
-    const stageName = "Preview 확인";
+    const stageName = `Preview 확인 ${runSuffix}`;
     const definitionsPath = `/api/admin/process-definitions?hotelId=${encodeURIComponent(hotelId)}`;
     const currentDefinitions =
       (
@@ -1023,15 +1023,16 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     const processFlow = page.getByRole("region", { name: "업무 처리 흐름" });
     await processFlow.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     journeyFailureCode = "PROCESS_WORKS_UI_ADD";
-    if ((await processFlow.getByText(stageName, { exact: true }).count()) === 0) {
+    const stateNames = page.getByLabel("상태 이름");
+    let stateCount = await stateNames.count();
+    if (stateCount < 3) {
       await processFlow.getByRole("button", { name: "단계 추가" }).click();
-      const stateNames = page.getByLabel("상태 이름");
-      const stateCount = await stateNames.count();
-      if (stateCount < 3) {
-        throw new Error("Hosted process UI did not add a business status");
-      }
-      await stateNames.nth(stateCount - 2).fill(stageName);
+      stateCount = await stateNames.count();
     }
+    if (stateCount < 3) {
+      throw new Error("Hosted process UI did not provide a business status");
+    }
+    await stateNames.nth(stateCount - 2).fill(stageName);
     if ((await page.getByText("단계 키", { exact: true }).count()) !== 0) {
       throw new Error("Hosted process UI exposed internal stage keys");
     }
