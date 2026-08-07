@@ -50,6 +50,12 @@ export const hotelErrorCodeSchema = z.enum([
   "INSPECTION_ROUTINE_VERSION_CONFLICT",
   "INSPECTION_RESULT_EVIDENCE_REQUIRED",
   "INSPECTION_FINAL_LOCKED",
+  "REPAIR_PRIORITY_REQUIRED",
+  "REPAIR_EVIDENCE_REQUIRED",
+  "REPAIR_PERFORMER_INVALID",
+  "REPAIR_VISIT_INVALID",
+  "REPAIR_COMPLETED_LOCKED",
+  "REPAIR_FOLLOW_UP_INVALID",
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
   "FILE_NOT_READY",
@@ -1278,7 +1284,10 @@ const processStageKeySchema = z
       "단계 키는 영문 대문자로 시작하고 영문 대문자, 숫자, 밑줄만 사용할 수 있습니다.",
   });
 
-export const processApplicationTypeSchema = z.literal("ROOM_INSPECTION");
+export const processApplicationTypeSchema = z.enum([
+  "ROOM_INSPECTION",
+  "REPAIR_CASE",
+]);
 export type ProcessApplicationType = z.infer<
   typeof processApplicationTypeSchema
 >;
@@ -2261,6 +2270,7 @@ const inspectionItemSnapshotSchema = z
     defaultSeverity: inspectionSeveritySchema,
     result: z
       .object({
+        id: z.uuid().optional(),
         result: inspectionResultSchema,
         description: z.string().nullable(),
         severity: inspectionSeveritySchema.nullable(),
@@ -2559,6 +2569,21 @@ const inspectionEvidenceParentSchema = z
     itemSnapshotId: z.uuid(),
   })
   .strict();
+const repairEvidenceParentSchema = z.discriminatedUnion("type", [
+  z
+    .object({
+      type: z.literal("REPAIR_CASE_EVIDENCE"),
+      repairCaseId: z.uuid(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("REPAIR_VISIT_COMPLETION_EVIDENCE"),
+      repairCaseId: z.uuid(),
+      repairVisitId: z.uuid(),
+    })
+    .strict(),
+]);
 const safeEvidenceFileNameSchema = z
   .string()
   .min(1)
@@ -2580,7 +2605,7 @@ const safeEvidenceFileNameSchema = z
   });
 export const hotelFileUploadInitRequestSchema = z
   .object({
-    parent: inspectionEvidenceParentSchema,
+    parent: z.union([inspectionEvidenceParentSchema, repairEvidenceParentSchema]),
     fileName: safeEvidenceFileNameSchema,
     sizeBytes: z
       .number()
@@ -2739,6 +2764,8 @@ export const inspectionRoutes = {
 export const hotelFileRoutes = {
   view: (hotelId: string, inspectionId: string, fileVersionId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/inspections/${encodeURIComponent(inspectionId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
+  repairView: (hotelId: string, repairId: string, fileVersionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/repairs/${encodeURIComponent(repairId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   uploadInit: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/files/upload-init` as const,
   uploadBody: (uploadId: string) =>
@@ -2747,4 +2774,166 @@ export const hotelFileRoutes = {
     `/api/files/uploads/${encodeURIComponent(uploadId)}/complete` as const,
   uploadStatus: (uploadId: string) =>
     `/api/files/uploads/${encodeURIComponent(uploadId)}` as const,
+} as const;
+
+const repairDescriptionSchema = z.string().trim().min(2).max(2000);
+const repairUnavailableReasonSchema = z.string().trim().min(2).max(500).nullable();
+const repairEvidenceFields = {
+  fileVersionIds: z.array(z.uuid()).max(20),
+  unavailableReason: repairUnavailableReasonSchema,
+};
+const directRepairSourceSchema = z
+  .object({
+    type: z.literal("DIRECT"),
+    description: repairDescriptionSchema,
+    ...repairEvidenceFields,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.fileVersionIds.length === 0 && value.unavailableReason === null)
+      context.addIssue({ code: "custom", path: ["fileVersionIds"], message: "하자사진 또는 촬영불가 사유가 필요합니다." });
+  });
+const inspectionRepairSourceSchema = z
+  .object({
+    type: z.literal("INSPECTION"),
+    inspectionId: z.uuid(),
+    executionTargetId: z.uuid(),
+    itemSnapshotId: z.uuid(),
+    resultId: z.uuid(),
+    resultVersion: z.number().int().positive(),
+  })
+  .strict();
+export const repairSourceSchema = z.discriminatedUnion("type", [
+  directRepairSourceSchema,
+  inspectionRepairSourceSchema,
+]);
+export const repairTargetSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("ROOM"), roomId: z.uuid() }).strict(),
+  z.object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid() }).strict(),
+  z.object({ type: z.literal("FACILITY"), facilityId: z.uuid() }).strict(),
+]);
+export const createRepairCaseRequestSchema = z
+  .object({
+    repairCaseId: z.uuid(),
+    source: repairSourceSchema,
+    target: repairTargetSchema,
+    priorityId: z.uuid(),
+    followUpOfRepairCaseId: z.uuid().nullable(),
+    followUpParentVersion: z.number().int().positive().nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if ((value.followUpOfRepairCaseId === null) !== (value.followUpParentVersion === null))
+      context.addIssue({ code: "custom", path: ["followUpParentVersion"], message: "후속 보수에는 이전 보수 version이 필요합니다." });
+    if (value.followUpOfRepairCaseId !== null && value.source.type !== "DIRECT")
+      context.addIssue({ code: "custom", path: ["source"], message: "후속 보수는 새 직접등록 자료가 필요합니다." });
+  });
+export type CreateRepairCaseRequest = z.infer<typeof createRepairCaseRequestSchema>;
+
+export const repairPerformerSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("INTERNAL"), userId: z.uuid() }).strict(),
+  z.object({
+    type: z.literal("EXTERNAL"),
+    contractorName: z.string().trim().min(1).max(150),
+    contactName: z.string().trim().min(1).max(100).nullable(),
+    contactPhone: z.string().trim().min(3).max(50),
+  }).strict(),
+]);
+export const createRepairVisitRequestSchema = z
+  .object({
+    repairCaseId: z.uuid(),
+    title: z.string().trim().min(1).max(150),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
+    performer: repairPerformerSchema,
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.endsAt <= value.startsAt)
+      context.addIssue({ code: "custom", path: ["endsAt"], message: "종료일시는 시작일시보다 늦어야 합니다." });
+  });
+export type CreateRepairVisitRequest = z.infer<typeof createRepairVisitRequestSchema>;
+export const updateRepairVisitRequestSchema = createRepairVisitRequestSchema.omit({ repairCaseId: true }).extend({
+  version: z.number().int().positive(),
+  reason: z.string().trim().min(2).max(500),
+});
+export const repairVersionReasonRequestSchema = z.object({ version: z.number().int().positive(), reason: z.string().trim().min(2).max(500) }).strict();
+export const completeRepairVisitRequestSchema = z
+  .object({ version: z.number().int().positive(), result: repairDescriptionSchema, ...repairEvidenceFields })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.fileVersionIds.length === 0 && value.unavailableReason === null)
+      context.addIssue({ code: "custom", path: ["fileVersionIds"], message: "완료사진 또는 촬영불가 사유가 필요합니다." });
+  });
+export const completeRepairCaseRequestSchema = z.object({ version: z.number().int().positive(), processVersion: z.number().int().positive() }).strict();
+export const submitRepairReviewRequestSchema = z
+  .object({
+    processVersion: z.number().int().positive(),
+    version: z.number().int().positive(),
+  })
+  .strict();
+export const repairProcessTransitionRequestSchema = z
+  .object({
+    choiceValue: z.string().trim().min(1).max(100).nullable(),
+    event: processTransitionEventSchema,
+    processVersion: z.number().int().positive(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.event === "SELECT" && value.choiceValue === null)
+      context.addIssue({
+        code: "custom",
+        message: "선택 전이에는 선택값이 필요합니다.",
+        path: ["choiceValue"],
+      });
+    if (value.event !== "SELECT" && value.choiceValue !== null)
+      context.addIssue({
+        code: "custom",
+        message: "승인·반려 전이에는 선택값을 보낼 수 없습니다.",
+        path: ["choiceValue"],
+      });
+  });
+
+export const repairPrioritySchema = z.object({
+  id: z.uuid(), version: z.number().int().positive(), name: z.string().min(1), sortOrder: z.number().int(), color: z.string().min(1), status: z.enum(["ACTIVE", "INACTIVE", "DELETED"]),
+}).strict();
+export const repairPriorityListResponseSchema = z.object({
+  ok: z.literal(true),
+  data: z.object({ priorities: z.array(repairPrioritySchema) }).strict(),
+  error: z.null(),
+}).strict();
+export const repairTargetSnapshotSchema = z.object({
+  type: z.enum(["ROOM", "COMMON_AREA", "FACILITY"]), id: z.uuid(), name: z.string().min(1), facilityTypeName: z.string().nullable(), locationName: z.string().nullable(),
+}).strict();
+export const repairVisitSchema = z.object({
+  id: z.uuid(), repairCaseId: z.uuid(), title: z.string().min(1), startsAt: z.iso.datetime(), endsAt: z.iso.datetime(), status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED", "DELETED"]), version: z.number().int().positive(), performer: repairPerformerSchema, result: z.string().nullable(), unavailableReason: z.string().nullable(), fileVersionIds: z.array(z.uuid()), calendarProjectionStatus: z.literal("NOT_CONNECTED"),
+}).strict();
+export const repairCaseSchema = z.object({
+  id: z.uuid(), hotelId: z.uuid(), status: z.enum(["OPEN", "COMPLETED"]), version: z.number().int().positive(), target: repairTargetSnapshotSchema, priority: repairPrioritySchema.omit({ status: true }), source: repairSourceSchema, process: z.object({ executionId: z.uuid(), version: z.number().int().positive(), state: z.string().min(1), currentStageName: z.string().nullable() }).strict(), visits: z.array(repairVisitSchema), predecessor: z.object({ id: z.uuid(), targetName: z.string().min(1), completedAt: z.iso.datetime() }).strict().nullable(), followUpCount: z.number().int().nonnegative(), calendarProjectionStatus: z.literal("NOT_CONNECTED"), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
+}).strict();
+export type RepairCase = z.infer<typeof repairCaseSchema>;
+export const repairCaseResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repair: repairCaseSchema }).strict(), error: z.null() }).strict();
+export const repairVisitResponseSchema = z.object({ ok: z.literal(true), data: z.object({ visit: repairVisitSchema }).strict(), error: z.null() }).strict();
+export const repairListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
+export const repairFollowUpListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
+export const repairListQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), status: z.enum(["OPEN", "COMPLETED"]).optional() }).strict();
+
+const repairBasePath = (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}` as const;
+export const repairRoutes = {
+  list: (hotelId: string) => `${repairBasePath(hotelId)}/repairs` as const,
+
+  create: (hotelId: string) => `${repairBasePath(hotelId)}/repairs` as const,
+  detail: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}` as const,
+  followUps: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/follow-ups` as const,
+  priorities: (hotelId: string) => `${repairBasePath(hotelId)}/repair-priorities` as const,
+  visits: (hotelId: string) => `${repairBasePath(hotelId)}/repair-visits` as const,
+  visit: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}` as const,
+  visitCancel: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/cancel` as const,
+  visitRestore: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/restore` as const,
+  visitDelete: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/delete` as const,
+  visitComplete: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/complete` as const,
+  submitReview: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/submit-review` as const,
+  transition: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/process/transition` as const,
+  complete: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/complete` as const,
 } as const;

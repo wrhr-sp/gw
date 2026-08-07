@@ -59,7 +59,9 @@ describe("hotel feature-guide registry", () => {
     expect(hotelFeatureGuideRoutes).toEqual({
       "/hotels/[hotelId]": "hotel-management.detail",
       "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
+      "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
     });
+    expect(hotelFeatureGuides["hotel-repair.lifecycle"].title).toBe("하자·보수");
     expect(hotelFeatureGuides["hotel-management.detail"].title).toBe(
       "호텔 상세",
     );

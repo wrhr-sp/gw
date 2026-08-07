@@ -248,7 +248,7 @@ describe("inspection review evidence stream", () => {
       },
     );
     const service = createHotelFileService(
-      { close, fileViewCommand } as never,
+      { close, fileViewCommand, repairFileViewCommand: fileViewCommand } as never,
       {
         openCleanVersion: vi.fn().mockResolvedValue({
           body: new ReadableStream<Uint8Array>({
@@ -313,6 +313,21 @@ describe("inspection review evidence stream", () => {
       "SUCCEEDED",
       "SUCCEEDED",
     ]);
+    expect(fixture.close).toHaveBeenCalledOnce();
+  });
+
+  it("uses the repair-parent command while preserving terminal stream audit", async () => {
+    const fixture = setupStream();
+    const view = await fixture.service.repairView(
+      principal,
+      hotelId,
+      "a1000000-0000-4000-8000-000000000001",
+      "99000000-0000-4000-8000-000000000001",
+    );
+    expect(new Uint8Array(await new Response(view.body).arrayBuffer())).toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
+    expect(fixture.terminalActions).toEqual(["SUCCEEDED"]);
     expect(fixture.close).toHaveBeenCalledOnce();
   });
 });

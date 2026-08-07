@@ -162,6 +162,29 @@ $grant_facility_execution$;
 SQL
 }
 
+grant_repair_lifecycle_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $grant_repair_lifecycle$
+declare capability_role record;
+begin
+  for capability_role in select role_name from public.runtime_database_capabilities where capability='API_RUNTIME'
+  loop
+    execute format('grant execute on function public.hotel_inspection_execution_read_v2(uuid,uuid,uuid,jsonb,text) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_process_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_read_v1(uuid,uuid,uuid,jsonb,text) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_priority_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_case_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_visit_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_transition_v1(uuid,uuid,uuid,integer,jsonb,text,uuid,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_file_upload_init_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+    execute format('grant execute on function public.hotel_repair_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid) to %I', capability_role.role_name);
+  end loop;
+end
+$grant_repair_lifecycle$;
+SQL
+}
+
 run_actual_inspection_api_probe() {
   local admin_url="$1"
   local api_probe_url probe_status
@@ -189,6 +212,29 @@ run_actual_facility_inspection_api_probe() {
     TEST_READY_URL="$api_probe_url" \
       INSPECTION_FACILITY_SQL="$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL" \
       pnpm exec tsx apps/api/test/inspection-facility-execution-actual-api-integration.ts
+  )
+  probe_status=$?
+  set -e
+  cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+run_actual_repair_api_probe() {
+  local admin_url="$1"
+  local api_probe_url probe_status fixture_result
+  fixture_result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" -f "$HOTEL_REPAIR_LIFECYCLE_TEST_SQL")"
+  if [[ "$fixture_result" != *"HOTEL_REPAIR_LIFECYCLE_FIXTURE_OK"* ]]; then
+    printf '%s\n' "$fixture_result" >&2
+    return 1
+  fi
+  api_probe_url="$(configure_api_probe_role "$admin_url")"
+  grant_repair_lifecycle_capabilities "$admin_url"
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$api_probe_url" \
+      INSPECTION_FACILITY_SQL="$HOTEL_INSPECTION_FACILITY_EXECUTION_TEST_SQL" \
+      pnpm exec tsx apps/api/test/repair-lifecycle-actual-api-integration.ts
   )
   probe_status=$?
   set -e
@@ -1284,6 +1330,9 @@ HOTEL_INSPECTION_CHECKLIST_TARGET_MIGRATION="$ROOT_DIR/packages/db/migrations/00
 HOTEL_INSPECTION_CHECKLIST_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0039_hotel_inspection_checklist_v2_hardening.sql"
 HOTEL_INSPECTION_FACILITY_EXECUTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0040_hotel_inspection_facility_execution.sql"
 HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0041_hotel_inspection_facility_execution_contract.sql"
+HOTEL_REPAIR_LIFECYCLE_MIGRATION="$ROOT_DIR/packages/db/migrations/0042_hotel_repair_lifecycle.sql"
+HOTEL_REPAIR_LIFECYCLE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-lifecycle-integration.sql"
+HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-private-evidence-integration.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -1462,6 +1511,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     fi
     if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_INSPECTION_FACILITY_EXECUTION_CONTRACT_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$HOTEL_REPAIR_LIFECYCLE_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
@@ -2219,6 +2272,12 @@ alter table outbox_jobs
       and payload->>'originalErrorCode' in (
         'ACCOUNT_DUPLICATE', 'FORBIDDEN', 'INTERNAL_ERROR'
       )
+      and pg_catalog.jsonb_typeof(payload->'userId') = 'string'
+      and payload->>'userId' ~
+        '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      and pg_catalog.jsonb_typeof(payload->'providerSubject') = 'string'
+      and length(payload->>'providerSubject') between 1 and 200
+      and payload->>'action' = 'COMPENSATE'
     ), false)
   );
 SQL
@@ -2239,6 +2298,16 @@ NODE
 )
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "alter table audit_events enable trigger audit_events_no_update" >/dev/null
+
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_REPAIR_LIFECYCLE_MIGRATION" >/dev/null
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
+assert_schema_ready "$PROBE_URL"
+run_actual_repair_api_probe "$ADMIN_URL"
+REPAIR_PRIVATE_EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL")"
+if [[ "$REPAIR_PRIVATE_EVIDENCE_RESULT" != *"HOTEL_REPAIR_PRIVATE_EVIDENCE_INTEGRATION_OK"* ]]; then
+  printf '%s\n' "$REPAIR_PRIVATE_EVIDENCE_RESULT" >&2
+  exit 1
+fi
 
 psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
   -d werehere_hotel_test -c "drop table roles cascade" >/dev/null

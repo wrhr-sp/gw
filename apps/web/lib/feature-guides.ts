@@ -71,6 +71,20 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-repair.lifecycle": {
+    audience: ["보수 조회·등록·방문·완료 권한과 현재 호텔배정이 있는 사내 임직원"],
+    cautions: [
+      "우선순위는 자동판정하지 않으며 활성 설정 중 하나를 직접 선택합니다.",
+      "외부업체 연락처 원문은 별도 권한이 있을 때만 표시됩니다.",
+      "최종완료 뒤 기존 보수는 수정하거나 재개하지 않고 새 후속 보수를 등록합니다.",
+    ],
+    featureKey: "hotel-repair.lifecycle",
+    permissions: ["보수 자료 조회권한이 필요하며 등록·일정·완료는 각각의 동적 권한을 다시 확인합니다."],
+    steps: ["대상과 하자증빙, 우선순위를 선택해 보수를 등록합니다.","정확한 방문시간과 내부 수행자 또는 외부업체 한 곳을 등록합니다.","작업결과와 완료증빙을 저장하고 프로세스 검토 뒤 최종완료합니다."],
+    summary: "호텔 하자를 등록하고 여러 방문 작업과 최종완료, 후속 보수까지 관리합니다.",
+    title: "하자·보수",
+    version: "1.0",
+  },
   "hotel-inspection.review": {
     audience: ["점검 검토 권한과 현재 호텔배정이 있는 사내 임직원"],
     cautions: [
@@ -126,6 +140,7 @@ export type HotelFeatureGuideKey = keyof typeof hotelFeatureGuides;
 
 export const hotelFeatureGuideRoutes = {
   "/hotels/[hotelId]": "hotel-management.detail",
+  "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
   "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
 } as const satisfies Record<string, HotelFeatureGuideKey>;
 

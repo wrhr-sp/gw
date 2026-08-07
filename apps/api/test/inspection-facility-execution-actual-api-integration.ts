@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
 import {
   inspectionChecklistV2ResponseSchema,
   inspectionExecutionV2ListResponseSchema,
@@ -201,13 +202,82 @@ async function main() {
         }),
       },
     );
-    if (submitResponse.status !== 200)
-      throw new Error(`facility submit API failed: ${submitResponse.status}`);
+    if (submitResponse.status !== 200) {
+      const failure = (await submitResponse.json()) as {
+        error?: { code?: string; message?: string } | null;
+      };
+      throw new Error(
+        `facility submit API failed: ${submitResponse.status} ${failure.error?.code ?? "UNKNOWN"} ${failure.error?.message ?? ""}`,
+      );
+    }
     const submitted = inspectionExecutionV2ResponseSchema.parse(
       await submitResponse.json(),
     ).data.inspection;
     if (submitted.status !== "IN_REVIEW")
       throw new Error("facility submit API canonical state mismatch");
+
+    const repairSourceCreateResponse = await app.request(path, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: `__Host-hotel_session=${token}`,
+        "idempotency-key": "actual-api-facility-repair-source-1",
+      },
+      body,
+    });
+    if (repairSourceCreateResponse.status !== 201)
+      throw new Error(
+        `repair-source inspection API create failed: ${repairSourceCreateResponse.status}`,
+      );
+    const repairSourceInspection = inspectionExecutionV2ResponseSchema.parse(
+      await repairSourceCreateResponse.json(),
+    ).data.inspection;
+    const repairSourceTarget = repairSourceInspection.targets[0];
+    const repairSourceItem = repairSourceInspection.items[0];
+    if (!repairSourceTarget || !repairSourceItem)
+      throw new Error("repair-source inspection snapshot is incomplete");
+    const repairSourceResultResponse = await app.request(
+      `/api/hotels/${hotelId}/inspections/v2/${repairSourceInspection.id}/items/${repairSourceItem.id}/result`,
+      {
+        method: "PUT",
+        headers: {
+          "content-type": "application/json",
+          cookie: `__Host-hotel_session=${token}`,
+          "idempotency-key": "actual-api-facility-repair-result-1",
+        },
+        body: JSON.stringify({
+          itemSnapshotId: repairSourceItem.id,
+          version: 0,
+          result: "ABNORMAL",
+          description: "시설물 현장점검에서 실제 보수가 필요한 이상을 확인했습니다.",
+          severity: "MAJOR",
+          fileVersionIds: [],
+          changeReason: null,
+        }),
+      },
+    );
+    if (repairSourceResultResponse.status !== 200)
+      throw new Error(
+        `repair-source result API save failed: ${repairSourceResultResponse.status}`,
+      );
+    const repairSourceSaved = inspectionExecutionV2ResponseSchema.parse(
+      await repairSourceResultResponse.json(),
+    ).data.inspection;
+    const repairSourceResult = repairSourceSaved.items[0]?.result;
+    if (repairSourceResult?.result !== "ABNORMAL")
+      throw new Error("repair-source result read-back mismatch");
+    const repairSourcePath = `/tmp/werehere-repair-inspection-${createHash("sha256").update(fixturePath).digest("hex").slice(0, 16)}.json`;
+    await writeFile(
+      repairSourcePath,
+      JSON.stringify({
+        executionTargetId: repairSourceTarget.id,
+        facilityId,
+        inspectionId: repairSourceInspection.id,
+        itemSnapshotId: repairSourceItem.id,
+        resultVersion: repairSourceResult.version,
+      }),
+      { mode: 0o600 },
+    );
 
     const roomSourceItem = checklist?.items.find(
       (item) =>
