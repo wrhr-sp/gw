@@ -56,6 +56,9 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('getByRole("region", { name: "업무 처리 흐름" })');
     expect(source).toContain('getByLabel("상태 이름")');
     expect(source).toContain("Hosted process UI canonical read-back failed");
+    expect(source).toContain('const stageName = `Preview 확인 ${runSuffix}`;');
+    expect(source).toContain("await stateNames.nth(stateCount - 2).fill(stageName);");
+    expect(source).not.toContain("processFlow.getByText(stageName");
     expect(source).toContain("const hostedUiTimeoutMs = 120_000;");
     expect(source).toContain("{ waitUntil: \"domcontentloaded\", timeout: hostedUiTimeoutMs }");
     expect(source).toContain("{ timeout: hostedUiTimeoutMs }");
