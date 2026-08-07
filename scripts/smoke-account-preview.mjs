@@ -1037,10 +1037,14 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       throw new Error("Hosted process UI exposed internal stage keys");
     }
     journeyFailureCode = "PROCESS_WORKS_UI_SAVE";
+    const processMutationMethod = currentDefinition ? "PUT" : "POST";
+    const processMutationPath = currentDefinition
+      ? `/api/admin/process-definitions/${encodeURIComponent(currentDefinition.id)}`
+      : "/api/admin/process-definitions";
     const processMutationResponse = page.waitForResponse(
       (response) =>
-        response.request().method() === "POST" &&
-        response.url() === `${baseUrl}/api/admin/process-definitions`,
+        response.request().method() === processMutationMethod &&
+        response.url() === `${baseUrl}${processMutationPath}`,
       { timeout: hostedUiTimeoutMs },
     );
     await page

@@ -59,6 +59,15 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('const stageName = `Preview 확인 ${runSuffix}`;');
     expect(source).toContain("await stateNames.nth(stateCount - 2).fill(stageName);");
     expect(source).not.toContain("processFlow.getByText(stageName");
+    expect(source).toContain(
+      'const processMutationMethod = currentDefinition ? "PUT" : "POST";',
+    );
+    expect(source).toContain(
+      "response.request().method() === processMutationMethod",
+    );
+    expect(source).toContain(
+      "response.url() === `${baseUrl}${processMutationPath}`",
+    );
     expect(source).toContain("const hostedUiTimeoutMs = 120_000;");
     expect(source).toContain("{ waitUntil: \"domcontentloaded\", timeout: hostedUiTimeoutMs }");
     expect(source).toContain("{ timeout: hostedUiTimeoutMs }");
