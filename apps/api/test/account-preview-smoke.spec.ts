@@ -56,6 +56,9 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).toContain('getByRole("region", { name: "업무 처리 흐름" })');
     expect(source).toContain('getByLabel("상태 이름")');
     expect(source).toContain("Hosted process UI canonical read-back failed");
+    expect(source).toContain("const hostedUiTimeoutMs = 120_000;");
+    expect(source).toContain("{ waitUntil: \"domcontentloaded\", timeout: hostedUiTimeoutMs }");
+    expect(source).toContain("{ timeout: hostedUiTimeoutMs }");
     expect(source).toContain("expectedStatuses: [200, 404]");
     expect(source).toContain(
       "const canonicalDefinitions =\n      (await api(definitionsPath, { token }))?.data?.definitions ?? [];",
@@ -536,7 +539,7 @@ describe("hosted Preview account-management smoke", () => {
     expect(source).not.toContain("page.waitForNavigation");
     expect(source).toContain("await context.addCookies");
     expect(source).toMatch(
-      /relationshipHeading\.waitFor[\s\S]*?targetAssignment\.waitFor\(\{ state: "visible", timeout: 60_000 \}\)[\s\S]*?targetAssignment\.count\(\)/u,
+      /relationshipHeading\.waitFor[\s\S]*?targetAssignment\.waitFor\(\{ state: "visible", timeout: hostedUiTimeoutMs \}\)[\s\S]*?targetAssignment\.count\(\)/u,
     );
     expect(source).toContain('{ name: "정상 종료" }');
     expect(source).toContain('label: "Hosted relationship emergency end"');

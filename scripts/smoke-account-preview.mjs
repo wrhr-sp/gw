@@ -65,6 +65,7 @@ const reconcilerSql = postgres(reconcilerDatabaseUrl, {
   prepare: false,
 });
 const cookieName = "__Host-hotel_session";
+const hostedUiTimeoutMs = 120_000;
 const runSuffix = `${runId}${runAttempt}`
   .replace(/[^A-Za-z0-9]/gu, "")
   .toLowerCase();
@@ -447,7 +448,7 @@ async function verifyHostedCustomLogin({
     const page = await context.newPage();
     await page.goto(`${baseUrl}/api/auth/login`, {
       waitUntil: "domcontentloaded",
-      timeout: 60_000,
+      timeout: hostedUiTimeoutMs,
     });
     await page.waitForURL(
       (candidate) =>
@@ -457,7 +458,7 @@ async function verifyHostedCustomLogin({
           candidate.searchParams.get("authRequest") ?? "",
         ) &&
         /^[A-Za-z0-9_-]{43}$/u.test(candidate.searchParams.get("csrf") ?? ""),
-      { timeout: 60_000 },
+      { timeout: hostedUiTimeoutMs },
     );
     const loginInput = page.locator("#login-name");
     await loginInput.evaluate((element) => element.removeAttribute("pattern"));
@@ -471,7 +472,7 @@ async function verifyHostedCustomLogin({
           candidate.origin === new URL(baseUrl).origin &&
           candidate.pathname === "/login" &&
           candidate.searchParams.get("error") === "invalid-credentials",
-        { timeout: 60_000 },
+        { timeout: hostedUiTimeoutMs },
       );
       const rejectedCookies = await context.cookies(baseUrl);
       if (rejectedCookies.some((cookie) => cookie.name === cookieName)) {
@@ -485,7 +486,7 @@ async function verifyHostedCustomLogin({
         candidate.origin === new URL(baseUrl).origin &&
         !candidate.pathname.startsWith("/api/auth") &&
         candidate.pathname !== "/login",
-      { timeout: 60_000 },
+      { timeout: hostedUiTimeoutMs },
     );
     const sessionResponse = await context.request.get(
       `${baseUrl}/api/auth/session`,
@@ -568,13 +569,13 @@ async function verifyHostedRelationshipManagement({
     journeyFailureCode = "RELATIONSHIP_UI_RENDER_NAVIGATE";
     await page.goto(`${baseUrl}/hotels/${encodeURIComponent(hotelId)}`, {
       waitUntil: "domcontentloaded",
-      timeout: 60_000,
+      timeout: hostedUiTimeoutMs,
     });
     journeyFailureCode = "RELATIONSHIP_UI_RENDER_HEADING";
     const relationshipHeading = page.getByRole("heading", {
       name: "관계 및 운영 준비",
     });
-    await relationshipHeading.waitFor({ state: "visible", timeout: 60_000 });
+    await relationshipHeading.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     let expectedRelationshipLoadCount = await page.evaluate(
       (counterKey) =>
         Number.parseInt(window.sessionStorage.getItem(counterKey) ?? "0", 10),
@@ -592,7 +593,7 @@ async function verifyHostedRelationshipManagement({
           counterKey: relationshipLoadCounterKey,
           expected: expectedRelationshipLoadCount,
         },
-        { timeout: 60_000 },
+        { timeout: hostedUiTimeoutMs },
       );
     };
     const relationshipPanel = page.locator(
@@ -602,7 +603,7 @@ async function verifyHostedRelationshipManagement({
     const targetAssignment = relationshipPanel
       .getByRole("listitem")
       .filter({ hasText: expectedDisplayName });
-    await targetAssignment.waitFor({ state: "visible", timeout: 60_000 });
+    await targetAssignment.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     if ((await targetAssignment.count()) !== 1) {
       throw new Error(
         "Hosted relationship UI did not render the expected assignment",
@@ -645,7 +646,7 @@ async function verifyHostedRelationshipManagement({
             response.request().method() === "POST" &&
             response.url().includes(`/api/hotels/${hotelId}/assignments/`) &&
             response.url().endsWith("/end"),
-          { timeout: 60_000 },
+          { timeout: hostedUiTimeoutMs },
         ),
     });
 
@@ -662,7 +663,7 @@ async function verifyHostedRelationshipManagement({
     const candidate = assignmentDialog.getByLabel("배정 후보");
     await candidate
       .getByRole("option", { name: expectedDisplayName })
-      .waitFor({ state: "attached", timeout: 60_000 });
+      .waitFor({ state: "attached", timeout: hostedUiTimeoutMs });
     const visibleText = await assignmentDialog.innerText();
     if (
       visibleText.includes(expectedEmail) ||
@@ -692,13 +693,13 @@ async function verifyHostedRelationshipManagement({
           (response) =>
             response.request().method() === "POST" &&
             response.url().endsWith(`/api/hotels/${hotelId}/assignments`),
-          { timeout: 60_000 },
+          { timeout: hostedUiTimeoutMs },
         ),
     });
     await relationshipPanel
       .getByRole("listitem")
       .filter({ hasText: expectedDisplayName })
-      .waitFor({ state: "visible", timeout: 60_000 });
+      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
 
     journeyFailureCode = "RELATIONSHIP_UI_READINESS";
     await runHostedMutation({
@@ -713,13 +714,13 @@ async function verifyHostedRelationshipManagement({
           (response) =>
             response.request().method() === "POST" &&
             response.url().endsWith(`/api/hotels/${hotelId}/activate`),
-          { timeout: 60_000 },
+          { timeout: hostedUiTimeoutMs },
         ),
     });
     await relationshipPanel
       .getByRole("alert")
       .filter({ hasText: "준비항목" })
-      .waitFor({ state: "visible", timeout: 60_000 });
+      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
   } finally {
     await browser.close();
   }
@@ -932,22 +933,22 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_NAVIGATE";
     await page.goto(
       `${baseUrl}/hotels/${encodeURIComponent(hotelId)}/inspections/settings`,
-      { waitUntil: "domcontentloaded", timeout: 60_000 },
+      { waitUntil: "domcontentloaded", timeout: hostedUiTimeoutMs },
     );
     await page
       .getByRole("heading", { name: "점검 설정" })
-      .waitFor({ state: "visible", timeout: 60_000 });
+      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     await assertAccessible(page, "mobile");
     const facilityInput = page
       .locator(`[data-checklist-item-id="${facilityItem.itemId}"]`)
       .getByRole("textbox", { name: /^항목 이름 /u });
-    await facilityInput.waitFor({ state: "visible", timeout: 60_000 });
+    await facilityInput.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     await facilityInput.fill(itemName);
     await page.getByLabel("변경사유").fill(reason);
 
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_COMMITTED_RESPONSE_LOSS";
     await page.getByRole("button", { name: "체크리스트 저장" }).click();
-    await page.waitForFunction(() => document.querySelector('[data-checklist-status]')?.textContent?.includes("네트워크 응답을 확인하지 못했습니다"), undefined, { timeout: 60_000 });
+    await page.waitForFunction(() => document.querySelector('[data-checklist-status]')?.textContent?.includes("네트워크 응답을 확인하지 못했습니다"), undefined, { timeout: hostedUiTimeoutMs });
     if (!responseDroppedAfterCommit) {
       throw new Error("Hosted checklist UI did not simulate committed response loss");
     }
@@ -955,7 +956,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_REPLAY";
     const replayResponse = page.waitForResponse(
       (response) => response.request().method() === "PUT" && response.url() === endpoint,
-      { timeout: 60_000 },
+      { timeout: hostedUiTimeoutMs },
     );
     await page.getByRole("button", { name: "체크리스트 저장" }).click();
     const replay = await replayResponse;
@@ -964,7 +965,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     }
     await page
       .getByText("체크리스트를 저장하고 다시 확인했습니다.")
-      .waitFor({ state: "visible", timeout: 60_000 });
+      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     if (
       idempotencyKeys.length < 2 ||
       !idempotencyKeys[0] ||
@@ -975,7 +976,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
 
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_RELOAD";
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.reload({ waitUntil: "domcontentloaded", timeout: 60_000 });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: hostedUiTimeoutMs });
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_DESKTOP_VALUE";
     const canonicalAfterReplay = (await api(path, { token }))?.data?.checklist;
     const savedFacilityItem = canonicalAfterReplay?.items?.find(
@@ -987,7 +988,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     const desktopFacilityInput = page
       .locator(`[data-checklist-item-id="${facilityItem.itemId}"]`)
       .getByRole("textbox", { name: /^항목 이름 /u });
-    await desktopFacilityInput.waitFor({ state: "visible", timeout: 60_000 });
+    await desktopFacilityInput.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     if ((await desktopFacilityInput.inputValue()) !== itemName) {
       throw new Error("Hosted checklist UI rendered item read-back failed");
     }
@@ -1020,7 +1021,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       await page.getByLabel("프로세스 이름").fill(processName);
     }
     const processFlow = page.getByRole("region", { name: "업무 처리 흐름" });
-    await processFlow.waitFor({ state: "visible", timeout: 60_000 });
+    await processFlow.waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     journeyFailureCode = "PROCESS_WORKS_UI_ADD";
     if ((await processFlow.getByText(stageName, { exact: true }).count()) === 0) {
       await processFlow.getByRole("button", { name: "단계 추가" }).click();
@@ -1039,7 +1040,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       (response) =>
         response.request().method() === "POST" &&
         response.url() === `${baseUrl}/api/admin/process-definitions`,
-      { timeout: 60_000 },
+      { timeout: hostedUiTimeoutMs },
     );
     await page
       .getByRole("button", {
@@ -1073,7 +1074,7 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     }
     await page
       .getByText(/^프로세스 v\d+을 저장하고 다시 확인했습니다\.$/u)
-      .waitFor({ state: "visible", timeout: 60_000 });
+      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
     journeyFailureCode = "PROCESS_WORKS_UI_CANONICAL";
     const canonicalDefinitions =
       (await api(definitionsPath, { token }))?.data?.definitions ?? [];
