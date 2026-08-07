@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@fullcalendar/react/skeleton.css";
 @import "@werehere/ui/styles.css";
 
 @font-face {
@@ -30,5 +31,38 @@
   a {
     color: inherit;
     text-decoration: none;
+  }
+}
+
+@layer components {
+  .calendar-surface button,
+  .calendar-surface [role="button"] {
+    min-height: 44px;
+  }
+
+  .calendar-surface [role="gridcell"]:focus-visible,
+  .calendar-surface [role="button"]:focus-visible,
+  .calendar-surface button:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .calendar-event--inspection {
+    border-color: var(--color-accent) !important;
+    background: color-mix(in srgb, var(--color-accent) 16%, white) !important;
+    color: var(--color-foreground) !important;
+  }
+
+  .calendar-event--repair_visit {
+    border-color: var(--color-primary) !important;
+    background: var(--color-primary) !important;
+    color: white !important;
+  }
+
+  .calendar-event--cancelled {
+    border-color: var(--color-muted) !important;
+    background: color-mix(in srgb, var(--color-muted) 18%, white) !important;
+    color: var(--color-muted) !important;
+    text-decoration: line-through;
   }
 }

@@ -46,7 +46,7 @@ export function createPostgresRepairRepository(databaseUrl: string): RepairRepos
   const sql = postgres(databaseUrl, { connect_timeout: 5, idle_timeout: 20, max: 5, prepare: false });
   async function context<T>(companyId: string, sessionId: string, run: (transaction: postgres.TransactionSql) => Promise<T>) {
     return sql.begin(async (transaction) => {
-      await transaction`select set_config('app.company_id', ${companyId}, true), set_config('app.session_id', ${sessionId}, true)`;
+      await transaction`select set_config('app.company_id', ${companyId}, true), set_config('app.session_id', ${sessionId}, true), set_config('TimeZone', 'Asia/Seoul', true)`;
       return run(transaction);
     });
   }

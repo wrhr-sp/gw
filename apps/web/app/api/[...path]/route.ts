@@ -29,6 +29,8 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["auth/logout", new Set(["POST"])],
   ["health/live", new Set(["GET"])],
   ["health/ready", new Set(["GET"])],
+  ["calendar", new Set(["GET"])],
+  ["calendar/capabilities", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -74,6 +76,9 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   ) {
     return new Set(["POST"]);
   }
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/calendar(?:/visit-options)?$`, "iu").test(apiPath)
+  ) return new Set(["GET"]);
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs$`, "iu").test(apiPath)
   ) return new Set(["GET", "POST"]);
@@ -374,8 +379,10 @@ async function proxy(
     apiPath === "admin/users" ||
     apiPath.startsWith("admin/users/") ||
     apiPath === "account/initial-password";
+  const calendarRequest =
+    apiPath === "calendar" || apiPath === "calendar/capabilities";
   const databaseRequest =
-    hotelRequest || accountRequest || apiPath === "health/ready";
+    hotelRequest || accountRequest || calendarRequest || apiPath === "health/ready";
   const exchangeFailureHeaders =
     apiPath === "auth/password/exchange"
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }

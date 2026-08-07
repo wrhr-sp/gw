@@ -47,6 +47,22 @@ const previewHotelFacilityReadGrantId =
   "73000000-0000-4000-8000-000000000013";
 const previewProcessDefinitionManageGrantId =
   "73000000-0000-4000-8000-000000000014";
+const previewHotelCalendarReadGrantId =
+  "73000000-0000-4000-8000-000000000015";
+const previewHotelCalendarAllReadGrantId =
+  "73000000-0000-4000-8000-000000000016";
+const previewRepairVisitCancelledReadGrantId =
+  "73000000-0000-4000-8000-000000000017";
+const previewRepairVisitCancelReasonReadGrantId =
+  "73000000-0000-4000-8000-000000000018";
+const previewRepairReadGrantId =
+  "73000000-0000-4000-8000-000000000019";
+const previewRepairVisitCreateGrantId =
+  "73000000-0000-4000-8000-000000000020";
+const previewRepairVisitUpdateGrantId =
+  "73000000-0000-4000-8000-000000000021";
+const previewRepairVisitDeleteGrantId =
+  "73000000-0000-4000-8000-000000000022";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
@@ -538,6 +554,7 @@ try {
       "0041_hotel_inspection_facility_execution_contract.sql",
     ],
     ["0042_hotel_repair_lifecycle", "0042_hotel_repair_lifecycle.sql"],
+    ["0043_hotel_calendar_read_model", "0043_hotel_calendar_read_model.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -1281,6 +1298,34 @@ try {
     `;
     const facilityReadPermissionReady =
       facilityReadPermission?.code === "HOTEL_FACILITY_READ";
+    const calendarPermissionRows = await sql<{ code: string }[]>`
+      select code from permissions
+       where code in (
+         'HOTEL_CALENDAR_READ', 'HOTEL_CALENDAR_ALL_READ',
+         'REPAIR_VISIT_CANCELLED_READ', 'REPAIR_VISIT_CANCEL_REASON_READ'
+       )
+       order by code
+    `;
+    const repairVisitPermissionRows = await sql<{ code: string }[]>`
+      select code from permissions
+       where code in (
+         'REPAIR_READ', 'REPAIR_VISIT_CREATE', 'REPAIR_VISIT_UPDATE',
+         'REPAIR_VISIT_DELETE'
+       )
+       order by code
+    `;
+    const calendarPermissionCodes = new Set(
+      calendarPermissionRows.map((permission) => permission.code),
+    );
+    const repairVisitPermissionCodes = new Set(
+      repairVisitPermissionRows.map((permission) => permission.code),
+    );
+    if (calendarPermissionCodes.size !== 0 && calendarPermissionCodes.size !== 4)
+      fail("Preview Calendar permission catalog is partially provisioned");
+    if (repairVisitPermissionCodes.size !== 0 && repairVisitPermissionCodes.size !== 4)
+      fail("Preview repair visit permission catalog is partially provisioned");
+    const calendarPermissionsReady =
+      calendarPermissionCodes.size === 4 && repairVisitPermissionCodes.size === 4;
     await sql`
         insert into permission_grants (
           id, company_id, branch_id, subject_type, subject_id,
@@ -1317,6 +1362,23 @@ try {
         on conflict (id) do nothing
       `;
     }
+    if (calendarPermissionsReady) {
+      await sql`
+        insert into permission_grants (
+          id, company_id, branch_id, subject_type, subject_id,
+          permission_code, effect, valid_from, valid_until, granted_by, reason
+        ) values
+          (${previewHotelCalendarReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_CALENDAR_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 업무달력 조회 권한'),
+          (${previewHotelCalendarAllReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'HOTEL_CALENDAR_ALL_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 전체호텔 달력 조회 권한'),
+          (${previewRepairVisitCancelledReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CANCELLED_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 취소 방문일정 조회 권한'),
+          (${previewRepairVisitCancelReasonReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CANCEL_REASON_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소사유 조회 권한'),
+          (${previewRepairReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 보수 조회 권한'),
+          (${previewRepairVisitCreateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CREATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 등록 권한'),
+          (${previewRepairVisitUpdateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_UPDATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 변경 권한'),
+          (${previewRepairVisitDeleteGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_DELETE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소·복구 권한')
+        on conflict (id) do nothing
+      `;
+    }
     const relationshipGrants = await sql<
       {
         branch_id: string | null;
@@ -1344,7 +1406,15 @@ try {
           ${previewHotelInspectionRunGrantId}::uuid,
           ${previewHotelInspectionConfigGrantId}::uuid,
           ${previewHotelFacilityReadGrantId}::uuid,
-          ${previewProcessDefinitionManageGrantId}::uuid
+          ${previewProcessDefinitionManageGrantId}::uuid,
+          ${previewHotelCalendarReadGrantId}::uuid,
+          ${previewHotelCalendarAllReadGrantId}::uuid,
+          ${previewRepairVisitCancelledReadGrantId}::uuid,
+          ${previewRepairVisitCancelReasonReadGrantId}::uuid,
+          ${previewRepairReadGrantId}::uuid,
+          ${previewRepairVisitCreateGrantId}::uuid,
+          ${previewRepairVisitUpdateGrantId}::uuid,
+          ${previewRepairVisitDeleteGrantId}::uuid
         )
         order by permission_code
       `;
@@ -1372,6 +1442,16 @@ try {
         "HOTEL_FACILITY_READ",
         previewHotelFacilityReadGrantId,
       );
+    }
+    if (calendarPermissionsReady) {
+      exactRelationshipGrants.set("HOTEL_CALENDAR_READ", previewHotelCalendarReadGrantId);
+      exactRelationshipGrants.set("HOTEL_CALENDAR_ALL_READ", previewHotelCalendarAllReadGrantId);
+      exactRelationshipGrants.set("REPAIR_VISIT_CANCELLED_READ", previewRepairVisitCancelledReadGrantId);
+      exactRelationshipGrants.set("REPAIR_VISIT_CANCEL_REASON_READ", previewRepairVisitCancelReasonReadGrantId);
+      exactRelationshipGrants.set("REPAIR_READ", previewRepairReadGrantId);
+      exactRelationshipGrants.set("REPAIR_VISIT_CREATE", previewRepairVisitCreateGrantId);
+      exactRelationshipGrants.set("REPAIR_VISIT_UPDATE", previewRepairVisitUpdateGrantId);
+      exactRelationshipGrants.set("REPAIR_VISIT_DELETE", previewRepairVisitDeleteGrantId);
     }
     if (
       relationshipGrants.length !== exactRelationshipGrants.size ||
@@ -1743,15 +1823,18 @@ try {
     fail("Preview inspection checklist target marker state is unavailable");
   }
   const [repairLifecycleState] = await owner<
-    { hotel_repair_lifecycle_marker_count: number }[]
+    { hotel_calendar_read_model_marker_count: number; hotel_repair_lifecycle_marker_count: number }[]
   >`
     select count(*) filter (
       where version = '0042_hotel_repair_lifecycle'
-    )::integer as hotel_repair_lifecycle_marker_count
+    )::integer as hotel_repair_lifecycle_marker_count,
+    count(*) filter (
+      where version = '0043_hotel_calendar_read_model'
+    )::integer as hotel_calendar_read_model_marker_count
     from public.schema_migrations
   `;
-  if (!repairLifecycleState) {
-    fail("Preview repair lifecycle marker state is unavailable");
+  if (!repairLifecycleState || repairLifecycleState.hotel_calendar_read_model_marker_count !== 1) {
+    fail("Preview repair or Calendar lifecycle marker state is unavailable");
   }
   if (
     inspectionTargetChecklistState.facilityExecutionContract &&
@@ -2272,7 +2355,13 @@ try {
              'hotel_repair_visit_command_v1',
              'hotel_repair_transition_v1',
              'hotel_repair_file_upload_init_v1',
-             'hotel_repair_file_view_command_v1'
+             'hotel_repair_file_view_command_v1',
+             'hotel_calendar_actor_v1',
+             'hotel_calendar_permission_allowed_v1',
+             'hotel_calendar_accessible_hotels_v1',
+             'hotel_calendar_capabilities_v1',
+             'hotel_calendar_events_read_v1',
+             'hotel_calendar_visit_options_read_v1'
            )
            and acl.privilege_type = 'EXECUTE'
            and acl.grantee <> procedure_record.proowner
@@ -2318,6 +2407,15 @@ try {
     ) to ${apiRuntimeRole};`
         : ""
     }
+    grant execute on function public.hotel_calendar_capabilities_v1(
+      uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_calendar_events_read_v1(
+      uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_calendar_visit_options_read_v1(
+      uuid, uuid, text
+    ) to ${apiRuntimeRole};
     grant execute on function public.hotel_process_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid

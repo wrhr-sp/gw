@@ -1,5 +1,9 @@
 import {
   accountListQuerySchema,
+  calendarCapabilitiesResponseSchema,
+  calendarEventsQuerySchema,
+  calendarEventsResponseSchema,
+  calendarVisitOptionsResponseSchema,
   activateHotelRequestSchema,
   changeHotelRoomStatusRequestSchema,
   changeHotelFacilityReferenceStatusRequestSchema,
@@ -139,11 +143,14 @@ import {
 import { RoomServiceError, type RoomService } from "./rooms/service";
 import { createRepairServiceFromBindings, type RepairBindings } from "./repairs/factory";
 import { RepairServiceError, type RepairService } from "./repairs/service";
+import { createCalendarServiceFromBindings, type CalendarBindings } from "./calendars/factory";
+import { CalendarServiceError, type CalendarService } from "./calendars/service";
 import { resolveDatabaseUrl } from "./database";
 
 type Bindings = AccountBindings &
   AuthBindings &
   HotelBindings &
+  CalendarBindings &
   InspectionBindings &
   RepairBindings &
   RoomBindings;
@@ -159,6 +166,7 @@ type InjectedAuthService = AuthService &
 
 type CreateAppOptions = {
   accountService?: AccountService;
+  calendarService?: CalendarService;
   authService?: InjectedAuthService;
   databaseUrl?: string;
   hotelService?: HotelService;
@@ -304,6 +312,10 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.repairService ?? createRepairServiceFromBindings(bindings);
   }
 
+  function getCalendarService(bindings: Bindings | undefined) {
+    return options.calendarService ?? createCalendarServiceFromBindings(bindings);
+  }
+
   function getHotelFileService(bindings: Bindings | undefined) {
     return (
       options.hotelFileService ?? createHotelFileServiceFromBindings(bindings)
@@ -391,6 +403,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.repairService) await service.close?.();
+    }
+  }
+
+  async function withCalendarService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: CalendarService) => Promise<T>,
+  ): Promise<T> {
+    const service = getCalendarService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.calendarService) await service.close?.();
     }
   }
 
@@ -516,6 +540,7 @@ export function createApp(options: CreateAppOptions = {}) {
       error instanceof FileStorageError ||
       error instanceof HotelServiceError ||
       error instanceof InspectionServiceError ||
+      error instanceof CalendarServiceError ||
       error instanceof RepairServiceError ||
       error instanceof FacilityServiceError ||
       error instanceof RoomServiceError
@@ -619,6 +644,27 @@ export function createApp(options: CreateAppOptions = {}) {
         "입력값을 확인해 주세요.",
         false,
         fieldErrors,
+      ),
+      400,
+    );
+  }
+
+  function calendarRangeFailure(
+    context: Context<{ Bindings: Bindings }>,
+  ) {
+    const { from, to } = context.req.query();
+    if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/u.test(from) || !/^\d{4}-\d{2}-\d{2}$/u.test(to))
+      return null;
+    const days = (Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000;
+    const code = days > 42 ? "CALENDAR_RANGE_TOO_LARGE" : days <= 0 ? "CALENDAR_RANGE_INVALID" : null;
+    if (!code) return null;
+    return context.json(
+      errorResponse(
+        code,
+        code === "CALENDAR_RANGE_TOO_LARGE"
+          ? "달력 조회기간은 최대 42일입니다."
+          : "달력 조회기간을 확인해 주세요.",
+        false,
       ),
       400,
     );
@@ -4242,6 +4288,80 @@ export function createApp(options: CreateAppOptions = {}) {
           error: null,
         }),
       );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/calendar/capabilities", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const data = await withCalendarService(context.env, (service) =>
+        service.getCapabilities(roomMutationPrincipal(context, principal)),
+      );
+      return context.json(calendarCapabilitiesResponseSchema.parse({ ok: true, data, error: null }));
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/calendar", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const query = calendarEventsQuerySchema.safeParse(context.req.query());
+      if (!query.success) {
+        const rangeFailure = calendarRangeFailure(context);
+        return rangeFailure ?? validationFailure(context, zodFieldErrors(query.error.issues));
+      }
+      const data = await withCalendarService(context.env, (service) =>
+        service.listAllEvents(roomMutationPrincipal(context, principal), query.data),
+      );
+      return context.json(calendarEventsResponseSchema.parse({ ok: true, data, error: null }));
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/calendar/visit-options", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      const data = await withCalendarService(context.env, (service) =>
+        service.getVisitOptions(roomMutationPrincipal(context, principal), hotelId.data),
+      );
+      return context.json(calendarVisitOptionsResponseSchema.parse({ ok: true, data, error: null }));
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+
+  hotelApp.get("/api/hotels/:hotelId/calendar", async (context) => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const principal = await requestPrincipal(context);
+      if (!principal) return context.json(errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false), 401);
+      const hotelId = HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));
+      const query = calendarEventsQuerySchema.safeParse(context.req.query());
+      if (!hotelId.success) return mutationFailure(context, "NOT_FOUND");
+      if (!query.success) {
+        const rangeFailure = calendarRangeFailure(context);
+        return rangeFailure ?? validationFailure(context, zodFieldErrors(query.error.issues));
+      }
+      const data = await withCalendarService(context.env, (service) =>
+        service.listHotelEvents(roomMutationPrincipal(context, principal), hotelId.data, query.data),
+      );
+      return context.json(calendarEventsResponseSchema.parse({ ok: true, data, error: null }));
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);
       return hotelFailure(context, error);

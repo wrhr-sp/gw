@@ -71,6 +71,25 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-calendar.workspace": {
+    audience: ["업무 달력 조회권한과 현재 호텔배정 또는 연결이 있는 사용자"],
+    cautions: [
+      "점검은 실제 마감시각에 표시되며 별도의 종료시각을 만들어 표시하지 않습니다.",
+      "하우스키핑 사용자는 권한 있는 점검과 본인에게 배정된 방문일정만 확인할 수 있습니다.",
+      "Google 미연결 상태에서도 그룹웨어 일정은 PostgreSQL 정본으로 정상 저장됩니다.",
+    ],
+    featureKey: "hotel-calendar.workspace",
+    permissions: ["달력 조회권한과 점검·보수 자료별 조회권한을 요청마다 다시 확인합니다."],
+    steps: [
+      "월간 또는 주간 보기에서 점검 마감과 보수 방문일정을 확인합니다.",
+      "일정을 선택해 호텔, 시간, 대상과 현재 상태를 확인합니다.",
+      "방문일정 등록권한이 있으면 진행 중인 보수 건과 수행자를 선택해 일정을 저장합니다.",
+      "모바일에서는 선택 날짜의 현장업무 카드를 순서대로 확인합니다.",
+    ],
+    summary: "권한 있는 호텔의 점검 마감과 보수 방문일정을 월간·주간 또는 날짜별 카드로 확인합니다.",
+    title: "업무 달력",
+    version: "1.0",
+  },
   "hotel-repair.lifecycle": {
     audience: ["보수 조회·등록·방문·완료 권한과 현재 호텔배정이 있는 사내 임직원"],
     cautions: [
@@ -139,6 +158,8 @@ export const hotelFeatureGuides = {
 export type HotelFeatureGuideKey = keyof typeof hotelFeatureGuides;
 
 export const hotelFeatureGuideRoutes = {
+  "/hotels/calendar": "hotel-calendar.workspace",
+  "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
   "/hotels/[hotelId]": "hotel-management.detail",
   "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
   "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
