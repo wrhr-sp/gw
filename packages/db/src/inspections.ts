@@ -50,6 +50,9 @@ export interface InspectionRepository {
   command(input: InspectionCommandInput): Promise<InspectionCommandResult>;
   commandV3?(input: InspectionCommandInput): Promise<InspectionCommandResult>;
   fileCommand(input: InspectionCommandInput): Promise<InspectionCommandResult>;
+  repairFileUploadInit?(
+    input: InspectionCommandInput,
+  ): Promise<InspectionCommandResult>;
   fileUploadScope?(input: {
     companyId: string;
     sessionId: string;
@@ -74,6 +77,20 @@ export interface InspectionRepository {
     grantId: string;
     hotelId: string;
     inspectionId: string;
+    sessionId: string;
+    sessionToken: string;
+    traceId: string;
+  }): Promise<InspectionCommandResult>;
+  repairFileViewCommand?(input: {
+    action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED";
+    alertAuditEventId: string;
+    auditEventId: string;
+    companyId: string;
+    completionToken: string;
+    fileVersionId: string;
+    grantId: string;
+    hotelId: string;
+    repairId: string;
     sessionId: string;
     sessionToken: string;
     traceId: string;
@@ -311,6 +328,27 @@ export function createPostgresInspectionRepository(
         );
       });
     },
+    async repairFileUploadInit(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_repair_file_upload_init_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.resourceId}::uuid, ${input.action}::text,
+              ${input.expectedVersion}::integer,
+              ${transaction.json(input.value as never)}::jsonb,
+              ${input.sessionToken}::text, ${input.idempotencyRecordId}::uuid,
+              ${input.idempotencyKey}::text, ${input.httpMethod}::text,
+              ${input.operationPath}::text, ${input.requestHash}::text,
+              ${input.auditEventId}::uuid, ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
     async fileUploadScope(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -354,6 +392,26 @@ export function createPostgresInspectionRepository(
             select * from public.hotel_file_view_command_v1(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.inspectionId}::uuid, ${input.fileVersionId}::uuid,
+              ${input.action}::text, ${input.sessionToken}::text,
+              ${input.grantId}::uuid, ${input.completionToken}::text,
+              ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,
+              ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
+
+    async repairFileViewCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`
+          select set_config('app.session_id', ${input.sessionId}, true)
+        `;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_repair_file_view_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.repairId}::uuid, ${input.fileVersionId}::uuid,
               ${input.action}::text, ${input.sessionToken}::text,
               ${input.grantId}::uuid, ${input.completionToken}::text,
               ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,

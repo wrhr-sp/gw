@@ -85,4 +85,11 @@ export {
   type UpdateRoomInput,
   type UpdateRoomTypeInput,
 } from "./rooms";
+export {
+  createPostgresRepairRepository,
+  type RepairCommandInput,
+  type RepairReadInput,
+  type RepairRepository,
+  type RepairRepositoryResult,
+} from "./repairs";
 export { probeDatabaseReadiness, type DatabaseReadiness } from "./client";

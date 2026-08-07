@@ -75,6 +75,33 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["POST"]);
   }
   if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs$`, "iu").test(apiPath)
+  ) return new Set(["GET", "POST"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-priorities$`, "iu").test(apiPath)
+  ) return new Set(["GET"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
+  ) return new Set(["GET"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/(?:follow-ups|complete|submit-review)$`, "iu").test(apiPath)
+  ) return apiPath.endsWith("follow-ups") ? new Set(["GET"]) : new Set(["POST"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`, "iu").test(apiPath)
+  ) return new Set(["GET"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/process/transition$`, "iu").test(apiPath)
+  ) return new Set(["POST"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits$`, "iu").test(apiPath)
+  ) return new Set(["POST"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
+  ) return new Set(["PATCH"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}/(?:cancel|restore|delete|complete)$`, "iu").test(apiPath)
+  ) return new Set(["POST"]);
+  if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspection-reviews$`, "iu").test(
       apiPath,
     )

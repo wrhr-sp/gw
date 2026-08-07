@@ -47,6 +47,8 @@ const previewHotelFacilityReadGrantId =
   "73000000-0000-4000-8000-000000000013";
 const previewProcessDefinitionManageGrantId =
   "73000000-0000-4000-8000-000000000014";
+const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
+  "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -54,6 +56,10 @@ const provisionPhase =
 
 function fail(message: string): never {
   throw new Error(message);
+}
+
+if (!/^[0-9a-f]{64}$/u.test(HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)) {
+  fail("Preview repair lifecycle catalog digest is invalid");
 }
 
 const previewBootstrapLoginIdResult = loginIdSchema.safeParse(
@@ -531,6 +537,7 @@ try {
       "0041_hotel_inspection_facility_execution_contract",
       "0041_hotel_inspection_facility_execution_contract.sql",
     ],
+    ["0042_hotel_repair_lifecycle", "0042_hotel_repair_lifecycle.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -554,6 +561,7 @@ try {
     "0036_hotel_facility_master_data",
     "0037_hotel_inspection_execution_targets",
     "0041_hotel_inspection_facility_execution_contract",
+    "0042_hotel_repair_lifecycle",
   ]);
   const prerequisiteGatedExpandMigrations = new Set([
     "0038_hotel_inspection_checklist_targets",
@@ -1734,6 +1742,17 @@ try {
   if (!inspectionTargetChecklistState) {
     fail("Preview inspection checklist target marker state is unavailable");
   }
+  const [repairLifecycleState] = await owner<
+    { hotel_repair_lifecycle_marker_count: number }[]
+  >`
+    select count(*) filter (
+      where version = '0042_hotel_repair_lifecycle'
+    )::integer as hotel_repair_lifecycle_marker_count
+    from public.schema_migrations
+  `;
+  if (!repairLifecycleState) {
+    fail("Preview repair lifecycle marker state is unavailable");
+  }
   if (
     inspectionTargetChecklistState.facilityExecutionContract &&
     !inspectionTargetChecklistState.facilityExecution
@@ -2246,7 +2265,14 @@ try {
              'hotel_inspection_reviews_read_v1',
              'hotel_inspection_transition_v1',
              'hotel_file_view_command_v1',
-             'hotel_file_access_recover_expired_v1'
+             'hotel_file_access_recover_expired_v1',
+             'hotel_repair_read_v1',
+             'hotel_repair_priority_command_v1',
+             'hotel_repair_case_command_v1',
+             'hotel_repair_visit_command_v1',
+             'hotel_repair_transition_v1',
+             'hotel_repair_file_upload_init_v1',
+             'hotel_repair_file_view_command_v1'
            )
            and acl.privilege_type = 'EXECUTE'
            and acl.grantee <> procedure_record.proowner
@@ -2267,6 +2293,31 @@ try {
     end
     $exact_inspection_command_acl$;
 
+    ${
+      repairLifecycleState.hotel_repair_lifecycle_marker_count === 1
+        ? `grant execute on function public.hotel_repair_read_v1(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_priority_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_case_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_visit_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_transition_v1(
+      uuid, uuid, uuid, integer, jsonb, text, uuid, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_file_upload_init_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_repair_file_view_command_v1(
+      uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
     grant execute on function public.hotel_process_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid

@@ -393,6 +393,19 @@ export interface HotelFileService {
     hotelId: string,
     inspectionId: string,
     fileVersionId: string,
+    parentType?: "INSPECTION" | "REPAIR",
+  ): Promise<{
+    body: ReadableStream<Uint8Array>;
+    displayName: string;
+    etag: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  repairView(
+    principal: FilePrincipal,
+    hotelId: string,
+    repairId: string,
+    fileVersionId: string,
   ): Promise<{
     body: ReadableStream<Uint8Array>;
     displayName: string;
@@ -447,7 +460,18 @@ export function createHotelFileService(
     path: string,
     idempotencyKey: string,
   ) {
-    const result = await repository.fileCommand({
+    const repairInit =
+      action === "UPLOAD_INIT" &&
+      typeof value === "object" &&
+      value !== null &&
+      "parentType" in value &&
+      (value as { parentType?: unknown }).parentType !== "INSPECTION_ITEM_EVIDENCE"
+        ? (repository as InspectionRepository & {
+            repairFileUploadInit?: InspectionRepository["fileCommand"];
+          }).repairFileUploadInit
+        : undefined;
+    const command = repairInit ?? repository.fileCommand;
+    const result = await command({
       action,
       auditEventId: crypto.randomUUID(),
       companyId: principal.companyId,
@@ -476,16 +500,15 @@ export function createHotelFileService(
   async function viewCommand(
     principal: FilePrincipal,
     hotelId: string,
-    inspectionId: string,
+    parentType: "INSPECTION" | "REPAIR",
+    parentId: string,
     fileVersionId: string,
     action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED",
     traceId: string,
     grantId: string,
     completionToken: string,
   ) {
-    const command = repository.fileViewCommand;
-    if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-    return command({
+    const shared = {
       action,
       alertAuditEventId: crypto.randomUUID(),
       auditEventId: crypto.randomUUID(),
@@ -494,11 +517,18 @@ export function createHotelFileService(
       fileVersionId,
       grantId,
       hotelId,
-      inspectionId,
       sessionId: principal.sessionId,
       sessionToken: principal.sessionToken,
       traceId,
-    });
+    };
+    if (parentType === "REPAIR") {
+      const command = repository.repairFileViewCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      return command({ ...shared, repairId: parentId });
+    }
+    const command = repository.fileViewCommand;
+    if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+    return command({ ...shared, inspectionId: parentId });
   }
 
   return {
@@ -551,6 +581,23 @@ export function createHotelFileService(
         sizeBytes: value.sizeBytes,
         uploadId,
       });
+      const parentPayload =
+        value.parent.type === "INSPECTION_ITEM_EVIDENCE"
+          ? {
+              parentType: value.parent.type,
+              inspectionId: value.parent.inspectionId,
+              itemSnapshotId: value.parent.itemSnapshotId,
+            }
+          : value.parent.type === "REPAIR_CASE_EVIDENCE"
+            ? {
+                parentType: value.parent.type,
+                repairCaseId: value.parent.repairCaseId,
+              }
+            : {
+                parentType: value.parent.type,
+                repairCaseId: value.parent.repairCaseId,
+                repairVisitId: value.parent.repairVisitId,
+              };
       const payload = await mutate(
         principal,
         hotelId,
@@ -558,8 +605,7 @@ export function createHotelFileService(
         "UPLOAD_INIT",
         {
           fileName: value.fileName,
-          inspectionId: value.parent.inspectionId,
-          itemSnapshotId: value.parent.itemSnapshotId,
+          ...parentPayload,
           mimeType: value.mimeType,
           quarantineObjectKey,
           reservationFingerprint,
@@ -592,13 +638,14 @@ export function createHotelFileService(
         throw new FileStorageError("RESOURCE_NOT_FOUND");
       return result.payload;
     },
-    async view(principal, hotelId, inspectionId, fileVersionId) {
+    async view(principal, hotelId, inspectionId, fileVersionId, parentType = "INSPECTION") {
       const traceId = crypto.randomUUID();
       const grantId = crypto.randomUUID();
       const completionToken = randomCompletionToken();
       const authorization = await viewCommand(
         principal,
         hotelId,
+        parentType,
         inspectionId,
         fileVersionId,
         "AUTHORIZE",
@@ -624,6 +671,7 @@ export function createHotelFileService(
                 const recorded = await viewCommand(
                   principal,
                   hotelId,
+                  parentType,
                   inspectionId,
                   fileVersionId,
                   action,
@@ -703,6 +751,9 @@ export function createHotelFileService(
         await finalize("FAILED").catch(() => undefined);
         throw error;
       }
+    },
+    async repairView(principal, hotelId, repairId, fileVersionId) {
+      return this.view(principal, hotelId, repairId, fileVersionId, "REPAIR");
     },
   };
 }

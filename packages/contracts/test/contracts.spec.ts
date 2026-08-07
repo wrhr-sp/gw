@@ -55,6 +55,14 @@ import {
   createManualInspectionRequestSchema,
   createManualInspectionV2RequestSchema,
   createProcessDefinitionRequestSchema,
+  createRepairCaseRequestSchema,
+  createRepairVisitRequestSchema,
+  completeRepairVisitRequestSchema,
+  completeRepairCaseRequestSchema,
+  repairCaseResponseSchema,
+  repairPriorityListResponseSchema,
+  repairRoutes,
+  repairVisitResponseSchema,
   processDefaultResponseSchema,
   processReviewerCandidatesResponseSchema,
   deleteHotelRoomRequestSchema,
@@ -176,6 +184,18 @@ describe("hotel platform contracts", () => {
         hotelId: roomId,
       }).success,
     ).toBe(false);
+    expect(
+      inspectionExecutionV2Schema.shape.items.element.shape.result
+        .unwrap()
+        .parse({
+          id: itemId,
+          result: "ABNORMAL",
+          description: "누수가 확인됨",
+          severity: "MAJOR",
+          fileVersionIds: [],
+          version: 1,
+        }).id,
+    ).toBe(itemId);
   });
 
   it("keeps facility master data typed, versioned, and lifecycle-safe", () => {
@@ -1559,14 +1579,19 @@ describe("hotel platform contracts", () => {
   it("defines assigned inspection review routes and strict pagination", () => {
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const inspectionId = "91000000-0000-4000-8000-000000000001";
+    const repairId = "a1000000-0000-4000-8000-000000000001";
+    const fileVersionId = "99000000-0000-4000-8000-000000000001";
     expect(inspectionRoutes.reviews(hotelId)).toBe(
       `/api/hotels/${hotelId}/inspection-reviews`,
     );
     expect(inspectionRoutes.review(hotelId, inspectionId)).toBe(
       `/api/hotels/${hotelId}/inspection-reviews/${inspectionId}`,
     );
-    expect(hotelFileRoutes.view(hotelId, inspectionId, inspectionId)).toBe(
-      `/api/hotels/${hotelId}/inspections/${inspectionId}/files/${inspectionId}/view`,
+    expect(hotelFileRoutes.view(hotelId, inspectionId, fileVersionId)).toBe(
+      `/api/hotels/${hotelId}/inspections/${inspectionId}/files/${fileVersionId}/view`,
+    );
+    expect(hotelFileRoutes.repairView(hotelId, repairId, fileVersionId)).toBe(
+      `/api/hotels/${hotelId}/repairs/${repairId}/files/${fileVersionId}/view`,
     );
     expect(
       inspectionReviewListQuerySchema.parse({ page: "2", pageSize: "20" }),
@@ -1624,5 +1649,63 @@ describe("hotel platform contracts", () => {
         reason: "가".repeat(501),
       }).success,
     ).toBe(false);
+  });
+
+  it("defines strict repair case, visit, completion and follow-up contracts", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const repairId = "a1000000-0000-4000-8000-000000000001";
+    const visitId = "a2000000-0000-4000-8000-000000000001";
+    const roomId = "52000000-0000-4000-8000-000000000001";
+    const priorityId = "a3000000-0000-4000-8000-000000000001";
+    const fileVersionId = "a4000000-0000-4000-8000-000000000001";
+
+    expect(
+      createRepairCaseRequestSchema.parse({
+        repairCaseId: repairId,
+        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [fileVersionId], unavailableReason: null },
+        target: { type: "ROOM", roomId },
+        priorityId,
+        followUpOfRepairCaseId: null,
+        followUpParentVersion: null,
+      }).target,
+    ).toEqual({ type: "ROOM", roomId });
+    expect(
+      createRepairCaseRequestSchema.safeParse({
+        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [], unavailableReason: null },
+        target: { type: "ROOM", roomId, facilityId: roomId },
+        priorityId,
+        followUpOfRepairCaseId: null,
+        followUpParentVersion: null,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      createRepairVisitRequestSchema.parse({
+        repairCaseId: repairId,
+        title: "누수 현장 진단",
+        startsAt: "2026-08-07T01:00:00.000Z",
+        endsAt: "2026-08-07T02:00:00.000Z",
+        performer: { type: "EXTERNAL", contractorName: "승인업체", contactName: null, contactPhone: "010-0000-0000" },
+      }).performer.type,
+    ).toBe("EXTERNAL");
+    expect(
+      createRepairVisitRequestSchema.safeParse({
+        repairCaseId: repairId,
+        title: "누수 현장 진단",
+        startsAt: "2026-08-07T02:00:00.000Z",
+        endsAt: "2026-08-07T01:00:00.000Z",
+        performer: { type: "INTERNAL", userId: roomId, contractorName: "혼합" },
+      }).success,
+    ).toBe(false);
+
+    expect(completeRepairVisitRequestSchema.safeParse({ version: 1, result: "배관 교체", fileVersionIds: [], unavailableReason: null }).success).toBe(false);
+    expect(completeRepairCaseRequestSchema.parse({ version: 2, processVersion: 3 }).processVersion).toBe(3);
+    expect(repairRoutes.detail(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}`);
+    expect(repairRoutes.priorities(hotelId)).toBe(`/api/hotels/${hotelId}/repair-priorities`);
+    expect(repairPriorityListResponseSchema.safeParse({ ok: true, data: { priorities: [{ id: priorityId, version: 1, name: "긴급", sortOrder: 1, color: "#dc2626", status: "ACTIVE" }] }, error: null }).success).toBe(true);
+    expect(repairRoutes.followUps(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}/follow-ups`);
+    expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(`/api/hotels/${hotelId}/repair-visits/${visitId}/complete`);
+    expect(repairCaseResponseSchema.safeParse({ ok: true, data: { repair: {} }, error: null }).success).toBe(false);
+    expect(repairVisitResponseSchema.safeParse({ ok: true, data: { visit: {} }, error: null }).success).toBe(false);
   });
 });
