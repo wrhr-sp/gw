@@ -71,7 +71,7 @@
 | 시설물·공용공간 기준정보                        | `approved`     | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK        |
 | 보수 건·우선순위·방문일정                       | `approved`     | 정규화 PostgreSQL aggregate + append-only history                                 |
 | Calendar adapter·OAuth credential·outbox 재시도 | `approved`     | OAuth 2.0 offline + direct REST + PostgreSQL projection outbox + scheduled Worker |
-| 자체 월간·주간 달력 UI                          | `unresearched` | 신규 UI                                                                           |
+| 자체 월간·주간 달력 UI                          | `approved`     | FullCalendar 표준 MIT runtime + shadcn/Radix/Tailwind 제품 UI                     |
 
 ### 4.0.1 공통 점검항목 revision 후보 결정 — 2026-08-04
 
@@ -152,7 +152,7 @@
 
 ### 4.4 구현 전 필수 gate
 
-- 이 절의 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델과 Calendar adapter는 이후 별도 후보선택으로 `approved`됐으며, 자체 달력 UI는 `unresearched`로 유지한다.
+- 이 절의 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐다.
 - 구현 전 exact source snapshot에서 Contracts·DB schema/command·Repository/Service/API·Web UI·테스트 경계를 확정하고 별도 mutation 범위를 승인받는다.
 - Red 테스트는 잘못된 그래프, 도달 불가능 단계, 최종경로 부재, revision snapshot 불변, 주 검토자·대리인 동시처리, stale version, 권한회수·배정만료, 기한초과 비자동전이, 최종완료 잠금, 멱등 replay·응답유실을 포함한다.
 - 실제 PostgreSQL 18에서 회사/호텔 scope CHECK·복합 FK·RLS·`FORCE ROW LEVEL SECURITY`·non-owner/non-`BYPASSRLS` runtime·command ACL·동시 transition을 검증한다.
@@ -209,7 +209,7 @@
 - 기존 dirty 객실점검 구현의 command authority·RLS·멱등 receipt·revision·lease·generation fencing·Repository/test harness는 최신 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
 - 기존 `hotel_inspections.room_id NOT NULL`, 고정 완료책임자·참여자, `SCHEDULED/UNASSIGNED`, 실행 공통 item snapshot 구조는 최신 복수대상·항목별 실제 수행자·설정형 process 모델의 완료 구현으로 재사용하지 않는다.
 - 별도 canonical target registry, generic polymorphic DB FK, JSONB-only 대상·결과 정본, 신규 package·외부 서비스는 도입하지 않는다.
-- 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델과 Calendar adapter는 각각 별도 후보선택으로 `approved`됐다. 자체 달력 UI의 `unresearched` 상태를 승인으로 확대하지 않는다.
+- 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 각각 별도 후보선택으로 `approved`됐다. 승인은 각 절에 기록된 제품경계와 재선정 조건 안에서만 재사용한다.
 - 시설물 relation·typed composite FK·lifecycle은 9.4~9.6을 따른다. 다만 현재 source의 객실 lifecycle이 최신 정본과 다르므로 9.6의 선행조건을 닫기 전에는 시설물 migration·Red·코드를 시작하지 않는다.
 - 구현 전 Red는 복수대상 생성, 실행·대상 중복경쟁, 잘못된 null/FK 조합, 타 회사·타 호텔 대상, 사용중지·삭제 신규대상 차단과 기존 snapshot 지속, 대상별 항목 snapshot, 항목별 실제 수행자, 서로 다른 대상·항목 병렬수정, 같은 항목 stale version, 결과별 설명·사진조건, 최종완료 잠금을 포함한다.
 
@@ -220,7 +220,7 @@
 - 객실·시설물 외 다수 대상유형을 schema 변경 없이 동적으로 운영해야 한다.
 - 공통 target registry가 별도 제품 정본으로 승인된다.
 
-각 기능후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면·Google 연동을 시작하지 않는다. Calendar adapter는 16.0에서 별도 승인됐지만 자체 달력 UI는 아직 이 차단을 유지한다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인은 결과·사진·완료·프로세스·시설물·보수·Calendar에 적용되지 않는다.
+각 기능후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면·Google 연동을 시작하지 않는다. Calendar adapter는 16.0, 자체 달력 UI는 15.1에서 별도로 승인됐다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인은 결과·사진·완료·프로세스·시설물·보수·Calendar에 적용되지 않는다.
 
 ## 5. 공통 설정형 검토 프로세스
 
@@ -408,7 +408,7 @@
 - legacy `TEMP_SUSPENDED/OUT_OF_SERVICE`는 forward migration에서 `INACTIVE`로 변환하고 자동 `DELETED` 변환은 하지 않는다. current `planned_resume_date`는 제거하되 append-only 과거 이력 값은 보존하며 날짜 기반 자동 활성화는 없다.
 - 살아 있는 객실번호에만 partial unique를 적용해 삭제 번호 재사용 시 새 room ID를 만들고, 이전 점검·보수·감사·snapshot은 이전 ID에 유지한다. lifecycle command는 company/hotel scope, RLS·`FORCE ROW LEVEL SECURITY`, 활성 사용자·배정, 동적권한·개인회수, expected version, 멱등키, 현재 상태를 transaction에서 재검증한다.
 - 별도 canonical location registry, generic polymorphic DB FK, JSONB-only 위치 정본, 신규 package·외부 서비스는 도입하지 않는다.
-- 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용한다. 보수 건·우선순위·방문일정 모델과 Calendar adapter는 이후 별도 후보선택으로 `approved`됐으며 자체 달력 UI는 계속 `unresearched`다.
+- 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용한다. 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐다.
 
 다음 중 하나가 제품정책으로 확정되면 시설물 위치모델 후보를 다시 선정한다.
 
@@ -523,7 +523,7 @@
 
 ### 14.2 구현후보 비교·선택 (`2026-08-01`)
 
-보수 건·우선순위·다중 방문일정의 같은 기능결과를 만드는 저장·실행방식만 비교했다. Calendar provider adapter와 자체 달력 UI는 별도 후보 gate로 남긴다.
+보수 건·우선순위·다중 방문일정의 같은 기능결과를 만드는 저장·실행방식만 비교했다. 당시 분리한 Calendar provider adapter와 자체 달력 UI는 이후 16.0과 15.1에서 각각 별도 후보선택으로 승인됐다.
 
 | 후보                                                     | 구조·기능 적합성                                                                                                             | UX·PC/모바일                                                                                                   | 보안·격리·동시성                                                                                              | 비용·상업이용·유지보수                                                                                                           | 확장성                                                                                                  | 판정     |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------- |
@@ -567,6 +567,48 @@
 - 신규 package·외부 서비스·event runtime·projection rebuild·JSONB-only 업무 정본은 도입하지 않는다.
 
 ## 15. 자체 달력 UI
+
+### 15.1 구현후보 비교·선택 — 2026-08-07
+
+- 선택자: 대장.
+- 선택상태: `approved`.
+- 선택안: FullCalendar의 표준 MIT React runtime을 달력 배치 엔진으로 하나만 사용하고, shadcn/ui·Radix UI·Tailwind CSS로 제품 toolbar·필터·상세·오류·상태 UI를 구성한다. PC는 월간·주간 달력, 390px 모바일은 선택 날짜의 현장업무 카드 목록으로 재배치한다.
+
+동일한 월간·주간 일정 조회·선택 결과를 만드는 독립 후보는 정확히 다음 세 개다. 조사 버전은 npm registry의 2026-08-07 최신값이며 모두 React 19 peer 범위를 명시한다.
+
+| 후보 | 기능·PC/모바일 적합성 | 현재 stack·보안·격리 | 비용·라이선스·운영 | 판정 |
+| ---- | --------------------- | -------------------- | ------------------ | ---- |
+| FullCalendar React `7.0.2` | 월간 day grid와 주간 time grid가 성숙하고 일정 배치·날짜 이동·보기 전환 기반이 안정적이다. 기본 모바일 축소판은 사용하지 않고 날짜 선택 결과를 별도 현장업무 카드로 렌더링해야 한다. | React 19를 지원한다. 달력에는 권한필터된 API 결과만 전달하며 tenant·호텔 권한·pagination·감사는 PostgreSQL/API가 정본이다. CSS와 toolbar를 제품 UI로 감싸야 한다. | 표준 package는 MIT이고 별도 SaaS·유료 resource timeline을 사용하지 않는다. 생태계와 유지보수 이력이 가장 크지만 package update와 스타일 회귀검증이 필요하다. | **선택 runtime** |
+| Schedule-X React `4.1.0` | 현대적인 월·주 화면과 간결한 control 구성이 장점이고 모바일 재배치 참고에 적합하다. 복잡한 일정밀도·장기 운영 사례는 FullCalendar보다 추가검증이 필요하다. | React 19를 지원한다. 별도 calendar core package와 theme 경계를 관리해야 하며 권한·격리는 마찬가지로 서버에서 강제해야 한다. | MIT이고 상업이용 가능하다. 상대적으로 작은 생태계와 wrapper/core 동시 update 부담이 있다. | 미선택, 간결한 control UX만 흡수 |
+| React Big Calendar `1.20.0` | 월·주·agenda 구조가 단순하고 날짜별 목록 개념이 명확하다. 모바일·키보드·고밀도 일정과 제품 디자인 통합은 별도 작업량이 크다. | React 19를 지원하지만 date localizer를 추가로 선택·운영해야 한다. 외부 정본이나 tenant 격리를 제공하지 않으므로 서버 경계는 동일하게 필요하다. | MIT이고 상업이용 가능하다. package 자체는 단순하지만 localizer·접근성·Tailwind 통합 회귀 부담이 추가된다. | 미선택, agenda 개념만 흡수 |
+
+공식·registry 근거:
+
+- [FullCalendar React](https://fullcalendar.io/docs/react)
+- [FullCalendar GitHub·MIT](https://github.com/fullcalendar/fullcalendar)
+- [Schedule-X 공식 문서](https://schedule-x.dev)
+- [Schedule-X React GitHub·MIT](https://github.com/schedule-x/react)
+- [React Big Calendar GitHub·MIT](https://github.com/bigcalendar/react-big-calendar)
+- [`@fullcalendar/react` npm](https://www.npmjs.com/package/@fullcalendar/react)
+- [`@schedule-x/react` npm](https://www.npmjs.com/package/@schedule-x/react)
+- [`react-big-calendar` npm](https://www.npmjs.com/package/react-big-calendar)
+
+선택한 통합안의 경계:
+
+- runtime package는 FullCalendar 표준 MIT package만 사용한다. Schedule-X와 React Big Calendar package·CSS·runtime을 함께 설치하지 않는다.
+- PC 달력 배치에는 FullCalendar의 월간·주간 표준 view를 사용하되 toolbar·호텔필터·상태필터·상세 panel·빈 상태·오류 UI는 기존 shadcn/Radix/Tailwind 제품 component로 구현한다.
+- 모바일 390px에서는 PC calendar grid를 축소하지 않는다. 날짜 이동·보기 선택은 간결한 control로 유지하고 선택 날짜의 점검·보수 방문일정을 44px 이상 현장업무 카드로 표시한다.
+- FullCalendar는 권한필터된 표시 model만 받고 업무정본·권한·회사/호텔 격리·version·감사는 same-origin API와 PostgreSQL에 유지한다. 일반 browser storage에는 마지막 보기종류와 사용시각만 2시간 저장한다.
+- Google Calendar API는 16절의 backend-only 단방향 projection이다. FullCalendar가 Google API를 호출하거나 Google UI·iframe·provider ID·credential을 받지 않는다.
+- Schedule-X의 간결한 날짜 이동·보기 전환과 React Big Calendar의 날짜별 agenda 개념은 제품 UX로만 흡수하며 해당 package를 도입한 것으로 표현하지 않는다.
+- 구현 전 latest `main`에서 Contracts·DB read model·API·public Web proxy·PC/390px Web·접근성·visual·Preview smoke의 exact mutation 범위를 별도 승인받는다.
+
+다음 조건이 제품요구사항으로 확정되면 UI 후보를 다시 선정한다.
+
+- resource timeline·수천 건 동시 편집·spreadsheet형 대량 drag/drop이 핵심업무가 된다.
+- 일간 view, 외부 참석자 scheduling 또는 Google Calendar UI embed가 승인된다.
+- FullCalendar 표준 MIT 범위로 월·주·모바일 카드와 접근성 기준을 충족할 수 없다.
+- React·Next.js 호환 또는 유지보수 상태가 현재 stack을 지원하지 않게 된다.
 
 - shadcn/ui·Radix UI·Tailwind CSS 기반 자체 화면만 사용한다.
 - PC는 월간·주간 보기를 제공하고 초기 MVP에 일간 보기는 없다.
@@ -649,7 +691,7 @@ PoC·보안·provider mutation gate:
 - 이 결정기록은 provider mutation 승인이 아니다. Google Cloud 프로젝트·OAuth client·consent screen·credential/token·실제 calendar/event 생성은 별도 exact 승인 전 금지한다.
 - 승인된 비운영 테스트 프로젝트에서 승인된 exact 2-scope set으로 paginated `calendarList.list`·app-created calendar 생성/목록 read-back/`calendars.get`과 event create/read/update/delete·disconnect 후 복구가 가능한지 확인한다. primary/unrelated Calendar가 섞인 fixture에서 불일치 metadata 비보존과 timeout 뒤 no-reinsert도 확인하며, 부족해도 scope를 자동확대하지 않고 후보·보안 gate로 되돌린다.
 - OAuth 앱 게시·검증·개인정보처리 요구, Worker secret·credential key rotation·폐기, callback CSRF/replay, 401/403/404/409/429/5xx, timeout read-back, quota·dead-letter를 보안검토한다.
-- 자체 월간·주간 달력 UI는 별도 `unresearched` gate이며 이 승인으로 구현하지 않는다.
+- 자체 월간·주간 달력 UI는 15.1의 별도 후보선택으로 `approved`됐으며, 이 Calendar adapter 승인과 구현경계는 서로 대체하지 않는다.
 
 다음이면 후보를 다시 선정한다.
 
@@ -711,7 +753,7 @@ Google에 보내지 않는 값:
 
 ## 17. API 경계 제안
 
-승인된 adapter 경로는 구현 시 `packages/contracts`에 먼저 정의한다. 자체 달력 UI 경로는 별도 후보 승인 전 확정하지 않는다.
+승인된 adapter와 자체 달력 UI 경로는 구현 시 `packages/contracts`에 먼저 정의한다. UI 승인으로 Google provider 경로·scope·credential 권한을 확대하지 않는다.
 
 ```text
 /api/process-definitions/*
