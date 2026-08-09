@@ -22,7 +22,10 @@ const previewProvisioningIntegrationSource = readFileSync(
   "utf8",
 );
 const facilityExecutionMigrationSource = readFileSync(
-  new URL("../migrations/0040_hotel_inspection_facility_execution.sql", import.meta.url),
+  new URL(
+    "../migrations/0040_hotel_inspection_facility_execution.sql",
+    import.meta.url,
+  ),
   "utf8",
 );
 const facilityExecutionContractMigrationSource = readFileSync(
@@ -68,19 +71,28 @@ describe("account administration readiness contract", () => {
     );
   });
 
+  it("pins resource-fenced Calendar routine signatures in readiness and provisioning", () => {
+    const signatures = [
+      "public.calendar_oauth_start_v1(uuid,text,uuid,bytea,bytea,bytea,bytea,bytea,integer,text,boolean,integer,integer,uuid,text,text,text)",
+      "public.calendar_connection_command_v1(uuid,uuid,text,text,integer,uuid,integer,jsonb,text,uuid,text,text,text)",
+      "public.calendar_hotel_link_command_v1(uuid,uuid,uuid,text,text,integer,integer,integer,uuid,bytea,bytea,integer,bytea,text,uuid,text,text,text)",
+      "public.calendar_projection_failure_retry_v1(uuid,uuid,text,uuid,integer,text,uuid,text,text,text)",
+      "public.scheduled_reconciler_invocation_enter_v1()",
+      "public.scheduled_reconciler_invocation_exit_v1()",
+      "public.scheduled_reconciler_drain_barrier_v1()",
+    ];
+    const normalizedProvisionSource = provisionSource.replace(/\s+/gu, "");
+    for (const signature of signatures) {
+      expect(source).toContain(signature);
+      expect(normalizedProvisionSource).toContain(signature);
+    }
+  });
+
   it("seeds exact Preview inspection permissions for the hosted checklist journey", () => {
-    expect(provisionSource).toContain(
-      '"73000000-0000-4000-8000-000000000011"',
-    );
-    expect(provisionSource).toContain(
-      '"73000000-0000-4000-8000-000000000012"',
-    );
-    expect(provisionSource).toContain(
-      '"73000000-0000-4000-8000-000000000013"',
-    );
-    expect(provisionSource).toContain(
-      '"73000000-0000-4000-8000-000000000014"',
-    );
+    expect(provisionSource).toContain('"73000000-0000-4000-8000-000000000011"');
+    expect(provisionSource).toContain('"73000000-0000-4000-8000-000000000012"');
+    expect(provisionSource).toContain('"73000000-0000-4000-8000-000000000013"');
+    expect(provisionSource).toContain('"73000000-0000-4000-8000-000000000014"');
     expect(provisionSource).toContain("'HOTEL_INSPECTION_RUN', 'ALLOW'");
     expect(provisionSource).toContain("'HOTEL_INSPECTION_CONFIG', 'ALLOW'");
     expect(provisionSource).toContain("'HOTEL_FACILITY_READ', 'ALLOW'");
@@ -780,7 +792,7 @@ describe("account administration readiness contract", () => {
       "inspectionTargetChecklistState.hardened",
     );
     expect(provisionSource).toContain(
-      '? `grant execute on function public.hotel_inspection_checklist_v3_command(',
+      "? `grant execute on function public.hotel_inspection_checklist_v3_command(",
     );
     expect(provisionSource).not.toContain(
       "grant select on table public.inspection_checklist_v2_revisions",
@@ -791,7 +803,9 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       "onSchemaNotReady?: (checkpoint: string) => unknown;",
     );
-    expect(source).toContain("const schemaNotReady = () => {");
+    expect(source).toContain(
+      "const schemaNotReady = (checkpoint?: string) => {",
+    );
     expect(source).toContain("options.onSchemaNotReady?.(");
     expect(source).toContain('return { status: "SCHEMA_NOT_READY" } as const;');
     expect(provisionSource).toContain(
@@ -846,6 +860,22 @@ describe("account administration readiness contract", () => {
       expect(
         `${foundationIntegrationSource}\n${previewProvisioningIntegrationSource}`,
       ).toContain(contract);
+    }
+  });
+
+  it("provisions the current Calendar HMAC version and distinct management grants", () => {
+    for (const contract of [
+      "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION",
+      "insert into public.calendar_crypto_settings",
+      "current_hmac_key_version=excluded.current_hmac_key_version",
+      "PREVIEW_CALENDAR_CRYPTO_SETTINGS_ACL_UNSAFE",
+      "public.calendar_crypto_settings",
+      "previewCalendarConnectionManageGrantId",
+      "previewCalendarProjectionRetryGrantId",
+      "'CALENDAR_CONNECTION_MANAGE'",
+      "'CALENDAR_PROJECTION_RETRY'",
+    ]) {
+      expect(provisionSource).toContain(contract);
     }
   });
 });

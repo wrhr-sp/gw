@@ -34,15 +34,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with:
           version: 10.24.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22.22.1
           cache: pnpm
@@ -75,6 +75,17 @@ jobs:
           pnpm --filter @werehere/api exec wrangler deploy \
             --dry-run --config wrangler.preview.generated.json
           rm -f apps/api/wrangler.preview.generated.json
+          RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000 \
+            ZITADEL_ISSUER=https://preview.invalid \
+            ZITADEL_ORGANIZATION_ID=preview-organization \
+            GOOGLE_CALENDAR_OAUTH_CLIENT_ID=preview-calendar-client \
+            CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION=1 \
+            CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION=1 \
+            node scripts/render-reconciler-preview-config.mjs \
+              apps/api/wrangler.reconciler.preview.jsonc \
+              apps/api/wrangler.reconciler.preview.generated.json
+          pnpm --filter @werehere/api exec wrangler deploy --dry-run --config wrangler.reconciler.preview.generated.json
+          rm -f apps/api/wrangler.reconciler.preview.generated.json
           pnpm --filter @werehere/web build:cloudflare
           pnpm --filter @werehere/web exec wrangler deploy --dry-run --config wrangler.jsonc
 
@@ -86,7 +97,7 @@ jobs:
 
       - name: Upload visual regression artifacts
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: visual-regression-${{ github.run_id }}
           path: |

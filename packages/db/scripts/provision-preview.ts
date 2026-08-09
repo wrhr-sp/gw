@@ -39,30 +39,27 @@ const previewHotelRoomReadGrantId = "73000000-0000-4000-8000-000000000008";
 const previewHotelRoomManageGrantId = "73000000-0000-4000-8000-000000000009";
 const previewHotelRoomTypeManageGrantId =
   "73000000-0000-4000-8000-000000000010";
-const previewHotelInspectionRunGrantId =
-  "73000000-0000-4000-8000-000000000011";
+const previewHotelInspectionRunGrantId = "73000000-0000-4000-8000-000000000011";
 const previewHotelInspectionConfigGrantId =
   "73000000-0000-4000-8000-000000000012";
-const previewHotelFacilityReadGrantId =
-  "73000000-0000-4000-8000-000000000013";
+const previewHotelFacilityReadGrantId = "73000000-0000-4000-8000-000000000013";
 const previewProcessDefinitionManageGrantId =
   "73000000-0000-4000-8000-000000000014";
-const previewHotelCalendarReadGrantId =
-  "73000000-0000-4000-8000-000000000015";
+const previewHotelCalendarReadGrantId = "73000000-0000-4000-8000-000000000015";
 const previewHotelCalendarAllReadGrantId =
   "73000000-0000-4000-8000-000000000016";
 const previewRepairVisitCancelledReadGrantId =
   "73000000-0000-4000-8000-000000000017";
 const previewRepairVisitCancelReasonReadGrantId =
   "73000000-0000-4000-8000-000000000018";
-const previewRepairReadGrantId =
-  "73000000-0000-4000-8000-000000000019";
-const previewRepairVisitCreateGrantId =
-  "73000000-0000-4000-8000-000000000020";
-const previewRepairVisitUpdateGrantId =
-  "73000000-0000-4000-8000-000000000021";
-const previewRepairVisitDeleteGrantId =
-  "73000000-0000-4000-8000-000000000022";
+const previewRepairReadGrantId = "73000000-0000-4000-8000-000000000019";
+const previewRepairVisitCreateGrantId = "73000000-0000-4000-8000-000000000020";
+const previewRepairVisitUpdateGrantId = "73000000-0000-4000-8000-000000000021";
+const previewRepairVisitDeleteGrantId = "73000000-0000-4000-8000-000000000022";
+const previewCalendarConnectionManageGrantId =
+  "73000000-0000-4000-8000-000000000023";
+const previewCalendarProjectionRetryGrantId =
+  "73000000-0000-4000-8000-000000000024";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
@@ -72,6 +69,16 @@ const provisionPhase =
 
 function fail(message: string): never {
   throw new Error(message);
+}
+
+const calendarHmacVersion = Number(
+  process.env.CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION?.trim() ??
+    (process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1" ? "1" : ""),
+);
+if (!Number.isSafeInteger(calendarHmacVersion) || calendarHmacVersion < 1) {
+  fail(
+    "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION must be a positive integer",
+  );
 }
 
 if (!/^[0-9a-f]{64}$/u.test(HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)) {
@@ -410,6 +417,7 @@ try {
     }
   }
   let checklistExpandPrerequisitesPresent = false;
+  let calendarProjectionPrerequisitesPresent = false;
   if (existingMigrationMarker?.exists) {
     const [checklistPrerequisites] = await owner<{ exact: boolean }[]>`
       select count(*) = 2 as exact
@@ -419,7 +427,18 @@ try {
          '0037_hotel_inspection_execution_targets'
        )
     `;
-    checklistExpandPrerequisitesPresent = checklistPrerequisites?.exact === true;
+    checklistExpandPrerequisitesPresent =
+      checklistPrerequisites?.exact === true;
+    const [calendarPrerequisites] = await owner<{ exact: boolean }[]>`
+      select count(*) = 2 as exact
+        from public.schema_migrations
+       where version in (
+         '0042_hotel_repair_lifecycle',
+         '0043_hotel_calendar_read_model'
+       )
+    `;
+    calendarProjectionPrerequisitesPresent =
+      calendarPrerequisites?.exact === true;
   }
 
   await updateLocalCiDefinerMembership(
@@ -555,6 +574,7 @@ try {
     ],
     ["0042_hotel_repair_lifecycle", "0042_hotel_repair_lifecycle.sql"],
     ["0043_hotel_calendar_read_model", "0043_hotel_calendar_read_model.sql"],
+    ["0044_google_calendar_projection", "0044_google_calendar_projection.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -596,11 +616,13 @@ try {
     : freshBootstrap
       ? allMigrations
       : allMigrations.filter(
-        ([version]) =>
-          !contractOnlyMigrations.has(version) &&
-          (!prerequisiteGatedExpandMigrations.has(version) ||
-            checklistExpandPrerequisitesPresent),
-      );
+          ([version]) =>
+            !contractOnlyMigrations.has(version) &&
+            (!prerequisiteGatedExpandMigrations.has(version) ||
+              checklistExpandPrerequisitesPresent) &&
+            (version !== "0044_google_calendar_projection" ||
+              calendarProjectionPrerequisitesPresent),
+        );
 
   const readContractBaseState = async () => {
     const [objects] = await owner<
@@ -807,6 +829,41 @@ try {
     await owner.unsafe(
       await readFile(resolve(migrationDirectory, fileName), "utf8"),
     );
+  }
+  const [calendarCryptoSettings] = await owner<{ exists: boolean }[]>`
+    select to_regclass('public.calendar_crypto_settings') is not null as exists
+  `;
+  if (calendarCryptoSettings?.exists) {
+    await owner`
+      insert into public.calendar_crypto_settings(singleton,current_hmac_key_version,updated_at)
+      values(true,${calendarHmacVersion},statement_timestamp())
+      on conflict(singleton) do update
+      set current_hmac_key_version=excluded.current_hmac_key_version,
+          updated_at=statement_timestamp()
+    `;
+    const [calendarCryptoAcl] = await owner<
+      {
+        safe: boolean;
+      }[]
+    >`
+      select crypto_table.relowner=migration_table.relowner
+        and not exists(
+          select 1 from pg_catalog.aclexplode(coalesce(crypto_table.relacl,pg_catalog.acldefault('r'::"char",crypto_table.relowner))) acl
+          where acl.grantee<>crypto_table.relowner
+        )
+        and not exists(
+          select 1 from pg_catalog.pg_attribute crypto_column
+          cross join lateral pg_catalog.aclexplode(crypto_column.attacl) acl
+          where crypto_column.attrelid=crypto_table.oid and crypto_column.attnum>0
+            and not crypto_column.attisdropped and acl.grantee<>crypto_table.relowner
+        ) as safe
+      from pg_catalog.pg_class crypto_table
+      join pg_catalog.pg_class migration_table on migration_table.oid=to_regclass('public.schema_migrations')
+      where crypto_table.oid=to_regclass('public.calendar_crypto_settings')
+    `;
+    if (!calendarCryptoAcl?.safe) {
+      throw new Error("PREVIEW_CALENDAR_CRYPTO_SETTINGS_ACL_UNSAFE");
+    }
   }
   if (freshBootstrap) {
     contractCompatibleAclPhase = true;
@@ -1302,7 +1359,8 @@ try {
       select code from permissions
        where code in (
          'HOTEL_CALENDAR_READ', 'HOTEL_CALENDAR_ALL_READ',
-         'REPAIR_VISIT_CANCELLED_READ', 'REPAIR_VISIT_CANCEL_REASON_READ'
+         'REPAIR_VISIT_CANCELLED_READ', 'REPAIR_VISIT_CANCEL_REASON_READ',
+         'CALENDAR_CONNECTION_MANAGE', 'CALENDAR_PROJECTION_RETRY'
        )
        order by code
     `;
@@ -1320,12 +1378,20 @@ try {
     const repairVisitPermissionCodes = new Set(
       repairVisitPermissionRows.map((permission) => permission.code),
     );
-    if (calendarPermissionCodes.size !== 0 && calendarPermissionCodes.size !== 4)
+    if (
+      calendarPermissionCodes.size !== 0 &&
+      calendarPermissionCodes.size !== 4 &&
+      calendarPermissionCodes.size !== 6
+    )
       fail("Preview Calendar permission catalog is partially provisioned");
-    if (repairVisitPermissionCodes.size !== 0 && repairVisitPermissionCodes.size !== 4)
+    if (
+      repairVisitPermissionCodes.size !== 0 &&
+      repairVisitPermissionCodes.size !== 4
+    )
       fail("Preview repair visit permission catalog is partially provisioned");
     const calendarPermissionsReady =
-      calendarPermissionCodes.size === 4 && repairVisitPermissionCodes.size === 4;
+      calendarPermissionCodes.size === 6 &&
+      repairVisitPermissionCodes.size === 4;
     await sql`
         insert into permission_grants (
           id, company_id, branch_id, subject_type, subject_id,
@@ -1375,7 +1441,9 @@ try {
           (${previewRepairReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 보수 조회 권한'),
           (${previewRepairVisitCreateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CREATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 등록 권한'),
           (${previewRepairVisitUpdateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_UPDATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 변경 권한'),
-          (${previewRepairVisitDeleteGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_DELETE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소·복구 권한')
+          (${previewRepairVisitDeleteGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_DELETE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소·복구 권한'),
+          (${previewCalendarConnectionManageGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'CALENDAR_CONNECTION_MANAGE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 Calendar 연결관리 권한'),
+          (${previewCalendarProjectionRetryGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'CALENDAR_PROJECTION_RETRY', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 Calendar 재시도 권한')
         on conflict (id) do nothing
       `;
     }
@@ -1414,7 +1482,9 @@ try {
           ${previewRepairReadGrantId}::uuid,
           ${previewRepairVisitCreateGrantId}::uuid,
           ${previewRepairVisitUpdateGrantId}::uuid,
-          ${previewRepairVisitDeleteGrantId}::uuid
+          ${previewRepairVisitDeleteGrantId}::uuid,
+          ${previewCalendarConnectionManageGrantId}::uuid,
+          ${previewCalendarProjectionRetryGrantId}::uuid
         )
         order by permission_code
       `;
@@ -1444,14 +1514,43 @@ try {
       );
     }
     if (calendarPermissionsReady) {
-      exactRelationshipGrants.set("HOTEL_CALENDAR_READ", previewHotelCalendarReadGrantId);
-      exactRelationshipGrants.set("HOTEL_CALENDAR_ALL_READ", previewHotelCalendarAllReadGrantId);
-      exactRelationshipGrants.set("REPAIR_VISIT_CANCELLED_READ", previewRepairVisitCancelledReadGrantId);
-      exactRelationshipGrants.set("REPAIR_VISIT_CANCEL_REASON_READ", previewRepairVisitCancelReasonReadGrantId);
+      exactRelationshipGrants.set(
+        "HOTEL_CALENDAR_READ",
+        previewHotelCalendarReadGrantId,
+      );
+      exactRelationshipGrants.set(
+        "HOTEL_CALENDAR_ALL_READ",
+        previewHotelCalendarAllReadGrantId,
+      );
+      exactRelationshipGrants.set(
+        "REPAIR_VISIT_CANCELLED_READ",
+        previewRepairVisitCancelledReadGrantId,
+      );
+      exactRelationshipGrants.set(
+        "REPAIR_VISIT_CANCEL_REASON_READ",
+        previewRepairVisitCancelReasonReadGrantId,
+      );
       exactRelationshipGrants.set("REPAIR_READ", previewRepairReadGrantId);
-      exactRelationshipGrants.set("REPAIR_VISIT_CREATE", previewRepairVisitCreateGrantId);
-      exactRelationshipGrants.set("REPAIR_VISIT_UPDATE", previewRepairVisitUpdateGrantId);
-      exactRelationshipGrants.set("REPAIR_VISIT_DELETE", previewRepairVisitDeleteGrantId);
+      exactRelationshipGrants.set(
+        "REPAIR_VISIT_CREATE",
+        previewRepairVisitCreateGrantId,
+      );
+      exactRelationshipGrants.set(
+        "REPAIR_VISIT_UPDATE",
+        previewRepairVisitUpdateGrantId,
+      );
+      exactRelationshipGrants.set(
+        "REPAIR_VISIT_DELETE",
+        previewRepairVisitDeleteGrantId,
+      );
+      exactRelationshipGrants.set(
+        "CALENDAR_CONNECTION_MANAGE",
+        previewCalendarConnectionManageGrantId,
+      );
+      exactRelationshipGrants.set(
+        "CALENDAR_PROJECTION_RETRY",
+        previewCalendarProjectionRetryGrantId,
+      );
     }
     if (
       relationshipGrants.length !== exactRelationshipGrants.size ||
@@ -1663,7 +1762,8 @@ try {
       !latestContractBaseState.users_exists ||
       !latestContractBaseState.auth_identities_exists ||
       !latestContractBaseState.login_id_registry_exists ||
-      latestContractBaseState.contract_marker_count !== expectedContractMarkerCount
+      latestContractBaseState.contract_marker_count !==
+        expectedContractMarkerCount
     ) {
       fail("Preview contract base changed before ACL reconciliation");
     }
@@ -1823,17 +1923,27 @@ try {
     fail("Preview inspection checklist target marker state is unavailable");
   }
   const [repairLifecycleState] = await owner<
-    { hotel_calendar_read_model_marker_count: number; hotel_repair_lifecycle_marker_count: number }[]
+    {
+      google_calendar_projection_marker_count: number;
+      hotel_calendar_read_model_marker_count: number;
+      hotel_repair_lifecycle_marker_count: number;
+    }[]
   >`
     select count(*) filter (
       where version = '0042_hotel_repair_lifecycle'
     )::integer as hotel_repair_lifecycle_marker_count,
     count(*) filter (
       where version = '0043_hotel_calendar_read_model'
-    )::integer as hotel_calendar_read_model_marker_count
+    )::integer as hotel_calendar_read_model_marker_count,
+    count(*) filter (
+      where version = '0044_google_calendar_projection'
+    )::integer as google_calendar_projection_marker_count
     from public.schema_migrations
   `;
-  if (!repairLifecycleState || repairLifecycleState.hotel_calendar_read_model_marker_count !== 1) {
+  if (
+    !repairLifecycleState ||
+    repairLifecycleState.hotel_calendar_read_model_marker_count !== 1
+  ) {
     fail("Preview repair or Calendar lifecycle marker state is unavailable");
   }
   if (
@@ -2416,6 +2526,31 @@ try {
     grant execute on function public.hotel_calendar_visit_options_read_v1(
       uuid, uuid, text
     ) to ${apiRuntimeRole};
+    ${
+      repairLifecycleState.google_calendar_projection_marker_count === 1
+        ? `
+    grant execute on function public.calendar_connection_status_read_v1(uuid, text) to ${apiRuntimeRole};
+    grant execute on function public.calendar_oauth_start_v1(
+      uuid, text, uuid, bytea, bytea, bytea, bytea, bytea, integer, text, boolean, integer,
+      integer, uuid, text, text, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.calendar_oauth_claim_v1(bytea, bytea, bytea) to ${apiRuntimeRole};
+    grant execute on function public.calendar_oauth_fail_v1(uuid, bytea, text) to ${apiRuntimeRole};
+    grant execute on function public.calendar_oauth_finalize_v1(
+      uuid, bytea, uuid, uuid, integer, bytea, bytea, integer, bytea, integer, text[]
+    ) to ${apiRuntimeRole};
+    grant execute on function public.calendar_connection_command_v1(
+      uuid, uuid, text, text, integer, uuid, integer, jsonb, text, uuid, text, text, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.calendar_hotel_link_command_v1(
+      uuid, uuid, uuid, text, text, integer, integer, integer, uuid, bytea, bytea, integer,
+      bytea, text, uuid, text, text, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.calendar_projection_failure_retry_v1(
+      uuid, uuid, text, uuid, integer, text, uuid, text, text, text
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
     grant execute on function public.hotel_process_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text,
       text, text, text, uuid, uuid
@@ -2515,6 +2650,38 @@ try {
     grant execute on function public.hotel_inspection_complete_materialization_v1(
       uuid, bigint, bytea, uuid
     ) to ${reconcilerRole};
+    ${
+      repairLifecycleState.google_calendar_projection_marker_count === 1
+        ? `
+    grant execute on function public.calendar_candidate_claim_v1(
+      uuid, bytea
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_candidate_finalize_v1(
+      uuid, uuid, bytea, integer, integer, text, text, timestamptz
+    ) to ${reconcilerRole};
+    grant execute on function public.scheduled_reconciler_invocation_enter_v1() to ${reconcilerRole};
+    grant execute on function public.scheduled_reconciler_invocation_exit_v1() to ${reconcilerRole};
+    grant execute on function public.scheduled_reconciler_drain_barrier_v1() to ${reconcilerRole};
+    grant execute on function public.calendar_projection_claim_v1(
+      uuid, bytea, integer
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_projection_mark_create_dispatched_v1(
+      uuid, uuid, bytea
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_projection_reset_event_existence_v1(
+      uuid, uuid, bytea
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_projection_repair_stale_v1(
+      uuid, uuid
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_projection_finalize_v1(
+      uuid, uuid, bytea, text, text, text, timestamptz, bytea, bytea, integer, integer
+    ) to ${reconcilerRole};
+    grant execute on function public.calendar_projection_evidence_read_v1(
+      uuid, text, bytea, uuid, integer, uuid, timestamptz
+    ) to ${reconcilerRole};`
+        : ""
+    }
     `
         : ""
     }

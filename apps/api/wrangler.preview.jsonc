@@ -8,6 +8,7 @@
   "preview_urls": false,
   "vars": {
     "AUTH_SUCCESS_REDIRECT": "/hotel-operations",
+    "CALENDAR_PROVIDER_SECRET_DELIVERY": "WORKER_SECRET_ONLY",
   },
   "observability": {
     "enabled": true,

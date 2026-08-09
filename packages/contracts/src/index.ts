@@ -62,6 +62,13 @@ export const hotelErrorCodeSchema = z.enum([
   "CALENDAR_RESULT_TOO_DENSE",
   "CALENDAR_HOTEL_REQUIRED",
   "CALENDAR_ACCESS_FORBIDDEN",
+  "CALENDAR_CONNECTION_NOT_CONFIGURED",
+  "CALENDAR_CONNECTION_VERSION_CONFLICT",
+  "CALENDAR_OAUTH_FLOW_INVALID",
+  "CALENDAR_OAUTH_PROVIDER_UNAVAILABLE",
+  "CALENDAR_OAUTH_SCOPE_INVALID",
+  "CALENDAR_CREDENTIAL_INVALID",
+  "CALENDAR_PROJECTION_ACTION_REQUIRED",
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
   "FILE_NOT_READY",
@@ -832,9 +839,7 @@ const hotelFacilityReferenceReasonSchema = z
 
 export const hotelFacilityLocationSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("ROOM"), roomId: z.uuid() }).strict(),
-  z
-    .object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid() })
-    .strict(),
+  z.object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid() }).strict(),
 ]);
 export type HotelFacilityLocation = z.infer<typeof hotelFacilityLocationSchema>;
 
@@ -845,7 +850,10 @@ export const createHotelFacilityTypeRequestSchema = z
   .object({ name: hotelFacilityReferenceNameSchema })
   .strict();
 export const updateHotelFacilityReferenceRequestSchema = z
-  .object({ name: hotelFacilityReferenceNameSchema, version: z.number().int().positive() })
+  .object({
+    name: hotelFacilityReferenceNameSchema,
+    version: z.number().int().positive(),
+  })
   .strict();
 export const changeHotelFacilityReferenceStatusRequestSchema = z
   .object({
@@ -855,7 +863,10 @@ export const changeHotelFacilityReferenceStatusRequestSchema = z
   })
   .strict();
 export const deleteHotelFacilityReferenceRequestSchema = z
-  .object({ reason: hotelFacilityReferenceReasonSchema, version: z.number().int().positive() })
+  .object({
+    reason: hotelFacilityReferenceReasonSchema,
+    version: z.number().int().positive(),
+  })
   .strict();
 export const createHotelFacilityRequestSchema = z
   .object({
@@ -904,19 +915,39 @@ const hotelFacilityReferenceBaseFields = {
   updatedAt: z.iso.datetime(),
   version: z.number().int().positive(),
 } as const;
-export const hotelCommonAreaSchema = z.object(hotelFacilityReferenceBaseFields).strict();
-export const hotelFacilityTypeSchema = z.object(hotelFacilityReferenceBaseFields).strict();
+export const hotelCommonAreaSchema = z
+  .object(hotelFacilityReferenceBaseFields)
+  .strict();
+export const hotelFacilityTypeSchema = z
+  .object(hotelFacilityReferenceBaseFields)
+  .strict();
 export type HotelCommonArea = z.infer<typeof hotelCommonAreaSchema>;
 export type HotelFacilityType = z.infer<typeof hotelFacilityTypeSchema>;
 
 const hotelFacilityLocationSnapshotSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("ROOM"), roomId: z.uuid(), name: z.string().min(1) }).strict(),
-  z.object({ type: z.literal("COMMON_AREA"), commonAreaId: z.uuid(), name: z.string().min(1) }).strict(),
+  z
+    .object({
+      type: z.literal("ROOM"),
+      roomId: z.uuid(),
+      name: z.string().min(1),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("COMMON_AREA"),
+      commonAreaId: z.uuid(),
+      name: z.string().min(1),
+    })
+    .strict(),
 ]);
 export const hotelFacilitySchema = z
   .object({
     ...hotelFacilityReferenceBaseFields,
-    facilityType: hotelFacilityTypeSchema.pick({ id: true, name: true, status: true }),
+    facilityType: hotelFacilityTypeSchema.pick({
+      id: true,
+      name: true,
+      status: true,
+    }),
     location: hotelFacilityLocationSnapshotSchema,
   })
   .strict();
@@ -932,7 +963,9 @@ export const hotelFacilityListQuerySchema = z
     pageSize: z.coerce.number().int().min(1).max(100).default(20),
   })
   .strict();
-export type HotelFacilityListQuery = z.infer<typeof hotelFacilityListQuerySchema>;
+export type HotelFacilityListQuery = z.infer<
+  typeof hotelFacilityListQuerySchema
+>;
 
 const hotelFacilityPaginationSchema = z
   .object({
@@ -1011,14 +1044,16 @@ export const hotelRoutes = {
     `${hotelPath(hotelId)}/rooms/${encodeURIComponent(roomId)}/delete` as const,
   facilityWorkspace: (hotelId: string) =>
     `${hotelPath(hotelId)}/facility-master-data` as const,
-  commonAreas: (hotelId: string) => `${hotelPath(hotelId)}/common-areas` as const,
+  commonAreas: (hotelId: string) =>
+    `${hotelPath(hotelId)}/common-areas` as const,
   commonArea: (hotelId: string, id: string) =>
     `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}` as const,
   commonAreaStatus: (hotelId: string, id: string) =>
     `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}/status` as const,
   commonAreaDelete: (hotelId: string, id: string) =>
     `${hotelPath(hotelId)}/common-areas/${encodeURIComponent(id)}/delete` as const,
-  facilityTypes: (hotelId: string) => `${hotelPath(hotelId)}/facility-types` as const,
+  facilityTypes: (hotelId: string) =>
+    `${hotelPath(hotelId)}/facility-types` as const,
   facilityType: (hotelId: string, id: string) =>
     `${hotelPath(hotelId)}/facility-types/${encodeURIComponent(id)}` as const,
   facilityTypeStatus: (hotelId: string, id: string) =>
@@ -1712,13 +1747,34 @@ const roomInspectionChecklistV2ItemInputSchema = z
   .strict()
   .superRefine((item, context) => {
     if (item.source === "HOTEL_COMMON" && item.roomTypeId !== null)
-      context.addIssue({ code: "custom", path: ["roomTypeId"], message: "객실 공통항목에는 객실유형을 지정할 수 없습니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["roomTypeId"],
+        message: "객실 공통항목에는 객실유형을 지정할 수 없습니다.",
+      });
     if (item.source === "TARGET_TYPE_ADDED" && item.roomTypeId === null)
-      context.addIssue({ code: "custom", path: ["roomTypeId"], message: "객실유형 추가항목에는 객실유형이 필요합니다." });
-    if (item.source === "TARGET_TYPE_ADDED" && item.excludedRoomTypeIds.length > 0)
-      context.addIssue({ code: "custom", path: ["excludedRoomTypeIds"], message: "객실유형 추가항목에는 제외유형을 지정할 수 없습니다." });
-    if (new Set(item.excludedRoomTypeIds).size !== item.excludedRoomTypeIds.length)
-      context.addIssue({ code: "custom", path: ["excludedRoomTypeIds"], message: "제외 객실유형은 중복될 수 없습니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["roomTypeId"],
+        message: "객실유형 추가항목에는 객실유형이 필요합니다.",
+      });
+    if (
+      item.source === "TARGET_TYPE_ADDED" &&
+      item.excludedRoomTypeIds.length > 0
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["excludedRoomTypeIds"],
+        message: "객실유형 추가항목에는 제외유형을 지정할 수 없습니다.",
+      });
+    if (
+      new Set(item.excludedRoomTypeIds).size !== item.excludedRoomTypeIds.length
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["excludedRoomTypeIds"],
+        message: "제외 객실유형은 중복될 수 없습니다.",
+      });
   });
 const facilityInspectionChecklistV2ItemInputSchema = z
   .object({
@@ -1730,13 +1786,35 @@ const facilityInspectionChecklistV2ItemInputSchema = z
   .strict()
   .superRefine((item, context) => {
     if (item.source === "HOTEL_COMMON" && item.facilityTypeId !== null)
-      context.addIssue({ code: "custom", path: ["facilityTypeId"], message: "시설물 공통항목에는 시설물유형을 지정할 수 없습니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["facilityTypeId"],
+        message: "시설물 공통항목에는 시설물유형을 지정할 수 없습니다.",
+      });
     if (item.source === "TARGET_TYPE_ADDED" && item.facilityTypeId === null)
-      context.addIssue({ code: "custom", path: ["facilityTypeId"], message: "시설물유형 추가항목에는 시설물유형이 필요합니다." });
-    if (item.source === "TARGET_TYPE_ADDED" && item.excludedFacilityTypeIds.length > 0)
-      context.addIssue({ code: "custom", path: ["excludedFacilityTypeIds"], message: "시설물유형 추가항목에는 제외유형을 지정할 수 없습니다." });
-    if (new Set(item.excludedFacilityTypeIds).size !== item.excludedFacilityTypeIds.length)
-      context.addIssue({ code: "custom", path: ["excludedFacilityTypeIds"], message: "제외 시설물유형은 중복될 수 없습니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["facilityTypeId"],
+        message: "시설물유형 추가항목에는 시설물유형이 필요합니다.",
+      });
+    if (
+      item.source === "TARGET_TYPE_ADDED" &&
+      item.excludedFacilityTypeIds.length > 0
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["excludedFacilityTypeIds"],
+        message: "시설물유형 추가항목에는 제외유형을 지정할 수 없습니다.",
+      });
+    if (
+      new Set(item.excludedFacilityTypeIds).size !==
+      item.excludedFacilityTypeIds.length
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["excludedFacilityTypeIds"],
+        message: "제외 시설물유형은 중복될 수 없습니다.",
+      });
   });
 export const inspectionChecklistV2ItemInputSchema = z.union([
   roomInspectionChecklistV2ItemInputSchema,
@@ -1750,20 +1828,36 @@ export const createInspectionChecklistRevisionV2RequestSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    const ids = value.items.flatMap((item) => (item.itemId ? [item.itemId] : []));
+    const ids = value.items.flatMap((item) =>
+      item.itemId ? [item.itemId] : [],
+    );
     if (new Set(ids).size !== ids.length)
-      context.addIssue({ code: "custom", path: ["items"], message: "점검항목 ID는 중복될 수 없습니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "점검항목 ID는 중복될 수 없습니다.",
+      });
     if (!value.items.some((item) => item.targetType === "ROOM"))
-      context.addIssue({ code: "custom", path: ["items"], message: "객실 점검항목이 하나 이상 필요합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "객실 점검항목이 하나 이상 필요합니다.",
+      });
     if (!value.items.some((item) => item.targetType === "FACILITY"))
-      context.addIssue({ code: "custom", path: ["items"], message: "시설물 점검항목이 하나 이상 필요합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["items"],
+        message: "시설물 점검항목이 하나 이상 필요합니다.",
+      });
   });
 export type CreateInspectionChecklistRevisionV2Request = z.infer<
   typeof createInspectionChecklistRevisionV2RequestSchema
 >;
 const inspectionChecklistV2ItemSchema = z.union([
   roomInspectionChecklistV2ItemInputSchema.and(z.object({ itemId: z.uuid() })),
-  facilityInspectionChecklistV2ItemInputSchema.and(z.object({ itemId: z.uuid() })),
+  facilityInspectionChecklistV2ItemInputSchema.and(
+    z.object({ itemId: z.uuid() }),
+  ),
 ]);
 export const inspectionChecklistV2RevisionSchema = z
   .object({
@@ -1779,7 +1873,9 @@ export const inspectionChecklistV2RevisionSchema = z
 export const inspectionChecklistV2ResponseSchema = z
   .object({
     ok: z.literal(true),
-    data: z.object({ checklist: inspectionChecklistV2RevisionSchema.nullable() }).strict(),
+    data: z
+      .object({ checklist: inspectionChecklistV2RevisionSchema.nullable() })
+      .strict(),
     error: z.null(),
   })
   .strict();
@@ -2166,7 +2262,9 @@ export const createManualInspectionV2RequestSchema = z
       });
     }
     value.targets.forEach((target, index) => {
-      if (new Set(target.selectedItemIds).size !== target.selectedItemIds.length) {
+      if (
+        new Set(target.selectedItemIds).size !== target.selectedItemIds.length
+      ) {
         context.addIssue({
           code: "custom",
           path: ["targets", index, "selectedItemIds"],
@@ -2611,7 +2709,10 @@ const safeEvidenceFileNameSchema = z
   });
 export const hotelFileUploadInitRequestSchema = z
   .object({
-    parent: z.union([inspectionEvidenceParentSchema, repairEvidenceParentSchema]),
+    parent: z.union([
+      inspectionEvidenceParentSchema,
+      repairEvidenceParentSchema,
+    ]),
     fileName: safeEvidenceFileNameSchema,
     sizeBytes: z
       .number()
@@ -2783,7 +2884,12 @@ export const hotelFileRoutes = {
 } as const;
 
 const repairDescriptionSchema = z.string().trim().min(2).max(2000);
-const repairUnavailableReasonSchema = z.string().trim().min(2).max(500).nullable();
+const repairUnavailableReasonSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(500)
+  .nullable();
 const repairEvidenceFields = {
   fileVersionIds: z.array(z.uuid()).max(20),
   unavailableReason: repairUnavailableReasonSchema,
@@ -2797,7 +2903,11 @@ const directRepairSourceSchema = z
   .strict()
   .superRefine((value, context) => {
     if (value.fileVersionIds.length === 0 && value.unavailableReason === null)
-      context.addIssue({ code: "custom", path: ["fileVersionIds"], message: "하자사진 또는 촬영불가 사유가 필요합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["fileVersionIds"],
+        message: "하자사진 또는 촬영불가 사유가 필요합니다.",
+      });
   });
 const inspectionRepairSourceSchema = z
   .object({
@@ -2829,21 +2939,36 @@ export const createRepairCaseRequestSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if ((value.followUpOfRepairCaseId === null) !== (value.followUpParentVersion === null))
-      context.addIssue({ code: "custom", path: ["followUpParentVersion"], message: "후속 보수에는 이전 보수 version이 필요합니다." });
+    if (
+      (value.followUpOfRepairCaseId === null) !==
+      (value.followUpParentVersion === null)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["followUpParentVersion"],
+        message: "후속 보수에는 이전 보수 version이 필요합니다.",
+      });
     if (value.followUpOfRepairCaseId !== null && value.source.type !== "DIRECT")
-      context.addIssue({ code: "custom", path: ["source"], message: "후속 보수는 새 직접등록 자료가 필요합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["source"],
+        message: "후속 보수는 새 직접등록 자료가 필요합니다.",
+      });
   });
-export type CreateRepairCaseRequest = z.infer<typeof createRepairCaseRequestSchema>;
+export type CreateRepairCaseRequest = z.infer<
+  typeof createRepairCaseRequestSchema
+>;
 
 export const repairPerformerSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("INTERNAL"), userId: z.uuid() }).strict(),
-  z.object({
-    type: z.literal("EXTERNAL"),
-    contractorName: z.string().trim().min(1).max(150),
-    contactName: z.string().trim().min(1).max(100).nullable(),
-    contactPhone: z.string().trim().min(3).max(50),
-  }).strict(),
+  z
+    .object({
+      type: z.literal("EXTERNAL"),
+      contractorName: z.string().trim().min(1).max(150),
+      contactName: z.string().trim().min(1).max(100).nullable(),
+      contactPhone: z.string().trim().min(3).max(50),
+    })
+    .strict(),
 ]);
 export const createRepairVisitRequestSchema = z
   .object({
@@ -2856,22 +2981,48 @@ export const createRepairVisitRequestSchema = z
   .strict()
   .superRefine((value, context) => {
     if (value.endsAt <= value.startsAt)
-      context.addIssue({ code: "custom", path: ["endsAt"], message: "종료일시는 시작일시보다 늦어야 합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["endsAt"],
+        message: "종료일시는 시작일시보다 늦어야 합니다.",
+      });
   });
-export type CreateRepairVisitRequest = z.infer<typeof createRepairVisitRequestSchema>;
-export const updateRepairVisitRequestSchema = createRepairVisitRequestSchema.omit({ repairCaseId: true }).extend({
-  version: z.number().int().positive(),
-  reason: z.string().trim().min(2).max(500),
-});
-export const repairVersionReasonRequestSchema = z.object({ version: z.number().int().positive(), reason: z.string().trim().min(2).max(500) }).strict();
+export type CreateRepairVisitRequest = z.infer<
+  typeof createRepairVisitRequestSchema
+>;
+export const updateRepairVisitRequestSchema = createRepairVisitRequestSchema
+  .omit({ repairCaseId: true })
+  .extend({
+    version: z.number().int().positive(),
+    reason: z.string().trim().min(2).max(500),
+  });
+export const repairVersionReasonRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
 export const completeRepairVisitRequestSchema = z
-  .object({ version: z.number().int().positive(), result: repairDescriptionSchema, ...repairEvidenceFields })
+  .object({
+    version: z.number().int().positive(),
+    result: repairDescriptionSchema,
+    ...repairEvidenceFields,
+  })
   .strict()
   .superRefine((value, context) => {
     if (value.fileVersionIds.length === 0 && value.unavailableReason === null)
-      context.addIssue({ code: "custom", path: ["fileVersionIds"], message: "완료사진 또는 촬영불가 사유가 필요합니다." });
+      context.addIssue({
+        code: "custom",
+        path: ["fileVersionIds"],
+        message: "완료사진 또는 촬영불가 사유가 필요합니다.",
+      });
   });
-export const completeRepairCaseRequestSchema = z.object({ version: z.number().int().positive(), processVersion: z.number().int().positive() }).strict();
+export const completeRepairCaseRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    processVersion: z.number().int().positive(),
+  })
+  .strict();
 export const submitRepairReviewRequestSchema = z
   .object({
     processVersion: z.number().int().positive(),
@@ -2901,31 +3052,143 @@ export const repairProcessTransitionRequestSchema = z
       });
   });
 
-export const repairPrioritySchema = z.object({
-  id: z.uuid(), version: z.number().int().positive(), name: z.string().min(1), sortOrder: z.number().int(), color: z.string().min(1), status: z.enum(["ACTIVE", "INACTIVE", "DELETED"]),
-}).strict();
-export const repairPriorityListResponseSchema = z.object({
-  ok: z.literal(true),
-  data: z.object({ priorities: z.array(repairPrioritySchema) }).strict(),
-  error: z.null(),
-}).strict();
-export const repairTargetSnapshotSchema = z.object({
-  type: z.enum(["ROOM", "COMMON_AREA", "FACILITY"]), id: z.uuid(), name: z.string().min(1), facilityTypeName: z.string().nullable(), locationName: z.string().nullable(),
-}).strict();
-export const repairVisitSchema = z.object({
-  id: z.uuid(), repairCaseId: z.uuid(), title: z.string().min(1), startsAt: z.iso.datetime(), endsAt: z.iso.datetime(), status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED", "DELETED"]), version: z.number().int().positive(), performer: repairPerformerSchema, result: z.string().nullable(), unavailableReason: z.string().nullable(), fileVersionIds: z.array(z.uuid()), calendarProjectionStatus: z.literal("NOT_CONNECTED"),
-}).strict();
-export const repairCaseSchema = z.object({
-  id: z.uuid(), hotelId: z.uuid(), status: z.enum(["OPEN", "COMPLETED"]), version: z.number().int().positive(), target: repairTargetSnapshotSchema, priority: repairPrioritySchema.omit({ status: true }), source: repairSourceSchema, process: z.object({ executionId: z.uuid(), version: z.number().int().positive(), state: z.string().min(1), currentStageName: z.string().nullable() }).strict(), visits: z.array(repairVisitSchema), predecessor: z.object({ id: z.uuid(), targetName: z.string().min(1), completedAt: z.iso.datetime() }).strict().nullable(), followUpCount: z.number().int().nonnegative(), calendarProjectionStatus: z.literal("NOT_CONNECTED"), createdAt: z.iso.datetime(), updatedAt: z.iso.datetime(),
-}).strict();
+export const repairPrioritySchema = z
+  .object({
+    id: z.uuid(),
+    version: z.number().int().positive(),
+    name: z.string().min(1),
+    sortOrder: z.number().int(),
+    color: z.string().min(1),
+    status: z.enum(["ACTIVE", "INACTIVE", "DELETED"]),
+  })
+  .strict();
+export const repairPriorityListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ priorities: z.array(repairPrioritySchema) }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const repairTargetSnapshotSchema = z
+  .object({
+    type: z.enum(["ROOM", "COMMON_AREA", "FACILITY"]),
+    id: z.uuid(),
+    name: z.string().min(1),
+    facilityTypeName: z.string().nullable(),
+    locationName: z.string().nullable(),
+  })
+  .strict();
+export const repairVisitSchema = z
+  .object({
+    id: z.uuid(),
+    repairCaseId: z.uuid(),
+    title: z.string().min(1),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
+    status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED", "DELETED"]),
+    version: z.number().int().positive(),
+    performer: repairPerformerSchema,
+    result: z.string().nullable(),
+    unavailableReason: z.string().nullable(),
+    fileVersionIds: z.array(z.uuid()),
+    calendarProjectionStatus: z.enum([
+      "NOT_CONNECTED",
+      "PENDING",
+      "SYNCED",
+      "ACTION_REQUIRED",
+    ]),
+  })
+  .strict();
+export const repairCaseSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    status: z.enum(["OPEN", "COMPLETED"]),
+    version: z.number().int().positive(),
+    target: repairTargetSnapshotSchema,
+    priority: repairPrioritySchema.omit({ status: true }),
+    source: repairSourceSchema,
+    process: z
+      .object({
+        executionId: z.uuid(),
+        version: z.number().int().positive(),
+        state: z.string().min(1),
+        currentStageName: z.string().nullable(),
+      })
+      .strict(),
+    visits: z.array(repairVisitSchema),
+    predecessor: z
+      .object({
+        id: z.uuid(),
+        targetName: z.string().min(1),
+        completedAt: z.iso.datetime(),
+      })
+      .strict()
+      .nullable(),
+    followUpCount: z.number().int().nonnegative(),
+    calendarProjectionStatus: z.enum([
+      "NOT_CONNECTED",
+      "PENDING",
+      "SYNCED",
+      "ACTION_REQUIRED",
+    ]),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
 export type RepairCase = z.infer<typeof repairCaseSchema>;
-export const repairCaseResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repair: repairCaseSchema }).strict(), error: z.null() }).strict();
-export const repairVisitResponseSchema = z.object({ ok: z.literal(true), data: z.object({ visit: repairVisitSchema }).strict(), error: z.null() }).strict();
-export const repairListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
-export const repairFollowUpListResponseSchema = z.object({ ok: z.literal(true), data: z.object({ repairs: z.array(repairCaseSchema.omit({ visits: true })), pagination: hotelRoomPaginationSchema }).strict(), error: z.null() }).strict();
-export const repairListQuerySchema = z.object({ page: z.coerce.number().int().min(1).default(1), pageSize: z.coerce.number().int().min(1).max(100).default(20), status: z.enum(["OPEN", "COMPLETED"]).optional() }).strict();
+export const repairCaseResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ repair: repairCaseSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const repairVisitResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ visit: repairVisitSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const repairListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        repairs: z.array(repairCaseSchema.omit({ visits: true })),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const repairFollowUpListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        repairs: z.array(repairCaseSchema.omit({ visits: true })),
+        pagination: hotelRoomPaginationSchema,
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const repairListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    status: z.enum(["OPEN", "COMPLETED"]).optional(),
+  })
+  .strict();
 
-const calendarProjectionStatusSchema = z.enum(["NOT_CONNECTED", "PENDING", "SYNCED", "ACTION_REQUIRED"]);
+const calendarProjectionStatusSchema = z.enum([
+  "NOT_CONNECTED",
+  "PENDING",
+  "SYNCED",
+  "ACTION_REQUIRED",
+]);
 const calendarBaseEventFields = {
   id: z.uuid(),
   hotelId: z.uuid(),
@@ -2936,86 +3199,470 @@ const calendarBaseEventFields = {
   targetSummary: z.string().trim().min(1).max(300),
   detailHref: z.string().regex(/^\/hotels\//u),
 } as const;
-export const calendarInspectionEventSchema = z.object({
-  ...calendarBaseEventFields,
-  type: z.literal("INSPECTION"),
-  businessDate: z.iso.date(),
-  endsAt: z.null(),
-  status: inspectionExecutionStatusSchema,
-}).strict();
-export const calendarRepairVisitEventSchema = z.object({
-  ...calendarBaseEventFields,
-  type: z.literal("REPAIR_VISIT"),
-  status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED"]),
-  priority: z.object({ name: z.string().trim().min(1).max(100), color: z.string().trim().min(1).max(50) }).strict(),
-  calendarProjectionStatus: calendarProjectionStatusSchema,
-  cancellationReason: z.string().trim().min(2).max(500).nullable(),
-  canUpdate: z.boolean(),
-}).strict();
-export const calendarEventSchema = z.discriminatedUnion("type", [calendarInspectionEventSchema, calendarRepairVisitEventSchema]);
+export const calendarInspectionEventSchema = z
+  .object({
+    ...calendarBaseEventFields,
+    type: z.literal("INSPECTION"),
+    businessDate: z.iso.date(),
+    endsAt: z.null(),
+    status: inspectionExecutionStatusSchema,
+  })
+  .strict();
+export const calendarRepairVisitEventSchema = z
+  .object({
+    ...calendarBaseEventFields,
+    type: z.literal("REPAIR_VISIT"),
+    status: z.enum(["SCHEDULED", "COMPLETED", "CANCELLED"]),
+    priority: z
+      .object({
+        name: z.string().trim().min(1).max(100),
+        color: z.string().trim().min(1).max(50),
+      })
+      .strict(),
+    calendarProjectionStatus: calendarProjectionStatusSchema,
+    cancellationReason: z.string().trim().min(2).max(500).nullable(),
+    canUpdate: z.boolean(),
+  })
+  .strict();
+export const calendarEventSchema = z.discriminatedUnion("type", [
+  calendarInspectionEventSchema,
+  calendarRepairVisitEventSchema,
+]);
 export type CalendarEvent = z.infer<typeof calendarEventSchema>;
 
-export const calendarEventsQuerySchema = z.object({
-  from: z.iso.date(),
-  to: z.iso.date(),
-  cursor: z.string().trim().min(1).max(2048).regex(/^[A-Za-z0-9_-]+$/u).optional(),
-  pageSize: z.coerce.number().int().min(1).max(200).default(200),
-}).strict().superRefine((value, context) => {
-  const from = Date.parse(`${value.from}T00:00:00.000Z`);
-  const to = Date.parse(`${value.to}T00:00:00.000Z`);
-  const days = (to - from) / 86_400_000;
-  if (!(days > 0)) context.addIssue({ code: "custom", path: ["to"], message: "종료일은 시작일보다 늦어야 합니다." });
-  else if (days > 42) context.addIssue({ code: "custom", path: ["to"], message: "달력 조회기간은 최대 42일입니다." });
-});
+export const calendarEventsQuerySchema = z
+  .object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    cursor: z
+      .string()
+      .trim()
+      .min(1)
+      .max(2048)
+      .regex(/^[A-Za-z0-9_-]+$/u)
+      .optional(),
+    pageSize: z.coerce.number().int().min(1).max(200).default(200),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    const from = Date.parse(`${value.from}T00:00:00.000Z`);
+    const to = Date.parse(`${value.to}T00:00:00.000Z`);
+    const days = (to - from) / 86_400_000;
+    if (!(days > 0))
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "종료일은 시작일보다 늦어야 합니다.",
+      });
+    else if (days > 42)
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "달력 조회기간은 최대 42일입니다.",
+      });
+  });
 export type CalendarEventsQuery = z.infer<typeof calendarEventsQuerySchema>;
-const calendarHotelOptionSchema = z.object({ id: z.uuid(), name: z.string().trim().min(1).max(100) }).strict();
-const calendarPageDataSchema = z.object({
-  capabilities: z.object({ canCreateVisit: z.boolean(), canViewAllHotels: z.boolean() }).strict(),
-  events: z.array(calendarEventSchema).max(200),
-  hotels: z.array(calendarHotelOptionSchema).max(1000),
-  pagination: z.object({ nextCursor: z.string().min(1).max(2048).nullable() }).strict(),
-  range: z.object({ from: z.iso.date(), to: z.iso.date(), timeZone: z.literal("Asia/Seoul") }).strict(),
-}).strict();
-export const calendarEventsResponseSchema = z.object({ ok: z.literal(true), data: calendarPageDataSchema, error: z.null() }).strict();
-export type CalendarEventsResponse = z.infer<typeof calendarEventsResponseSchema>;
-export const calendarCapabilitiesResponseSchema = z.object({
-  ok: z.literal(true),
-  data: z.object({
-    canViewAllHotels: z.boolean(),
-    hotels: z.array(calendarHotelOptionSchema.extend({ canCreateVisit: z.boolean() }).strict()).max(1000),
-  }).strict(),
-  error: z.null(),
-}).strict();
-export const calendarVisitOptionsResponseSchema = z.object({
-  ok: z.literal(true),
-  data: z.object({
-    repairs: z.array(z.object({ id: z.uuid(), targetName: z.string().min(1), priorityName: z.string().min(1) }).strict()).max(500),
-    internalPerformers: z.array(z.object({ userId: z.uuid(), displayName: z.string().min(1) }).strict()).max(500),
-  }).strict(),
-  error: z.null(),
-}).strict();
+const calendarHotelOptionSchema = z
+  .object({ id: z.uuid(), name: z.string().trim().min(1).max(100) })
+  .strict();
+const calendarPageDataSchema = z
+  .object({
+    capabilities: z
+      .object({ canCreateVisit: z.boolean(), canViewAllHotels: z.boolean() })
+      .strict(),
+    events: z.array(calendarEventSchema).max(200),
+    hotels: z.array(calendarHotelOptionSchema).max(1000),
+    pagination: z
+      .object({ nextCursor: z.string().min(1).max(2048).nullable() })
+      .strict(),
+    range: z
+      .object({
+        from: z.iso.date(),
+        to: z.iso.date(),
+        timeZone: z.literal("Asia/Seoul"),
+      })
+      .strict(),
+  })
+  .strict();
+export const calendarEventsResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: calendarPageDataSchema,
+    error: z.null(),
+  })
+  .strict();
+export type CalendarEventsResponse = z.infer<
+  typeof calendarEventsResponseSchema
+>;
+export const calendarCapabilitiesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        canViewAllHotels: z.boolean(),
+        hotels: z
+          .array(
+            calendarHotelOptionSchema
+              .extend({ canCreateVisit: z.boolean() })
+              .strict(),
+          )
+          .max(1000),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const calendarVisitOptionsResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        repairs: z
+          .array(
+            z
+              .object({
+                id: z.uuid(),
+                targetName: z.string().min(1),
+                priorityName: z.string().min(1),
+              })
+              .strict(),
+          )
+          .max(500),
+        internalPerformers: z
+          .array(
+            z
+              .object({ userId: z.uuid(), displayName: z.string().min(1) })
+              .strict(),
+          )
+          .max(500),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
 export const calendarRoutes = {
   all: "/api/calendar",
   capabilities: "/api/calendar/capabilities",
-  hotel: (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}/calendar` as const,
-  hotelVisitOptions: (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}/calendar/visit-options` as const,
+  hotel: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/calendar` as const,
+  hotelVisitOptions: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/calendar/visit-options` as const,
 } as const;
 
-const repairBasePath = (hotelId: string) => `/api/hotels/${encodeURIComponent(hotelId)}` as const;
+export const calendarProjectionPermissionCodeSchema = z.enum([
+  "CALENDAR_CONNECTION_MANAGE",
+  "CALENDAR_PROJECTION_RETRY",
+]);
+export type CalendarProjectionPermissionCode = z.infer<
+  typeof calendarProjectionPermissionCodeSchema
+>;
+
+export const calendarConnectionStatusSchema = z.enum([
+  "NOT_CONNECTED",
+  "CONNECTED",
+  "RECONNECT_REQUIRED",
+  "DISCONNECTED",
+]);
+export const calendarCredentialStatusSchema = z.enum([
+  "ACTIVE",
+  "CANDIDATE",
+  "ACCESS_VERIFIED",
+  "ACCOUNT_CHANGE_REQUIRES_CONFIRMATION",
+  "ACTION_REQUIRED",
+]);
+export const calendarHotelLinkStatusSchema = z.enum([
+  "NOT_CREATED",
+  "PENDING",
+  "ACTIVE",
+  "ACTION_REQUIRED",
+  "DISCONNECTED",
+]);
+export const calendarConnectionStatusDataSchema = z
+  .object({
+    connectionId: z.uuid().nullable(),
+    connectionStatus: calendarConnectionStatusSchema,
+    credentialStatus: calendarCredentialStatusSchema.nullable(),
+    version: z.number().int().positive().nullable(),
+    candidateId: z.uuid().nullable(),
+    candidateRowVersion: z.number().int().positive().nullable(),
+    hotels: z
+      .array(
+        z
+          .object({
+            hotelId: z.uuid(),
+            hotelName: z.string().trim().min(1).max(100),
+            hotelLinkId: z.uuid().nullable(),
+            generation: z.number().int().nonnegative(),
+            linkStatus: calendarHotelLinkStatusSchema,
+            version: z.number().int().nonnegative(),
+            projectionStatus: calendarProjectionStatusSchema,
+            lastFailureCode: z.string().trim().min(1).max(100).nullable(),
+          })
+          .strict(),
+      )
+      .max(1000),
+    failures: z
+      .array(
+        z
+          .object({
+            failureId: z.uuid(),
+            version: z.number().int().positive(),
+            hotelId: z.uuid(),
+            eventLinkId: z.uuid().nullable(),
+            failureCode: z.string().regex(/^[A-Z0-9_]{2,100}$/u),
+            occurredAt: z.iso.datetime({ offset: true }),
+          })
+          .strict(),
+      )
+      .max(1000)
+      .default([]),
+  })
+  .strict()
+  .superRefine((status, context) => {
+    const candidateLifecycle = [
+      "CANDIDATE",
+      "ACCESS_VERIFIED",
+      "ACCOUNT_CHANGE_REQUIRES_CONFIRMATION",
+    ].includes(status.credentialStatus ?? "");
+    const hasCandidatePair =
+      status.candidateId !== null && status.candidateRowVersion !== null;
+    if (candidateLifecycle !== hasCandidatePair)
+      context.addIssue({
+        code: "custom",
+        message:
+          "candidate lifecycle must carry an exact candidate identity pair",
+        path: ["candidateId"],
+      });
+    if (
+      status.connectionStatus === "NOT_CONNECTED" &&
+      (status.connectionId !== null ||
+        status.version !== null ||
+        status.credentialStatus !== null ||
+        status.candidateId !== null ||
+        status.candidateRowVersion !== null)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "NOT_CONNECTED must not carry connection identity",
+        path: ["connectionStatus"],
+      });
+    if (
+      status.connectionStatus === "DISCONNECTED" &&
+      (status.connectionId === null ||
+        status.version === null ||
+        status.credentialStatus !== null ||
+        status.candidateId !== null ||
+        status.candidateRowVersion !== null)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "DISCONNECTED must carry only its connection version",
+        path: ["connectionStatus"],
+      });
+    if (
+      ["CONNECTED", "RECONNECT_REQUIRED"].includes(status.connectionStatus) &&
+      (status.connectionId === null ||
+        status.version === null ||
+        status.credentialStatus === null)
+    )
+      context.addIssue({
+        code: "custom",
+        message:
+          "active connection states require version and credential state",
+        path: ["connectionStatus"],
+      });
+    status.hotels.forEach((hotel, index) => {
+      const notCreated = hotel.linkStatus === "NOT_CREATED";
+      if (
+        notCreated
+          ? hotel.hotelLinkId !== null || hotel.version !== 0
+          : hotel.hotelLinkId === null ||
+            hotel.version < 1 ||
+            hotel.generation < 1
+      )
+        context.addIssue({
+          code: "custom",
+          message: "hotel link state must carry an exact identity and version",
+          path: ["hotels", index, "hotelLinkId"],
+        });
+    });
+  });
+export const calendarConnectionStatusResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: calendarConnectionStatusDataSchema,
+    error: z.null(),
+  })
+  .strict();
+export const calendarConnectionCommandResponseSchema =
+  calendarConnectionStatusResponseSchema.superRefine((receipt, context) => {
+    if (
+      receipt.data.connectionStatus === "NOT_CONNECTED" &&
+      (receipt.data.version !== null || receipt.data.credentialStatus !== null)
+    )
+      context.addIssue({
+        code: "custom",
+        message:
+          "NOT_CONNECTED command receipt must not carry connection identity",
+        path: ["data", "connectionStatus"],
+      });
+  });
+export const calendarOAuthStartRequestSchema = z
+  .object({
+    returnPath: z.enum(["/admin/calendar", "/hotels/calendar"]),
+    reconnect: z.boolean().default(false),
+    expectedConnectionVersion: z.number().int().positive().nullable(),
+  })
+  .strict()
+  .superRefine((request, context) => {
+    if (request.reconnect !== (request.expectedConnectionVersion !== null))
+      context.addIssue({
+        code: "custom",
+        message: "reconnect requires the current connection version",
+        path: ["expectedConnectionVersion"],
+      });
+  });
+function isExactGoogleCalendarAuthorizationUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const requiredKeys = [
+      "access_type",
+      "client_id",
+      "code_challenge",
+      "code_challenge_method",
+      "include_granted_scopes",
+      "nonce",
+      "redirect_uri",
+      "response_type",
+      "scope",
+      "state",
+    ];
+    const keys = [...url.searchParams.keys()].sort();
+    const prompt = url.searchParams.get("prompt");
+    const expectedKeys = [...requiredKeys, ...(prompt ? ["prompt"] : [])].sort();
+    const redirectUri = new URL(url.searchParams.get("redirect_uri") ?? "");
+    return (
+      url.protocol === "https:" &&
+      url.hostname === "accounts.google.com" &&
+      url.port === "" &&
+      url.username === "" &&
+      url.password === "" &&
+      url.pathname === "/o/oauth2/v2/auth" &&
+      url.hash === "" &&
+      keys.join("\u0000") === expectedKeys.join("\u0000") &&
+      url.searchParams.get("access_type") === "offline" &&
+      url.searchParams.get("code_challenge_method") === "S256" &&
+      url.searchParams.get("include_granted_scopes") === "false" &&
+      url.searchParams.get("response_type") === "code" &&
+      url.searchParams.get("scope") ===
+        "openid https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/calendar.calendarlist.readonly" &&
+      ["client_id", "code_challenge", "nonce", "state"].every(
+        (key) => (url.searchParams.get(key)?.length ?? 0) > 0,
+      ) &&
+      (prompt === null || prompt === "consent") &&
+      redirectUri.protocol === "https:" &&
+      redirectUri.username === "" &&
+      redirectUri.password === "" &&
+      redirectUri.hash === "" &&
+      redirectUri.search === "" &&
+      redirectUri.pathname ===
+        "/api/admin/calendar-connections/oauth/callback"
+    );
+  } catch {
+    return false;
+  }
+}
+export const calendarOAuthStartResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        authorizationUrl: z
+          .url()
+          .refine(isExactGoogleCalendarAuthorizationUrl),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const calendarReasonedCommandBase = {
+  expectedVersion: z.number().int().positive(),
+  reason: z.string().trim().min(2).max(500),
+};
+export const calendarConnectionDisconnectRequestSchema = z
+  .object(calendarReasonedCommandBase)
+  .strict();
+export const calendarCredentialCandidateCommandRequestSchema = z
+  .object({
+    ...calendarReasonedCommandBase,
+    expectedCandidateRowVersion: z.number().int().positive(),
+  })
+  .strict();
+export const calendarHotelCreateRequestSchema = z
+  .object({
+    branchId: z.uuid(),
+    expectedConnectionVersion: z.number().int().positive(),
+  })
+  .strict();
+export const calendarHotelDisconnectRequestSchema = z
+  .object({
+    expectedConnectionVersion: z.number().int().positive(),
+    expectedLinkVersion: z.number().int().positive(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
+export const calendarFailureRetryRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().positive(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
+export const calendarConnectionRoutes = {
+  status: "/api/admin/calendar-connections",
+  oauthStart: "/api/admin/calendar-connections/oauth/start",
+  oauthCallback: "/api/admin/calendar-connections/oauth/callback",
+  candidatePromote: (connectionId: string, candidateId: string) =>
+    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/credential-candidates/${encodeURIComponent(candidateId)}/promote` as const,
+  candidateConfirmSwitch: (connectionId: string, candidateId: string) =>
+    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/credential-candidates/${encodeURIComponent(candidateId)}/confirm-switch` as const,
+  hotelCreate: (connectionId: string) =>
+    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/hotel-calendars` as const,
+  hotelDisconnect: (connectionId: string, hotelId: string) =>
+    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/hotel-calendars/${encodeURIComponent(hotelId)}/disconnect` as const,
+  disconnect: (connectionId: string) =>
+    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/disconnect` as const,
+  failureRetry: (hotelId: string, failureId: string) =>
+    `/api/admin/calendar-connections/hotels/${encodeURIComponent(hotelId)}/failures/${encodeURIComponent(failureId)}/retry` as const,
+} as const;
+
+const repairBasePath = (hotelId: string) =>
+  `/api/hotels/${encodeURIComponent(hotelId)}` as const;
 export const repairRoutes = {
   list: (hotelId: string) => `${repairBasePath(hotelId)}/repairs` as const,
 
   create: (hotelId: string) => `${repairBasePath(hotelId)}/repairs` as const,
-  detail: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}` as const,
-  followUps: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/follow-ups` as const,
-  priorities: (hotelId: string) => `${repairBasePath(hotelId)}/repair-priorities` as const,
-  visits: (hotelId: string) => `${repairBasePath(hotelId)}/repair-visits` as const,
-  visit: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}` as const,
-  visitCancel: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/cancel` as const,
-  visitRestore: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/restore` as const,
-  visitDelete: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/delete` as const,
-  visitComplete: (hotelId: string, visitId: string) => `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/complete` as const,
-  submitReview: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/submit-review` as const,
-  transition: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/process/transition` as const,
-  complete: (hotelId: string, repairId: string) => `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/complete` as const,
+  detail: (hotelId: string, repairId: string) =>
+    `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}` as const,
+  followUps: (hotelId: string, repairId: string) =>
+    `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/follow-ups` as const,
+  priorities: (hotelId: string) =>
+    `${repairBasePath(hotelId)}/repair-priorities` as const,
+  visits: (hotelId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits` as const,
+  visit: (hotelId: string, visitId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}` as const,
+  visitCancel: (hotelId: string, visitId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/cancel` as const,
+  visitRestore: (hotelId: string, visitId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/restore` as const,
+  visitDelete: (hotelId: string, visitId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/delete` as const,
+  visitComplete: (hotelId: string, visitId: string) =>
+    `${repairBasePath(hotelId)}/repair-visits/${encodeURIComponent(visitId)}/complete` as const,
+  submitReview: (hotelId: string, repairId: string) =>
+    `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/submit-review` as const,
+  transition: (hotelId: string, repairId: string) =>
+    `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/process/transition` as const,
+  complete: (hotelId: string, repairId: string) =>
+    `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/complete` as const,
 } as const;

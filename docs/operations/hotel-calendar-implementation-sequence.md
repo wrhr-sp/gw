@@ -2,16 +2,16 @@
 
 ## 1. 문서 정보
 
-| 항목 | 값 |
-| --- | --- |
-| 상태 | `approved_sequence` |
-| 선택자 | 대장 |
-| 기록일 | 2026-08-07 |
-| 적용 환경 | Local·비운영 Preview |
-| Production | 별도 승인 전 제외 |
-| 제품 정본 | PostgreSQL |
-| 외부 projection | Google Calendar API backend-only 단방향 |
-| 사용자 화면 | FullCalendar 표준 MIT runtime + shadcn/Radix/Tailwind |
+| 항목            | 값                                                    |
+| --------------- | ----------------------------------------------------- |
+| 상태            | `approved_sequence`                                   |
+| 선택자          | 대장                                                  |
+| 기록일          | 2026-08-07                                            |
+| 적용 환경       | Local·비운영 Preview                                  |
+| Production      | 별도 승인 전 제외                                     |
+| 제품 정본       | PostgreSQL                                            |
+| 외부 projection | Google Calendar API backend-only 단방향               |
+| 사용자 화면     | FullCalendar 표준 MIT runtime + shadcn/Radix/Tailwind |
 
 이 문서는 [공통 점검 프로세스·시설물·하자보수·Calendar PRD](../product/prd/hotel-management/12-inspection-process-facility-repair-calendar-prd.md)의 승인 정책을 바꾸지 않고, 자체 달력 UI와 Google Calendar backend projection을 안전하게 구현하는 실행 순서를 고정한다.
 
@@ -39,9 +39,10 @@ API key, service account key, Workspace domain-wide delegation, 브라우저 Cal
 2. Google Calendar API만 활성화한다.
 3. Google Auth Platform에서 앱 이름·지원 이메일·개발자 연락처를 설정한다.
 4. External Testing 상태를 사용하고 전용 비운영 Google 연동계정만 테스트 사용자로 등록한다.
-5. Data Access에는 다음 exact scope 두 개만 등록한다.
+5. Data Access에는 다음 exact scope 세 개만 등록한다.
 
 ```text
+openid
 https://www.googleapis.com/auth/calendar.app.created
 https://www.googleapis.com/auth/calendar.calendarlist.readonly
 ```
@@ -85,10 +86,10 @@ Google OAuth 앱 게시·검증, 실호텔 계정, Production credential, 실제
 ### 단계 4 — OAuth start/callback과 관리자 연결 UI
 
 1. OAuth start는 현재 session·회사 Calendar 설정권한·영향 호텔 전체권한·중요작업 재인증을 검증한다.
-2. state hash·PKCE verifier ciphertext·Secure/HttpOnly/SameSite=Lax browser binding·10분 만료·allowlist return path를 저장한다.
+2. state hash·PKCE verifier ciphertext·OIDC nonce hash·Secure/HttpOnly/SameSite=Lax browser binding·10분 만료·allowlist return path를 저장한다.
 3. callback은 exact-one state와 `code xor error`만 허용하고 provider fetch 전에 state를 claim token으로 원자 소비한다.
 4. token endpoint 호출 중 DB transaction을 열어두지 않는다.
-5. 반환 scope가 승인된 두 scope의 순서무관 exact set이고 신규 refresh token이 있을 때만 encrypted candidate/active credential을 저장한다.
+5. 반환 scope가 승인된 세 scope의 순서무관 exact set이고 신규 refresh token과 Google issuer/JWKS/RS256/audience/expiry/iat/nonce 검증 ID token이 있을 때만 `sub` HMAC fingerprint와 encrypted candidate/active credential을 저장한다.
 6. 관리자 UI는 연결·재연결 candidate 확인·명시적 promote/confirm·해제·실패조회·수동재시도를 제공한다.
 7. credential·provider ID·authorization code·state 원문을 UI·로그·감사·오류에 노출하지 않는다.
 
@@ -118,9 +119,12 @@ Google OAuth 앱 게시·검증, 실호텔 계정, Production credential, 실제
 2. 동일 merged main을 Preview에 배포한다.
 3. DB marker·catalog·routine digest·exact grants·runtime capability를 read-back한다.
 4. 자체 달력의 단일·전체 호텔 조회, 권한차단, PC·390px·접근성을 smoke한다.
-5. OAuth start/callback replay·CSRF·scope mismatch·credential 암호화·연결·해제·수동재시도를 smoke한다.
-6. Calendar와 event projection의 create/update/cancel/delete·timeout·rate limit·dead letter를 확인한다.
-7. secret·token·provider ID 원문이 Worker logs·GitHub logs·API·HTML에 없는지 확인한다.
+5. OAuth start/callback replay·CSRF·scope mismatch·credential 암호화·연결·해제를 smoke한다. malformed callback도 같은 allowlisted 관리자 경로로 303하고 binding cookie를 매번 삭제해야 한다.
+6. status DTO는 candidate ID/version pair와 `failures[{failureId,version,hotelId,eventLinkId}]`를 strict parse하고 provider ID·credential 원문을 반환하지 않는다.
+7. Calendar와 event projection의 create/update/cancel/delete·timeout·rate limit·dead letter를 확인한다. `CANCELLED`는 기존 event UPDATE, `DELETED`만 provider DELETE다.
+8. dead-letter failure A의 exact ID/version retry는 terminal evidence를 보존한 새 job 한 건만 만들고, failure B는 `OPEN/ACTION_REQUIRED`로 남아 전체 상태가 거짓 `SYNCED`로 수렴하지 않는지 실제 PostgreSQL read-back한다.
+9. principal·event ownership HMAC marker는 row에 저장된 old key version으로 비교하고 신규 row만 current version을 쓰는 rotation fixture를 통과한다.
+10. secret·token·provider ID 원문이 Worker logs·GitHub logs·API·HTML에 없는지 확인한다.
 
 ### 단계 8 — MVP 전체 완료 이후 검토
 

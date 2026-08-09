@@ -10,6 +10,8 @@ const CLEAR_PASSWORD_RESET_COOKIE =
   "__Host-hotel_password_reset=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict";
 const CLEAR_OAUTH_BROWSER_COOKIE =
   "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
+const CLEAR_CALENDAR_OAUTH_BROWSER_COOKIE =
+  "__Host-hotel_calendar_oauth=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
 const UUID_PATH_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 
@@ -31,6 +33,10 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["health/ready", new Set(["GET"])],
   ["calendar", new Set(["GET"])],
   ["calendar/capabilities", new Set(["GET"])],
+  ["admin/calendar-connections", new Set(["GET"])],
+  ["admin/calendar-connections/oauth/start", new Set(["POST"])],
+  ["admin/calendar-connections/oauth/callback", new Set(["GET"])],
+
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -77,35 +83,96 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["POST"]);
   }
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/calendar(?:/visit-options)?$`, "iu").test(apiPath)
-  ) return new Set(["GET"]);
+    new RegExp(
+      `^admin/calendar-connections/${UUID_PATH_PATTERN}/credential-candidates/${UUID_PATH_PATTERN}/(?:promote|confirm-switch)$`,
+      "iu",
+    ).test(apiPath) ||
+    new RegExp(
+      `^admin/calendar-connections/${UUID_PATH_PATTERN}/hotel-calendars$`,
+      "iu",
+    ).test(apiPath) ||
+    new RegExp(
+      `^admin/calendar-connections/${UUID_PATH_PATTERN}/hotel-calendars/${UUID_PATH_PATTERN}/disconnect$`,
+      "iu",
+    ).test(apiPath) ||
+    new RegExp(
+      `^admin/calendar-connections/${UUID_PATH_PATTERN}/disconnect$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs$`, "iu").test(apiPath)
-  ) return new Set(["GET", "POST"]);
+    new RegExp(
+      `^admin/calendar-connections/hotels/${UUID_PATH_PATTERN}/failures/${UUID_PATH_PATTERN}/retry$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-priorities$`, "iu").test(apiPath)
-  ) return new Set(["GET"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/calendar(?:/visit-options)?$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
+  if (new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs$`, "iu").test(apiPath))
+    return new Set(["GET", "POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
-  ) return new Set(["GET"]);
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-priorities$`, "iu").test(
+      apiPath,
+    )
+  )
+    return new Set(["GET"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/(?:follow-ups|complete|submit-review)$`, "iu").test(apiPath)
-  ) return apiPath.endsWith("follow-ups") ? new Set(["GET"]) : new Set(["POST"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`, "iu").test(apiPath)
-  ) return new Set(["GET"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/(?:follow-ups|complete|submit-review)$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return apiPath.endsWith("follow-ups")
+      ? new Set(["GET"])
+      : new Set(["POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/process/transition$`, "iu").test(apiPath)
-  ) return new Set(["POST"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits$`, "iu").test(apiPath)
-  ) return new Set(["POST"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repairs/${UUID_PATH_PATTERN}/process/transition$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}$`, "iu").test(apiPath)
-  ) return new Set(["PATCH"]);
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits$`, "iu").test(
+      apiPath,
+    )
+  )
+    return new Set(["POST"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}/(?:cancel|restore|delete|complete)$`, "iu").test(apiPath)
-  ) return new Set(["POST"]);
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["PATCH"]);
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/repair-visits/${UUID_PATH_PATTERN}/(?:cancel|restore|delete|complete)$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspection-reviews$`, "iu").test(
       apiPath,
@@ -161,9 +228,10 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["GET"]);
   }
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inspections/v2/manual$`, "iu").test(
-      apiPath,
-    )
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inspections/v2/manual$`,
+      "iu",
+    ).test(apiPath)
   ) {
     return new Set(["POST"]);
   }
@@ -380,9 +448,15 @@ async function proxy(
     apiPath.startsWith("admin/users/") ||
     apiPath === "account/initial-password";
   const calendarRequest =
-    apiPath === "calendar" || apiPath === "calendar/capabilities";
+    apiPath === "calendar" ||
+    apiPath === "calendar/capabilities" ||
+    apiPath === "admin/calendar-connections" ||
+    apiPath.startsWith("admin/calendar-connections/");
   const databaseRequest =
-    hotelRequest || accountRequest || calendarRequest || apiPath === "health/ready";
+    hotelRequest ||
+    accountRequest ||
+    calendarRequest ||
+    apiPath === "health/ready";
   const exchangeFailureHeaders =
     apiPath === "auth/password/exchange"
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
@@ -426,6 +500,17 @@ async function proxy(
           Location: "/login?error=unavailable",
           "Referrer-Policy": "no-referrer",
           "Set-Cookie": CLEAR_OAUTH_BROWSER_COOKIE,
+        },
+      });
+    }
+    if (apiPath === "admin/calendar-connections/oauth/callback") {
+      return new Response(null, {
+        status: 303,
+        headers: {
+          "Cache-Control": "no-store",
+          Location: "/admin/calendar",
+          "Referrer-Policy": "no-referrer",
+          "Set-Cookie": CLEAR_CALENDAR_OAUTH_BROWSER_COOKIE,
         },
       });
     }

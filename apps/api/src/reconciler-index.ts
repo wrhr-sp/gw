@@ -1,3 +1,4 @@
+import { withPostgresScheduledReconcilerInvocation } from "@werehere/db";
 import {
   reconcileAccountProviderJobsFromBindings,
   type AccountReconcilerBindings,
@@ -12,27 +13,78 @@ import {
   reconcileInspectionMaterializationsFromBindings,
   type InspectionMaterializerBindings,
 } from "./inspections/materializer-factory";
+import {
+  reconcileGoogleCalendarsFromBindings,
+  type CalendarProjectionBindings,
+} from "./calendar-projections/factory";
+import { resolveDatabaseUrl } from "./database";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
 };
+
+function calendarProjectionConfigured(env: CalendarProjectionBindings) {
+  return Boolean(
+    env.GOOGLE_CALENDAR_OAUTH_CLIENT_ID ||
+    env.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET ||
+    env.CALENDAR_CREDENTIAL_AES_KEYRING_JSON ||
+    env.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON,
+  );
+}
+
+async function settleScheduled(tasks: Promise<unknown>[]) {
+  const settled = await Promise.allSettled(tasks);
+  const failures = settled.filter(
+    (result): result is PromiseRejectedResult => result.status === "rejected",
+  );
+  if (failures.length) {
+    const messages = failures.map((failure) =>
+      failure.reason instanceof Error
+        ? failure.reason.message
+        : "scheduled reconciler failed",
+    );
+    throw new AggregateError(
+      failures.map((failure) => failure.reason),
+      `SCHEDULED_RECONCILIATION_FAILED: ${messages.join("; ")}`,
+    );
+  }
+  return settled.map((result) =>
+    result.status === "fulfilled" ? result.value : undefined,
+  );
+}
+
+async function runScheduled(
+  env: AccountReconcilerBindings &
+    FileReconcilerBindings &
+    InspectionMaterializerBindings &
+    CalendarProjectionBindings,
+) {
+  const databaseUrl = resolveDatabaseUrl(env, "RECONCILER");
+  if (!databaseUrl)
+    throw new Error("SCHEDULED_RECONCILER_DATABASE_NOT_CONFIGURED");
+  return withPostgresScheduledReconcilerInvocation(databaseUrl, () =>
+    settleScheduled([
+      reconcileAccountProviderJobsFromBindings(env),
+      reconcileHotelFileEvidenceFromBindings(env),
+      recoverExpiredHotelFileAccessGrantsFromBindings(env),
+      reconcileInspectionMaterializationsFromBindings(env),
+      ...(calendarProjectionConfigured(env)
+        ? [reconcileGoogleCalendarsFromBindings(env)]
+        : []),
+    ]),
+  );
+}
 
 const worker = {
   scheduled(
     _controller: unknown,
     env: AccountReconcilerBindings &
       FileReconcilerBindings &
-      InspectionMaterializerBindings,
+      InspectionMaterializerBindings &
+      CalendarProjectionBindings,
     context: ScheduledExecutionContext,
   ) {
-    context.waitUntil(
-      Promise.all([
-        reconcileAccountProviderJobsFromBindings(env),
-        reconcileHotelFileEvidenceFromBindings(env),
-        recoverExpiredHotelFileAccessGrantsFromBindings(env),
-        reconcileInspectionMaterializationsFromBindings(env),
-      ]),
-    );
+    context.waitUntil(runScheduled(env));
   },
 };
 

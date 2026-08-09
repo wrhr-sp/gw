@@ -8,6 +8,7 @@ import {
   repairCaseResponseSchema,
   repairListResponseSchema,
   repairRoutes,
+  repairVisitResponseSchema,
   type HotelAssignmentView,
   type HotelCommonArea,
   type HotelFacility,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { createLogicalIdempotencyKeyStore } from "../../lib/logical-idempotency";
 
 type RepairSummary = Omit<RepairCase, "visits">;
 type Priority = RepairCase["priority"] & { status: "ACTIVE" | "INACTIVE" | "DELETED" };
@@ -58,21 +60,46 @@ function localDateTime(value: string) {
   return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
-async function requestMutation(path: string, method: "PATCH" | "POST", body: unknown) {
-  const response = await fetch(path, {
-    body: JSON.stringify(body),
-    headers: {
-      "Content-Type": "application/json",
-      "Idempotency-Key": crypto.randomUUID(),
-    },
-    method,
-  });
-  const value = await response.json().catch(() => undefined);
-  if (!response.ok) {
-    const parsed = hotelErrorResponseSchema.safeParse(value);
-    throw new Error(parsed.success ? parsed.data.error.message : "요청을 처리하지 못했습니다.");
+export async function requestMutation<T>(
+  idempotencyKeys: ReturnType<typeof createLogicalIdempotencyKeyStore>,
+  path: string,
+  method: "PATCH" | "POST",
+  body: unknown,
+  responseSchema: { parse(value: unknown): T },
+  invalidResponseMessage: string,
+) {
+  const operation = { body, path };
+  const idempotencyKey = idempotencyKeys.acquire(operation);
+  let definitive = false;
+  try {
+    const response = await fetch(path, {
+      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": idempotencyKey,
+      },
+      method,
+    });
+    const value = await response.json();
+    if (!response.ok) {
+      const parsed = hotelErrorResponseSchema.safeParse(value);
+      definitive = parsed.success && !parsed.data.error.retryable;
+      throw new Error(
+        parsed.success ? parsed.data.error.message : "요청을 처리하지 못했습니다.",
+      );
+    }
+    let parsed: T;
+    try {
+      parsed = responseSchema.parse(value);
+    } catch {
+      throw new Error(invalidResponseMessage);
+    }
+    idempotencyKeys.complete(operation);
+    return parsed;
+  } catch (error) {
+    idempotencyKeys.settle(operation, definitive);
+    throw error;
   }
-  return value;
 }
 
 export function RepairWorkspace({
@@ -100,6 +127,9 @@ export function RepairWorkspace({
   const [completionVisit, setCompletionVisit] = useState<RepairCase["visits"][number] | null>(null);
   const [completionResult, setCompletionResult] = useState("");
   const [completionReason, setCompletionReason] = useState("");
+  const [idempotencyKeys] = useState(() => createLogicalIdempotencyKeyStore());
+  const createRepairCaseIdRef = useRef<string | null>(null);
+  const completionFallbackRef = useRef<HTMLHeadingElement>(null);
   const createTriggerRef = useRef<HTMLButtonElement>(null);
   const visitTriggerRef = useRef<HTMLButtonElement>(null);
   const targets = useMemo<TargetOption[]>(
@@ -141,6 +171,7 @@ export function RepairWorkspace({
   }
 
   function openCreate(parent: RepairCase | null) {
+    createRepairCaseIdRef.current = crypto.randomUUID();
     setFollowUpParent(parent);
     const target = parent ? `${parent.target.type}:${parent.target.id}` : targets[0]?.key ?? "";
     createForm.reset({ description: "", priorityId: priorities[0]?.id ?? "", targetKey: target, unavailableReason: "" });
@@ -160,19 +191,29 @@ export function RepairWorkspace({
         followUpOfRepairCaseId: followUpParent?.id ?? null,
         followUpParentVersion: followUpParent?.version ?? null,
         priorityId: fields.priorityId,
-        repairCaseId: crypto.randomUUID(),
+        repairCaseId:
+          createRepairCaseIdRef.current ??
+          (() => {
+            throw new Error("보수 등록 작업 식별자를 확인하지 못했습니다.");
+          })(),
         source: { description: fields.description, fileVersionIds: [], type: "DIRECT", unavailableReason: fields.unavailableReason },
         target: targetValue,
       });
-      return requestMutation(repairRoutes.create(hotelId), "POST", value);
+      return requestMutation(
+        idempotencyKeys,
+        repairRoutes.create(hotelId),
+        "POST",
+        value,
+        repairCaseResponseSchema,
+        "보수 등록 응답을 안전하게 확인하지 못했습니다.",
+      );
     },
     onError: (error) => setMessage(error instanceof Error ? error.message : "보수를 등록하지 못했습니다."),
     onSuccess: async (value) => {
-      const parsed = repairCaseResponseSchema.safeParse(value);
-      if (!parsed.success) return setMessage("보수 등록 응답을 안전하게 확인하지 못했습니다.");
       setMessage("보수를 등록했습니다.");
       setCreateOpen(false);
-      await refresh(parsed.data.data.repair.id);
+      createRepairCaseIdRef.current = null;
+      await refresh(value.data.repair.id);
     },
   });
 
@@ -200,9 +241,9 @@ export function RepairWorkspace({
         : { contactName: fields.contactName.trim() || null, contactPhone: fields.contactPhone, contractorName: fields.contractorName, type: "EXTERNAL" as const };
       const base = { endsAt: localDateTime(fields.endsAt), performer, startsAt: localDateTime(fields.startsAt), title: fields.title };
       if (editingVisit)
-        return requestMutation(repairRoutes.visit(hotelId, editingVisit.id), "PATCH", { ...base, reason: fields.reason, version: editingVisit.version });
+        return requestMutation(idempotencyKeys, repairRoutes.visit(hotelId, editingVisit.id), "PATCH", { ...base, reason: fields.reason, version: editingVisit.version }, repairVisitResponseSchema, "방문일정 응답을 안전하게 확인하지 못했습니다.");
       const value = createRepairVisitRequestSchema.parse({ ...base, repairCaseId: selected.id });
-      return requestMutation(repairRoutes.visits(hotelId), "POST", value);
+      return requestMutation(idempotencyKeys, repairRoutes.visits(hotelId), "POST", value, repairVisitResponseSchema, "방문일정 응답을 안전하게 확인하지 못했습니다.");
     },
     onError: (error) => setMessage(error instanceof Error ? error.message : "방문일정을 저장하지 못했습니다."),
     onSuccess: async () => {
@@ -213,20 +254,44 @@ export function RepairWorkspace({
   });
 
   const commandMutation = useMutation({
-    mutationFn: async ({ body, path }: { body: unknown; path: string }) => requestMutation(path, "POST", body),
+    mutationFn: async ({ body, path, responseKind }: { body: unknown; path: string; responseKind: "REPAIR" | "VISIT" }) => {
+      if (responseKind === "VISIT")
+        return requestMutation(
+          idempotencyKeys,
+          path,
+          "POST",
+          body,
+          repairVisitResponseSchema,
+          "업무 상태 응답을 안전하게 확인하지 못했습니다.",
+        );
+      return requestMutation(
+        idempotencyKeys,
+        path,
+        "POST",
+        body,
+        repairCaseResponseSchema,
+        "업무 상태 응답을 안전하게 확인하지 못했습니다.",
+      );
+    },
     onError: (error) => setMessage(error instanceof Error ? error.message : "업무 상태를 변경하지 못했습니다."),
     onSuccess: async () => { setMessage("서버에 변경사항을 저장했습니다."); await refresh(); },
   });
 
-  async function completeVisit() {
-    if (!completionVisit) return;
-    await commandMutation.mutateAsync({
-      body: { fileVersionIds: [], result: completionResult, unavailableReason: completionReason, version: completionVisit.version },
-      path: repairRoutes.visitComplete(hotelId, completionVisit.id),
-    });
+  function closeCompletionDialog() {
     setCompletionVisit(null);
     setCompletionResult("");
     setCompletionReason("");
+  }
+
+  async function completeVisit() {
+    if (!completionVisit) return;
+    const completed = await commandMutation.mutateAsync({
+      body: { fileVersionIds: [], result: completionResult, unavailableReason: completionReason, version: completionVisit.version },
+      path: repairRoutes.visitComplete(hotelId, completionVisit.id),
+      responseKind: "VISIT",
+    }).catch(() => null);
+    if (!completed) return;
+    closeCompletionDialog();
   }
 
   const busy = createMutation.isPending || visitMutation.isPending || commandMutation.isPending;
@@ -245,16 +310,16 @@ export function RepairWorkspace({
         </div>
         <section aria-label="보수 상세" className="rounded-panel border border-border bg-surface p-4">
           {selected ? <>
-            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-muted">선택 보수</p><h2 className="text-lg font-bold">{selected.target.name}</h2></div><span className="rounded-badge bg-amber-100 px-2 py-1 text-xs font-semibold">{selected.priority.name}</span></div>
+            <div className="flex items-start justify-between gap-3"><div><p className="text-xs text-muted">선택 보수</p><h2 className="text-lg font-bold" ref={completionFallbackRef} tabIndex={-1}>{selected.target.name}</h2></div><span className="rounded-badge bg-amber-100 px-2 py-1 text-xs font-semibold">{selected.priority.name}</span></div>
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-muted">대상</dt><dd>{selected.target.type}</dd></div><div><dt className="text-xs text-muted">업무상태</dt><dd>{selected.process.state}</dd></div></dl>
             {sourceFileVersionIds.length > 0 ? <div className="mt-5 space-y-2"><h3 className="font-semibold">등록 증빙</h3>{sourceFileVersionIds.map((fileVersionId, index) => <a className="flex min-h-11 items-center gap-2 rounded-control border border-border px-3 text-sm" href={hotelFileRoutes.repairView(hotelId, selected.id, fileVersionId)} key={fileVersionId}><ImageIcon aria-hidden="true" size={16}/>등록 증빙 {index + 1} 보기</a>)}</div> : null}
             <div className="mt-5 space-y-2"><div className="flex items-center justify-between"><h3 className="font-semibold">방문일정</h3><button ref={visitTriggerRef} className={`${actionClass} border border-primary text-primary`} disabled={selected.status === "COMPLETED"} onClick={() => openVisit(null)}><Plus size={16}/>등록</button></div>
-              {selected.visits.length === 0 ? <p className="rounded-control bg-background p-3 text-sm text-muted">일정 미정</p> : selected.visits.map((visit) => <article key={visit.id} className="rounded-card border border-border p-3"><div className="flex items-center gap-2"><CalendarClock aria-hidden="true" size={18}/><strong>{visit.title}</strong></div><p className="mt-1 text-xs text-muted">{new Date(visit.startsAt).toLocaleString("ko-KR")} · {visit.status}</p>{visit.fileVersionIds.map((fileVersionId, index) => <a className="mt-2 flex min-h-11 items-center gap-2 rounded-control border border-border px-3 text-sm" href={hotelFileRoutes.repairView(hotelId, selected.id, fileVersionId)} key={fileVersionId}><ImageIcon aria-hidden="true" size={16}/>완료 증빙 {index + 1} 보기</a>)}{visit.status === "SCHEDULED" ? <div className="mt-3 flex flex-wrap gap-2"><button className={`${actionClass} border border-border`} onClick={() => openVisit(visit)}><Pencil size={15}/>수정</button><button className={`${actionClass} border border-border`} onClick={() => commandMutation.mutate({ body: { reason: "현장 일정 취소", version: visit.version }, path: repairRoutes.visitCancel(hotelId, visit.id) })}><XCircle size={15}/>취소</button><button className={`${actionClass} bg-accent text-white`} onClick={() => setCompletionVisit(visit)}><Wrench size={15}/>방문완료</button></div> : visit.status === "CANCELLED" ? <button className={`${actionClass} mt-3 border border-border`} onClick={() => commandMutation.mutate({ body: { reason: "방문일정 복원", version: visit.version }, path: repairRoutes.visitRestore(hotelId, visit.id) })}><RotateCcw size={15}/>복원</button> : null}</article>)}
+              {selected.visits.length === 0 ? <p className="rounded-control bg-background p-3 text-sm text-muted">일정 미정</p> : selected.visits.map((visit) => <article key={visit.id} className="rounded-card border border-border p-3"><div className="flex items-center gap-2"><CalendarClock aria-hidden="true" size={18}/><strong>{visit.title}</strong></div><p className="mt-1 text-xs text-muted">{new Date(visit.startsAt).toLocaleString("ko-KR")} · {visit.status}</p>{visit.fileVersionIds.map((fileVersionId, index) => <a className="mt-2 flex min-h-11 items-center gap-2 rounded-control border border-border px-3 text-sm" href={hotelFileRoutes.repairView(hotelId, selected.id, fileVersionId)} key={fileVersionId}><ImageIcon aria-hidden="true" size={16}/>완료 증빙 {index + 1} 보기</a>)}{visit.status === "SCHEDULED" ? <div className="mt-3 flex flex-wrap gap-2"><button className={`${actionClass} border border-border`} onClick={() => openVisit(visit)}><Pencil size={15}/>수정</button><button className={`${actionClass} border border-border`} onClick={() => commandMutation.mutate({ body: { reason: "현장 일정 취소", version: visit.version }, path: repairRoutes.visitCancel(hotelId, visit.id), responseKind: "VISIT" })}><XCircle size={15}/>취소</button><button className={`${actionClass} bg-accent text-white`} onClick={() => setCompletionVisit(visit)}><Wrench size={15}/>방문완료</button></div> : visit.status === "CANCELLED" ? <button className={`${actionClass} mt-3 border border-border`} onClick={() => commandMutation.mutate({ body: { reason: "방문일정 복원", version: visit.version }, path: repairRoutes.visitRestore(hotelId, visit.id), responseKind: "VISIT" })}><RotateCcw size={15}/>복원</button> : null}</article>)}
             </div>
             <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              {selected.process.state === "PENDING_INPUT" ? <button className={`${actionClass} bg-primary text-white`} disabled={busy} onClick={() => commandMutation.mutate({ body: { processVersion: selected.process.version, version: selected.version }, path: repairRoutes.submitReview(hotelId, selected.id) })}>검토 요청</button> : null}
-              {selected.process.state === "IN_REVIEW" ? <><button className={`${actionClass} bg-primary text-white`} disabled={busy} onClick={() => commandMutation.mutate({ body: { choiceValue: null, event: "APPROVE", processVersion: selected.process.version, reason: "보수 결과 승인" }, path: repairRoutes.transition(hotelId, selected.id) })}>승인</button><button className={`${actionClass} border border-red-300 text-red-700`} disabled={busy} onClick={() => commandMutation.mutate({ body: { choiceValue: null, event: "REJECT", processVersion: selected.process.version, reason: "보수 결과 보완 필요" }, path: repairRoutes.transition(hotelId, selected.id) })}>반려</button></> : null}
-              {selected.process.state === "COMPLETED" && selected.status === "OPEN" ? <button className={`${actionClass} bg-primary text-white sm:col-span-2`} disabled={busy} onClick={() => commandMutation.mutate({ body: { processVersion: selected.process.version, version: selected.version }, path: repairRoutes.complete(hotelId, selected.id) })}>보수 최종완료</button> : null}
+              {selected.process.state === "PENDING_INPUT" ? <button className={`${actionClass} bg-primary text-white`} disabled={busy} onClick={() => commandMutation.mutate({ body: { processVersion: selected.process.version, version: selected.version }, path: repairRoutes.submitReview(hotelId, selected.id), responseKind: "REPAIR" })}>검토 요청</button> : null}
+              {selected.process.state === "IN_REVIEW" ? <><button className={`${actionClass} bg-primary text-white`} disabled={busy} onClick={() => commandMutation.mutate({ body: { choiceValue: null, event: "APPROVE", processVersion: selected.process.version, reason: "보수 결과 승인" }, path: repairRoutes.transition(hotelId, selected.id), responseKind: "REPAIR" })}>승인</button><button className={`${actionClass} border border-red-300 text-red-700`} disabled={busy} onClick={() => commandMutation.mutate({ body: { choiceValue: null, event: "REJECT", processVersion: selected.process.version, reason: "보수 결과 보완 필요" }, path: repairRoutes.transition(hotelId, selected.id), responseKind: "REPAIR" })}>반려</button></> : null}
+              {selected.process.state === "COMPLETED" && selected.status === "OPEN" ? <button className={`${actionClass} bg-primary text-white sm:col-span-2`} disabled={busy} onClick={() => commandMutation.mutate({ body: { processVersion: selected.process.version, version: selected.version }, path: repairRoutes.complete(hotelId, selected.id), responseKind: "REPAIR" })}>보수 최종완료</button> : null}
               {selected.status === "COMPLETED" ? <button className={`${actionClass} border border-primary text-primary sm:col-span-2`} onClick={() => openCreate(selected)}>후속 보수 등록</button> : null}
             </div>
             <nav aria-label="이전·후속 보수" className="mt-5 space-y-2">{selected.predecessor ? <a className="flex min-h-11 items-center gap-2 rounded-control border border-border px-3" href={`/hotels/${hotelId}/repairs?selected=${selected.predecessor.id}`}><Link2 size={16}/>이전 보수 보기</a> : null}<a className="flex min-h-11 items-center justify-between rounded-control border border-border px-3" href={repairRoutes.followUps(hotelId, selected.id)}><span>후속 보수 {selected.followUpCount}건</span><ChevronRight size={16}/></a></nav>
@@ -277,6 +342,7 @@ export function RepairWorkspace({
       <Dialog open={visitOpen} onOpenChange={setVisitOpen} restoreFocusRef={visitTriggerRef} title={editingVisit ? "방문일정 수정" : "방문일정 등록"}>
         <form className="space-y-4" onSubmit={visitForm.handleSubmit((value) => visitMutation.mutate(value))}>
           <h2 className="text-xl font-bold">{editingVisit ? "방문일정 수정" : "방문일정 등록"}</h2>
+          {message === "방문일정 응답을 안전하게 확인하지 못했습니다." ? <p role="alert" className="rounded-control border border-red-300 bg-red-50 p-3 text-sm text-red-700">{message}</p> : null}
           <label className="block text-sm font-semibold">일정 제목<input className={`${fieldClass} mt-1`} {...visitForm.register("title", { required: true })}/></label>
           <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-semibold">시작일시<input className={`${fieldClass} mt-1`} type="datetime-local" {...visitForm.register("startsAt", { required: true })}/></label><label className="block text-sm font-semibold">종료일시<input className={`${fieldClass} mt-1`} type="datetime-local" {...visitForm.register("endsAt", { required: true })}/></label></div>
           <fieldset className="space-y-2"><legend className="text-sm font-semibold">수행자</legend><div className="flex gap-4"><label className="inline-flex min-h-11 items-center gap-2"><input type="radio" value="INTERNAL" {...visitForm.register("performerType")}/>내부 담당자</label><label className="inline-flex min-h-11 items-center gap-2"><input type="radio" value="EXTERNAL" {...visitForm.register("performerType")}/>외부업체</label></div></fieldset>
@@ -286,7 +352,7 @@ export function RepairWorkspace({
         </form>
       </Dialog>
 
-      <Dialog open={completionVisit !== null} onOpenChange={(open) => { if (!open) setCompletionVisit(null); }} title="방문완료 기록">
+      <Dialog fallbackFocusRef={completionFallbackRef} open={completionVisit !== null} onOpenChange={(open) => { if (!open) closeCompletionDialog(); }} title="방문완료 기록">
         <div className="space-y-4"><h2 className="text-xl font-bold">방문완료 기록</h2><label className="block text-sm font-semibold">작업 결과<textarea className={`${fieldClass} mt-1 min-h-24 py-3`} onChange={(event) => setCompletionResult(event.target.value)} value={completionResult}/></label><label className="block text-sm font-semibold">완료사진 미첨부 사유<textarea className={`${fieldClass} mt-1 min-h-20 py-3`} onChange={(event) => setCompletionReason(event.target.value)} value={completionReason}/></label><button className={`${actionClass} w-full bg-primary text-white`} disabled={commandMutation.isPending || completionResult.trim().length < 1 || completionReason.trim().length < 2} onClick={completeVisit}>방문완료 저장</button></div>
       </Dialog>
     </section>

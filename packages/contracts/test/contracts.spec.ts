@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import * as contracts from "../src/index";
 import {
   accountRoutes,
   accountCapabilitiesResponseSchema,
@@ -99,6 +100,29 @@ import {
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("binds Calendar candidate commands to the exact reviewed candidate", () => {
+    expect(
+      contracts.calendarCredentialCandidateCommandRequestSchema.parse({
+        expectedVersion: 3,
+        expectedCandidateRowVersion: 2,
+        reason: "접근 확인 후보 사용",
+      }),
+    ).toMatchObject({ expectedCandidateRowVersion: 2 });
+    expect(
+      contracts.calendarCredentialCandidateCommandRequestSchema.safeParse({
+        expectedVersion: 3,
+        reason: "새 계정 확인",
+      }).success,
+    ).toBe(false);
+    expect(
+      contracts.calendarConnectionDisconnectRequestSchema.safeParse({
+        expectedVersion: 3,
+        expectedCandidateRowVersion: 2,
+        reason: "연결 해제",
+      }).success,
+    ).toBe(false);
+  });
+
   it("keeps facility inspection execution additive, typed, and strict", () => {
     const roomId = "52000000-0000-4000-8000-000000000001";
     const facilityId = "55000000-0000-4000-8000-000000000001";
@@ -106,13 +130,15 @@ describe("hotel platform contracts", () => {
     const itemId = "56000000-0000-4000-8000-000000000001";
 
     expect(
-      createManualInspectionV2RequestSchema.parse({
-        processDefinitionId: null,
-        targets: [
-          { type: "ROOM", roomId, selectedItemIds: [itemId] },
-          { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
-        ],
-      }).targets.map((target) => target.type),
+      createManualInspectionV2RequestSchema
+        .parse({
+          processDefinitionId: null,
+          targets: [
+            { type: "ROOM", roomId, selectedItemIds: [itemId] },
+            { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
+          ],
+        })
+        .targets.map((target) => target.type),
     ).toEqual(["ROOM", "FACILITY"]);
     expect(
       createManualInspectionV2RequestSchema.safeParse({
@@ -146,7 +172,10 @@ describe("hotel platform contracts", () => {
         rounds: [
           {
             order: 1,
-            target: { type: "FACILITY_TYPES", facilityTypeIds: [facilityTypeId] },
+            target: {
+              type: "FACILITY_TYPES",
+              facilityTypeIds: [facilityTypeId],
+            },
           },
         ],
       }).rounds[0]?.target.type,
@@ -256,8 +285,11 @@ describe("hotel platform contracts", () => {
       pageSize: 20,
     });
     expect(
-      hotelFacilityWorkspaceResponseSchema.safeParse({ ok: true, data: {}, error: null })
-        .success,
+      hotelFacilityWorkspaceResponseSchema.safeParse({
+        ok: true,
+        data: {},
+        error: null,
+      }).success,
     ).toBe(false);
   });
 
@@ -1273,7 +1305,10 @@ describe("hotel platform contracts", () => {
   it("keeps the additive checklist v2 target union typed and cross-target safe", () => {
     const facilityTypeId = "53000000-0000-4000-8000-000000000001";
     const existingItemId = "d8200000-0000-4000-8000-000000000001";
-    expect(inspectionChecklistTargetTypeSchema.options).toEqual(["ROOM", "FACILITY"]);
+    expect(inspectionChecklistTargetTypeSchema.options).toEqual([
+      "ROOM",
+      "FACILITY",
+    ]);
     const parsed = createInspectionChecklistRevisionV2RequestSchema.parse({
       version: 1,
       reason: "시설물 점검기준 추가",
@@ -1668,7 +1703,12 @@ describe("hotel platform contracts", () => {
     expect(
       createRepairCaseRequestSchema.parse({
         repairCaseId: repairId,
-        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [fileVersionId], unavailableReason: null },
+        source: {
+          type: "DIRECT",
+          description: "욕실 배관 누수",
+          fileVersionIds: [fileVersionId],
+          unavailableReason: null,
+        },
         target: { type: "ROOM", roomId },
         priorityId,
         followUpOfRepairCaseId: null,
@@ -1677,7 +1717,12 @@ describe("hotel platform contracts", () => {
     ).toEqual({ type: "ROOM", roomId });
     expect(
       createRepairCaseRequestSchema.safeParse({
-        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [], unavailableReason: null },
+        source: {
+          type: "DIRECT",
+          description: "욕실 배관 누수",
+          fileVersionIds: [],
+          unavailableReason: null,
+        },
         target: { type: "ROOM", roomId, facilityId: roomId },
         priorityId,
         followUpOfRepairCaseId: null,
@@ -1691,7 +1736,12 @@ describe("hotel platform contracts", () => {
         title: "누수 현장 진단",
         startsAt: "2026-08-07T01:00:00.000Z",
         endsAt: "2026-08-07T02:00:00.000Z",
-        performer: { type: "EXTERNAL", contractorName: "승인업체", contactName: null, contactPhone: "010-0000-0000" },
+        performer: {
+          type: "EXTERNAL",
+          contractorName: "승인업체",
+          contactName: null,
+          contactPhone: "010-0000-0000",
+        },
       }).performer.type,
     ).toBe("EXTERNAL");
     expect(
@@ -1704,15 +1754,62 @@ describe("hotel platform contracts", () => {
       }).success,
     ).toBe(false);
 
-    expect(completeRepairVisitRequestSchema.safeParse({ version: 1, result: "배관 교체", fileVersionIds: [], unavailableReason: null }).success).toBe(false);
-    expect(completeRepairCaseRequestSchema.parse({ version: 2, processVersion: 3 }).processVersion).toBe(3);
-    expect(repairRoutes.detail(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}`);
-    expect(repairRoutes.priorities(hotelId)).toBe(`/api/hotels/${hotelId}/repair-priorities`);
-    expect(repairPriorityListResponseSchema.safeParse({ ok: true, data: { priorities: [{ id: priorityId, version: 1, name: "긴급", sortOrder: 1, color: "#dc2626", status: "ACTIVE" }] }, error: null }).success).toBe(true);
-    expect(repairRoutes.followUps(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}/follow-ups`);
-    expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(`/api/hotels/${hotelId}/repair-visits/${visitId}/complete`);
-    expect(repairCaseResponseSchema.safeParse({ ok: true, data: { repair: {} }, error: null }).success).toBe(false);
-    expect(repairVisitResponseSchema.safeParse({ ok: true, data: { visit: {} }, error: null }).success).toBe(false);
+    expect(
+      completeRepairVisitRequestSchema.safeParse({
+        version: 1,
+        result: "배관 교체",
+        fileVersionIds: [],
+        unavailableReason: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      completeRepairCaseRequestSchema.parse({ version: 2, processVersion: 3 })
+        .processVersion,
+    ).toBe(3);
+    expect(repairRoutes.detail(hotelId, repairId)).toBe(
+      `/api/hotels/${hotelId}/repairs/${repairId}`,
+    );
+    expect(repairRoutes.priorities(hotelId)).toBe(
+      `/api/hotels/${hotelId}/repair-priorities`,
+    );
+    expect(
+      repairPriorityListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          priorities: [
+            {
+              id: priorityId,
+              version: 1,
+              name: "긴급",
+              sortOrder: 1,
+              color: "#dc2626",
+              status: "ACTIVE",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(repairRoutes.followUps(hotelId, repairId)).toBe(
+      `/api/hotels/${hotelId}/repairs/${repairId}/follow-ups`,
+    );
+    expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(
+      `/api/hotels/${hotelId}/repair-visits/${visitId}/complete`,
+    );
+    expect(
+      repairCaseResponseSchema.safeParse({
+        ok: true,
+        data: { repair: {} },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      repairVisitResponseSchema.safeParse({
+        ok: true,
+        data: { visit: {} },
+        error: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("defines a bounded, strict Calendar display contract without provider identifiers", () => {
@@ -1750,40 +1847,308 @@ describe("hotel platform contracts", () => {
     };
     expect(calendarEventSchema.safeParse(inspection).success).toBe(true);
     expect(calendarEventSchema.safeParse(repairVisit).success).toBe(true);
-    expect(calendarEventSchema.safeParse({ ...repairVisit, providerEventId: "forbidden" }).success).toBe(false);
+    expect(
+      calendarEventSchema.safeParse({
+        ...repairVisit,
+        providerEventId: "forbidden",
+      }).success,
+    ).toBe(false);
 
-    expect(calendarEventsQuerySchema.parse({ from: "2026-08-01", to: "2026-09-12" }).pageSize).toBe(200);
-    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-09-13" }).success).toBe(false);
-    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-08-01" }).success).toBe(false);
+    expect(
+      calendarEventsQuerySchema.parse({ from: "2026-08-01", to: "2026-09-12" })
+        .pageSize,
+    ).toBe(200);
+    expect(
+      calendarEventsQuerySchema.safeParse({
+        from: "2026-08-01",
+        to: "2026-09-13",
+      }).success,
+    ).toBe(false);
+    expect(
+      calendarEventsQuerySchema.safeParse({
+        from: "2026-08-01",
+        to: "2026-08-01",
+      }).success,
+    ).toBe(false);
 
-    expect(calendarRoutes.hotel(hotelId)).toBe(`/api/hotels/${hotelId}/calendar`);
-    expect(calendarRoutes.hotelVisitOptions(hotelId)).toBe(`/api/hotels/${hotelId}/calendar/visit-options`);
+    expect(calendarRoutes.hotel(hotelId)).toBe(
+      `/api/hotels/${hotelId}/calendar`,
+    );
+    expect(calendarRoutes.hotelVisitOptions(hotelId)).toBe(
+      `/api/hotels/${hotelId}/calendar/visit-options`,
+    );
     expect(calendarRoutes.all).toBe("/api/calendar");
     expect(calendarRoutes.capabilities).toBe("/api/calendar/capabilities");
 
-    expect(calendarEventsResponseSchema.safeParse({
+    expect(
+      calendarEventsResponseSchema.safeParse({
+        ok: true,
+        data: {
+          capabilities: { canCreateVisit: true, canViewAllHotels: false },
+          events: [inspection, repairVisit],
+          hotels: [{ id: hotelId, name: "서울호텔" }],
+          pagination: { nextCursor: null },
+          range: {
+            from: "2026-08-01",
+            timeZone: "Asia/Seoul",
+            to: "2026-09-12",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      calendarCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          canViewAllHotels: false,
+          hotels: [{ canCreateVisit: true, id: hotelId, name: "서울호텔" }],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      calendarVisitOptionsResponseSchema.safeParse({
+        ok: true,
+        data: {
+          internalPerformers: [
+            {
+              displayName: "김담당",
+              userId: "20000000-0000-4000-8000-000000000001",
+            },
+          ],
+          repairs: [
+            {
+              id: "a1000000-0000-4000-8000-000000000001",
+              priorityName: "긴급",
+              targetName: "703호",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+  });
+});
+
+describe("Google Calendar connection contracts", () => {
+  it("keeps connection management and projection retry as distinct permission codes", () => {
+    expect(
+      contracts.calendarProjectionPermissionCodeSchema.parse(
+        "CALENDAR_CONNECTION_MANAGE",
+      ),
+    ).toBe("CALENDAR_CONNECTION_MANAGE");
+    expect(
+      contracts.calendarProjectionPermissionCodeSchema.parse(
+        "CALENDAR_PROJECTION_RETRY",
+      ),
+    ).toBe("CALENDAR_PROJECTION_RETRY");
+    expect(
+      contracts.calendarProjectionPermissionCodeSchema.safeParse(
+        "CALENDAR_MANAGE",
+      ).success,
+    ).toBe(false);
+  });
+
+  it("accepts only strict safe connection state and mutation payloads", () => {
+    expect(
+      contracts.calendarConnectionStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          connectionId: null,
+          connectionStatus: "NOT_CONNECTED",
+          credentialStatus: null,
+          version: null,
+          candidateId: null,
+          candidateRowVersion: null,
+          hotels: [
+            {
+              hotelId: "50000000-0000-4000-8000-000000000001",
+              hotelName: "테스트 호텔",
+              hotelLinkId: null,
+              generation: 0,
+              linkStatus: "NOT_CREATED",
+              version: 0,
+              projectionStatus: "NOT_CONNECTED",
+              lastFailureCode: null,
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      contracts.calendarConnectionStatusResponseSchema.safeParse({
+        ok: true,
+        data: {
+          connectionId: null,
+          connectionStatus: "CONNECTED",
+          credentialStatus: "ACTIVE",
+          version: 1,
+          candidateId: null,
+          candidateRowVersion: null,
+          hotels: [],
+          failures: [],
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    const commandReceipt = {
       ok: true,
       data: {
-        capabilities: { canCreateVisit: true, canViewAllHotels: false },
-        events: [inspection, repairVisit],
-        hotels: [{ id: hotelId, name: "서울호텔" }],
-        pagination: { nextCursor: null },
-        range: { from: "2026-08-01", timeZone: "Asia/Seoul", to: "2026-09-12" },
+        connectionId: "50000000-0000-4000-8000-000000000099",
+        connectionStatus: "CONNECTED",
+        credentialStatus: "ACTIVE",
+        version: 2,
+        candidateId: null,
+        candidateRowVersion: null,
+        hotels: [
+          {
+            hotelId: "50000000-0000-4000-8000-000000000001",
+            hotelName: "테스트 호텔",
+            hotelLinkId: "51000000-0000-4000-8000-000000000001",
+            generation: 1,
+            linkStatus: "PENDING",
+            version: 1,
+            projectionStatus: "PENDING",
+            lastFailureCode: null,
+          },
+        ],
       },
       error: null,
-    }).success).toBe(true);
-    expect(calendarCapabilitiesResponseSchema.safeParse({
-      ok: true,
-      data: { canViewAllHotels: false, hotels: [{ canCreateVisit: true, id: hotelId, name: "서울호텔" }] },
-      error: null,
-    }).success).toBe(true);
-    expect(calendarVisitOptionsResponseSchema.safeParse({
-      ok: true,
-      data: {
-        internalPerformers: [{ displayName: "김담당", userId: "20000000-0000-4000-8000-000000000001" }],
-        repairs: [{ id: "a1000000-0000-4000-8000-000000000001", priorityName: "긴급", targetName: "703호" }],
+    };
+    expect(
+      contracts.calendarConnectionCommandResponseSchema.safeParse(
+        commandReceipt,
+      ).success,
+    ).toBe(true);
+    expect(
+      contracts.calendarConnectionCommandResponseSchema.safeParse({
+        ...commandReceipt,
+        data: { ...commandReceipt.data, staleGuess: true },
+      }).success,
+    ).toBe(false);
+    expect(
+      contracts.calendarConnectionCommandResponseSchema.safeParse({
+        ok: true,
+        data: { projectionStatus: "ACTION_REQUIRED", version: 2 },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      contracts.calendarConnectionCommandResponseSchema.safeParse({
+        ...commandReceipt,
+        data: {
+          ...commandReceipt.data,
+          connectionStatus: "NOT_CONNECTED",
+          credentialStatus: "ACTIVE",
+        },
+      }).success,
+    ).toBe(false);
+    for (const invalidData of [
+      {
+        ...commandReceipt.data,
+        credentialStatus: "ACCESS_VERIFIED",
+        candidateId: null,
+        candidateRowVersion: 3,
       },
-      error: null,
-    }).success).toBe(true);
+      {
+        ...commandReceipt.data,
+        credentialStatus: "ACCOUNT_CHANGE_REQUIRES_CONFIRMATION",
+        candidateId: "52000000-0000-4000-8000-000000000001",
+        candidateRowVersion: null,
+      },
+      {
+        ...commandReceipt.data,
+        credentialStatus: "ACTIVE",
+        candidateId: "52000000-0000-4000-8000-000000000001",
+        candidateRowVersion: 3,
+      },
+      {
+        ...commandReceipt.data,
+        connectionStatus: "DISCONNECTED",
+        credentialStatus: null,
+        version: null,
+      },
+      {
+        ...commandReceipt.data,
+        hotels: [
+          {
+            ...commandReceipt.data.hotels[0],
+            hotelLinkId: null,
+            linkStatus: "ACTIVE",
+          },
+        ],
+      },
+      {
+        ...commandReceipt.data,
+        hotels: [
+          {
+            ...commandReceipt.data.hotels[0],
+            hotelLinkId: "51000000-0000-4000-8000-000000000001",
+            linkStatus: "NOT_CREATED",
+          },
+        ],
+      },
+    ])
+      expect(
+        contracts.calendarConnectionStatusResponseSchema.safeParse({
+          ...commandReceipt,
+          data: invalidData,
+        }).success,
+      ).toBe(false);
+    expect(
+      contracts.calendarOAuthStartRequestSchema.safeParse({
+        returnPath: "/admin/calendar",
+        reconnect: false,
+        expectedConnectionVersion: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      contracts.calendarOAuthStartRequestSchema.safeParse({
+        returnPath: "https://evil.invalid",
+        reconnect: false,
+        expectedConnectionVersion: null,
+      }).success,
+    ).toBe(false);
+    const validAuthorizationUrl =
+      "https://accounts.google.com/o/oauth2/v2/auth?access_type=offline&client_id=client-id&code_challenge=challenge&code_challenge_method=S256&include_granted_scopes=false&nonce=nonce&redirect_uri=https%3A%2F%2Fpreview.example%2Fapi%2Fadmin%2Fcalendar-connections%2Foauth%2Fcallback&response_type=code&scope=openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.app.created+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fcalendar.calendarlist.readonly&state=state&prompt=consent";
+    expect(
+      contracts.calendarOAuthStartResponseSchema.safeParse({
+        ok: true,
+        data: { authorizationUrl: validAuthorizationUrl },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      contracts.calendarOAuthStartResponseSchema.safeParse({
+        ok: true,
+        data: {
+          authorizationUrl: validAuthorizationUrl.replace(
+            "https://accounts.google.com/o/oauth2/v2/auth",
+            "https://invalid.example/oauth",
+          ),
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      contracts.calendarOAuthStartResponseSchema.safeParse({
+        ok: true,
+        data: {
+          authorizationUrl: validAuthorizationUrl.replace("&nonce=nonce", ""),
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      contracts.calendarConnectionDisconnectRequestSchema.safeParse({
+        expectedVersion: 1,
+        reason: "연동계정 변경",
+      }).success,
+    ).toBe(true);
+    expect(contracts.calendarConnectionRoutes.oauthCallback).toBe(
+      "/api/admin/calendar-connections/oauth/callback",
+    );
   });
 });

@@ -20,10 +20,43 @@ const repair = {
   visits: [],
 };
 
-export function RepairWorkspaceStory() {
+const scheduledVisit = {
+  calendarProjectionStatus: "NOT_CONNECTED" as const,
+  endsAt: "2026-08-10T02:00:00.000Z",
+  fileVersionIds: [] as string[],
+  id: "b1000000-0000-4000-8000-000000000001",
+  performer: { contactName: null, contactPhone: "010-0000-0000", contractorName: "승인된 보수업체", type: "EXTERNAL" as const },
+  repairCaseId: repair.id,
+  result: null,
+  startsAt: "2026-08-10T01:00:00.000Z",
+  status: "SCHEDULED" as const,
+  title: "기존 배관 점검",
+  unavailableReason: null,
+  version: 1,
+};
+
+export function RepairWorkspaceStory({
+  processState = "PENDING_INPUT",
+  visitStatus = "SCHEDULED",
+  withSecondVisit = false,
+  withVisit = false,
+}: {
+  processState?: "COMPLETED" | "IN_REVIEW" | "PENDING_INPUT";
+  visitStatus?: "CANCELLED" | "SCHEDULED";
+  withSecondVisit?: boolean;
+  withVisit?: boolean;
+}) {
   const [client] = React.useState(() => new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   }));
+  const initialRepair = withVisit ? {
+    ...repair,
+    process: { ...repair.process, state: processState },
+    visits: [
+      { ...scheduledVisit, status: visitStatus },
+      ...(withSecondVisit ? [{ calendarProjectionStatus: "NOT_CONNECTED" as const, endsAt: "2026-08-11T02:00:00.000Z", fileVersionIds: [] as string[], id: "b1000000-0000-4000-8000-000000000002", performer: { contactName: null, contactPhone: "010-1111-1111", contractorName: "승인된 보수업체", type: "EXTERNAL" as const }, repairCaseId: repair.id, result: null, startsAt: "2026-08-11T01:00:00.000Z", status: "SCHEDULED" as const, title: "후속 배관 점검", unavailableReason: null, version: 1 }] : []),
+    ],
+  } : { ...repair, process: { ...repair.process, state: processState } };
   return (
     <QueryClientProvider client={client}>
       <RepairWorkspace
@@ -34,8 +67,8 @@ export function RepairWorkspaceStory() {
           roomLocations: [{ id: repair.target.id, name: repair.target.name }],
         }}
         hotelId={hotelId}
-        initialRepairs={[repair]}
-        initialSelected={repair}
+        initialRepairs={[initialRepair]}
+        initialSelected={initialRepair}
         priorities={[{ ...repair.priority, status: "ACTIVE" }]}
       />
     </QueryClientProvider>

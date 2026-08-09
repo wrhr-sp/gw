@@ -48,6 +48,12 @@ const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const HOTEL_REPAIR_INSPECTION_SNAPSHOT_SHA256 =
   "2a16bd02b21e5d418cad1ae621c732921ea1e0c596d7c01d901c94c6e17d25e0";
+const HOTEL_REPAIR_SNAPSHOT_PRE_PROJECTION_SHA256 =
+  "1f468cedbd1279a83805f3d1596665f7f7cef54518ea3418af382c4a4bf442a1";
+const HOTEL_CALENDAR_EVENTS_PROJECTION_SHA256 =
+  "1f6e414644414d2b1418caf5244711be3080a35b854a40f3d506a118ae187aee";
+const GOOGLE_CALENDAR_PROJECTION_CATALOG_SHA256 =
+  "fcd8a69e6b853b0f96104a0c70b18c4439fbae18fad91ebecec61d535f3b790c";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "API_RUNTIME",
@@ -346,6 +352,169 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature: "public.hotel_calendar_visit_options_read_v1(uuid,uuid,text)",
   },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "2be4afa7ba3ea59fb7b3ce8f39530d04746f15b0ac7544adbf066b93f443f52e",
+    name: "calendar_connection_status_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_connection_status_read_v1(uuid,text)",
+    volatility: "s",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "6da989b03f0aacf63aa86868d78c87aac27f52be8ffd7e81c806023c771daa20",
+    name: "calendar_oauth_start_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_oauth_start_v1(uuid,text,uuid,bytea,bytea,bytea,bytea,bytea,integer,text,boolean,integer,integer,uuid,text,text,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "b856a62810f2f777f5e5caf78c459c067babfddd9f7f86ffeb707949a55c37e3",
+    name: "calendar_oauth_claim_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_oauth_claim_v1(bytea,bytea,bytea)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "d2dae4812d5fc616ade279352453964c092eacf9d41fcff209500e0059f1524e",
+    name: "calendar_oauth_fail_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_oauth_fail_v1(uuid,bytea,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "ba053b9f1947473b26ea4eb2e1e4cd1133ed4b7fe58f0adb9cff2a2efd565e20",
+    name: "calendar_oauth_finalize_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_oauth_finalize_v1(uuid,bytea,uuid,uuid,integer,bytea,bytea,integer,bytea,integer,text[])",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "05e430a0892b1f379fb30dfccf77ca38a0b7efa3b04584586ecd4b93f2db49c3",
+    name: "calendar_connection_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_connection_command_v1(uuid,uuid,text,text,integer,uuid,integer,jsonb,text,uuid,text,text,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "6be7b5f2d1079c9e3f732a46516cbf6f77fc56cebf3b998ba0a05272eb934271",
+    name: "calendar_hotel_link_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_hotel_link_command_v1(uuid,uuid,uuid,text,text,integer,integer,integer,uuid,bytea,bytea,integer,bytea,text,uuid,text,text,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    calendarProjection: true,
+    digest: "407883cc40de3913b0bbeed885e6709f4bb914cce66ab58a97a7b782ef0d626f",
+    name: "calendar_projection_failure_retry_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_projection_failure_retry_v1(uuid,uuid,text,uuid,integer,text,uuid,text,text,text)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "07d11c2311f86d348f6a7615bef4b634136fb6b08781be7aac1c96ebd75fd171",
+    name: "calendar_candidate_claim_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_candidate_claim_v1(uuid,bytea)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "167c84240f4ea63faf3c6df8617e903c945c1005abdaf8ba748a0a7d3a3d3ada",
+    name: "calendar_candidate_finalize_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_candidate_finalize_v1(uuid,uuid,bytea,integer,integer,text,text,timestamp with time zone)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "87cc7f432c8e14084fbfa618063df836f86fd7b15ca31644a6cc701338295bb3",
+    name: "scheduled_reconciler_invocation_enter_v1",
+    result: "void",
+    signature: "public.scheduled_reconciler_invocation_enter_v1()",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "77aa5a80b62f6815e6459454500dc8da2af1adaab2d5a79a56ef49b805c4a404",
+    name: "scheduled_reconciler_invocation_exit_v1",
+    result: "void",
+    signature: "public.scheduled_reconciler_invocation_exit_v1()",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "acfc1ac1317c33ff8e27668762d062d89405a1828d87ee40fd17cbad72c17d1b",
+    name: "scheduled_reconciler_drain_barrier_v1",
+    result: "void",
+    signature: "public.scheduled_reconciler_drain_barrier_v1()",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "b4e1b774ce31609a12610a50cb6618eefca0db368a6b9173cc23810d33e7da65",
+    name: "calendar_projection_claim_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_projection_claim_v1(uuid,bytea,integer)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "b05c76f3577ff7e11996d62ba598694bec477535b369580dd5dd7fa9a8d6d152",
+    name: "calendar_projection_mark_create_dispatched_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_projection_mark_create_dispatched_v1(uuid,uuid,bytea)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "49a16443bf8d600f7ef3034d2c7910436bce88378a6d7ad7218e4393a9472bad",
+    name: "calendar_projection_reset_event_existence_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_projection_reset_event_existence_v1(uuid,uuid,bytea)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "f5a928d36dcb86ec3f9e85635c13f90e9345f96e0384ef0ad08ac11ff82b1143",
+    name: "calendar_projection_repair_stale_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.calendar_projection_repair_stale_v1(uuid,uuid)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "887873301ec9489058525a288a09f0447256b373dd934218d9fc23eeda7e907a",
+    name: "calendar_projection_finalize_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_projection_finalize_v1(uuid,uuid,bytea,text,text,text,timestamp with time zone,bytea,bytea,integer,integer)",
+  },
+  {
+    capability: "RECONCILER",
+    calendarProjection: true,
+    digest: "bec1c2dcc8c294e465c6b7db30a88faabbef608d09fc0de586f06458a44f4ac4",
+    name: "calendar_projection_evidence_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.calendar_projection_evidence_read_v1(uuid,text,bytea,uuid,integer,uuid,timestamp with time zone)",
+  },
 ] as const;
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
   {
@@ -365,7 +534,8 @@ const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
     name: "hotel_calendar_permission_allowed_v1",
     result: "boolean",
     securityDefiner: true,
-    signature: "public.hotel_calendar_permission_allowed_v1(uuid,uuid,uuid,text)",
+    signature:
+      "public.hotel_calendar_permission_allowed_v1(uuid,uuid,uuid,text)",
     volatility: "s",
   },
   {
@@ -377,6 +547,89 @@ const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
     securityDefiner: true,
     signature: "public.hotel_calendar_accessible_hotels_v1(uuid,uuid,text)",
     volatility: "s",
+  },
+  {
+    calendarProjection: true,
+    digest: "2a2a33df4dff39cce2e71769aba60f289753485e01101eab6827220f7b83fbd5",
+    language: "sql",
+    name: "calendar_connection_manage_hotel_allowed_v1",
+    result: "boolean",
+    securityDefiner: true,
+    signature:
+      "public.calendar_connection_manage_hotel_allowed_v1(uuid,uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    calendarProjection: true,
+    digest: "9ecd607a8d7db409426fd5af47c736f740cc7d302fc4f49f5acfbb5300a1fa46",
+    language: "plpgsql",
+    name: "calendar_visit_projection_status_v1",
+    result: "text",
+    securityDefiner: true,
+    signature: "public.calendar_visit_projection_status_v1(uuid,uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    calendarProjection: true,
+    digest: "1a71ea33709eb2b3f418a854e1c083b975c53f98a5982b25563aaa11dca7d43e",
+    language: "plpgsql",
+    name: "calendar_repair_projection_status_v1",
+    result: "text",
+    securityDefiner: true,
+    signature: "public.calendar_repair_projection_status_v1(uuid,uuid,uuid)",
+    volatility: "s",
+  },
+  {
+    repairProjectionReadBack: true,
+    digest: "8ccbb64822f6e28b9156d595c042de0463d34d0ecd02f021631c516274778eab",
+    language: "sql",
+    name: "repair_snapshot_v1",
+    result: "jsonb",
+    securityDefiner: false,
+    signature: "public.repair_snapshot_v1(uuid,uuid,uuid,boolean)",
+    volatility: "s",
+  },
+  {
+    calendarProjection: true,
+    digest: "5aa8b602311c26e021f74f66595a62ed973db24907afd24a988f440fe52c875b",
+    language: "plpgsql",
+    name: "calendar_projection_visit_signal_v1",
+    result: "trigger",
+    securityDefiner: true,
+    signature: "public.calendar_projection_visit_signal_v1()",
+    volatility: "v",
+  },
+  {
+    calendarProjection: true,
+    digest: "6e71bf705ff12270ec0d184e416e1c61d11b6a2a943f67efacea74525c2d89eb",
+    language: "plpgsql",
+    name: "calendar_authorization_lock_v1",
+    result: "void",
+    securityDefiner: true,
+    signature: "public.calendar_authorization_lock_v1(uuid,uuid,uuid)",
+    volatility: "v",
+  },
+  {
+    calendarProjection: true,
+    digest: "f7cb37ace69b3557fc9d8eccc9f2cbfce4f7e551d868dd1c04c5ec2e2a4f8f92",
+    language: "plpgsql",
+    name: "repair_idempotency_begin_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    securityDefiner: true,
+    signature:
+      "public.repair_idempotency_begin_v1(uuid,uuid,text,text,text,text)",
+    volatility: "v",
+  },
+  {
+    calendarProjection: true,
+    digest: "b642d2923937e46c9d4d3021ffb6dd3dab9cb43051ebeee686916599276ad745",
+    language: "sql",
+    name: "repair_idempotency_store_v1",
+    result: "void",
+    securityDefiner: true,
+    signature:
+      "public.repair_idempotency_store_v1(uuid,uuid,uuid,text,text,text,text,text,uuid,uuid,jsonb)",
+    volatility: "v",
   },
   {
     checklistPhase: "BOTH",
@@ -2042,6 +2295,11 @@ const REQUIRED_TRIGGERS = [
     table: "hotel_file_links",
     functionName: "guard_inspection_terminal_mutation",
   },
+  {
+    name: "calendar_projection_visit_signal",
+    table: "hotel_repair_visits",
+    functionName: "calendar_projection_visit_signal_v1",
+  },
 ] as const;
 
 const REQUIRED_RLS_POLICIES = [
@@ -2142,6 +2400,42 @@ const REQUIRED_RLS_POLICIES = [
     policy: "inspection_checklist_v2_item_exclusions_company_isolation",
     table: "inspection_checklist_v2_item_exclusions",
   },
+  {
+    policy: "calendar_connections_company_isolation",
+    table: "calendar_connections",
+  },
+  {
+    policy: "calendar_connection_credentials_company_isolation",
+    table: "calendar_connection_credentials",
+  },
+  {
+    policy: "calendar_oauth_transactions_company_isolation",
+    table: "calendar_oauth_transactions",
+  },
+  {
+    policy: "calendar_hotel_links_company_isolation",
+    table: "calendar_hotel_links",
+  },
+  {
+    policy: "calendar_event_links_company_isolation",
+    table: "calendar_event_links",
+  },
+  {
+    policy: "calendar_projection_jobs_company_isolation",
+    table: "calendar_projection_jobs",
+  },
+  {
+    policy: "calendar_projection_attempts_company_isolation",
+    table: "calendar_projection_attempts",
+  },
+  {
+    policy: "calendar_sync_failures_company_isolation",
+    table: "calendar_sync_failures",
+  },
+  {
+    policy: "calendar_catch_up_items_company_isolation",
+    table: "calendar_catch_up_items",
+  },
 ] as const;
 
 const INSPECTION_CHECKLIST_V2_RLS_TABLES = new Set<string>([
@@ -2234,7 +2528,7 @@ export async function probeDatabaseReadiness(
 ): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
 
-  const schemaNotReady = () => {
+  const schemaNotReady = (checkpoint?: string) => {
     const stack = new Error("SCHEMA_NOT_READY").stack ?? "";
     const caller = stack
       .split("\n")
@@ -2246,7 +2540,7 @@ export async function probeDatabaseReadiness(
     const line = caller?.match(/client\.ts:(\d+):\d+/u)?.[1];
     try {
       const observation = options.onSchemaNotReady?.(
-        `CLIENT_${line ?? "UNKNOWN"}`,
+        checkpoint ?? `CLIENT_${line ?? "UNKNOWN"}`,
       );
       if (observation !== undefined) {
         void Promise.resolve(observation).catch(() => undefined);
@@ -2327,6 +2621,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_facility_execution_contract_marker_count: number;
         hotel_repair_lifecycle_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
+        google_calendar_projection_marker_count: number;
         login_id_history_contract_marker_count: number;
       }[]
     >`
@@ -2427,7 +2722,10 @@ export async function probeDatabaseReadiness(
              )::integer as hotel_repair_lifecycle_marker_count,
              count(*) filter (
                where version = '0043_hotel_calendar_read_model'
-             )::integer as hotel_calendar_read_model_marker_count
+             )::integer as hotel_calendar_read_model_marker_count,
+             count(*) filter (
+               where version = '0044_google_calendar_projection'
+             )::integer as google_calendar_projection_marker_count
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2469,7 +2767,8 @@ export async function probeDatabaseReadiness(
         '0040_hotel_inspection_facility_execution',
         '0041_hotel_inspection_facility_execution_contract',
         '0042_hotel_repair_lifecycle',
-        '0043_hotel_calendar_read_model'
+        '0043_hotel_calendar_read_model',
+        '0044_google_calendar_projection'
       )
     `;
     const schemaPhase =
@@ -2490,6 +2789,12 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_calendar_read_model_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_calendar_read_model_marker_count === 0
+          ? "PRE_CONTRACT"
+          : null;
+    const calendarProjectionPhase =
+      migrationRows[0]?.google_calendar_projection_marker_count === 1
+        ? "CONTRACT"
+        : migrationRows[0]?.google_calendar_projection_marker_count === 0
           ? "PRE_CONTRACT"
           : null;
     const roomSchemaPhase =
@@ -2558,25 +2863,40 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1 &&
       migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 1
         ? "CONTRACT"
-        : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 1 &&
-            migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 0
+        : migrationRows[0]?.hotel_inspection_checklist_target_marker_count ===
+              1 &&
+            migrationRows[0]
+              .hotel_inspection_checklist_hardening_marker_count === 0
           ? "EXPAND"
-          : migrationRows[0]?.hotel_inspection_checklist_target_marker_count === 0 &&
-              migrationRows[0].hotel_inspection_checklist_hardening_marker_count === 0
+          : migrationRows[0]?.hotel_inspection_checklist_target_marker_count ===
+                0 &&
+              migrationRows[0]
+                .hotel_inspection_checklist_hardening_marker_count === 0
             ? "PRE_CONTRACT"
             : null;
     const inspectionFacilityExecutionPhase =
-      migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 1 &&
-      migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 1
+      migrationRows[0]?.hotel_inspection_facility_execution_marker_count ===
+        1 &&
+      migrationRows[0]
+        .hotel_inspection_facility_execution_contract_marker_count === 1
         ? "CONTRACT"
-        : migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 1 &&
-            migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 0
+        : migrationRows[0]?.hotel_inspection_facility_execution_marker_count ===
+              1 &&
+            migrationRows[0]
+              .hotel_inspection_facility_execution_contract_marker_count === 0
           ? "EXPAND"
-          : migrationRows[0]?.hotel_inspection_facility_execution_marker_count === 0 &&
-              migrationRows[0].hotel_inspection_facility_execution_contract_marker_count === 0
+          : migrationRows[0]
+                ?.hotel_inspection_facility_execution_marker_count === 0 &&
+              migrationRows[0]
+                .hotel_inspection_facility_execution_contract_marker_count === 0
             ? "PRE_CONTRACT"
             : null;
-    if (!repairLifecyclePhase || !calendarReadModelPhase) return schemaNotReady();
+    if (
+      !repairLifecyclePhase ||
+      !calendarReadModelPhase ||
+      !calendarProjectionPhase
+    )
+      return schemaNotReady();
     if (calendarReadModelPhase === "PRE_CONTRACT") {
       const [calendarResidue] = await sql<{ absent: boolean }[]>`
         select not exists (
@@ -2604,6 +2924,132 @@ export async function probeDatabaseReadiness(
       `;
       if (!calendarResidue?.absent) return schemaNotReady();
     }
+    const calendarProjectionTableNames = [
+      "calendar_crypto_settings",
+      "calendar_connections",
+      "calendar_connection_credentials",
+      "calendar_oauth_transactions",
+      "calendar_hotel_links",
+      "calendar_event_links",
+      "calendar_projection_jobs",
+      "calendar_projection_attempts",
+      "calendar_sync_failures",
+      "calendar_catch_up_items",
+    ] as const;
+    if (calendarProjectionPhase === "PRE_CONTRACT") {
+      let projectionResidue: { absent: boolean } | undefined;
+      try {
+        const projectionResidueRows = await sql<{ absent: boolean }[]>`
+        select not exists(select 1 from pg_catalog.pg_class table_record join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where table_namespace.nspname='public' and table_record.relname=any(${calendarProjectionTableNames as unknown as string[]}))
+          and not exists(select 1 from pg_catalog.pg_proc procedure_record join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace where procedure_namespace.nspname='public' and (procedure_record.proname like 'calendar_projection_%' or procedure_record.proname like 'calendar_oauth_%' or procedure_record.proname like 'scheduled_reconciler_%' or procedure_record.proname in ('calendar_connection_status_read_v1','calendar_connection_command_v1','calendar_hotel_link_command_v1')))
+          and not exists(select 1 from public.permissions where code in ('CALENDAR_CONNECTION_MANAGE','CALENDAR_PROJECTION_RETRY'))
+          and not exists(select 1 from pg_catalog.pg_trigger where tgname='calendar_projection_visit_signal' and not tgisinternal) as absent
+      `;
+        projectionResidue = projectionResidueRows[0];
+      } catch (error) {
+        options.onSchemaNotReady?.(
+          "GOOGLE_CALENDAR_PROJECTION_PRE_CONTRACT_QUERY",
+        );
+        throw error;
+      }
+      if (!projectionResidue?.absent) return schemaNotReady();
+    } else {
+      const [calendarProjectionFoundation] = await sql<
+        {
+          column_acl_count: number;
+          column_count: number;
+          constraint_count: number;
+          direct_acl_count: number;
+          force_rls_count: number;
+          index_count: number;
+          owner_safe_count: number;
+          permission_count: number;
+          policy_count: number;
+          rls_count: number;
+          table_count: number;
+          trigger_count: number;
+        }[]
+      >`
+      select
+        count(distinct table_record.oid)::integer as table_count,
+        count(distinct table_record.oid) filter(where table_record.relrowsecurity)::integer as rls_count,
+        count(distinct table_record.oid) filter(where table_record.relforcerowsecurity)::integer as force_rls_count,
+        count(distinct table_record.oid) filter(where table_record.relowner=migration_table.relowner)::integer as owner_safe_count,
+        (select count(*)::integer from pg_catalog.pg_attribute column_record where column_record.attrelid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name) and column_record.attnum>0 and not column_record.attisdropped) as column_count,
+        (select count(*)::integer from pg_catalog.pg_constraint constraint_record where constraint_record.conrelid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name) and constraint_record.contype<>'n') as constraint_count,
+        (select count(*)::integer from pg_catalog.pg_index index_record where index_record.indrelid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name)) as index_count,
+        (select count(*)::integer from pg_catalog.pg_policy policy_record where policy_record.polrelid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name) and policy_record.polname=replace((select relname from pg_catalog.pg_class where oid=policy_record.polrelid),'calendar_','calendar_')||'_company_isolation' and policy_record.polcmd='*' and policy_record.polpermissive and policy_record.polroles=array[0::oid]) as policy_count,
+        (select count(*)::integer from pg_catalog.pg_class acl_table cross join lateral pg_catalog.aclexplode(coalesce(acl_table.relacl,pg_catalog.acldefault('r'::"char",acl_table.relowner))) acl where acl_table.oid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name) and acl.grantee<>acl_table.relowner) as direct_acl_count,
+        (select count(*)::integer from pg_catalog.pg_attribute acl_column join pg_catalog.pg_class acl_table on acl_table.oid=acl_column.attrelid cross join lateral pg_catalog.aclexplode(acl_column.attacl) acl where acl_table.oid in (select to_regclass('public.'||table_name) from unnest(${calendarProjectionTableNames as unknown as string[]}::text[]) table_name) and acl_column.attnum>0 and not acl_column.attisdropped and acl.grantee<>acl_table.relowner) as column_acl_count,
+        (select count(*)::integer from public.permissions where code in ('CALENDAR_CONNECTION_MANAGE','CALENDAR_PROJECTION_RETRY')) as permission_count,
+        (select count(*)::integer from pg_catalog.pg_trigger trigger_record join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid where trigger_table.oid=to_regclass('public.hotel_repair_visits') and trigger_record.tgname='calendar_projection_visit_signal' and trigger_record.tgenabled='O' and not trigger_record.tgisinternal and trigger_record.tgfoid=to_regprocedure('public.calendar_projection_visit_signal_v1()')) as trigger_count
+      from pg_catalog.pg_class table_record
+      join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+      join pg_catalog.pg_class migration_table on migration_table.oid=to_regclass('public.schema_migrations')
+      where table_namespace.nspname='public' and table_record.relkind='r' and table_record.relname=any(${calendarProjectionTableNames as unknown as string[]})
+    `;
+      if (
+        !calendarProjectionFoundation ||
+        calendarProjectionFoundation.table_count !== 10 ||
+        calendarProjectionFoundation.rls_count !== 9 ||
+        calendarProjectionFoundation.force_rls_count !== 9 ||
+        calendarProjectionFoundation.owner_safe_count !== 10 ||
+        calendarProjectionFoundation.column_count !== 144 ||
+        calendarProjectionFoundation.constraint_count !== 105 ||
+        calendarProjectionFoundation.index_count !== 33 ||
+        calendarProjectionFoundation.policy_count !== 9 ||
+        calendarProjectionFoundation.direct_acl_count !== 0 ||
+        calendarProjectionFoundation.column_acl_count !== 0 ||
+        calendarProjectionFoundation.permission_count !== 2 ||
+        calendarProjectionFoundation.trigger_count !== 1
+      )
+        return schemaNotReady("GOOGLE_CALENDAR_FOUNDATION");
+      const calendarProjectionCatalogShape = await sql<
+        { definition: string; identity: string; kind: string }[]
+      >`
+        select 'COLUMN'::text as kind,
+               table_record.relname||':'||column_record.attnum::text||':'||column_record.attname as identity,
+               concat_ws('|',format_type(column_record.atttypid,column_record.atttypmod),column_record.attnotnull::text,coalesce(pg_get_expr(default_record.adbin,default_record.adrelid),''),column_record.attgenerated::text,column_record.attidentity::text) as definition
+          from pg_catalog.pg_attribute column_record
+          join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+          left join pg_catalog.pg_attrdef default_record on default_record.adrelid=column_record.attrelid and default_record.adnum=column_record.attnum
+         where table_record.relname=any(${calendarProjectionTableNames as unknown as string[]}) and column_record.attnum>0 and not column_record.attisdropped
+        union all
+        select 'CONSTRAINT',table_record.relname||':'||constraint_record.conname,
+               concat_ws('|',constraint_record.contype::text,constraint_record.condeferrable::text,constraint_record.condeferred::text,constraint_record.convalidated::text,pg_get_constraintdef(constraint_record.oid,true))
+          from pg_catalog.pg_constraint constraint_record join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid
+         where table_record.relname=any(${calendarProjectionTableNames as unknown as string[]}) and constraint_record.contype<>'n'
+        union all
+        select 'INDEX',table_record.relname||':'||index_table.relname,
+               concat_ws('|',index_record.indisunique::text,index_record.indisprimary::text,index_record.indisvalid::text,index_record.indisready::text,pg_get_indexdef(index_record.indexrelid))
+          from pg_catalog.pg_index index_record join pg_catalog.pg_class table_record on table_record.oid=index_record.indrelid join pg_catalog.pg_class index_table on index_table.oid=index_record.indexrelid
+         where table_record.relname=any(${calendarProjectionTableNames as unknown as string[]})
+        union all
+        select 'POLICY',table_record.relname||':'||policy_record.polname,
+               concat_ws('|',policy_record.polcmd,policy_record.polpermissive::text,array_to_string(policy_record.polroles,','),coalesce(pg_get_expr(policy_record.polqual,policy_record.polrelid),''),coalesce(pg_get_expr(policy_record.polwithcheck,policy_record.polrelid),''))
+          from pg_catalog.pg_policy policy_record join pg_catalog.pg_class table_record on table_record.oid=policy_record.polrelid
+         where table_record.relname=any(${calendarProjectionTableNames as unknown as string[]})
+        union all
+        select 'TRIGGER',table_record.relname||':'||trigger_record.tgname,
+               concat_ws('|',trigger_record.tgenabled,pg_get_triggerdef(trigger_record.oid,true))
+          from pg_catalog.pg_trigger trigger_record join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid
+         where not trigger_record.tgisinternal and (table_record.relname=any(${calendarProjectionTableNames as unknown as string[]}) or (table_record.relname='hotel_repair_visits' and trigger_record.tgname like 'calendar_projection_%'))
+        union all
+        select 'PERMISSION',permission_record.code,permission_record.description
+          from public.permissions permission_record where permission_record.code in ('CALENDAR_CONNECTION_MANAGE','CALENDAR_PROJECTION_RETRY')
+         order by kind,identity
+      `;
+      const calendarProjectionCatalogDigest = await sourceSha256(
+        JSON.stringify(calendarProjectionCatalogShape),
+      );
+
+      if (
+        calendarProjectionCatalogDigest !==
+        GOOGLE_CALENDAR_PROJECTION_CATALOG_SHA256
+      ) {
+        return schemaNotReady("GOOGLE_CALENDAR_CATALOG");
+      }
+    }
     const repairTableNames = [
       "hotel_repair_priorities",
       "hotel_repair_priority_history",
@@ -2621,7 +3067,9 @@ export async function probeDatabaseReadiness(
       "hotel_file_uploads",
     ];
     if (repairLifecyclePhase === "PRE_CONTRACT") {
-      const [prematureRepair] = await sql<{ function_count: number; table_count: number }[]>`
+      const [prematureRepair] = await sql<
+        { function_count: number; table_count: number }[]
+      >`
         select
           (select count(*)::integer from pg_catalog.pg_class table_record
             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
@@ -2630,18 +3078,23 @@ export async function probeDatabaseReadiness(
             join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
            where procedure_namespace.nspname='public' and procedure_record.proname like 'hotel_repair_%') as function_count
       `;
-      if (prematureRepair?.table_count !== 0 || prematureRepair.function_count !== 0)
+      if (
+        prematureRepair?.table_count !== 0 ||
+        prematureRepair.function_count !== 0
+      )
         return schemaNotReady();
     } else {
-      const [repairFoundation] = await sql<{
-        catalog_digest: string;
-        direct_acl_count: number;
-        force_rls_count: number;
-        function_count: number;
-        permission_count: number;
-        rls_count: number;
-        table_count: number;
-      }[]>`
+      const [repairFoundation] = await sql<
+        {
+          catalog_digest: string;
+          direct_acl_count: number;
+          force_rls_count: number;
+          function_count: number;
+          permission_count: number;
+          rls_count: number;
+          table_count: number;
+        }[]
+      >`
         select
           count(distinct table_record.oid)::integer as table_count,
           count(distinct table_record.oid) filter (where table_record.relrowsecurity)::integer as rls_count,
@@ -2677,8 +3130,10 @@ export async function probeDatabaseReadiness(
         repairFoundation.function_count !== 8 ||
         repairFoundation.permission_count !== 9 ||
         repairFoundation.direct_acl_count !== 0 ||
-        repairFoundation.catalog_digest !== HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256
-      ) return schemaNotReady();
+        repairFoundation.catalog_digest !==
+          HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256
+      )
+        return schemaNotReady();
     }
     const facilityTableNames = [
       "hotel_common_areas",
@@ -3520,8 +3975,10 @@ export async function probeDatabaseReadiness(
       !checklistTargetFoundation ||
       checklistTargetFoundation.table_count !== checklistTargetExpected * 3 ||
       checklistTargetFoundation.rls_count !== checklistTargetExpected * 3 ||
-      checklistTargetFoundation.force_rls_count !== checklistTargetExpected * 3 ||
-      checklistTargetFoundation.owner_safe_count !== checklistTargetExpected * 3 ||
+      checklistTargetFoundation.force_rls_count !==
+        checklistTargetExpected * 3 ||
+      checklistTargetFoundation.owner_safe_count !==
+        checklistTargetExpected * 3 ||
       checklistTargetFoundation.function_count !== checklistFunctionExpected ||
       checklistTargetFoundation.trigger_count !== checklistTargetExpected * 4 ||
       checklistTargetFoundation.policy_count !== checklistTargetExpected * 3 ||
@@ -4029,9 +4486,10 @@ export async function probeDatabaseReadiness(
           'UTF8'
         )), 'hex') as digest
       `;
-      const expectedFileAccessSchema = repairLifecyclePhase === "CONTRACT"
-        ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
-        : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
+      const expectedFileAccessSchema =
+        repairLifecyclePhase === "CONTRACT"
+          ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
+          : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
       if (fileAccessSchema?.digest !== expectedFileAccessSchema) {
         return schemaNotReady();
       }
@@ -4059,10 +4517,11 @@ export async function probeDatabaseReadiness(
         HOTEL_INSPECTION_COMMAND_CONTRACTS.filter((contract) => {
           if ("calendarReadModel" in contract)
             return calendarReadModelPhase === "CONTRACT";
+          if ("calendarProjection" in contract)
+            return calendarProjectionPhase === "CONTRACT";
           if ("repairLifecycle" in contract)
             return (
-              contract.repairLifecycle ===
-              (repairLifecyclePhase === "CONTRACT")
+              contract.repairLifecycle === (repairLifecyclePhase === "CONTRACT")
             );
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
@@ -4073,7 +4532,11 @@ export async function probeDatabaseReadiness(
           return true;
         });
       for (const contract of activeInspectionCommandContracts) {
-        const expectedDigest = contract.digest;
+        const expectedDigest =
+          contract.name === "hotel_calendar_events_read_v1" &&
+          calendarProjectionPhase === "CONTRACT"
+            ? HOTEL_CALENDAR_EVENTS_PROJECTION_SHA256
+            : contract.digest;
         const [command] = await sql<
           {
             executable: boolean;
@@ -4090,7 +4553,7 @@ export async function probeDatabaseReadiness(
                    as executable,
                  procedure_record.prosecdef
                    and procedure_language.lanname = 'plpgsql'
-                   and procedure_record.provolatile = 'v'
+                   and procedure_record.provolatile = ${"volatility" in contract ? contract.volatility : "v"}
                    and procedure_record.proparallel = 'u'
                    and not procedure_record.proleakproof
                    and procedure_record.proconfig = array['search_path=pg_catalog']::text[]
@@ -4167,20 +4630,26 @@ export async function probeDatabaseReadiness(
           command.executable !== (options.capability === contract.capability) ||
           (await sourceSha256(command.source)) !== expectedDigest
         ) {
-          return schemaNotReady();
+          return schemaNotReady(`FUNCTION_CONTRACT_${contract.name}`);
         }
       }
 
       const activeInspectionInternalFunctionContracts =
         HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
+          if ("repairProjectionReadBack" in contract)
+            return repairLifecyclePhase === "CONTRACT";
           if ("calendarReadModel" in contract)
             return calendarReadModelPhase === "CONTRACT";
+          if ("calendarProjection" in contract)
+            return calendarProjectionPhase === "CONTRACT";
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (!("checklistPhase" in contract)) return true;
           if (contract.checklistPhase === "BOTH")
-            return inspectionTargetChecklistPhase === "EXPAND" ||
-              inspectionTargetChecklistPhase === "CONTRACT";
+            return (
+              inspectionTargetChecklistPhase === "EXPAND" ||
+              inspectionTargetChecklistPhase === "CONTRACT"
+            );
           return contract.checklistPhase === inspectionTargetChecklistPhase;
         });
       for (const contract of activeInspectionInternalFunctionContracts) {
@@ -4188,7 +4657,10 @@ export async function probeDatabaseReadiness(
           contract.name === "inspection_execution_snapshot_v2" &&
           repairLifecyclePhase === "CONTRACT"
             ? HOTEL_REPAIR_INSPECTION_SNAPSHOT_SHA256
-            : contract.digest;
+            : contract.name === "repair_snapshot_v1" &&
+                calendarProjectionPhase !== "CONTRACT"
+              ? HOTEL_REPAIR_SNAPSHOT_PRE_PROJECTION_SHA256
+              : contract.digest;
         const [helper] = await sql<
           {
             acl_safe: boolean;
@@ -6166,10 +6638,15 @@ export async function probeDatabaseReadiness(
       where trigger_namespace.nspname = 'public'
         and not trigger_record.tgisinternal
     `;
+    const projectionPhaseTriggers = REQUIRED_TRIGGERS.filter(
+      (required) =>
+        required.name !== "calendar_projection_visit_signal" ||
+        calendarProjectionPhase === "CONTRACT",
+    );
     const roomPhaseTriggers =
       roomSchemaPhase === "CONTRACT"
-        ? REQUIRED_TRIGGERS
-        : REQUIRED_TRIGGERS.filter(
+        ? projectionPhaseTriggers
+        : projectionPhaseTriggers.filter(
             (required) => !ROOM_CONTRACT_TRIGGER_NAMES.has(required.name),
           );
     const inspectionPhaseTriggers =
@@ -6518,6 +6995,8 @@ export async function probeDatabaseReadiness(
     `;
     const activeRequiredRlsPolicies = REQUIRED_RLS_POLICIES.filter(
       (required) =>
+        (!required.table.startsWith("calendar_") ||
+          calendarProjectionPhase === "CONTRACT") &&
         (inspectionProcessPhase === "CONTRACT" ||
           (required.table !== "hotel_file_access_rate_windows" &&
             required.table !== "hotel_file_access_grants")) &&
@@ -6535,14 +7014,14 @@ export async function probeDatabaseReadiness(
             ? "EXPAND"
             : HOTEL_FACILITY_RLS_TABLES.has(required.table)
               ? "CONTRACT"
-            : required.table === "hotel_file_access_rate_windows" ||
-                required.table === "hotel_file_access_grants"
-              ? "CONTRACT"
-              : required.table === "hotel_room_types" ||
-                  required.table === "hotel_rooms" ||
-                  required.table === "hotel_room_status_history"
-                ? roomPolicyPhase
-                : schemaPhase;
+              : required.table === "hotel_file_access_rate_windows" ||
+                  required.table === "hotel_file_access_grants"
+                ? "CONTRACT"
+                : required.table === "hotel_room_types" ||
+                    required.table === "hotel_rooms" ||
+                    required.table === "hotel_room_status_history"
+                  ? roomPolicyPhase
+                  : schemaPhase;
           return (
             policy.policy_name === required.policy &&
             policy.table_name === required.table &&
@@ -6592,7 +7071,16 @@ export async function probeDatabaseReadiness(
     }
 
     return { status: "READY" };
-  } catch {
+  } catch (error) {
+    const code =
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      typeof error.code === "string" &&
+      /^[A-Z0-9]{5}$/u.test(error.code)
+        ? error.code
+        : "UNKNOWN";
+    options.onSchemaNotReady?.(`UNAVAILABLE_${code}`);
     return { status: "UNAVAILABLE" };
   } finally {
     await sql.end({ timeout: 1 }).catch(() => undefined);
