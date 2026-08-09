@@ -413,6 +413,42 @@ describe("Preview account provisioning wiring", () => {
   });
 
   it("renders one isolated Hyperdrive binding per Worker artifact", () => {
+    const apiRenderStart = ciWorkflow.indexOf(
+      "API_HYPERDRIVE_ID=00000000000000000000000000000000",
+    );
+    const apiRendererStart = ciWorkflow.indexOf(
+      "node scripts/render-api-preview-config.mjs",
+      apiRenderStart,
+    );
+    expect(apiRenderStart).toBeGreaterThanOrEqual(0);
+    expect(apiRendererStart).toBeGreaterThan(apiRenderStart);
+    const ciApiRenderEnvironment = ciWorkflow.slice(
+      apiRenderStart,
+      apiRendererStart,
+    );
+    const ciApiRenderEnvironmentLines = ciApiRenderEnvironment
+      .trim()
+      .split("\n")
+      .map((line) => line.trim());
+    expect(ciApiRenderEnvironmentLines.length).toBeGreaterThan(0);
+    expect(
+      ciApiRenderEnvironmentLines.every((line) =>
+        /^[A-Z][A-Z0-9_]*=\S+ \\$/u.test(line),
+      ),
+    ).toBe(true);
+    expect(ciApiRenderEnvironment).toContain(
+      "GOOGLE_CALENDAR_OAUTH_CLIENT_ID=preview-calendar-client",
+    );
+    expect(ciApiRenderEnvironment).toContain(
+      "GOOGLE_CALENDAR_OAUTH_REDIRECT_URI=https://preview.invalid/api/admin/calendar-connections/oauth/callback",
+    );
+    expect(ciApiRenderEnvironment).toContain(
+      "CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION=1",
+    );
+    expect(ciApiRenderEnvironment).toContain(
+      "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION=1",
+    );
+    expect(ciWorkflow).not.toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
     expect(ciWorkflow).toContain(
       "API_HYPERDRIVE_ID=00000000000000000000000000000000",
     );
