@@ -6,6 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": false,
   "preview_urls": false,
+  "vars": {
+    "CALENDAR_PROVIDER_SECRET_DELIVERY": "WORKER_SECRET_ONLY"
+  },
   "triggers": {
     "crons": ["*/5 * * * *"]
   },

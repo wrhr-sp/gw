@@ -7,6 +7,7 @@ import {
   repairPriorityListResponseSchema,
   repairProcessTransitionRequestSchema,
   repairRoutes,
+  repairVisitResponseSchema,
   submitRepairReviewRequestSchema,
   type AuthenticatedPrincipal,
   type CreateRepairCaseRequest,
@@ -62,6 +63,15 @@ export function createRepairService(repository: RepairRepository): RepairService
         ? await repository.transitionCommand(command)
         : await repository.visitCommand(command);
     if (!["CREATED","UPDATED","REPLAYED"].includes(result.status) || result.payload===null) failure(result.status);
+    if (target === "visit") {
+      const parsed = repairVisitResponseSchema.safeParse({
+        ok: true,
+        data: { visit: result.payload },
+        error: null,
+      });
+      if (!parsed.success) throw new RepairServiceError("INTERNAL_ERROR", 500);
+      return parsed.data.data.visit;
+    }
     return result.payload;
   }
   return {

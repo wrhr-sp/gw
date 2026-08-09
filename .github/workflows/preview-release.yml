@@ -26,20 +26,15 @@ jobs:
       name: preview
       url: https://werehere-hotel-web-preview.wereheresp.workers.dev
     env:
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
-      DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
-      DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
-      ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
-      ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
-      ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
-      PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
       ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
       ZITADEL_CLIENT_ID: ${{ vars.ZITADEL_CLIENT_ID }}
       ZITADEL_CONSOLE_CLIENT_ID: ${{ vars.ZITADEL_CONSOLE_CLIENT_ID }}
       ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
       ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
+      GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}
+      GOOGLE_CALENDAR_OAUTH_REDIRECT_URI: ${{ vars.GOOGLE_CALENDAR_OAUTH_REDIRECT_URI }}
+      CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION: ${{ vars.CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION }}
+      CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION: ${{ vars.CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION }}
       PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
       WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
       API_RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-api-runtime-url
@@ -47,15 +42,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
         with:
           version: 10.24.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22.22.1
           cache: pnpm
@@ -66,19 +61,36 @@ jobs:
       - name: Install Chromium for Console smoke
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Verify Google Calendar scheduled entrypoint contract
+        run: |
+          pnpm exec vitest run \
+            apps/api/test/inspection-materializer.spec.ts \
+            apps/api/test/google-calendar-reconciler.spec.ts
+
       - name: Validate required Preview configuration
         env:
+          AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
+          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
+          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
+          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
+          DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
+          ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
+          ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+          ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
           ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
         shell: bash
         run: |
           set -euo pipefail
           required=(
-            CLOUDFLARE_ACCOUNT_ID
-            CLOUDFLARE_API_TOKEN
             AUTH_TRANSACTION_ENCRYPTION_KEY
+            GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
+            CALENDAR_CREDENTIAL_AES_KEYRING_JSON
+            CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
             DATABASE_URL
             DATABASE_URL_PREVIEW
             DATABASE_API_RUNTIME_PASSWORD_PREVIEW
@@ -94,6 +106,10 @@ jobs:
             ZITADEL_CONSOLE_CLIENT_ID
             ZITADEL_REDIRECT_URI
             ZITADEL_ORGANIZATION_ID
+            GOOGLE_CALENDAR_OAUTH_CLIENT_ID
+            GOOGLE_CALENDAR_OAUTH_REDIRECT_URI
+            CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION
+            CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION
             PREVIEW_BOOTSTRAP_APPROVAL_REF
           )
           missing=()
@@ -108,6 +124,18 @@ jobs:
             done
             exit 1
           fi
+          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
+          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
+          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
+          unset DATABASE_URL
+          unset DATABASE_URL_PREVIEW
+          unset DATABASE_API_RUNTIME_PASSWORD_PREVIEW
+          unset DATABASE_RECONCILER_PASSWORD_PREVIEW
+          unset ZITADEL_SERVICE_USER_TOKEN
+          unset ZITADEL_USER_PROVISIONER_TOKEN
+          unset ZITADEL_PREVIEW_SUBJECT
+          unset ZITADEL_PREVIEW_SUBJECT_SHA256
+          unset PREVIEW_BOOTSTRAP_LOGIN_ID
           unset ZITADEL_PREVIEW_PASSWORD
           node <<'NODE'
           const key = process.env.AUTH_TRANSACTION_ENCRYPTION_KEY;
@@ -133,6 +161,7 @@ jobs:
             throw new Error("ZITADEL_REDIRECT_URI does not match the Preview Web callback");
           }
           NODE
+          unset AUTH_TRANSACTION_ENCRYPTION_KEY
           API_HYPERDRIVE_ID=00000000000000000000000000000000 \
             node scripts/render-api-preview-config.mjs \
               apps/api/wrangler.preview.jsonc \
@@ -150,6 +179,9 @@ jobs:
         run: pnpm exec tsx packages/db/scripts/verify-zitadel-bootstrap.ts
 
       - name: Snapshot active Worker versions
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         id: worker_snapshot
         shell: bash
         run: |
@@ -312,6 +344,7 @@ jobs:
           DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
           ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
           ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
         run: |
@@ -377,6 +410,8 @@ jobs:
         shell: bash
         working-directory: apps/api
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
           PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}
           PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_attested }}
@@ -734,7 +769,7 @@ jobs:
             node scripts/smoke-zitadel-console-preview.mjs
           fi
 
-      - name: Render API Preview configuration and secrets
+      - name: Render API Preview configuration
         env:
           API_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.api_id }}
           RECONCILER_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.reconciler_id }}
@@ -745,31 +780,47 @@ jobs:
           node scripts/render-reconciler-preview-config.mjs \
             apps/api/wrangler.reconciler.preview.jsonc \
             apps/api/wrangler.reconciler.preview.generated.json
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          Path('/tmp/werehere-api-preview-secrets.json').write_text(json.dumps({
-              'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
-              'ZITADEL_SERVICE_USER_TOKEN': os.environ['ZITADEL_SERVICE_USER_TOKEN'],
-              'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN'],
-          }))
-          os.chmod('/tmp/werehere-api-preview-secrets.json', 0o600)
-          PY
 
       - name: Deploy private account reconciler Worker
         id: deploy_reconciler
         working-directory: apps/api
         env:
           DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
+          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
+          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
         shell: bash
         run: |
           set -euo pipefail
           printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deploy \
-            --config wrangler.reconciler.preview.generated.json \
-            --secrets-file /tmp/werehere-api-preview-secrets.json \
-            --strict \
-            --tag "$DEPLOY_TAG"
+          reconciler_secrets_file="$(mktemp)"
+          trap 'rm -f "$reconciler_secrets_file"' EXIT
+          export RECONCILER_SECRETS_FILE="$reconciler_secrets_file"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RECONCILER_SECRETS_FILE'])
+          path.write_text(json.dumps({
+              'GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET': os.environ['GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET'],
+              'CALENDAR_CREDENTIAL_AES_KEYRING_JSON': os.environ['CALENDAR_CREDENTIAL_AES_KEYRING_JSON'],
+              'CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON': os.environ['CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON'],
+          }))
+          path.chmod(0o600)
+          PY
+          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
+          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
+          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
+          (
+            trap 'rm -f "$reconciler_secrets_file"' EXIT
+            pnpm exec wrangler deploy \
+              --config wrangler.reconciler.preview.generated.json \
+              --secrets-file "$reconciler_secrets_file" \
+              --strict \
+              --tag "$DEPLOY_TAG"
+          )
+          rm -f "$reconciler_secrets_file"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
@@ -819,7 +870,7 @@ jobs:
           }
           deployed_version="$(resolve_tagged_version werehere-hotel-account-reconciler-preview "$DEPLOY_TAG")"
           printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deployments list --name werehere-hotel-account-reconciler-preview --json > "$deployments_file"
+          pnpm --filter @werehere/api exec wrangler deployments list --name werehere-hotel-account-reconciler-preview --json > "$deployments_file"
           jq -e --arg version "$deployed_version" '
             type == "array" and length > 0
             and (.[-1].versions | type) == "array"
@@ -833,15 +884,50 @@ jobs:
         working-directory: apps/api
         env:
           DEPLOY_TAG: secure-session-authority-v1-github-${{ github.run_id }}-${{ github.run_attempt }}-api
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
+          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
+          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
+          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
+          ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
+          ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
           printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deploy \
-            --config wrangler.preview.generated.json \
-            --secrets-file /tmp/werehere-api-preview-secrets.json \
-            --strict \
-            --tag "$DEPLOY_TAG"
+          api_secrets_file="$(mktemp)"
+          trap 'rm -f "$api_secrets_file"' EXIT
+          export API_SECRETS_FILE="$api_secrets_file"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['API_SECRETS_FILE'])
+          path.write_text(json.dumps({
+              'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
+              'ZITADEL_SERVICE_USER_TOKEN': os.environ['ZITADEL_SERVICE_USER_TOKEN'],
+              'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN'],
+              'GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET': os.environ['GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET'],
+              'CALENDAR_CREDENTIAL_AES_KEYRING_JSON': os.environ['CALENDAR_CREDENTIAL_AES_KEYRING_JSON'],
+              'CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON': os.environ['CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON'],
+          }))
+          path.chmod(0o600)
+          PY
+          unset AUTH_TRANSACTION_ENCRYPTION_KEY
+          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
+          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
+          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
+          unset ZITADEL_SERVICE_USER_TOKEN
+          unset ZITADEL_USER_PROVISIONER_TOKEN
+          (
+            trap 'rm -f "$api_secrets_file"' EXIT
+            pnpm exec wrangler deploy \
+              --config wrangler.preview.generated.json \
+              --secrets-file "$api_secrets_file" \
+              --strict \
+              --tag "$DEPLOY_TAG"
+          )
+          rm -f "$api_secrets_file"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
@@ -891,7 +977,7 @@ jobs:
           }
           deployed_version="$(resolve_tagged_version werehere-hotel-api-preview "$DEPLOY_TAG")"
           printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deployments list --name werehere-hotel-api-preview --json > "$deployments_file"
+          pnpm --filter @werehere/api exec wrangler deployments list --name werehere-hotel-api-preview --json > "$deployments_file"
           jq -e --arg version "$deployed_version" '
             type == "array" and length > 0
             and (.[-1].versions | type) == "array"
@@ -909,6 +995,7 @@ jobs:
           DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
           ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
           ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
         run: pnpm exec tsx packages/db/scripts/provision-preview.ts
@@ -928,6 +1015,8 @@ jobs:
         working-directory: apps/web
         env:
           DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-web
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -982,7 +1071,7 @@ jobs:
           }
           deployed_version="$(resolve_tagged_version werehere-hotel-web-preview "$DEPLOY_TAG")"
           printf 'deployed_version=%s\n' "$deployed_version" >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deployments list --name werehere-hotel-web-preview --json > "$deployments_file"
+          pnpm --filter @werehere/api exec wrangler deployments list --name werehere-hotel-web-preview --json > "$deployments_file"
           jq -e --arg version "$deployed_version" '
             type == "array" and length > 0
             and (.[-1].versions | type) == "array"
@@ -990,6 +1079,29 @@ jobs:
             and .[-1].versions[0].percentage == 100
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
+
+      - name: Drain previous scheduled executions and verify exact active Workers
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPECTED_RECONCILER_VERSION: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          EXPECTED_API_VERSION: ${{ steps.deploy_api.outputs.deployed_version }}
+          EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
+        run: |
+          set -euo pipefail
+          node scripts/wait-reconciler-drain.mjs
+          verify_active() {
+            local worker_name="$1" expected_version="$2" deployments_file
+            deployments_file="$(mktemp)"
+            trap 'rm -f "$deployments_file"' RETURN
+            pnpm --filter @werehere/api exec wrangler deployments list --name "$worker_name" --json > "$deployments_file"
+            jq -e --arg version "$expected_version" 'type == "array" and length > 0 and (.[-1].versions | type) == "array" and (.[-1].versions | length) == 1 and .[-1].versions[0].percentage == 100 and .[-1].versions[0].version_id == $version' "$deployments_file" >/dev/null
+            rm -f "$deployments_file"
+            trap - RETURN
+          }
+          verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
+          verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
+          verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
       - name: Verify public Preview path and bootstrap mapping before contract
         id: preview_smoke
@@ -1016,7 +1128,32 @@ jobs:
         run: |
           set -o pipefail
           node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK' /tmp/preview-calendar-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK' /tmp/preview-calendar-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_CALLBACK_REPLAY_COOKIE_SMOKE_OK' /tmp/preview-calendar-smoke.log
           grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-smoke.log
+
+      - name: Verify exact active Workers after Calendar smoke
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPECTED_RECONCILER_VERSION: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          EXPECTED_API_VERSION: ${{ steps.deploy_api.outputs.deployed_version }}
+          EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
+        run: |
+          set -euo pipefail
+          verify_active() {
+            local worker_name="$1" expected_version="$2" deployments_file
+            deployments_file="$(mktemp)"
+            trap 'rm -f "$deployments_file"' RETURN
+            pnpm --filter @werehere/api exec wrangler deployments list --name "$worker_name" --json > "$deployments_file"
+            jq -e --arg version "$expected_version" 'type == "array" and length > 0 and (.[-1].versions | type) == "array" and (.[-1].versions | length) == 1 and .[-1].versions[0].percentage == 100 and .[-1].versions[0].version_id == $version' "$deployments_file" >/dev/null
+            rm -f "$deployments_file"
+            trap - RETURN
+          }
+          verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
+          verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
+          verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
@@ -1036,11 +1173,39 @@ jobs:
           DATABASE_RECONCILER_PASSWORD_PREVIEW: ${{ secrets.DATABASE_RECONCILER_PASSWORD_PREVIEW }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
           ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
+          PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
           ZITADEL_PREVIEW_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
           PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
         run: |
           printf 'contract_started=true\n' >> "$GITHUB_OUTPUT"
           pnpm exec tsx packages/db/scripts/provision-preview.ts
+
+      - name: Drain scheduled executions after contract
+        run: |
+          set -euo pipefail
+          node scripts/wait-reconciler-drain.mjs
+
+      - name: Verify exact active Workers before post-contract Calendar smoke
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPECTED_RECONCILER_VERSION: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          EXPECTED_API_VERSION: ${{ steps.deploy_api.outputs.deployed_version }}
+          EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
+        run: |
+          set -euo pipefail
+          verify_active() {
+            local worker_name="$1" expected_version="$2" deployments_file
+            deployments_file="$(mktemp)"
+            trap 'rm -f "$deployments_file"' RETURN
+            pnpm --filter @werehere/api exec wrangler deployments list --name "$worker_name" --json > "$deployments_file"
+            jq -e --arg version "$expected_version" 'type == "array" and length > 0 and (.[-1].versions | type) == "array" and (.[-1].versions | length) == 1 and .[-1].versions[0].percentage == 100 and .[-1].versions[0].version_id == $version' "$deployments_file" >/dev/null
+            rm -f "$deployments_file"
+            trap - RETURN
+          }
+          verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
+          verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
+          verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
       - name: Verify public Preview path and bootstrap mapping after contract
         id: post_contract_smoke
@@ -1049,11 +1214,41 @@ jobs:
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           node scripts/smoke-zitadel-console-preview.mjs
+          set -o pipefail
+          node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_CALLBACK_REPLAY_COOKIE_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
+
+      - name: Verify exact active Workers after post-contract Calendar smoke
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPECTED_RECONCILER_VERSION: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          EXPECTED_API_VERSION: ${{ steps.deploy_api.outputs.deployed_version }}
+          EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
+        run: |
+          set -euo pipefail
+          verify_active() {
+            local worker_name="$1" expected_version="$2" deployments_file
+            deployments_file="$(mktemp)"
+            trap 'rm -f "$deployments_file"' RETURN
+            pnpm --filter @werehere/api exec wrangler deployments list --name "$worker_name" --json > "$deployments_file"
+            jq -e --arg version "$expected_version" 'type == "array" and length > 0 and (.[-1].versions | type) == "array" and (.[-1].versions | length) == 1 and .[-1].versions[0].percentage == 100 and .[-1].versions[0].version_id == $version' "$deployments_file" >/dev/null
+            rm -f "$deployments_file"
+            trap - RETURN
+          }
+          verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
+          verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
+          verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
       - name: Record secure session-authority rollback baseline
         id: secure_rollback_baseline
         shell: bash
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           API_DEPLOYED: ${{ steps.deploy_api.outputs.deployed_version }}
           API_DEPLOY_TAG: secure-session-authority-v1-github-${{ github.run_id }}-${{ github.run_attempt }}-api
         run: |
@@ -1088,6 +1283,8 @@ jobs:
         if: failure()
         shell: bash
         env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CONTRACT_STARTED: ${{ steps.contract_database.outputs.contract_started }}
           API_PREVIOUS: ${{ steps.worker_snapshot.outputs.api_previous }}
           API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
@@ -1411,7 +1608,6 @@ jobs:
         run: |
           rm -f "$API_RUNTIME_DATABASE_URL_FILE"
           rm -f "$RECONCILER_DATABASE_URL_FILE"
-          rm -f /tmp/werehere-api-preview-secrets.json
           rm -rf /tmp/werehere-hyperdrive-retarget
           rm -f /tmp/werehere-api-preview-preflight.json
           rm -f apps/api/wrangler.preview.generated.json

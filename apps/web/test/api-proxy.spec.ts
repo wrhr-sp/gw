@@ -238,6 +238,44 @@ describe("same-origin API runtime proxy", () => {
     expect(await response.text()).not.toContain("transport sentinel");
   });
 
+  it("redirects Calendar callback transport failures to the query-free allowlisted path", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn<typeof fetch>().mockRejectedValue(
+        new Error("calendar transport sentinel"),
+      ),
+    );
+    const response = await GET(
+      new Request(
+        "https://hotel.example.test/api/admin/calendar-connections/oauth/callback?state=opaque&error=access_denied",
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "admin",
+            "calendar-connections",
+            "oauth",
+            "callback",
+          ],
+        }),
+      },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("/admin/calendar");
+    expect(
+      new URL(
+        response.headers.get("location")!,
+        "https://hotel.example.test",
+      ).search,
+    ).toBe("");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("set-cookie") ?? "").toMatch(
+      /__Host-hotel_calendar_oauth=.*Max-Age=0/i,
+    );
+    expect(await response.text()).toBe("");
+  });
+
   it("allows only the exact Login V2 suffix appended to the custom login base URI", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async (input: string | URL | Request) => {
@@ -384,14 +422,44 @@ describe("same-origin API runtime proxy", () => {
     const itemId = "95000000-0000-4000-8000-000000000001";
     const cases = [
       { method: "GET", path: ["hotels", hotelId, "inspection-routines", "v2"] },
-      { method: "POST", path: ["hotels", hotelId, "inspection-routines", "v2"] },
-      { method: "GET", path: ["hotels", hotelId, "inspection-routines", "v2", routineId] },
-      { method: "PUT", path: ["hotels", hotelId, "inspection-routines", "v2", routineId] },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspection-routines", "v2"],
+      },
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "inspection-routines", "v2", routineId],
+      },
+      {
+        method: "PUT",
+        path: ["hotels", hotelId, "inspection-routines", "v2", routineId],
+      },
       { method: "GET", path: ["hotels", hotelId, "inspections", "v2"] },
-      { method: "POST", path: ["hotels", hotelId, "inspections", "v2", "manual"] },
-      { method: "GET", path: ["hotels", hotelId, "inspections", "v2", inspectionId] },
-      { method: "PUT", path: ["hotels", hotelId, "inspections", "v2", inspectionId, "items", itemId, "result"] },
-      { method: "POST", path: ["hotels", hotelId, "inspections", "v2", inspectionId, "submit"] },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspections", "v2", "manual"],
+      },
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "inspections", "v2", inspectionId],
+      },
+      {
+        method: "PUT",
+        path: [
+          "hotels",
+          hotelId,
+          "inspections",
+          "v2",
+          inspectionId,
+          "items",
+          itemId,
+          "result",
+        ],
+      },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspections", "v2", inspectionId, "submit"],
+      },
     ] as const;
     const handlers = { GET, POST, PUT } as const;
     for (const item of cases) {
@@ -410,16 +478,21 @@ describe("same-origin API runtime proxy", () => {
       routineId,
     ];
     const rejectedRoutine = await POST(
-      new Request(`https://hotel.example.test/api/${rejectedRoutinePath.join("/")}`, {
-        method: "POST",
-      }),
+      new Request(
+        `https://hotel.example.test/api/${rejectedRoutinePath.join("/")}`,
+        {
+          method: "POST",
+        },
+      ),
       { params: Promise.resolve({ path: rejectedRoutinePath }) },
     );
     expect(rejectedRoutine.status).toBe(405);
     expect(rejectedRoutine.headers.get("allow")).toBe("GET, PUT");
     const rejectedSuffixPath = [...rejectedRoutinePath, "unexpected"];
     const rejectedSuffix = await GET(
-      new Request(`https://hotel.example.test/api/${rejectedSuffixPath.join("/")}`),
+      new Request(
+        `https://hotel.example.test/api/${rejectedSuffixPath.join("/")}`,
+      ),
       { params: Promise.resolve({ path: rejectedSuffixPath }) },
     );
     expect(rejectedSuffix.status).toBe(404);
@@ -791,5 +864,166 @@ describe("same-origin API runtime proxy", () => {
     );
     expect(unapproved.status).toBe(404);
     expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
+  it("proxies only approved Google Calendar administrator methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const connectionId = "51000000-0000-4000-8000-000000000001";
+    const candidateId = "52000000-0000-4000-8000-000000000001";
+    const failureId = "60000000-0000-4000-8000-000000000001";
+    const cases = [
+      { handler: GET, method: "GET", path: ["admin", "calendar-connections"] },
+      {
+        handler: POST,
+        method: "POST",
+        path: ["admin", "calendar-connections", "oauth", "start"],
+      },
+      {
+        handler: GET,
+        method: "GET",
+        path: ["admin", "calendar-connections", "oauth", "callback"],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: [
+          "admin",
+          "calendar-connections",
+          connectionId,
+          "credential-candidates",
+          candidateId,
+          "promote",
+        ],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: [
+          "admin",
+          "calendar-connections",
+          connectionId,
+          "credential-candidates",
+          candidateId,
+          "confirm-switch",
+        ],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: ["admin", "calendar-connections", connectionId, "hotel-calendars"],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: [
+          "admin",
+          "calendar-connections",
+          connectionId,
+          "hotel-calendars",
+          hotelId,
+          "disconnect",
+        ],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: ["admin", "calendar-connections", connectionId, "disconnect"],
+      },
+      {
+        handler: POST,
+        method: "POST",
+        path: [
+          "admin",
+          "calendar-connections",
+          "hotels",
+          hotelId,
+          "failures",
+          failureId,
+          "retry",
+        ],
+      },
+    ] as const;
+    for (const item of cases) {
+      const response = await item.handler(
+        new Request(`https://hotel.example.test/api/${item.path.join("/")}`, {
+          method: item.method,
+        }),
+        { params: Promise.resolve({ path: [...item.path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+    const legacyCommand = await POST(
+      new Request(
+        "https://hotel.example.test/api/admin/calendar-connections/command",
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["admin", "calendar-connections", "command"],
+        }),
+      },
+    );
+    expect(legacyCommand.status).toBe(404);
+    const rejected = await POST(
+      new Request(
+        "https://hotel.example.test/api/admin/calendar-connections/oauth/callback",
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["admin", "calendar-connections", "oauth", "callback"],
+        }),
+      },
+    );
+    expect(rejected.status).toBe(405);
+    expect(rejected.headers.get("allow")).toBe("GET");
+    for (const method of [GET, PUT]) {
+      const retryRejected = await method(
+        new Request(
+          `https://hotel.example.test/api/admin/calendar-connections/hotels/${hotelId}/failures/${failureId}/retry`,
+          { method: method === GET ? "GET" : "PUT" },
+        ),
+        {
+          params: Promise.resolve({
+            path: [
+              "admin",
+              "calendar-connections",
+              "hotels",
+              hotelId,
+              "failures",
+              failureId,
+              "retry",
+            ],
+          }),
+        },
+      );
+      expect(retryRejected.status).toBe(405);
+      expect(retryRejected.headers.get("allow")).toBe("POST");
+    }
+    const suffixRejected = await POST(
+      new Request(
+        `https://hotel.example.test/api/admin/calendar-connections/hotels/${hotelId}/failures/${failureId}/retry/extra`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "admin",
+            "calendar-connections",
+            "hotels",
+            hotelId,
+            "failures",
+            failureId,
+            "retry",
+            "extra",
+          ],
+        }),
+      },
+    );
+    expect(suffixRejected.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledTimes(cases.length);
   });
 });

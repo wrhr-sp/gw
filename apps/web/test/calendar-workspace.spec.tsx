@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { CalendarWorkspace, sameInstant, seoulLocalDateTimeToInstant } from "../components/calendar/calendar-workspace";
-import { calendarNavigationHref } from "../components/hotels/hotel-shell";
+import { CalendarWorkspace, calendarProjectionLabel, sameInstant, seoulLocalDateTimeToInstant } from "../components/calendar/calendar-workspace";
+import { calendarNavigationHref, HotelShell } from "../components/hotels/hotel-shell";
 
 const hotelId = "50000000-0000-4000-8000-000000000001";
 const data = {
@@ -49,9 +49,23 @@ describe("Calendar workspace", () => {
     expect(calendarNavigationHref(false, [])).toBeUndefined();
   });
 
+  it("shows Calendar connection navigation only to a confirmed manager",()=>{
+    const principal={companyId:"10000000-0000-4000-8000-000000000001",identityId:"20000000-0000-4000-8000-000000000001",sessionId:"30000000-0000-4000-8000-000000000001",userId:"40000000-0000-4000-8000-000000000001",userType:"INTERNAL_STAFF" as const,displayName:"관리자"};
+    const allowed=renderToStaticMarkup(<HotelShell canManageCalendarConnection currentPath="/hotels" principal={principal}><div/></HotelShell>);
+    const denied=renderToStaticMarkup(<HotelShell currentPath="/hotels" principal={principal}><div/></HotelShell>);
+    expect(allowed).toContain('href="/admin/calendar"');expect(allowed).toContain("Calendar 연결");expect(denied).not.toContain('href="/admin/calendar"');
+  });
+
   it("interprets visit datetime-local input as the canonical Seoul timezone", () => {
     expect(seoulLocalDateTimeToInstant("2026-08-07T19:30")).toBe("2026-08-07T10:30:00Z");
     expect(sameInstant("2026-08-07T10:30:00Z", "2026-08-07T10:30:00.000Z")).toBe(true);
+  });
+
+  it("maps every canonical Google projection state to a user-facing label", () => {
+    expect(calendarProjectionLabel("NOT_CONNECTED")).toBe("Google 미연결");
+    expect(calendarProjectionLabel("PENDING")).toBe("Google 반영 대기");
+    expect(calendarProjectionLabel("SYNCED")).toBe("Google 반영 완료");
+    expect(calendarProjectionLabel("ACTION_REQUIRED")).toBe("Google 확인 필요");
   });
 
   it("renders product controls and mobile field cards without Google identifiers", () => {

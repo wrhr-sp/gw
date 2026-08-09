@@ -2,9 +2,17 @@ import type { InspectionMaterializerRepository } from "@werehere/db";
 import { describe, expect, it, vi } from "vitest";
 const scheduledFactories = vi.hoisted(() => ({
   account: vi.fn(async () => undefined),
+  calendar: vi.fn<
+    (env?: unknown, options?: { signal?: AbortSignal }) => Promise<undefined>
+  >(async () => undefined),
   file: vi.fn(async () => undefined),
   inspection: vi.fn(async () => undefined),
   recover: vi.fn(async () => undefined),
+  invocation: vi.fn(async (_databaseUrl: string, run: () => Promise<unknown>) => run()),
+}));
+vi.mock("@werehere/db", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@werehere/db")>()),
+  withPostgresScheduledReconcilerInvocation: scheduledFactories.invocation,
 }));
 vi.mock("../src/accounts/factory", () => ({
   reconcileAccountProviderJobsFromBindings: scheduledFactories.account,
@@ -14,7 +22,11 @@ vi.mock("../src/files/factory", () => ({
   recoverExpiredHotelFileAccessGrantsFromBindings: scheduledFactories.recover,
 }));
 vi.mock("../src/inspections/materializer-factory", () => ({
-  reconcileInspectionMaterializationsFromBindings: scheduledFactories.inspection,
+  reconcileInspectionMaterializationsFromBindings:
+    scheduledFactories.inspection,
+}));
+vi.mock("../src/calendar-projections/factory", () => ({
+  reconcileGoogleCalendarsFromBindings: scheduledFactories.calendar,
 }));
 import { reconcileInspectionMaterializations } from "../src/inspections/materializer";
 import reconcilerWorker from "../src/reconciler-index";
@@ -51,21 +63,15 @@ describe("inspection materialization reconciler", () => {
     ).rejects.toThrow("INSPECTION_MATERIALIZER_NOT_CONFIGURED");
   });
 
-  it("propagates the actual missing-binding failure through scheduled waitUntil", async () => {
-    vi.resetModules();
-    vi.doUnmock("../src/inspections/materializer-factory");
-    const actualWorker = (await import("../src/reconciler-index")).default;
+  it("propagates a missing barrier database through scheduled waitUntil", async () => {
     const pending: Promise<unknown>[] = [];
-    actualWorker.scheduled(null, {}, {
+    reconcilerWorker.scheduled(null, {}, {
       waitUntil: (promise) => pending.push(promise),
     });
     expect(pending).toHaveLength(1);
     await expect(pending[0]).rejects.toThrow(
-      "INSPECTION_MATERIALIZER_NOT_CONFIGURED",
+      "SCHEDULED_RECONCILER_DATABASE_NOT_CONFIGURED",
     );
-    vi.doMock("../src/inspections/materializer-factory", () => ({
-      reconcileInspectionMaterializationsFromBindings: scheduledFactories.inspection,
-    }));
   });
 
   it("dispatches the real scheduled Worker promise through waitUntil", async () => {
@@ -85,20 +91,99 @@ describe("inspection materialization reconciler", () => {
     expect(scheduledFactories.file).toHaveBeenCalledWith(env);
     expect(scheduledFactories.recover).toHaveBeenCalledWith(env);
     expect(scheduledFactories.inspection).toHaveBeenCalledWith(env);
+    expect(scheduledFactories.calendar).not.toHaveBeenCalled();
   });
 
-  it("fails the real scheduled Worker promise when inspection bindings fail closed", async () => {
+  it("dispatches configured Google Calendar reconciliation through the real scheduled Worker", async () => {
+    const env = {
+      RECONCILER_HYPERDRIVE: { connectionString: "test" },
+      GOOGLE_CALENDAR_OAUTH_CLIENT_ID: "preview-calendar-client",
+    };
+    const pending: Promise<unknown>[] = [];
+    reconcilerWorker.scheduled(null, env, {
+      waitUntil: (promise) => pending.push(promise),
+    });
+    expect(pending).toHaveLength(1);
+    await expect(pending[0]).resolves.toEqual([
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    expect(scheduledFactories.calendar).toHaveBeenCalledWith(env);
+    expect(scheduledFactories.invocation).toHaveBeenCalledWith(
+      "test",
+      expect.any(Function),
+    );
+  });
+
+  it("keeps the invocation barrier held until Calendar reconciliation actually settles", async () => {
+    let releaseCalendar!: () => void;
+    scheduledFactories.calendar.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          releaseCalendar = () => resolve(undefined);
+        }),
+    );
+    const pending: Promise<unknown>[] = [];
+    reconcilerWorker.scheduled(
+      null,
+      {
+        RECONCILER_HYPERDRIVE: { connectionString: "test" },
+        GOOGLE_CALENDAR_OAUTH_CLIENT_ID: "preview-calendar-client",
+      },
+      { waitUntil: (promise) => pending.push(promise) },
+    );
+    let settled = false;
+    void pending[0]?.finally(() => {
+      settled = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    releaseCalendar();
+    await expect(pending[0]).resolves.toHaveLength(5);
+  });
+
+  it("waits for every scheduled reconciler before reporting an aggregate failure", async () => {
+    let releaseFile!: () => void;
+    let fileCompleted = false;
+    scheduledFactories.file.mockImplementationOnce(
+      () =>
+        new Promise<undefined>((resolve) => {
+          releaseFile = () => {
+            fileCompleted = true;
+            resolve(undefined);
+          };
+        }),
+    );
     scheduledFactories.inspection.mockRejectedValueOnce(
       new Error("inspection materializer database binding is unavailable"),
     );
     const pending: Promise<unknown>[] = [];
-    reconcilerWorker.scheduled(null, {}, {
-      waitUntil: (promise) => pending.push(promise),
-    });
-    expect(pending).toHaveLength(1);
-    await expect(pending[0]).rejects.toThrow(
-      "inspection materializer database binding is unavailable",
+    reconcilerWorker.scheduled(
+      null,
+      { RECONCILER_HYPERDRIVE: { connectionString: "test" } },
+      {
+        waitUntil: (promise) => pending.push(promise),
+      },
     );
+    expect(pending).toHaveLength(1);
+    const scheduled = pending[0];
+    if (!scheduled) throw new Error("scheduled promise missing");
+    let settled = false;
+    void scheduled
+      .finally(() => {
+        settled = true;
+      })
+      .catch(() => undefined);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(settled).toBe(false);
+    releaseFile();
+    await expect(scheduled).rejects.toThrow(
+      "SCHEDULED_RECONCILIATION_FAILED: inspection materializer database binding is unavailable",
+    );
+    expect(fileCompleted).toBe(true);
   });
 
   it("claims and completes with the same token, then stops at NO_WORK", async () => {
