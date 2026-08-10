@@ -290,6 +290,43 @@ describe("Preview account provisioning wiring", () => {
     expect(workflow).toMatch(
       /Verify approved ZITADEL bootstrap identity[\s\S]*ZITADEL_USER_PROVISIONER_TOKEN:[\s\S]*secrets\.ZITADEL_USER_PROVISIONER_TOKEN/u,
     );
+    const stagedIdentityLockSmoke = workflow.slice(
+      workflow.indexOf("Verify deployed API accepts staged identity lock ACL"),
+      workflow.indexOf("Build OpenNext Web Worker"),
+    );
+    expect(stagedIdentityLockSmoke).toMatch(
+      /ZITADEL_PREVIEW_SUBJECT:\s*\$\{\{\s*secrets\.ZITADEL_PREVIEW_SUBJECT\s*\}\}/u,
+    );
+    expect(stagedIdentityLockSmoke).toContain(
+      "node scripts/smoke-zitadel-console-preview.mjs",
+    );
+    const consoleSmokeCall = "node scripts/smoke-zitadel-console-preview.mjs";
+    let consoleSmokeCursor = 0;
+    let consoleSmokeCount = 0;
+    while (true) {
+      const callIndex = workflow.indexOf(consoleSmokeCall, consoleSmokeCursor);
+      if (callIndex < 0) break;
+      const stepStart = workflow.lastIndexOf("\n      - name:", callIndex);
+      expect(stepStart).toBeGreaterThanOrEqual(0);
+      const stepBlock = workflow.slice(stepStart, callIndex + consoleSmokeCall.length);
+      expect(stepBlock).toMatch(
+        /ZITADEL_PREVIEW_SUBJECT:\s*\$\{\{\s*secrets\.ZITADEL_PREVIEW_SUBJECT\s*\}\}/u,
+      );
+      expect(stepBlock).not.toMatch(
+        /^\s+PREVIEW_BOOTSTRAP_LOGIN_ID:/mu,
+      );
+      const invocationStart = workflow.lastIndexOf("\n", callIndex) + 1;
+      const invocationEnd = workflow.indexOf("\n", callIndex);
+      const invocationLine = workflow
+        .slice(invocationStart, invocationEnd < 0 ? undefined : invocationEnd)
+        .trim();
+      expect(invocationLine).toMatch(
+        /^(?:run:\s+)?PREVIEW_BOOTSTRAP_LOGIN_ID=\$\{\{\s*secrets\.PREVIEW_BOOTSTRAP_LOGIN_ID\s*\}\}\s+node scripts\/smoke-zitadel-console-preview\.mjs$/u,
+      );
+      consoleSmokeCount += 1;
+      consoleSmokeCursor = callIndex + consoleSmokeCall.length;
+    }
+    expect(consoleSmokeCount).toBeGreaterThan(0);
     const postContract = workflow.slice(
       workflow.indexOf("Contract Neon Preview tenant authority"),
       workflow.indexOf("Record secure session-authority rollback baseline"),
