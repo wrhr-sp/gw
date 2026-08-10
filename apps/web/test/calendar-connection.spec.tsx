@@ -61,6 +61,9 @@ describe("Google Calendar 관리자 연결 UI", () => {
     expect(source).toContain("calendarConnectionCommandResponseSchema.parse");
     expect(source).toContain("hotelErrorResponseSchema.safeParse");
     expect(source).toContain("오류 코드: {error.code}");
+    expect(source).toContain('fetch("/api/auth/logout"');
+    expect(source).toContain('window.location.assign("/api/auth/login")');
+    expect(source).toContain("다시 로그인");
     expect(source).toContain("queryClient.cancelQueries");
     expect(source).toContain("queryClient.fetchQuery");
     expect(source).toContain('trigger("reason", { shouldFocus: true })');

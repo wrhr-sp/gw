@@ -163,6 +163,16 @@ function CalendarConnectionContent({
     trigger,
     formState: { errors },
   } = useForm<ReasonForm>({ defaultValues: { reason: "" } });
+  const reauthenticate = useMutation({
+    mutationFn: async () => {
+      const response = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      if (!response.ok) throw new Error("기존 세션을 안전하게 종료하지 못했습니다.");
+      window.location.assign("/api/auth/login");
+    },
+  });
   const start = useMutation({
     mutationFn: async (reconnect: boolean) => {
       const expectedConnectionVersion = reconnect ? status.data?.version : null;
@@ -353,10 +363,16 @@ function CalendarConnectionContent({
     });
   }
   const data = status.data;
-  const error = (status.error ?? start.error ?? command.error) as Error | null;
+  const error = (status.error ?? start.error ?? command.error ??
+    reauthenticate.error) as Error | null;
   return (
     <section
-      aria-busy={status.isFetching || start.isPending || command.isPending}
+      aria-busy={
+        status.isFetching ||
+        start.isPending ||
+        command.isPending ||
+        reauthenticate.isPending
+      }
       aria-labelledby="calendar-connection-title"
       className="space-y-5"
     >
@@ -394,9 +410,21 @@ function CalendarConnectionContent({
         >
           <p>{error.message}</p>
           {error instanceof CalendarUiError ? (
-            <p className="mt-1 font-mono text-xs">
-              오류 코드: {error.code}
-            </p>
+            <>
+              <p className="mt-1 font-mono text-xs">
+                오류 코드: {error.code}
+              </p>
+              {error.code === "FORBIDDEN" ? (
+                <button
+                  className="mt-3 min-h-11 rounded-button border border-danger/40 px-3 text-sm font-semibold"
+                  disabled={reauthenticate.isPending}
+                  onClick={() => reauthenticate.mutate()}
+                  type="button"
+                >
+                  {reauthenticate.isPending ? "이동 중…" : "다시 로그인"}
+                </button>
+              ) : null}
+            </>
           ) : null}
         </div>
       ) : null}
