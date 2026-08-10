@@ -1,5 +1,8 @@
 import { readFile } from "node:fs/promises";
-import postgres from "postgres";
+import { createRequire } from "node:module";
+
+const requireFromDb = createRequire(new URL("../packages/db/package.json", import.meta.url));
+const postgres = requireFromDb("postgres");
 
 const databaseUrlFile = process.env.RECONCILER_DATABASE_URL_FILE?.trim();
 if (!databaseUrlFile) {
