@@ -86,7 +86,7 @@ describe("Google Calendar OAuth API boundary", () => {
           status: "CREATED",
           payload: {
             transactionId: input.transactionId,
-            expiresAt: "2026-08-09T12:10:00.000Z",
+            expiresAt: "2026-08-09T12:10:00.000+00:00",
             derivationHmacKeyVersion: input.hmacKeyVersion,
           },
         };

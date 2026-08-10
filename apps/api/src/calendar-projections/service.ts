@@ -283,7 +283,7 @@ export function createCalendarConnectionService(input: {
       const receipt = z
         .object({
           transactionId: z.uuid(),
-          expiresAt: z.iso.datetime(),
+          expiresAt: z.iso.datetime({ offset: true }),
           derivationHmacKeyVersion: z.number().int().positive(),
         })
         .strict()
