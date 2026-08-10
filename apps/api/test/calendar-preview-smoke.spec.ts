@@ -47,6 +47,11 @@ describe("hosted Preview Calendar smoke", () => {
     expect(drainBarrierSource).toContain(
       "set_config('lock_timeout','10min',true)",
     );
+    expect(drainBarrierSource).toContain(
+      'createRequire(new URL("../packages/db/package.json", import.meta.url))',
+    );
+    expect(drainBarrierSource).toContain('requireFromDb("postgres")');
+    expect(drainBarrierSource).not.toContain('from "postgres"');
   });
 
   it("is executable and requires durable hosted projection evidence plus strict API, callback, UI, and Axe", () => {
