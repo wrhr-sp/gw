@@ -79,6 +79,16 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK");
     expect(source).toContain("expectedConnectionVersion");
     expect(source).toContain("/api/admin/calendar-connections/oauth/start");
+    for (const marker of [
+      "OAUTH_START_STATUS_",
+      "OAUTH_START_ENVELOPE_",
+      "OAUTH_START_ORIGIN",
+      "OAUTH_START_STATE",
+      "OAUTH_START_COOKIE",
+    ])
+      expect(source).toContain(marker);
+    expect(source).not.toContain("JSON.stringify(oauthStartPayload)");
+    expect(source).not.toContain("authorizationUrl.toString()");
     expect(source).toContain('"idempotency-key"');
     expect(source).toContain("parseRepairVisitMutationData");
     expect(source).toContain("assertExactKeys");

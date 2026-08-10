@@ -335,14 +335,25 @@ try {
     oauthStartPayload?.data?.authorizationUrl ?? "https://invalid.invalid",
   );
   const oauthState = authorizationUrl.searchParams.get("state");
-  if (
-    oauthStart.status !== 201 ||
-    oauthStartPayload?.ok !== true ||
-    authorizationUrl.origin !== "https://accounts.google.com" ||
-    !oauthState ||
-    !bindingMatch?.[1]
-  )
-    throw new Error("PREVIEW_CALENDAR_OAUTH_START_INVALID");
+  const oauthStartFailures = [];
+  if (oauthStart.status !== 201)
+    oauthStartFailures.push(
+      `OAUTH_START_STATUS_${Number.isInteger(oauthStart.status) ? oauthStart.status : "OTHER"}`,
+    );
+  if (oauthStartPayload?.ok !== true) {
+    const responseCode = oauthStartPayload?.error?.code;
+    const safeResponseCode =
+      typeof responseCode === "string" && /^[A-Z][A-Z0-9_]{0,63}$/u.test(responseCode)
+        ? responseCode
+        : "UNKNOWN";
+    oauthStartFailures.push(`OAUTH_START_ENVELOPE_${safeResponseCode}`);
+  }
+  if (authorizationUrl.origin !== "https://accounts.google.com")
+    oauthStartFailures.push("OAUTH_START_ORIGIN");
+  if (!oauthState) oauthStartFailures.push("OAUTH_START_STATE");
+  if (!bindingMatch?.[1]) oauthStartFailures.push("OAUTH_START_COOKIE");
+  if (oauthStartFailures.length > 0)
+    throw new Error(`PREVIEW_CALENDAR_${oauthStartFailures.join("__")}`);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const callback = await fetch(
       `${baseUrl}/api/admin/calendar-connections/oauth/callback?state=${encodeURIComponent(oauthState)}&error=access_denied`,
@@ -636,7 +647,7 @@ try {
   console.log("PREVIEW_CALENDAR_API_UI_SMOKE_OK");
 } catch (error) {
   const code =
-    error instanceof Error && /^PREVIEW_CALENDAR_[A-Z_]+$/u.test(error.message)
+    error instanceof Error && /^PREVIEW_CALENDAR_[A-Z0-9_]+$/u.test(error.message)
       ? error.message
       : "PREVIEW_CALENDAR_UNCLASSIFIED";
   console.error(code);
