@@ -233,8 +233,11 @@ describe("Preview account Worker release safety", () => {
       "Verify previous Workers remain compatible after expand",
     );
     expect(preTarget).toContain("PREVIEW_HYPERDRIVE_RETARGET_APPROVED");
-    expect(preTarget).toContain(
+    expect(preTarget).not.toContain(
       "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
+    );
+    expect(preTarget).toContain(
+      "ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs",
     );
     expect(preTarget).toContain(
       "PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION",
@@ -249,8 +252,11 @@ describe("Preview account Worker release safety", () => {
       );
     expect(consoleSmokeSteps.length).toBeGreaterThan(0);
     for (const step of consoleSmokeSteps) {
-      expect(step).toContain(
+      expect(step).not.toContain(
         "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
+      );
+      expect(step).toContain(
+        "ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs",
       );
     }
     expect(preTarget).toContain(
