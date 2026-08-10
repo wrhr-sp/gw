@@ -392,7 +392,12 @@ function CalendarConnectionContent({
           className="rounded-panel border border-danger/30 bg-danger/5 p-4 text-sm text-danger"
           role="alert"
         >
-          {error.message}
+          <p>{error.message}</p>
+          {error instanceof CalendarUiError ? (
+            <p className="mt-1 font-mono text-xs">
+              오류 코드: {error.code}
+            </p>
+          ) : null}
         </div>
       ) : null}
       <p aria-live="polite" className="sr-only" role="status">
