@@ -60,6 +60,7 @@ describe("Google Calendar 관리자 연결 UI", () => {
     );
     expect(source).toContain("calendarConnectionCommandResponseSchema.parse");
     expect(source).toContain("hotelErrorResponseSchema.safeParse");
+    expect(source).toContain("오류 코드: {error.code}");
     expect(source).toContain("queryClient.cancelQueries");
     expect(source).toContain("queryClient.fetchQuery");
     expect(source).toContain('trigger("reason", { shouldFocus: true })');
