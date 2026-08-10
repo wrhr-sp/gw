@@ -129,6 +129,8 @@ describe("Google Calendar OAuth API boundary", () => {
       "oauth-start-test-key",
     );
     expect(second).toEqual(first);
+    expect(authorizationUrl.mock.calls[0]?.[0]?.promptConsent).toBe(true);
+    expect(authorizationUrl.mock.calls[1]?.[0]?.promptConsent).toBe(true);
     expect(authorizationUrl.mock.calls[1]?.[0]).toEqual(
       authorizationUrl.mock.calls[0]?.[0],
     );

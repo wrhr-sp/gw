@@ -308,7 +308,7 @@ export function createCalendarConnectionService(input: {
           state: effective.state,
           codeChallenge: await createPkceChallenge(effective.verifier),
           nonce: effective.nonce,
-          promptConsent: request.reconnect,
+          promptConsent: true,
         }),
         browserBinding: effective.browserBinding,
       };
