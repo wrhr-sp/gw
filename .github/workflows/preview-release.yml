@@ -375,7 +375,7 @@ jobs:
           set -e
           if [[ "$readiness_status" -eq 0 && "$readiness_classification" == "READY" ]]; then
             node scripts/smoke-cloudflare-preview.mjs
-            node scripts/smoke-zitadel-console-preview.mjs
+            PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
             printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
             printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
             exit 0
@@ -766,7 +766,7 @@ jobs:
             printf '%s\n' 'PREVIEW_LEGACY_API_POST_RETARGET_SMOKE_DEFERRED'
           else
             node scripts/smoke-cloudflare-preview.mjs
-            node scripts/smoke-zitadel-console-preview.mjs
+            PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
           fi
 
       - name: Render API Preview configuration
@@ -1005,7 +1005,7 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           node scripts/smoke-cloudflare-preview.mjs
-          node scripts/smoke-zitadel-console-preview.mjs
+          PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Build OpenNext Web Worker
         run: pnpm --filter @werehere/web build:cloudflare
@@ -1109,7 +1109,7 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           node scripts/smoke-cloudflare-preview.mjs
-          node scripts/smoke-zitadel-console-preview.mjs
+          PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Verify hosted Preview account management and canonical login before contract
         id: account_management_smoke
@@ -1161,7 +1161,7 @@ jobs:
           ZITADEL_CONSOLE_REQUIRE_CREDENTIAL_CALLBACK: "true"
           ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
-        run: node scripts/smoke-zitadel-console-preview.mjs
+        run: PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
 
       - name: Contract Neon Preview tenant authority
         id: contract_database
@@ -1213,7 +1213,7 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           node scripts/smoke-cloudflare-preview.mjs
-          node scripts/smoke-zitadel-console-preview.mjs
+          PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
           set -o pipefail
           node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log
           grep -qx 'PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
