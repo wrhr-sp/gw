@@ -128,6 +128,24 @@ function parseRepairVisitMutationData(data) {
     throw new Error("PREVIEW_CALENDAR_MUTATION_VISIT_INVALID");
   return parsedData;
 }
+function parseRepairCaseMutationData(data) {
+  const parsedData = assertExactKeys(
+    data,
+    ["repair"],
+    "PREVIEW_CALENDAR_REPAIR_SOURCE_DATA_INVALID",
+  );
+  const repair = parsedData.repair;
+  if (
+    !repair ||
+    typeof repair !== "object" ||
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+      repair.id ?? "",
+    ) ||
+    repair.status !== "OPEN"
+  )
+    throw new Error("PREVIEW_CALENDAR_REPAIR_SOURCE_DATA_INVALID");
+  return parsedData;
+}
 async function apiMutation(path, method, body, parseResponseData) {
   const response = await fetch(`${baseUrl}${path}`, {
     method,
@@ -268,6 +286,11 @@ try {
     )
   )
     throw new Error("PREVIEW_CALENDAR_PROVIDER_IDENTIFIER_EXPOSED");
+  if (
+    connection.connectionStatus !== "CONNECTED" ||
+    connection.credentialStatus !== "ACTIVE"
+  )
+    throw new Error("PREVIEW_CALENDAR_OAUTH_CONNECTION_REQUIRED");
 
   const today = new Date();
   const from = new Date(
@@ -448,6 +471,44 @@ try {
         canaryRepairId = repair.id;
         break;
       }
+      if (!actorIsEligible) continue;
+      const [rooms, priorities] = await Promise.all([
+        api(`/api/hotels/${hotel.id}/rooms?page=1&pageSize=100`),
+        api(`/api/hotels/${hotel.id}/repair-priorities`),
+      ]);
+      const room = rooms?.rooms?.find(
+        (candidate) => candidate.status === "ACTIVE",
+      );
+      const priority = priorities?.priorities?.find(
+        (candidate) => candidate.status === "ACTIVE",
+      );
+      if (typeof room?.id !== "string" || typeof priority?.id !== "string")
+        continue;
+      const repairCaseId = randomUUID();
+      const created = await apiMutation(
+        `/api/hotels/${hotel.id}/repairs`,
+        "POST",
+        {
+          repairCaseId,
+          source: {
+            type: "DIRECT",
+            description: "Preview Calendar canary source setup",
+            fileVersionIds: [],
+            unavailableReason: "Preview 자동 검증용 synthetic 보수건",
+          },
+          target: { type: "ROOM", roomId: room.id },
+          priorityId: priority.id,
+          followUpOfRepairCaseId: null,
+          followUpParentVersion: null,
+        },
+        parseRepairCaseMutationData,
+      );
+      if (created.repair.id !== repairCaseId)
+        throw new Error("PREVIEW_CALENDAR_REPAIR_SOURCE_DATA_INVALID");
+      canaryHotelId = hotel.id;
+      canaryRepairId = repairCaseId;
+      console.log("PREVIEW_CALENDAR_CANARY_REPAIR_SOURCE_CREATED");
+      break;
     }
   }
   if (!canaryHotelId || !canaryRepairId)

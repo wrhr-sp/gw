@@ -76,6 +76,13 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("calendar/visit-options");
     expect(source).toContain("canaryRepairId");
     expect(source).toContain("PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK");
+    expect(source).toContain("PREVIEW_CALENDAR_OAUTH_CONNECTION_REQUIRED");
+    expect(source).toContain("/rooms?page=1&pageSize=100");
+    expect(source).toContain("/repair-priorities");
+    expect(source).toContain("PREVIEW_CALENDAR_CANARY_REPAIR_SOURCE_CREATED");
+    expect(source).toContain('type: "DIRECT"');
+    expect(source).toContain("Preview Calendar canary source setup");
+    expect(source).not.toContain("insert into public.hotel_repair_cases");
     expect(source).toContain("PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK");
     expect(source).toContain("expectedConnectionVersion");
     expect(source).toContain("/api/admin/calendar-connections/oauth/start");
