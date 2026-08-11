@@ -119,11 +119,15 @@ try {
     throw new Error("PREVIEW_CALENDAR_PROVIDER_IDENTIFIER_EXPOSED");
 
   if (requireMutation) {
+    if (capabilities.hotels.length === 0)
+      throw new Error("PREVIEW_CALENDAR_MUTATION_HOTEL_UNAVAILABLE");
     const hotel = capabilities.hotels.find(
       (candidate) => candidate.canCreateVisit,
     );
     if (!hotel?.id)
-      throw new Error("PREVIEW_CALENDAR_MUTATION_HOTEL_UNAVAILABLE");
+      throw new Error(
+        "PREVIEW_CALENDAR_MUTATION_CREATE_PERMISSION_UNAVAILABLE",
+      );
     const hotelId = hotel.id;
     const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
     let repair = options?.repairs?.find(
