@@ -1,9 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migrationUrl = new URL("../migrations/0042_hotel_repair_lifecycle.sql", import.meta.url);
+const migrationUrl = new URL(
+  "../migrations/0042_hotel_repair_lifecycle.sql",
+  import.meta.url,
+);
 const readinessUrl = new URL("../src/client.ts", import.meta.url);
-const provisionUrl = new URL("../scripts/provision-preview.ts", import.meta.url);
+const provisionUrl = new URL(
+  "../scripts/provision-preview.ts",
+  import.meta.url,
+);
 
 describe("hotel repair lifecycle migration", () => {
   it("creates normalized tenant aggregates, append-only history and exact typed relations", () => {
@@ -37,7 +43,8 @@ describe("hotel repair lifecycle migration", () => {
       "hotel_file_access_grants_parent_check",
       "repair_external_contact_view",
       "not_connected",
-    ]) expect(sql).toContain(contract);
+    ])
+      expect(sql).toContain(contract);
     expect(sql).not.toContain("calendar_projection_jobs");
     expect(sql).not.toContain("provider_event_id");
   });
@@ -55,7 +62,8 @@ describe("hotel repair lifecycle migration", () => {
       "result.result in ('caution','abnormal')",
       "idempotency_records",
       "audit_events",
-    ]) expect(sql).toContain(contract);
+    ])
+      expect(sql).toContain(contract);
   });
 
   it("registers exact Preview/readiness ACL for API runtime and denies Reconciler", () => {
@@ -73,6 +81,18 @@ describe("hotel repair lifecycle migration", () => {
     ]) {
       expect(readiness).toContain(contract);
       expect(provision).toContain(contract);
+    }
+    for (const canaryContract of [
+      "previewRepairCreateGrantId",
+      "previewCalendarCanaryCommonAreaId",
+      "previewCalendarCanaryPriorityId",
+      "previewCalendarCanaryProcessDefinitionId",
+      "previewCalendarCanaryProcessRevisionId",
+      "previewCalendarCanaryTransitionId",
+      "Preview Calendar canary baseline does not match the approved seed",
+      "Preview Calendar canary process does not match the approved seed",
+    ]) {
+      expect(provision).toContain(canaryContract);
     }
   });
 });

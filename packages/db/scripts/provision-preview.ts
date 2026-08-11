@@ -56,6 +56,20 @@ const previewRepairReadGrantId = "73000000-0000-4000-8000-000000000019";
 const previewRepairVisitCreateGrantId = "73000000-0000-4000-8000-000000000020";
 const previewRepairVisitUpdateGrantId = "73000000-0000-4000-8000-000000000021";
 const previewRepairVisitDeleteGrantId = "73000000-0000-4000-8000-000000000022";
+const previewRepairCreateGrantId = "73000000-0000-4000-8000-000000000023";
+const previewCalendarCanaryCommonAreaId =
+  "75000000-0000-4000-8000-000000000001";
+const previewCalendarCanaryPriorityId = "76000000-0000-4000-8000-000000000001";
+const previewCalendarCanaryProcessDefinitionId =
+  "77000000-0000-4000-8000-000000000001";
+const previewCalendarCanaryProcessRevisionId =
+  "77100000-0000-4000-8000-000000000001";
+const previewCalendarCanaryReviewStageId =
+  "77200000-0000-4000-8000-000000000001";
+const previewCalendarCanaryFinalStageId =
+  "77300000-0000-4000-8000-000000000001";
+const previewCalendarCanaryTransitionId =
+  "77400000-0000-4000-8000-000000000001";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
@@ -1312,8 +1326,8 @@ try {
     const repairVisitPermissionRows = await sql<{ code: string }[]>`
       select code from permissions
        where code in (
-         'REPAIR_READ', 'REPAIR_VISIT_CREATE', 'REPAIR_VISIT_UPDATE',
-         'REPAIR_VISIT_DELETE'
+         'REPAIR_CREATE', 'REPAIR_READ', 'REPAIR_VISIT_CREATE',
+         'REPAIR_VISIT_UPDATE', 'REPAIR_VISIT_DELETE'
        )
        order by code
     `;
@@ -1330,12 +1344,12 @@ try {
       fail("Preview Calendar permission catalog is partially provisioned");
     if (
       repairVisitPermissionCodes.size !== 0 &&
-      repairVisitPermissionCodes.size !== 4
+      repairVisitPermissionCodes.size !== 5
     )
-      fail("Preview repair visit permission catalog is partially provisioned");
+      fail("Preview repair permission catalog is partially provisioned");
     const calendarPermissionsReady =
       calendarPermissionCodes.size === 4 &&
-      repairVisitPermissionCodes.size === 4;
+      repairVisitPermissionCodes.size === 5;
     await sql`
         insert into permission_grants (
           id, company_id, branch_id, subject_type, subject_id,
@@ -1383,11 +1397,332 @@ try {
           (${previewRepairVisitCancelledReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CANCELLED_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 취소 방문일정 조회 권한'),
           (${previewRepairVisitCancelReasonReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CANCEL_REASON_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소사유 조회 권한'),
           (${previewRepairReadGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_READ', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 보수 조회 권한'),
+          (${previewRepairCreateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_CREATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview Calendar canary 보수 등록 권한'),
           (${previewRepairVisitCreateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_CREATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 등록 권한'),
           (${previewRepairVisitUpdateGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_UPDATE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 변경 권한'),
           (${previewRepairVisitDeleteGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_DELETE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소·복구 권한')
         on conflict (id) do nothing
       `;
+      const existingCanaryAreas = await sql<{ branch_id: string }[]>`
+        select branch_id::text as branch_id
+          from public.hotel_common_areas
+         where company_id = ${previewCompanyId}::uuid
+           and id = ${previewCalendarCanaryCommonAreaId}::uuid
+         for update
+      `;
+      let canaryHotelId = existingCanaryAreas[0]?.branch_id;
+      if (!canaryHotelId) {
+        const canaryHotels = await sql<{ branch_id: string }[]>`
+          select profile.branch_id::text as branch_id
+            from public.hotel_profiles profile
+            join public.branches branch
+              on branch.company_id = profile.company_id
+             and branch.id = profile.branch_id
+           where profile.company_id = ${previewCompanyId}::uuid
+             and branch.status = 'ACTIVE'
+           order by profile.branch_id
+           limit 1
+           for update of profile, branch
+        `;
+        canaryHotelId = canaryHotels[0]?.branch_id;
+      }
+      if (canaryHotelId) {
+        await sql`
+        insert into public.hotel_common_areas (
+          id, company_id, branch_id, name, status, version,
+          created_by, updated_by
+        ) values (
+          ${previewCalendarCanaryCommonAreaId}::uuid,
+          ${previewCompanyId}::uuid,
+          ${canaryHotelId}::uuid,
+          'Preview Calendar 검증구역', 'ACTIVE', 1,
+          ${previewUserId}::uuid, ${previewUserId}::uuid
+        )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        insert into public.hotel_repair_priorities (
+          id, company_id, branch_id, name, sort_order, color,
+          status, version, created_by, updated_by
+        ) values (
+          ${previewCalendarCanaryPriorityId}::uuid,
+          ${previewCompanyId}::uuid,
+          ${canaryHotelId}::uuid,
+          'Preview Calendar 검증', 99999, 'TEAL',
+          'ACTIVE', 1, ${previewUserId}::uuid, ${previewUserId}::uuid
+        )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        insert into public.process_definitions (
+          id, company_id, branch_id, application_type, scope, name,
+          current_revision_id, version, created_by, updated_by
+        ) values (
+          ${previewCalendarCanaryProcessDefinitionId}::uuid,
+          ${previewCompanyId}::uuid, ${canaryHotelId}::uuid,
+          'REPAIR_CASE', 'HOTEL', 'Preview Calendar 보수 검토',
+          null, 1, ${previewUserId}::uuid, ${previewUserId}::uuid
+        )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        insert into public.process_definition_revisions (
+          id, company_id, definition_id, version, start_stage_key,
+          reason, created_by
+        ) values (
+          ${previewCalendarCanaryProcessRevisionId}::uuid,
+          ${previewCompanyId}::uuid,
+          ${previewCalendarCanaryProcessDefinitionId}::uuid,
+          1, 'REVIEW', 'Preview Calendar canary 검토 프로세스',
+          ${previewUserId}::uuid
+        )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        insert into public.process_stage_snapshots (
+          id, company_id, revision_id, stage_key, stage_name,
+          reviewer_user_id, delegate_user_id, delegate_starts_at,
+          delegate_ends_at, due_amount, due_unit, is_final
+        ) values
+          (
+            ${previewCalendarCanaryReviewStageId}::uuid,
+            ${previewCompanyId}::uuid,
+            ${previewCalendarCanaryProcessRevisionId}::uuid,
+            'REVIEW', '보수 검토', ${previewUserId}::uuid,
+            null, null, null, 1, 'DAYS', false
+          ),
+          (
+            ${previewCalendarCanaryFinalStageId}::uuid,
+            ${previewCompanyId}::uuid,
+            ${previewCalendarCanaryProcessRevisionId}::uuid,
+            'DONE', '검토 완료', ${previewUserId}::uuid,
+            null, null, null, null, null, true
+          )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        insert into public.process_transition_snapshots (
+          id, company_id, revision_id, from_stage_key,
+          event, choice_value, to_stage_key
+        ) values (
+          ${previewCalendarCanaryTransitionId}::uuid,
+          ${previewCompanyId}::uuid,
+          ${previewCalendarCanaryProcessRevisionId}::uuid,
+          'REVIEW', 'APPROVE', null, 'DONE'
+        )
+        on conflict (id) do nothing
+      `;
+        await sql`
+        update public.process_definitions
+           set current_revision_id = ${previewCalendarCanaryProcessRevisionId}::uuid
+         where id = ${previewCalendarCanaryProcessDefinitionId}::uuid
+           and company_id = ${previewCompanyId}::uuid
+           and branch_id = ${canaryHotelId}::uuid
+           and application_type = 'REPAIR_CASE'
+           and scope = 'HOTEL'
+           and name = 'Preview Calendar 보수 검토'
+           and version = 1
+           and created_by = ${previewUserId}::uuid
+           and updated_by = ${previewUserId}::uuid
+           and current_revision_id is null
+      `;
+        await sql`
+        insert into public.hotel_process_defaults (
+          company_id, branch_id, application_type, definition_id,
+          revision_id, version, updated_by
+        ) values (
+          ${previewCompanyId}::uuid, ${canaryHotelId}::uuid, 'REPAIR_CASE',
+          ${previewCalendarCanaryProcessDefinitionId}::uuid,
+          ${previewCalendarCanaryProcessRevisionId}::uuid,
+          1, ${previewUserId}::uuid
+        )
+        on conflict (company_id, branch_id, application_type) do nothing
+      `;
+        const [canaryBaseline] = await sql<
+          {
+            area_branch_id: string;
+            area_company_id: string;
+            area_name: string;
+            area_status: string;
+            area_version: number;
+            priority_branch_id: string;
+            priority_color: string;
+            priority_company_id: string;
+            priority_name: string;
+            priority_sort_order: number;
+            priority_status: string;
+            priority_version: number;
+          }[]
+        >`
+        select area.company_id::text as area_company_id,
+               area.branch_id::text as area_branch_id,
+               area.name as area_name, area.status as area_status,
+               area.version as area_version,
+               priority.company_id::text as priority_company_id,
+               priority.branch_id::text as priority_branch_id,
+               priority.name as priority_name,
+               priority.sort_order as priority_sort_order,
+               priority.color as priority_color,
+               priority.status as priority_status,
+               priority.version as priority_version
+          from public.hotel_common_areas area
+          join public.hotel_repair_priorities priority
+            on priority.company_id = area.company_id
+           and priority.branch_id = area.branch_id
+         where area.id = ${previewCalendarCanaryCommonAreaId}::uuid
+           and priority.id = ${previewCalendarCanaryPriorityId}::uuid
+      `;
+        if (
+          canaryBaseline?.area_company_id !== previewCompanyId ||
+          canaryBaseline.area_branch_id !== canaryHotelId ||
+          canaryBaseline.area_name !== "Preview Calendar 검증구역" ||
+          canaryBaseline.area_status !== "ACTIVE" ||
+          canaryBaseline.area_version !== 1 ||
+          canaryBaseline.priority_company_id !== previewCompanyId ||
+          canaryBaseline.priority_branch_id !== canaryHotelId ||
+          canaryBaseline.priority_name !== "Preview Calendar 검증" ||
+          canaryBaseline.priority_sort_order !== 99999 ||
+          canaryBaseline.priority_color !== "TEAL" ||
+          canaryBaseline.priority_status !== "ACTIVE" ||
+          canaryBaseline.priority_version !== 1
+        )
+          fail(
+            "Preview Calendar canary baseline does not match the approved seed",
+          );
+        const [canaryProcess] = await sql<
+          {
+            application_type: string;
+            branch_id: string;
+            company_id: string;
+            created_by: string;
+            current_revision_id: string;
+            default_definition_id: string;
+            default_revision_id: string;
+            default_updated_by: string;
+            default_version: number;
+            definition_id: string;
+            definition_version: number;
+            name: string;
+            revision_created_by: string;
+            revision_reason: string;
+            revision_start_stage_key: string;
+            revision_version: number;
+            scope: string;
+            stage_count: number;
+            total_stage_count: number;
+            total_transition_count: number;
+            transition_count: number;
+            updated_by: string;
+          }[]
+        >`
+        select definition.id::text as definition_id,
+               definition.company_id::text as company_id,
+               definition.branch_id::text as branch_id,
+               definition.application_type,
+               definition.scope,
+               definition.name,
+               definition.created_by::text as created_by,
+               definition.updated_by::text as updated_by,
+               definition.current_revision_id::text as current_revision_id,
+               definition.version as definition_version,
+               revision.version as revision_version,
+               revision.start_stage_key as revision_start_stage_key,
+               revision.reason as revision_reason,
+               revision.created_by::text as revision_created_by,
+               process_default.definition_id::text as default_definition_id,
+               process_default.revision_id::text as default_revision_id,
+               process_default.updated_by::text as default_updated_by,
+               process_default.version as default_version,
+               (select count(*)::integer
+                  from public.process_stage_snapshots stage
+                 where stage.company_id = definition.company_id
+                   and stage.revision_id = revision.id
+                   and (
+                     (
+                       stage.id = ${previewCalendarCanaryReviewStageId}::uuid
+                       and stage.stage_key = 'REVIEW'
+                       and stage.stage_name = '보수 검토'
+                       and stage.reviewer_user_id = ${previewUserId}::uuid
+                       and stage.delegate_user_id is null
+                       and stage.delegate_starts_at is null
+                       and stage.delegate_ends_at is null
+                       and stage.due_amount = 1
+                       and stage.due_unit = 'DAYS'
+                       and not stage.is_final
+                     ) or (
+                       stage.id = ${previewCalendarCanaryFinalStageId}::uuid
+                       and stage.stage_key = 'DONE'
+                       and stage.stage_name = '검토 완료'
+                       and stage.reviewer_user_id = ${previewUserId}::uuid
+                       and stage.delegate_user_id is null
+                       and stage.delegate_starts_at is null
+                       and stage.delegate_ends_at is null
+                       and stage.due_amount is null
+                       and stage.due_unit is null
+                       and stage.is_final
+                     )
+                   )) as stage_count,
+               (select count(*)::integer
+                  from public.process_transition_snapshots transition
+                 where transition.company_id = definition.company_id
+                   and transition.revision_id = revision.id
+                   and transition.id = ${previewCalendarCanaryTransitionId}::uuid
+                   and transition.from_stage_key = 'REVIEW'
+                   and transition.event = 'APPROVE'
+                   and transition.choice_value is null
+                   and transition.to_stage_key = 'DONE') as transition_count,
+               (select count(*)::integer
+                  from public.process_stage_snapshots stage
+                 where stage.company_id = definition.company_id
+                   and stage.revision_id = revision.id) as total_stage_count,
+               (select count(*)::integer
+                  from public.process_transition_snapshots transition
+                 where transition.company_id = definition.company_id
+                   and transition.revision_id = revision.id) as total_transition_count
+          from public.process_definitions definition
+          join public.process_definition_revisions revision
+            on revision.company_id = definition.company_id
+           and revision.id = definition.current_revision_id
+          join public.hotel_process_defaults process_default
+            on process_default.company_id = definition.company_id
+           and process_default.branch_id = definition.branch_id
+           and process_default.application_type = definition.application_type
+         where definition.id = ${previewCalendarCanaryProcessDefinitionId}::uuid
+           and revision.id = ${previewCalendarCanaryProcessRevisionId}::uuid
+      `;
+        if (
+          canaryProcess?.definition_id !==
+            previewCalendarCanaryProcessDefinitionId ||
+          canaryProcess.company_id !== previewCompanyId ||
+          canaryProcess.branch_id !== canaryHotelId ||
+          canaryProcess.application_type !== "REPAIR_CASE" ||
+          canaryProcess.scope !== "HOTEL" ||
+          canaryProcess.name !== "Preview Calendar 보수 검토" ||
+          canaryProcess.created_by !== previewUserId ||
+          canaryProcess.updated_by !== previewUserId ||
+          canaryProcess.current_revision_id !==
+            previewCalendarCanaryProcessRevisionId ||
+          canaryProcess.definition_version !== 1 ||
+          canaryProcess.revision_version !== 1 ||
+          canaryProcess.revision_start_stage_key !== "REVIEW" ||
+          canaryProcess.revision_reason !==
+            "Preview Calendar canary 검토 프로세스" ||
+          canaryProcess.revision_created_by !== previewUserId ||
+          canaryProcess.default_definition_id !==
+            previewCalendarCanaryProcessDefinitionId ||
+          canaryProcess.default_revision_id !==
+            previewCalendarCanaryProcessRevisionId ||
+          canaryProcess.default_updated_by !== previewUserId ||
+          canaryProcess.default_version !== 1 ||
+          canaryProcess.stage_count !== 2 ||
+          canaryProcess.transition_count !== 1 ||
+          canaryProcess.total_stage_count !== 2 ||
+          canaryProcess.total_transition_count !== 1
+        )
+          fail(
+            "Preview Calendar canary process does not match the approved seed",
+          );
+      }
     }
     const relationshipGrants = await sql<
       {
@@ -1422,6 +1757,7 @@ try {
           ${previewRepairVisitCancelledReadGrantId}::uuid,
           ${previewRepairVisitCancelReasonReadGrantId}::uuid,
           ${previewRepairReadGrantId}::uuid,
+          ${previewRepairCreateGrantId}::uuid,
           ${previewRepairVisitCreateGrantId}::uuid,
           ${previewRepairVisitUpdateGrantId}::uuid,
           ${previewRepairVisitDeleteGrantId}::uuid
@@ -1471,6 +1807,7 @@ try {
         previewRepairVisitCancelReasonReadGrantId,
       );
       exactRelationshipGrants.set("REPAIR_READ", previewRepairReadGrantId);
+      exactRelationshipGrants.set("REPAIR_CREATE", previewRepairCreateGrantId);
       exactRelationshipGrants.set(
         "REPAIR_VISIT_CREATE",
         previewRepairVisitCreateGrantId,
