@@ -89,6 +89,9 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
   const rollbackSignal = new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK");
   let diagnosticMarker = null;
   let diagnosticStage = "CATALOG_READ";
+  const diagnosticIdempotencyRecordId = randomUUID();
+  const diagnosticIdempotencyKey = randomUUID();
+  const diagnosticAuditEventId = randomUUID();
   try {
     await ownerSql.begin(async (transaction) => {
       const [functionRecord] = await transaction`
@@ -150,13 +153,13 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
             0,
             ${transaction.json(value)}::jsonb,
             ${token},
-            ${randomUUID()}::uuid,
-            ${randomUUID()},
+            ${diagnosticIdempotencyRecordId}::uuid,
+            ${diagnosticIdempotencyKey},
             ${"POST"},
             ${`/api/hotels/${hotelId}/repairs`},
             ${createHash("sha256").update(JSON.stringify(value)).digest("hex")},
             ${randomUUID()}::uuid,
-            ${randomUUID()}::uuid
+            ${diagnosticAuditEventId}::uuid
           )
         `;
         const safeStatus =
@@ -191,20 +194,30 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
         );
       }
       diagnosticStage = "ROLLBACK_READ";
-      const readRows = await transaction`
-        select * from public.hotel_repair_read_v1(
-          ${companyId}::uuid,
-          ${hotelId}::uuid,
-          ${value.repairCaseId}::uuid,
-          ${transaction.json({})}::jsonb,
-          ${token}
-        )
+      const [rollbackRead] = await transaction`
+        select
+          not exists (
+            select 1 from public.hotel_repair_cases
+             where company_id = ${companyId}::uuid
+               and id = ${value.repairCaseId}::uuid
+          )
+          and not exists (
+            select 1 from public.process_executions
+             where company_id = ${companyId}::uuid
+               and resource_id = ${value.repairCaseId}::uuid
+          )
+          and not exists (
+            select 1 from public.idempotency_records
+             where company_id = ${companyId}::uuid
+               and id = ${diagnosticIdempotencyRecordId}::uuid
+          )
+          and not exists (
+            select 1 from public.audit_events
+             where company_id = ${companyId}::uuid
+               and id = ${diagnosticAuditEventId}::uuid
+          ) as rollback_clean
       `;
-      if (
-        readRows.length !== 1 ||
-        readRows[0]?.command_status !== "NOT_FOUND" ||
-        readRows[0]?.result_snapshot !== null
-      )
+      if (!rollbackRead?.rollback_clean)
         throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_INVALID");
       diagnosticStage = "OUTER_ROLLBACK";
       throw rollbackSignal;
