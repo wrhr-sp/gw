@@ -60,6 +60,21 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_DIAGNOSTIC_CAPTURED");
+    expect(source).toContain(
+      "PREVIEW_CALENDAR_TEMP_CLONE_PROBE_FAILED_${diagnosticStage}",
+    );
+    for (const diagnosticStage of [
+      "CATALOG_READ",
+      "SOURCE_VERIFY",
+      "TEMP_SCHEMA_CREATE",
+      "TEMP_FUNCTION_CREATE",
+      "SAVEPOINT_CREATE",
+      "TEMP_FUNCTION_CALL",
+      "ROLLBACK_READ",
+      "OUTER_ROLLBACK",
+    ]) {
+      expect(source).toContain(`diagnosticStage = "${diagnosticStage}"`);
+    }
     expect(source).toContain("pg_get_functiondef");
     expect(source).toContain("pg_temp.preview_hotel_repair_case_probe_v1");
     expect(source).toContain("savepoint preview_calendar_constraint_probe");
