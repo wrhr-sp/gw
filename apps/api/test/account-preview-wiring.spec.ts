@@ -353,41 +353,45 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} ZITADEL_USER_PROVISIONER_TOKEN=${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }} ZITADEL_SERVICE_USER_TOKEN=${{ secrets.ZITADEL_SERVICE_USER_TOKEN }} node scripts/smoke-account-preview.mjs | tee /tmp/preview-account-smoke.log",
     );
 
-    const calendarSmokeCall = "node scripts/smoke-calendar-preview.mjs";
-    let calendarSmokeCursor = 0;
-    let calendarSmokeCount = 0;
-    while (true) {
-      const callIndex = workflow.indexOf(
-        calendarSmokeCall,
-        calendarSmokeCursor,
-      );
-      if (callIndex < 0) break;
-      const stepStart = workflow.lastIndexOf("\n      - name:", callIndex);
-      expect(stepStart).toBeGreaterThanOrEqual(0);
-      const stepBlock = workflow.slice(
-        stepStart,
-        callIndex + calendarSmokeCall.length,
-      );
-      expect(stepBlock).not.toMatch(/^\s+ZITADEL_PREVIEW_SUBJECT:/mu);
-      const invocationStart = workflow.lastIndexOf("\n", callIndex) + 1;
-      const invocationEnd = workflow.indexOf("\n", callIndex);
-      const invocationLine = workflow
-        .slice(invocationStart, invocationEnd < 0 ? undefined : invocationEnd)
-        .trim();
-      expect(invocationLine).toMatch(
-        /^ZITADEL_PREVIEW_SUBJECT=\$\{\{\s*secrets\.ZITADEL_PREVIEW_SUBJECT\s*\}\}\s+node scripts\/smoke-calendar-preview\.mjs\s+\|\s+tee \/tmp\/preview-calendar(?:-post-contract)?-smoke\.log$/u,
-      );
-      calendarSmokeCount += 1;
-      calendarSmokeCursor = callIndex + calendarSmokeCall.length;
-    }
-    expect(calendarSmokeCount).toBe(2);
+    const preCalendarSmoke = workflow.slice(
+      workflow.indexOf(
+        "Verify hosted Preview own Calendar and responsive UI before contract",
+      ),
+      workflow.indexOf("Verify exact active Workers after Calendar smoke"),
+    );
+    expect(preCalendarSmoke).toContain(
+      "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
+    );
+    expect(preCalendarSmoke).not.toContain("PREVIEW_CALENDAR_REQUIRE_MUTATION");
+    expect(preCalendarSmoke).toContain(
+      "node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log",
+    );
+    expect(
+      preCalendarSmoke.slice(preCalendarSmoke.indexOf("run: |")),
+    ).not.toContain("${{");
 
     const postContract = workflow.slice(
       workflow.indexOf("Contract Neon Preview tenant authority"),
       workflow.indexOf("Record secure session-authority rollback baseline"),
     );
+    expect(postContract).toContain('PREVIEW_CALENDAR_REQUIRE_MUTATION: "1"');
     expect(postContract).toContain("node scripts/smoke-calendar-preview.mjs");
     expect(postContract).toContain("PREVIEW_CALENDAR_API_UI_SMOKE_OK");
+    expect(postContract).toContain("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
+    const postContractRun = postContract.slice(
+      postContract.indexOf(
+        "Verify public Preview path and bootstrap mapping after contract",
+      ),
+      postContract.indexOf(
+        "Verify exact active Workers after post-contract own Calendar smoke",
+      ),
+    );
+    expect(postContractRun).toContain(
+      "node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log",
+    );
+    expect(postContractRun).not.toContain(
+      "ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} node scripts/smoke-calendar-preview.mjs",
+    );
     expect(postContract).not.toMatch(
       /PROJECTION_EVIDENCE|STRICT_STATUS_DTO|CALLBACK_REPLAY/u,
     );
