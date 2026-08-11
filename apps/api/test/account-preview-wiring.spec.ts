@@ -22,6 +22,10 @@ const renderer = readFileSync(
   new URL("../../../scripts/render-api-preview-config.mjs", import.meta.url),
   "utf8",
 );
+const reconcilerDrain = readFileSync(
+  new URL("../../../scripts/wait-reconciler-drain.mjs", import.meta.url),
+  "utf8",
+);
 const reconcilerRenderer = readFileSync(
   new URL(
     "../../../scripts/render-reconciler-preview-config.mjs",
@@ -620,6 +624,9 @@ describe("Preview account provisioning wiring", () => {
     );
     expect(contractDrain).toContain("node scripts/wait-reconciler-drain.mjs");
     expect(contractDrain).toContain("RECONCILER_DATABASE_URL_FILE");
+    expect(reconcilerDrain).toContain(
+      "set_config('lock_timeout','20min',true)",
+    );
     expect(contractDrain).toContain(
       "node scripts/decommission-google-calendar-preview.mjs",
     );
