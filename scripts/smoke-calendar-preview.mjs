@@ -123,7 +123,7 @@ try {
       (candidate) => candidate.canCreateVisit,
     );
     if (!hotel?.id)
-      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+      throw new Error("PREVIEW_CALENDAR_MUTATION_HOTEL_UNAVAILABLE");
     const hotelId = hotel.id;
     const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
     let repair = options?.repairs?.find(
@@ -133,7 +133,7 @@ try {
     );
     const performer = options?.internalPerformers?.[0];
     if (!performer?.userId)
-      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+      throw new Error("PREVIEW_CALENDAR_MUTATION_PERFORMER_UNAVAILABLE");
     if (!repair?.id) {
       const createdRepair = await api(`/api/hotels/${hotelId}/repairs`, {
         body: {
@@ -158,7 +158,7 @@ try {
       repair = createdRepair?.repair ?? createdRepair;
     }
     if (!repair?.id || repair.status !== "OPEN")
-      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+      throw new Error("PREVIEW_CALENDAR_MUTATION_CREATED_REPAIR_INVALID");
 
     const startsAt = new Date(Date.now() + 3_600_000);
     startsAt.setUTCSeconds(0, 0);
