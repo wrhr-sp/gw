@@ -20,8 +20,8 @@ const mutationMode = process.env.PREVIEW_CALENDAR_REQUIRE_MUTATION?.trim();
 if (mutationMode && mutationMode !== "1")
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 const requireMutation = mutationMode === "1";
-const canaryCommonAreaId = "75000000-0000-4000-8000-000000000001";
-const canaryPriorityId = "76000000-0000-4000-8000-000000000001";
+const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";
+const canaryPriorityId = "76000000-0000-4000-8000-000000000002";
 if (!baseUrl?.startsWith("https://") || !bootstrapSubject || !apiUrlFile)
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 

@@ -57,21 +57,22 @@ const previewRepairVisitCreateGrantId = "73000000-0000-4000-8000-000000000020";
 const previewRepairVisitUpdateGrantId = "73000000-0000-4000-8000-000000000021";
 const previewRepairVisitDeleteGrantId = "73000000-0000-4000-8000-000000000022";
 const previewRepairCreateGrantId = "73000000-0000-4000-8000-000000000023";
+const previewCalendarCanaryHotelId = "74900000-0000-4000-8000-000000000002";
 const previewCalendarCanaryCommonAreaId =
-  "75000000-0000-4000-8000-000000000001";
-const previewCalendarCanaryPriorityId = "76000000-0000-4000-8000-000000000001";
+  "75000000-0000-4000-8000-000000000002";
+const previewCalendarCanaryPriorityId = "76000000-0000-4000-8000-000000000002";
 const previewCalendarCanaryPerformerAssignmentId =
-  "76100000-0000-4000-8000-000000000001";
+  "76100000-0000-4000-8000-000000000002";
 const previewCalendarCanaryProcessDefinitionId =
-  "77000000-0000-4000-8000-000000000001";
+  "77000000-0000-4000-8000-000000000002";
 const previewCalendarCanaryProcessRevisionId =
-  "77100000-0000-4000-8000-000000000001";
+  "77100000-0000-4000-8000-000000000002";
 const previewCalendarCanaryReviewStageId =
-  "77200000-0000-4000-8000-000000000001";
+  "77200000-0000-4000-8000-000000000002";
 const previewCalendarCanaryFinalStageId =
-  "77300000-0000-4000-8000-000000000001";
+  "77300000-0000-4000-8000-000000000002";
 const previewCalendarCanaryTransitionId =
-  "77400000-0000-4000-8000-000000000001";
+  "77400000-0000-4000-8000-000000000002";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
@@ -1405,29 +1406,30 @@ try {
           (${previewRepairVisitDeleteGrantId}::uuid, ${previewCompanyId}::uuid, null, 'USER', ${previewUserId}::uuid, 'REPAIR_VISIT_DELETE', 'ALLOW', '2026-01-01T00:00:00Z'::timestamptz, null, ${previewUserId}::uuid, 'Preview 초기 관리자 방문일정 취소·복구 권한')
         on conflict (id) do nothing
       `;
-      const existingCanaryAreas = await sql<{ branch_id: string }[]>`
-        select branch_id::text as branch_id
-          from public.hotel_common_areas
-         where company_id = ${previewCompanyId}::uuid
-           and id = ${previewCalendarCanaryCommonAreaId}::uuid
-         for update
+      await sql`
+        insert into public.branches (
+          id, company_id, branch_type, branch_code, name, status, version
+        ) values (
+          ${previewCalendarCanaryHotelId}::uuid, ${previewCompanyId}::uuid,
+          'HOTEL', 'PREVIEW-CALENDAR-CANARY',
+          'Preview Calendar 검증 호텔', 'ACTIVE', 1
+        )
+        on conflict (id) do nothing
       `;
-      let canaryHotelId = existingCanaryAreas[0]?.branch_id;
-      if (!canaryHotelId) {
-        const canaryHotels = await sql<{ branch_id: string }[]>`
-          select profile.branch_id::text as branch_id
-            from public.hotel_profiles profile
-            join public.branches branch
-              on branch.company_id = profile.company_id
-             and branch.id = profile.branch_id
-           where profile.company_id = ${previewCompanyId}::uuid
-             and branch.status = 'ACTIVE'
-           order by profile.branch_id
-           limit 1
-           for update of profile, branch
-        `;
-        canaryHotelId = canaryHotels[0]?.branch_id;
-      }
+      await sql`
+        insert into public.hotel_profiles (
+          company_id, branch_id, hotel_status, business_timezone, version,
+          road_address, detail_address, representative_phone,
+          contract_start_date, contract_end_date
+        ) values (
+          ${previewCompanyId}::uuid, ${previewCalendarCanaryHotelId}::uuid,
+          'ACTIVE', 'Asia/Seoul', 1,
+          '서울특별시 중구 세종대로 1', 'Preview Calendar canary',
+          '02-0000-0000', '2026-01-01'::date, '2099-12-31'::date
+        )
+        on conflict (company_id, branch_id) do nothing
+      `;
+      const canaryHotelId = previewCalendarCanaryHotelId;
       if (canaryHotelId) {
         await sql`
           insert into public.hotel_staff_assignments (
@@ -1559,6 +1561,19 @@ try {
             area_name: string;
             area_status: string;
             area_version: number;
+            branch_code: string;
+            branch_name: string;
+            branch_status: string;
+            branch_type: string;
+            branch_version: number;
+            hotel_status: string;
+            hotel_timezone: string;
+            hotel_version: number;
+            hotel_road_address: string;
+            hotel_detail_address: string;
+            hotel_phone: string;
+            hotel_contract_start: string;
+            hotel_contract_end: string;
             priority_branch_id: string;
             priority_color: string;
             priority_company_id: string;
@@ -1568,7 +1583,17 @@ try {
             priority_version: number;
           }[]
         >`
-        select area.company_id::text as area_company_id,
+        select branch.branch_type, branch.branch_code,
+               branch.name as branch_name, branch.status as branch_status,
+               branch.version as branch_version,
+               profile.hotel_status, profile.business_timezone as hotel_timezone,
+               profile.version as hotel_version,
+               profile.road_address as hotel_road_address,
+               profile.detail_address as hotel_detail_address,
+               profile.representative_phone as hotel_phone,
+               profile.contract_start_date::text as hotel_contract_start,
+               profile.contract_end_date::text as hotel_contract_end,
+               area.company_id::text as area_company_id,
                area.branch_id::text as area_branch_id,
                area.name as area_name, area.status as area_status,
                area.version as area_version,
@@ -1580,6 +1605,12 @@ try {
                priority.status as priority_status,
                priority.version as priority_version
           from public.hotel_common_areas area
+          join public.branches branch
+            on branch.company_id = area.company_id
+           and branch.id = area.branch_id
+          join public.hotel_profiles profile
+            on profile.company_id = branch.company_id
+           and profile.branch_id = branch.id
           join public.hotel_repair_priorities priority
             on priority.company_id = area.company_id
            and priority.branch_id = area.branch_id
@@ -1587,7 +1618,20 @@ try {
            and priority.id = ${previewCalendarCanaryPriorityId}::uuid
       `;
         if (
-          canaryBaseline?.area_company_id !== previewCompanyId ||
+          canaryBaseline?.branch_type !== "HOTEL" ||
+          canaryBaseline.branch_code !== "PREVIEW-CALENDAR-CANARY" ||
+          canaryBaseline.branch_name !== "Preview Calendar 검증 호텔" ||
+          canaryBaseline.branch_status !== "ACTIVE" ||
+          canaryBaseline.branch_version !== 1 ||
+          canaryBaseline.hotel_status !== "ACTIVE" ||
+          canaryBaseline.hotel_timezone !== "Asia/Seoul" ||
+          canaryBaseline.hotel_version !== 1 ||
+          canaryBaseline.hotel_road_address !== "서울특별시 중구 세종대로 1" ||
+          canaryBaseline.hotel_detail_address !== "Preview Calendar canary" ||
+          canaryBaseline.hotel_phone !== "02-0000-0000" ||
+          canaryBaseline.hotel_contract_start !== "2026-01-01" ||
+          canaryBaseline.hotel_contract_end !== "2099-12-31" ||
+          canaryBaseline.area_company_id !== previewCompanyId ||
           canaryBaseline.area_branch_id !== canaryHotelId ||
           canaryBaseline.area_name !== "Preview Calendar 검증구역" ||
           canaryBaseline.area_status !== "ACTIVE" ||

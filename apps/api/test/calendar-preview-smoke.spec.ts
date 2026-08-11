@@ -48,10 +48,10 @@ describe("hosted Preview Calendar smoke", () => {
     );
     expect(source).not.toContain("options?.repairs?.[0]");
     expect(source).toContain(
-      'const canaryCommonAreaId = "75000000-0000-4000-8000-000000000001";',
+      'const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";',
     );
     expect(source).toContain(
-      'const canaryPriorityId = "76000000-0000-4000-8000-000000000001";',
+      'const canaryPriorityId = "76000000-0000-4000-8000-000000000002";',
     );
     expect(source).toContain("/repair-visits/${visitId}/delete");
     expect(source).not.toContain("/api/admin/process-definitions");
