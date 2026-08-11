@@ -50,6 +50,14 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain(
       "PREVIEW_CALENDAR_MUTATION_CREATED_REPAIR_INVALID",
     );
+    expect(source).toContain("hotel_repair_case_command_v1");
+    expect(source).toContain('"CREATE_DIRECT"');
+    expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_PROBE_FAILED");
+    expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
+    expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
+    expect(source).toContain("hotel_repair_read_v1");
+    expect(source).toContain("throw rollbackSignal");
+    expect(source).not.toContain("probeError.message");
     expect(source).toContain("`/api/hotels/${hotelId}/repairs`");
     expect(source).toContain(
       "repair = createdRepair?.repair ?? createdRepair;",

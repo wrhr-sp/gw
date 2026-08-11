@@ -29,6 +29,7 @@ const databaseUrl = (await readFile(apiUrlFile, "utf8")).trim();
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
 const token = randomBytes(32).toString("base64url");
 const tokenHash = createHash("sha256").update(token, "utf8").digest();
+const sessionId = randomUUID();
 let browser;
 let sessionCreated = false;
 let createdVisit = null;
@@ -69,10 +70,81 @@ async function api(path, options = {}) {
   return payload.data;
 }
 
+async function probeCreateDirectRollback({ companyId, hotelId, value }) {
+  const repairCaseId = value.repairCaseId;
+  const rollbackSignal = new Error("PREVIEW_CALENDAR_EXPECTED_ROLLBACK");
+  let commandStatus = null;
+  try {
+    await sql.begin(async (transaction) => {
+      await transaction`
+        select set_config('app.company_id', ${companyId}, true),
+               set_config('app.session_id', ${sessionId}, true),
+               set_config('TimeZone', 'Asia/Seoul', true)
+      `;
+      const rows = await transaction`
+        select * from public.hotel_repair_case_command_v1(
+          ${companyId}::uuid,
+          ${hotelId}::uuid,
+          ${repairCaseId}::uuid,
+          ${"CREATE_DIRECT"},
+          0,
+          ${transaction.json(value)}::jsonb,
+          ${token},
+          ${randomUUID()}::uuid,
+          ${randomUUID()},
+          ${"POST"},
+          ${`/api/hotels/${hotelId}/repairs`},
+          ${createHash("sha256").update(JSON.stringify(value)).digest("hex")},
+          ${randomUUID()}::uuid,
+          ${randomUUID()}::uuid
+        )
+      `;
+      commandStatus = rows.length === 1 ? rows[0]?.command_status : null;
+      throw rollbackSignal;
+    });
+  } catch (probeError) {
+    if (probeError !== rollbackSignal)
+      throw new Error("PREVIEW_CALENDAR_CREATE_DIRECT_PROBE_FAILED");
+  }
+
+  const readRows = await sql.begin(async (transaction) => {
+    await transaction`
+      select set_config('app.company_id', ${companyId}, true),
+             set_config('app.session_id', ${sessionId}, true),
+             set_config('TimeZone', 'Asia/Seoul', true)
+    `;
+    return transaction`
+      select * from public.hotel_repair_read_v1(
+        ${companyId}::uuid,
+        ${hotelId}::uuid,
+        ${repairCaseId}::uuid,
+        ${transaction.json({})}::jsonb,
+        ${token}
+      )
+    `;
+  });
+  if (
+    readRows.length !== 1 ||
+    readRows[0]?.command_status !== "NOT_FOUND" ||
+    readRows[0]?.result_snapshot !== null
+  )
+    throw new Error("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
+  if (commandStatus !== "CREATED") {
+    const safeStatus =
+      typeof commandStatus === "string" && /^[A-Z_]+$/u.test(commandStatus)
+        ? commandStatus
+        : "UNKNOWN";
+    throw new Error(
+      `PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID_${safeStatus}`,
+    );
+  }
+  console.log("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
+}
+
 try {
   const rows = await sql`
     select * from public.auth_create_session_v2(
-      ${randomUUID()}::uuid, ${tokenHash}, ${bootstrapSubject},
+      ${sessionId}::uuid, ${tokenHash}, ${bootstrapSubject},
       28800, 86400, statement_timestamp(), ${randomUUID()}::uuid
     )
   `;
@@ -148,23 +220,29 @@ try {
     if (!performer?.userId)
       throw new Error("PREVIEW_CALENDAR_MUTATION_PERFORMER_UNAVAILABLE");
     if (!repair?.id) {
-      const createdRepair = await api(`/api/hotels/${hotelId}/repairs`, {
-        body: {
-          followUpOfRepairCaseId: null,
-          followUpParentVersion: null,
-          priorityId: canaryPriorityId,
-          repairCaseId: randomUUID(),
-          source: {
-            description: "Preview Calendar 저장·재조회 검증",
-            fileVersionIds: [],
-            type: "DIRECT",
-            unavailableReason: "Preview canary에는 첨부파일이 없습니다.",
-          },
-          target: {
-            commonAreaId: canaryCommonAreaId,
-            type: "COMMON_AREA",
-          },
+      const repairBody = {
+        followUpOfRepairCaseId: null,
+        followUpParentVersion: null,
+        priorityId: canaryPriorityId,
+        repairCaseId: randomUUID(),
+        source: {
+          description: "Preview Calendar 저장·재조회 검증",
+          fileVersionIds: [],
+          type: "DIRECT",
+          unavailableReason: "Preview canary에는 첨부파일이 없습니다.",
         },
+        target: {
+          commonAreaId: canaryCommonAreaId,
+          type: "COMMON_AREA",
+        },
+      };
+      await probeCreateDirectRollback({
+        companyId: rows[0].company_id,
+        hotelId,
+        value: repairBody,
+      });
+      const createdRepair = await api(`/api/hotels/${hotelId}/repairs`, {
+        body: repairBody,
         idempotencyKey: randomUUID(),
         includeSafeErrorCode: true,
         method: "POST",
