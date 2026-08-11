@@ -28,6 +28,9 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("if (requireMutation) {");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
     expect(source).toContain("`/api/hotels/${hotelId}/repairs`");
+    expect(source).toContain(
+      "repair = createdRepair?.repair ?? createdRepair;",
+    );
     expect(source).toContain('type: "COMMON_AREA"');
     expect(source).toContain(
       'candidate.targetName === "Preview Calendar 검증구역"',
