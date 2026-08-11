@@ -57,8 +57,15 @@ async function request(path, options = {}) {
 
 async function api(path, options = {}) {
   const { payload, response } = await request(path, options);
-  if (!response.ok || payload?.ok !== true || payload?.error !== null)
-    throw new Error(options.failureCode ?? "PREVIEW_CALENDAR_API_INVALID");
+  if (!response.ok || payload?.ok !== true || payload?.error !== null) {
+    const safeErrorCode =
+      options.includeSafeErrorCode && /^[A-Z_]+$/u.test(payload?.error?.code)
+        ? payload.error.code
+        : null;
+    throw new Error(
+      `${options.failureCode ?? "PREVIEW_CALENDAR_API_INVALID"}${safeErrorCode ? `_${safeErrorCode}` : ""}`,
+    );
+  }
   return payload.data;
 }
 
@@ -159,6 +166,7 @@ try {
           },
         },
         idempotencyKey: randomUUID(),
+        includeSafeErrorCode: true,
         method: "POST",
         failureCode: "PREVIEW_CALENDAR_MUTATION_REPAIR_CREATE_API_INVALID",
       });
