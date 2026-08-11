@@ -58,7 +58,7 @@ async function request(path, options = {}) {
 async function api(path, options = {}) {
   const { payload, response } = await request(path, options);
   if (!response.ok || payload?.ok !== true || payload?.error !== null)
-    throw new Error("PREVIEW_CALENDAR_API_INVALID");
+    throw new Error(options.failureCode ?? "PREVIEW_CALENDAR_API_INVALID");
   return payload.data;
 }
 
@@ -129,7 +129,9 @@ try {
         "PREVIEW_CALENDAR_MUTATION_CREATE_PERMISSION_UNAVAILABLE",
       );
     const hotelId = hotel.id;
-    const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
+    const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`, {
+      failureCode: "PREVIEW_CALENDAR_MUTATION_OPTIONS_API_INVALID",
+    });
     let repair = options?.repairs?.find(
       (candidate) =>
         candidate.targetName === "Preview Calendar 검증구역" &&
@@ -158,6 +160,7 @@ try {
         },
         idempotencyKey: randomUUID(),
         method: "POST",
+        failureCode: "PREVIEW_CALENDAR_MUTATION_REPAIR_CREATE_API_INVALID",
       });
       repair = createdRepair?.repair ?? createdRepair;
     }
@@ -179,6 +182,7 @@ try {
       },
       idempotencyKey: createKey,
       method: "POST",
+      failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",
     });
     createdVisit = created?.visit;
     createdVisitHotelId = hotelId;
@@ -191,14 +195,21 @@ try {
     )
       throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
 
-    const detail = await api(`/api/hotels/${hotelId}/repairs/${repair.id}`);
+    const detail = await api(`/api/hotels/${hotelId}/repairs/${repair.id}`, {
+      failureCode: "PREVIEW_CALENDAR_MUTATION_DETAIL_READ_API_INVALID",
+    });
     if (
       !detail?.repair?.visits?.some(
         (visit) => visit.id === visitId && visit.title === title,
       )
     )
       throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
-    const hotelCalendar = await api(`/api/hotels/${hotelId}/calendar?${query}`);
+    const hotelCalendar = await api(
+      `/api/hotels/${hotelId}/calendar?${query}`,
+      {
+        failureCode: "PREVIEW_CALENDAR_MUTATION_HOTEL_READ_API_INVALID",
+      },
+    );
     if (
       !hotelCalendar?.events?.some(
         (event) =>
@@ -228,9 +239,12 @@ try {
       },
       idempotencyKey: randomUUID(),
       method: "POST",
+      failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_DELETE_API_INVALID",
     });
     createdVisit = null;
-    const afterDelete = await api(`/api/hotels/${hotelId}/calendar?${query}`);
+    const afterDelete = await api(`/api/hotels/${hotelId}/calendar?${query}`, {
+      failureCode: "PREVIEW_CALENDAR_MUTATION_AFTER_DELETE_READ_API_INVALID",
+    });
     if (afterDelete?.events?.some((event) => event.id === visitId))
       throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
     console.log("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
