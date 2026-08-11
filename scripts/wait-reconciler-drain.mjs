@@ -23,7 +23,7 @@ const sql = postgres(databaseUrl, {
 });
 try {
   await sql.begin(async (tx) => {
-    await tx`select set_config('lock_timeout','10min',true)`;
+    await tx`select set_config('lock_timeout','20min',true)`;
     await tx`select public.scheduled_reconciler_drain_barrier_v1()`;
   });
 } finally {
