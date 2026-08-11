@@ -75,6 +75,8 @@ const previewCalendarCanaryTransitionId =
   "77400000-0000-4000-8000-000000000002";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
+const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
+  "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -827,6 +829,32 @@ try {
     await owner.unsafe(
       await readFile(resolve(migrationDirectory, fileName), "utf8"),
     );
+  }
+  if (contractPhase) {
+    const [repairCaseFunctionDigest] = await owner<
+      { actual_sha256: string | null }[]
+    >`
+      select pg_catalog.encode(
+               pg_catalog.sha256(
+                 pg_catalog.convert_to(function_record.prosrc, 'UTF8')
+               ),
+               'hex'
+             ) as actual_sha256
+        from pg_catalog.pg_proc function_record
+       where function_record.oid = pg_catalog.to_regprocedure(
+         'public.hotel_repair_case_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+       )
+    `;
+    const actualRepairCaseFunctionSha256 =
+      repairCaseFunctionDigest?.actual_sha256 ?? "missing";
+    const repairCaseFunctionMatches =
+      actualRepairCaseFunctionSha256 === HOTEL_REPAIR_CASE_COMMAND_V1_SHA256;
+    console.log(
+      `PREVIEW_REPAIR_CASE_FUNCTION_SHA256 expected=${HOTEL_REPAIR_CASE_COMMAND_V1_SHA256} actual=${actualRepairCaseFunctionSha256} match=${repairCaseFunctionMatches}`,
+    );
+    if (!repairCaseFunctionMatches) {
+      fail("Preview repair case command function digest mismatch");
+    }
   }
   if (freshBootstrap) {
     contractCompatibleAclPhase = true;

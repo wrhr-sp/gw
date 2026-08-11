@@ -82,6 +82,16 @@ describe("hotel repair lifecycle migration", () => {
       expect(readiness).toContain(contract);
       expect(provision).toContain(contract);
     }
+    expect(provision).toContain("HOTEL_REPAIR_CASE_COMMAND_V1_SHA256");
+    expect(provision).toContain("pg_catalog.sha256(");
+    expect(provision).toContain(
+      "pg_catalog.convert_to(function_record.prosrc, 'UTF8')",
+    );
+    expect(provision).toContain("PREVIEW_REPAIR_CASE_FUNCTION_SHA256");
+    expect(provision).toContain(
+      "Preview repair case command function digest mismatch",
+    );
+    expect(provision).toContain("if (contractPhase) {");
     expect(provision).toContain("'PREVIEW-CALENDAR-CANARY'");
     expect(provision).toContain("'Preview Calendar 검증 호텔', 'ACTIVE', 1");
     expect(provision).toContain("'ACTIVE', 'Asia/Seoul', 1");

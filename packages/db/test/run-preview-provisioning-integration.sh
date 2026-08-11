@@ -943,6 +943,26 @@ insert into runtime_database_capabilities (role_name, capability)
 values ('preview_stale_runtime_capability', 'API_RUNTIME');
 SQL
 run_provision CONTRACT >/dev/null
+FRESH_REPAIR_CASE_FUNCTION_SHA256="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select pg_catalog.encode(
+         pg_catalog.sha256(
+           pg_catalog.convert_to(function_record.prosrc, 'UTF8')
+         ),
+         'hex'
+       )
+  from pg_catalog.pg_proc function_record
+ where function_record.oid = pg_catalog.to_regprocedure(
+   'public.hotel_repair_case_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+ );
+SQL
+)"
+if [[ "$FRESH_REPAIR_CASE_FUNCTION_SHA256" != '66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c' ]]; then
+  printf 'Fresh repair case command digest mismatch: %s\n' \
+    "$FRESH_REPAIR_CASE_FUNCTION_SHA256" >&2
+  exit 1
+fi
+printf 'PREVIEW_REPAIR_CASE_FUNCTION_DIGEST_OK %s\n' \
+  "$FRESH_REPAIR_CASE_FUNCTION_SHA256"
 CALENDAR_CANARY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select concat(
   (select count(*) from public.branches
