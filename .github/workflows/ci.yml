@@ -69,10 +69,6 @@ jobs:
             ZITADEL_ORGANIZATION_ID=preview-organization \
             ZITADEL_REDIRECT_URI=https://preview.invalid/api/auth/callback \
             WEB_PREVIEW_URL=https://preview.invalid \
-            GOOGLE_CALENDAR_OAUTH_CLIENT_ID=preview-calendar-client \
-            GOOGLE_CALENDAR_OAUTH_REDIRECT_URI=https://preview.invalid/api/admin/calendar-connections/oauth/callback \
-            CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION=1 \
-            CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION=1 \
             node scripts/render-api-preview-config.mjs \
               apps/api/wrangler.preview.jsonc \
               apps/api/wrangler.preview.generated.json
@@ -82,9 +78,6 @@ jobs:
           RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000 \
             ZITADEL_ISSUER=https://preview.invalid \
             ZITADEL_ORGANIZATION_ID=preview-organization \
-            GOOGLE_CALENDAR_OAUTH_CLIENT_ID=preview-calendar-client \
-            CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION=1 \
-            CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION=1 \
             node scripts/render-reconciler-preview-config.mjs \
               apps/api/wrangler.reconciler.preview.jsonc \
               apps/api/wrangler.reconciler.preview.generated.json

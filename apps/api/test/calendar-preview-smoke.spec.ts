@@ -9,131 +9,25 @@ const smokeUrl = new URL(
 );
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
-const releaseWorkflow = readFileSync(
-  new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
-  "utf8",
-);
-const reconcilerWorkerSource = readFileSync(
-  new URL("../src/reconciler-index.ts", import.meta.url),
-  "utf8",
-);
-const drainBarrierSource = readFileSync(
-  new URL("../../../scripts/wait-reconciler-drain.mjs", import.meta.url),
-  "utf8",
-);
 
 describe("hosted Preview Calendar smoke", () => {
-  it("holds a PostgreSQL invocation lock until every scheduled task settles and drains it before smoke", () => {
-    expect(reconcilerWorkerSource).toContain(
-      "withPostgresScheduledReconcilerInvocation(databaseUrl",
-    );
-    expect(reconcilerWorkerSource).not.toContain("Promise.race");
-    expect(releaseWorkflow).toContain("node scripts/wait-reconciler-drain.mjs");
-    expect(releaseWorkflow).not.toContain("sleep 35");
-    const contractIndex = releaseWorkflow.indexOf(
-      "- name: Contract Neon Preview tenant authority",
-    );
-    const postContractVersionIndex = releaseWorkflow.indexOf(
-      "- name: Verify exact active Workers before post-contract Calendar smoke",
-    );
-    expect(contractIndex).toBeGreaterThan(-1);
-    expect(postContractVersionIndex).toBeGreaterThan(contractIndex);
-    expect(
-      releaseWorkflow.slice(contractIndex, postContractVersionIndex),
-    ).toContain("node scripts/wait-reconciler-drain.mjs");
-    expect(drainBarrierSource).toContain(
-      "public.scheduled_reconciler_drain_barrier_v1()",
-    );
-    expect(drainBarrierSource).toContain(
-      "set_config('lock_timeout','10min',true)",
-    );
-    expect(drainBarrierSource).toContain(
-      'createRequire(new URL("../packages/db/package.json", import.meta.url))',
-    );
-    expect(drainBarrierSource).toContain('requireFromDb("postgres")');
-    expect(drainBarrierSource).not.toContain('from "postgres"');
-  });
-
-  it("is executable and requires durable hosted projection evidence plus strict API, callback, UI, and Axe", () => {
+  it("is executable and verifies the canonical own-Calendar API, UI, and Axe", () => {
     expect(() =>
       execFileSync(process.execPath, ["--check", smokePath], { stdio: "pipe" }),
     ).not.toThrow();
     expect(source).toContain('api("/api/calendar/capabilities")');
     expect(source).toContain("api(`/api/calendar?${query}`)");
     expect(source).toContain(
-      "projectionStatuses.has(event.calendarProjectionStatus)",
+      "api(`/api/hotels/${hotelId}/calendar/visit-options`)",
     );
-    expect(source).not.toContain("public.calendar_projection_jobs");
-    expect(source).not.toContain("public.calendar_event_links");
-    expect(source).not.toContain("public.calendar_oauth_transactions");
-    expect(source).toContain("calendar_projection_evidence_read_v1");
-    expect(source).toContain("EVENT_BASELINE");
-    expect(source).toContain("EVENT_FINAL");
-    expect(source).toContain("baselineJobId");
-    expect(source).toContain("PREVIEW_CALENDAR_CANARY_BASELINE_JOB_MISSING");
-    expect(source).toContain('typeof baselineJobId !== "string"');
-    expect(source).toContain("canaryMutationStartedAt");
-    expect(source).toContain("calendar/visit-options");
-    expect(source).toContain("canaryRepairId");
-    expect(source).toContain("PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK");
-    expect(source).toContain("PREVIEW_CALENDAR_OAUTH_CONNECTION_REQUIRED");
-    expect(source).toContain("/rooms?page=1&pageSize=100");
-    expect(source).toContain("/repair-priorities");
-    expect(source).toContain("PREVIEW_CALENDAR_CANARY_REPAIR_SOURCE_CREATED");
-    expect(source).toContain('type: "DIRECT"');
-    expect(source).toContain("Preview Calendar canary source setup");
-    expect(source).not.toContain("insert into public.hotel_repair_cases");
-    expect(source).toContain("PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK");
-    expect(source).toContain("expectedConnectionVersion");
-    expect(source).toContain("/api/admin/calendar-connections/oauth/start");
-    for (const marker of [
-      "OAUTH_START_STATUS_",
-      "OAUTH_START_ENVELOPE_",
-      "OAUTH_START_ORIGIN",
-      "OAUTH_START_STATE",
-      "OAUTH_START_COOKIE",
-    ])
-      expect(source).toContain(marker);
-    expect(source).not.toContain("JSON.stringify(oauthStartPayload)");
-    expect(source).not.toContain("authorizationUrl.toString()");
+    expect(source).toContain('method: "POST"');
     expect(source).toContain('"idempotency-key"');
-    expect(source).toContain("parseRepairVisitMutationData");
-    expect(source).toContain("assertExactKeys");
-    expect(source).toContain(
-      "apiMutation(path, method, body, parseResponseData)",
-    );
-    expect(source.match(/parseRepairVisitMutationData,/gu)).toHaveLength(2);
-    expect(source).toContain("error=access_denied");
-    expect(source).toContain(
-      "PREVIEW_CALENDAR_OAUTH_TRANSACTION_REPLAY_SMOKE_OK",
-    );
-    expect(source).toContain("oauthStateHash");
-    expect(source).toContain("calendar_projection_evidence_read_v1");
-    expect(source).toContain("OAUTH_REPLAY_ABSENT");
-    expect(source).toContain("__Host-hotel_calendar_oauth");
-    expect(source).toContain("PREVIEW_CALENDAR_TOUCH_TARGET_INVALID");
-    expect(source).toContain("PREVIEW_CALENDAR_GUIDE_TOUCH_TARGET_INVALID");
-    expect(source).toContain("PREVIEW_CALENDAR_GUIDE_AXE_FAILED");
-    expect(source).toContain("PREVIEW_CALENDAR_GUIDE_FOCUS_RETURN_FAILED");
-    expect(source).not.toContain("job_type like 'CALENDAR_%'");
-    expect(source).toContain("RECONCILER_DATABASE_URL_FILE");
-    expect(source).toContain("calendar/visit-options");
-    expect(source).toContain("canaryRepairIdFromTitle");
-    expect(source).not.toContain("repairMatch = sourceEvent.detailHref.match");
-    expect(source).toContain("baselineJobId");
-    expect(source).toContain("await reconcilerSql.begin");
-    expect(source).toContain("set_config('app.reconciler_company_id'");
-    expect(source).not.toContain("public.calendar_projection_claim_v1");
-    expect(source).not.toContain("PREVIEW_CALENDAR_PROJECTION_STATE_NOT_EMPTY");
-    const projectionProbe = source.slice(
-      source.indexOf("const projectionChains"),
-      source.indexOf(
-        'console.log("PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK")',
-      ),
-    );
-    expect(projectionProbe).not.toContain("set_config('app.company_id'");
-    expect(projectionProbe).not.toContain("count(*)");
-    expect(projectionProbe).not.toContain("from public.calendar_event_links");
+    expect(source).toContain("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+    expect(source).toContain("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
+    expect(source).toContain("/repair-visits/${visitId}/delete");
+    expect(source).not.toContain("calendarProjectionStatus");
+    expect(source).not.toContain("RECONCILER_DATABASE_URL_FILE");
+    expect(source).not.toContain("reconcilerSql");
     expect(source).toContain("page.goto(`${baseUrl}/hotels/calendar`");
     expect(source).toContain('getByRole("heading", { name: "업무 달력" })');
     expect(source).toContain("AxeBuilder");
@@ -152,7 +46,6 @@ describe("hosted Preview Calendar smoke", () => {
         WEB_PREVIEW_URL: "invalid-preview-url",
         ZITADEL_PREVIEW_SUBJECT: sentinel,
         API_RUNTIME_DATABASE_URL_FILE: "/protected/runtime-url",
-        RECONCILER_DATABASE_URL_FILE: "/protected/reconciler-url",
       },
     });
     expect(result.status).not.toBe(0);

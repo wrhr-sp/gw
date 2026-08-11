@@ -62,13 +62,7 @@ export const hotelErrorCodeSchema = z.enum([
   "CALENDAR_RESULT_TOO_DENSE",
   "CALENDAR_HOTEL_REQUIRED",
   "CALENDAR_ACCESS_FORBIDDEN",
-  "CALENDAR_CONNECTION_NOT_CONFIGURED",
-  "CALENDAR_CONNECTION_VERSION_CONFLICT",
-  "CALENDAR_OAUTH_FLOW_INVALID",
-  "CALENDAR_OAUTH_PROVIDER_UNAVAILABLE",
-  "CALENDAR_OAUTH_SCOPE_INVALID",
-  "CALENDAR_CREDENTIAL_INVALID",
-  "CALENDAR_PROJECTION_ACTION_REQUIRED",
+
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
   "FILE_NOT_READY",
@@ -3091,12 +3085,6 @@ export const repairVisitSchema = z
     result: z.string().nullable(),
     unavailableReason: z.string().nullable(),
     fileVersionIds: z.array(z.uuid()),
-    calendarProjectionStatus: z.enum([
-      "NOT_CONNECTED",
-      "PENDING",
-      "SYNCED",
-      "ACTION_REQUIRED",
-    ]),
   })
   .strict();
 export const repairCaseSchema = z
@@ -3126,32 +3114,47 @@ export const repairCaseSchema = z
       .strict()
       .nullable(),
     followUpCount: z.number().int().nonnegative(),
-    calendarProjectionStatus: z.enum([
-      "NOT_CONNECTED",
-      "PENDING",
-      "SYNCED",
-      "ACTION_REQUIRED",
-    ]),
     createdAt: z.iso.datetime(),
     updatedAt: z.iso.datetime(),
   })
   .strict();
 export type RepairCase = z.infer<typeof repairCaseSchema>;
-export const repairCaseResponseSchema = z
+function stripLegacyCalendarProjectionStatus(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripLegacyCalendarProjectionStatus);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => key !== "calendarProjectionStatus")
+      .map(([key, nested]) => [key, stripLegacyCalendarProjectionStatus(nested)]),
+  );
+}
+export const repairCaseReadSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  repairCaseSchema,
+);
+const repairCaseResponseStrictSchema = z
   .object({
     ok: z.literal(true),
     data: z.object({ repair: repairCaseSchema }).strict(),
     error: z.null(),
   })
   .strict();
-export const repairVisitResponseSchema = z
+export const repairCaseResponseSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  repairCaseResponseStrictSchema,
+);
+const repairVisitResponseStrictSchema = z
   .object({
     ok: z.literal(true),
     data: z.object({ visit: repairVisitSchema }).strict(),
     error: z.null(),
   })
   .strict();
-export const repairListResponseSchema = z
+export const repairVisitResponseSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  repairVisitResponseStrictSchema,
+);
+const repairListResponseStrictSchema = z
   .object({
     ok: z.literal(true),
     data: z
@@ -3163,7 +3166,11 @@ export const repairListResponseSchema = z
     error: z.null(),
   })
   .strict();
-export const repairFollowUpListResponseSchema = z
+export const repairListResponseSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  repairListResponseStrictSchema,
+);
+const repairFollowUpListResponseStrictSchema = z
   .object({
     ok: z.literal(true),
     data: z
@@ -3175,6 +3182,10 @@ export const repairFollowUpListResponseSchema = z
     error: z.null(),
   })
   .strict();
+export const repairFollowUpListResponseSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  repairFollowUpListResponseStrictSchema,
+);
 export const repairListQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
@@ -3183,12 +3194,6 @@ export const repairListQuerySchema = z
   })
   .strict();
 
-const calendarProjectionStatusSchema = z.enum([
-  "NOT_CONNECTED",
-  "PENDING",
-  "SYNCED",
-  "ACTION_REQUIRED",
-]);
 const calendarBaseEventFields = {
   id: z.uuid(),
   hotelId: z.uuid(),
@@ -3219,7 +3224,6 @@ export const calendarRepairVisitEventSchema = z
         color: z.string().trim().min(1).max(50),
       })
       .strict(),
-    calendarProjectionStatus: calendarProjectionStatusSchema,
     cancellationReason: z.string().trim().min(2).max(500).nullable(),
     canUpdate: z.boolean(),
   })
@@ -3284,13 +3288,17 @@ const calendarPageDataSchema = z
       .strict(),
   })
   .strict();
-export const calendarEventsResponseSchema = z
+const calendarEventsResponseStrictSchema = z
   .object({
     ok: z.literal(true),
     data: calendarPageDataSchema,
     error: z.null(),
   })
   .strict();
+export const calendarEventsResponseSchema = z.preprocess(
+  stripLegacyCalendarProjectionStatus,
+  calendarEventsResponseStrictSchema,
+);
 export type CalendarEventsResponse = z.infer<
   typeof calendarEventsResponseSchema
 >;
@@ -3347,292 +3355,6 @@ export const calendarRoutes = {
     `/api/hotels/${encodeURIComponent(hotelId)}/calendar` as const,
   hotelVisitOptions: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/calendar/visit-options` as const,
-} as const;
-
-export const calendarProjectionPermissionCodeSchema = z.enum([
-  "CALENDAR_CONNECTION_MANAGE",
-  "CALENDAR_PROJECTION_RETRY",
-]);
-export type CalendarProjectionPermissionCode = z.infer<
-  typeof calendarProjectionPermissionCodeSchema
->;
-
-export const calendarConnectionStatusSchema = z.enum([
-  "NOT_CONNECTED",
-  "CONNECTED",
-  "RECONNECT_REQUIRED",
-  "DISCONNECTED",
-]);
-export const calendarCredentialStatusSchema = z.enum([
-  "ACTIVE",
-  "CANDIDATE",
-  "ACCESS_VERIFIED",
-  "ACCOUNT_CHANGE_REQUIRES_CONFIRMATION",
-  "ACTION_REQUIRED",
-]);
-export const calendarHotelLinkStatusSchema = z.enum([
-  "NOT_CREATED",
-  "PENDING",
-  "ACTIVE",
-  "ACTION_REQUIRED",
-  "DISCONNECTED",
-]);
-export const calendarConnectionStatusDataSchema = z
-  .object({
-    connectionId: z.uuid().nullable(),
-    connectionStatus: calendarConnectionStatusSchema,
-    credentialStatus: calendarCredentialStatusSchema.nullable(),
-    version: z.number().int().positive().nullable(),
-    candidateId: z.uuid().nullable(),
-    candidateRowVersion: z.number().int().positive().nullable(),
-    hotels: z
-      .array(
-        z
-          .object({
-            hotelId: z.uuid(),
-            hotelName: z.string().trim().min(1).max(100),
-            hotelLinkId: z.uuid().nullable(),
-            generation: z.number().int().nonnegative(),
-            linkStatus: calendarHotelLinkStatusSchema,
-            version: z.number().int().nonnegative(),
-            projectionStatus: calendarProjectionStatusSchema,
-            lastFailureCode: z.string().trim().min(1).max(100).nullable(),
-          })
-          .strict(),
-      )
-      .max(1000),
-    failures: z
-      .array(
-        z
-          .object({
-            failureId: z.uuid(),
-            version: z.number().int().positive(),
-            hotelId: z.uuid(),
-            eventLinkId: z.uuid().nullable(),
-            failureCode: z.string().regex(/^[A-Z0-9_]{2,100}$/u),
-            occurredAt: z.iso.datetime({ offset: true }),
-          })
-          .strict(),
-      )
-      .max(1000)
-      .default([]),
-  })
-  .strict()
-  .superRefine((status, context) => {
-    const candidateLifecycle = [
-      "CANDIDATE",
-      "ACCESS_VERIFIED",
-      "ACCOUNT_CHANGE_REQUIRES_CONFIRMATION",
-    ].includes(status.credentialStatus ?? "");
-    const hasCandidatePair =
-      status.candidateId !== null && status.candidateRowVersion !== null;
-    if (candidateLifecycle !== hasCandidatePair)
-      context.addIssue({
-        code: "custom",
-        message:
-          "candidate lifecycle must carry an exact candidate identity pair",
-        path: ["candidateId"],
-      });
-    if (
-      status.connectionStatus === "NOT_CONNECTED" &&
-      (status.connectionId !== null ||
-        status.version !== null ||
-        status.credentialStatus !== null ||
-        status.candidateId !== null ||
-        status.candidateRowVersion !== null)
-    )
-      context.addIssue({
-        code: "custom",
-        message: "NOT_CONNECTED must not carry connection identity",
-        path: ["connectionStatus"],
-      });
-    if (
-      status.connectionStatus === "DISCONNECTED" &&
-      (status.connectionId === null ||
-        status.version === null ||
-        status.credentialStatus !== null ||
-        status.candidateId !== null ||
-        status.candidateRowVersion !== null)
-    )
-      context.addIssue({
-        code: "custom",
-        message: "DISCONNECTED must carry only its connection version",
-        path: ["connectionStatus"],
-      });
-    if (
-      ["CONNECTED", "RECONNECT_REQUIRED"].includes(status.connectionStatus) &&
-      (status.connectionId === null ||
-        status.version === null ||
-        status.credentialStatus === null)
-    )
-      context.addIssue({
-        code: "custom",
-        message:
-          "active connection states require version and credential state",
-        path: ["connectionStatus"],
-      });
-    status.hotels.forEach((hotel, index) => {
-      const notCreated = hotel.linkStatus === "NOT_CREATED";
-      if (
-        notCreated
-          ? hotel.hotelLinkId !== null || hotel.version !== 0
-          : hotel.hotelLinkId === null ||
-            hotel.version < 1 ||
-            hotel.generation < 1
-      )
-        context.addIssue({
-          code: "custom",
-          message: "hotel link state must carry an exact identity and version",
-          path: ["hotels", index, "hotelLinkId"],
-        });
-    });
-  });
-export const calendarConnectionStatusResponseSchema = z
-  .object({
-    ok: z.literal(true),
-    data: calendarConnectionStatusDataSchema,
-    error: z.null(),
-  })
-  .strict();
-export const calendarConnectionCommandResponseSchema =
-  calendarConnectionStatusResponseSchema.superRefine((receipt, context) => {
-    if (
-      receipt.data.connectionStatus === "NOT_CONNECTED" &&
-      (receipt.data.version !== null || receipt.data.credentialStatus !== null)
-    )
-      context.addIssue({
-        code: "custom",
-        message:
-          "NOT_CONNECTED command receipt must not carry connection identity",
-        path: ["data", "connectionStatus"],
-      });
-  });
-export const calendarOAuthStartRequestSchema = z
-  .object({
-    returnPath: z.enum(["/admin/calendar", "/hotels/calendar"]),
-    reconnect: z.boolean().default(false),
-    expectedConnectionVersion: z.number().int().positive().nullable(),
-  })
-  .strict()
-  .superRefine((request, context) => {
-    if (request.reconnect !== (request.expectedConnectionVersion !== null))
-      context.addIssue({
-        code: "custom",
-        message: "reconnect requires the current connection version",
-        path: ["expectedConnectionVersion"],
-      });
-  });
-function isExactGoogleCalendarAuthorizationUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    const requiredKeys = [
-      "access_type",
-      "client_id",
-      "code_challenge",
-      "code_challenge_method",
-      "include_granted_scopes",
-      "nonce",
-      "redirect_uri",
-      "response_type",
-      "scope",
-      "state",
-    ];
-    const keys = [...url.searchParams.keys()].sort();
-    const prompt = url.searchParams.get("prompt");
-    const expectedKeys = [...requiredKeys, ...(prompt ? ["prompt"] : [])].sort();
-    const redirectUri = new URL(url.searchParams.get("redirect_uri") ?? "");
-    return (
-      url.protocol === "https:" &&
-      url.hostname === "accounts.google.com" &&
-      url.port === "" &&
-      url.username === "" &&
-      url.password === "" &&
-      url.pathname === "/o/oauth2/v2/auth" &&
-      url.hash === "" &&
-      keys.join("\u0000") === expectedKeys.join("\u0000") &&
-      url.searchParams.get("access_type") === "offline" &&
-      url.searchParams.get("code_challenge_method") === "S256" &&
-      url.searchParams.get("include_granted_scopes") === "false" &&
-      url.searchParams.get("response_type") === "code" &&
-      url.searchParams.get("scope") ===
-        "openid https://www.googleapis.com/auth/calendar.app.created https://www.googleapis.com/auth/calendar.calendarlist.readonly" &&
-      ["client_id", "code_challenge", "nonce", "state"].every(
-        (key) => (url.searchParams.get(key)?.length ?? 0) > 0,
-      ) &&
-      (prompt === null || prompt === "consent") &&
-      redirectUri.protocol === "https:" &&
-      redirectUri.username === "" &&
-      redirectUri.password === "" &&
-      redirectUri.hash === "" &&
-      redirectUri.search === "" &&
-      redirectUri.pathname ===
-        "/api/admin/calendar-connections/oauth/callback"
-    );
-  } catch {
-    return false;
-  }
-}
-export const calendarOAuthStartResponseSchema = z
-  .object({
-    ok: z.literal(true),
-    data: z
-      .object({
-        authorizationUrl: z
-          .url()
-          .refine(isExactGoogleCalendarAuthorizationUrl),
-      })
-      .strict(),
-    error: z.null(),
-  })
-  .strict();
-const calendarReasonedCommandBase = {
-  expectedVersion: z.number().int().positive(),
-  reason: z.string().trim().min(2).max(500),
-};
-export const calendarConnectionDisconnectRequestSchema = z
-  .object(calendarReasonedCommandBase)
-  .strict();
-export const calendarCredentialCandidateCommandRequestSchema = z
-  .object({
-    ...calendarReasonedCommandBase,
-    expectedCandidateRowVersion: z.number().int().positive(),
-  })
-  .strict();
-export const calendarHotelCreateRequestSchema = z
-  .object({
-    branchId: z.uuid(),
-    expectedConnectionVersion: z.number().int().positive(),
-  })
-  .strict();
-export const calendarHotelDisconnectRequestSchema = z
-  .object({
-    expectedConnectionVersion: z.number().int().positive(),
-    expectedLinkVersion: z.number().int().positive(),
-    reason: z.string().trim().min(2).max(500),
-  })
-  .strict();
-export const calendarFailureRetryRequestSchema = z
-  .object({
-    expectedVersion: z.number().int().positive(),
-    reason: z.string().trim().min(2).max(500),
-  })
-  .strict();
-export const calendarConnectionRoutes = {
-  status: "/api/admin/calendar-connections",
-  oauthStart: "/api/admin/calendar-connections/oauth/start",
-  oauthCallback: "/api/admin/calendar-connections/oauth/callback",
-  candidatePromote: (connectionId: string, candidateId: string) =>
-    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/credential-candidates/${encodeURIComponent(candidateId)}/promote` as const,
-  candidateConfirmSwitch: (connectionId: string, candidateId: string) =>
-    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/credential-candidates/${encodeURIComponent(candidateId)}/confirm-switch` as const,
-  hotelCreate: (connectionId: string) =>
-    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/hotel-calendars` as const,
-  hotelDisconnect: (connectionId: string, hotelId: string) =>
-    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/hotel-calendars/${encodeURIComponent(hotelId)}/disconnect` as const,
-  disconnect: (connectionId: string) =>
-    `/api/admin/calendar-connections/${encodeURIComponent(connectionId)}/disconnect` as const,
-  failureRetry: (hotelId: string, failureId: string) =>
-    `/api/admin/calendar-connections/hotels/${encodeURIComponent(hotelId)}/failures/${encodeURIComponent(failureId)}/retry` as const,
 } as const;
 
 const repairBasePath = (hotelId: string) =>

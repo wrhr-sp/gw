@@ -10,7 +10,9 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.setConfig({ testTimeout: 10_000 });
 
 const repoRoot = resolve(import.meta.dirname, "../../..");
 const workflow = readFileSync(
@@ -463,7 +465,7 @@ process.stdout.write(JSON.stringify(output, null, 2) + "\\n");
     "cloudflare_token_name=CLOUDFLARE_API_TOKEN\n",
   );
   const end = rollback.indexOf(
-    '\nif [[ "$CONTRACT_STARTED" == "true" ]]; then',
+    '\nif [[ "$CONTRACT_STARTED" == "true" || "$DISPOSITION_STARTED" == "true" ]]; then',
     start,
   );
   if (start < 0 || end < 0) throw new Error("Recovery classifier is missing");

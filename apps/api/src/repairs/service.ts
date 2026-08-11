@@ -1,13 +1,12 @@
 import {
   createRepairCaseRequestSchema,
   createRepairVisitRequestSchema,
-  repairCaseSchema,
+  repairCaseReadSchema,
   repairFollowUpListResponseSchema,
   repairListResponseSchema,
   repairPriorityListResponseSchema,
   repairProcessTransitionRequestSchema,
   repairRoutes,
-  repairVisitResponseSchema,
   submitRepairReviewRequestSchema,
   type AuthenticatedPrincipal,
   type CreateRepairCaseRequest,
@@ -63,15 +62,6 @@ export function createRepairService(repository: RepairRepository): RepairService
         ? await repository.transitionCommand(command)
         : await repository.visitCommand(command);
     if (!["CREATED","UPDATED","REPLAYED"].includes(result.status) || result.payload===null) failure(result.status);
-    if (target === "visit") {
-      const parsed = repairVisitResponseSchema.safeParse({
-        ok: true,
-        data: { visit: result.payload },
-        error: null,
-      });
-      if (!parsed.success) throw new RepairServiceError("INTERNAL_ERROR", 500);
-      return parsed.data.data.visit;
-    }
     return result.payload;
   }
   return {
@@ -80,7 +70,7 @@ export function createRepairService(repository: RepairRepository): RepairService
       const actor=requireMutationPrincipal(principal);
       const result=await repository.read({companyId:actor.companyId,hotelId,repairId,query:{},sessionId:actor.sessionId,sessionToken:actor.sessionToken});
       if (result.status!=="OK" || result.payload===null) failure(result.status);
-      const parsed=repairCaseSchema.safeParse((result.payload as {repair?:unknown}).repair ?? result.payload); if(!parsed.success) throw new RepairServiceError("INTERNAL_ERROR",500); return parsed.data;
+      const parsed=repairCaseReadSchema.safeParse((result.payload as {repair?:unknown}).repair ?? result.payload); if(!parsed.success) throw new RepairServiceError("INTERNAL_ERROR",500); return parsed.data;
     },
     async listRepairs(principal,hotelId,query){ const actor=requireMutationPrincipal(principal); const result=await repository.read({companyId:actor.companyId,hotelId,repairId:null,query,sessionId:actor.sessionId,sessionToken:actor.sessionToken}); if(result.status!=="OK"||result.payload===null) failure(result.status); const parsed=repairListResponseSchema.safeParse({ok:true,data:result.payload,error:null}); if(!parsed.success) throw new RepairServiceError("INTERNAL_ERROR",500); return parsed.data.data; },
     async listFollowUps(principal,hotelId,repairId,query){ const actor=requireMutationPrincipal(principal); const result=await repository.read({companyId:actor.companyId,hotelId,repairId:null,query:{...(query as object),parentId:repairId},sessionId:actor.sessionId,sessionToken:actor.sessionToken}); if(result.status!=="OK"||result.payload===null) failure(result.status); const parsed=repairFollowUpListResponseSchema.safeParse({ok:true,data:result.payload,error:null}); if(!parsed.success) throw new RepairServiceError("INTERNAL_ERROR",500); return parsed.data.data; },
@@ -88,12 +78,12 @@ export function createRepairService(repository: RepairRepository): RepairService
     async createRepair(principal,hotelId,value,idempotencyKey){
       const parsed=createRepairCaseRequestSchema.parse(value); const resourceId=parsed.repairCaseId; const action=parsed.followUpOfRepairCaseId?"CREATE_FOLLOW_UP":parsed.source.type==="INSPECTION"?"CREATE_INSPECTION":"CREATE_DIRECT";
       const payload=await mutation(principal,{action,expectedVersion:0,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.create(hotelId),resourceId,value:parsed},"case");
-      const repair=repairCaseSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data;
+      const repair=repairCaseReadSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data;
     },
     async createVisit(principal,hotelId,value,idempotencyKey){ const parsed=createRepairVisitRequestSchema.parse(value); return mutation(principal,{action:"CREATE",expectedVersion:0,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.visits(hotelId),resourceId:crypto.randomUUID(),value:parsed},"visit"); },
     async visitMutation(principal,hotelId,visitId,action,version,value,idempotencyKey){ return mutation(principal,{action,expectedVersion:version,hotelId,idempotencyKey,method:action==="UPDATE"?"PATCH":"POST",operationPath:action==="COMPLETE"?repairRoutes.visitComplete(hotelId,visitId):action==="CANCEL"?repairRoutes.visitCancel(hotelId,visitId):action==="RESTORE"?repairRoutes.visitRestore(hotelId,visitId):action==="DELETE"?repairRoutes.visitDelete(hotelId,visitId):repairRoutes.visit(hotelId,visitId),resourceId:visitId,value},"visit"); },
-    async completeRepair(principal,hotelId,repairId,version,value,idempotencyKey){ const payload=await mutation(principal,{action:"COMPLETE",expectedVersion:version,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.complete(hotelId,repairId),resourceId:repairId,value},"case"); const repair=repairCaseSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
-    async submitReview(principal,hotelId,repairId,value,idempotencyKey){ const parsed=submitRepairReviewRequestSchema.parse(value); const payload=await mutation(principal,{action:"SUBMIT_REVIEW",expectedVersion:parsed.version,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.submitReview(hotelId,repairId),resourceId:repairId,value:parsed},"case"); const repair=repairCaseSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
-    async transition(principal,hotelId,repairId,value,idempotencyKey){ const parsed=repairProcessTransitionRequestSchema.parse(value); const payload=await mutation(principal,{action:parsed.event,expectedVersion:parsed.processVersion,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.transition(hotelId,repairId),resourceId:repairId,value:parsed},"transition"); const repair=repairCaseSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
+    async completeRepair(principal,hotelId,repairId,version,value,idempotencyKey){ const payload=await mutation(principal,{action:"COMPLETE",expectedVersion:version,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.complete(hotelId,repairId),resourceId:repairId,value},"case"); const repair=repairCaseReadSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
+    async submitReview(principal,hotelId,repairId,value,idempotencyKey){ const parsed=submitRepairReviewRequestSchema.parse(value); const payload=await mutation(principal,{action:"SUBMIT_REVIEW",expectedVersion:parsed.version,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.submitReview(hotelId,repairId),resourceId:repairId,value:parsed},"case"); const repair=repairCaseReadSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
+    async transition(principal,hotelId,repairId,value,idempotencyKey){ const parsed=repairProcessTransitionRequestSchema.parse(value); const payload=await mutation(principal,{action:parsed.event,expectedVersion:parsed.processVersion,hotelId,idempotencyKey,method:"POST",operationPath:repairRoutes.transition(hotelId,repairId),resourceId:repairId,value:parsed},"transition"); const repair=repairCaseReadSchema.safeParse((payload as {repair?:unknown}).repair ?? payload); if(!repair.success) throw new RepairServiceError("INTERNAL_ERROR",500); return repair.data; },
   };
 }
