@@ -86,11 +86,13 @@ describe("hotel repair lifecycle migration", () => {
       "previewRepairCreateGrantId",
       "previewCalendarCanaryCommonAreaId",
       "previewCalendarCanaryPriorityId",
+      "previewCalendarCanaryPerformerAssignmentId",
       "previewCalendarCanaryProcessDefinitionId",
       "previewCalendarCanaryProcessRevisionId",
       "previewCalendarCanaryTransitionId",
       "Preview Calendar canary baseline does not match the approved seed",
       "Preview Calendar canary process does not match the approved seed",
+      "Preview Calendar canary performer assignment does not match the approved seed",
     ]) {
       expect(provision).toContain(canaryContract);
     }

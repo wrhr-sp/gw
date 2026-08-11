@@ -959,6 +959,11 @@ select concat(
       and permission_code = 'REPAIR_CREATE'
       and subject_id = '71000000-0000-4000-8000-000000000001'
       and effect = 'ALLOW' and version = 1), '|',
+  (select count(*) from public.hotel_staff_assignments
+    where id = '76100000-0000-4000-8000-000000000001'
+      and user_id = '71000000-0000-4000-8000-000000000001'
+      and assignment_type = 'SUPPORT' and start_date = '2026-01-01'
+      and end_date is null and terminated_at is null and version = 1), '|',
   (select count(*) from public.process_definitions
     where id = '77000000-0000-4000-8000-000000000001'
       and application_type = 'REPAIR_CASE'
@@ -974,7 +979,7 @@ select concat(
 );
 SQL
 )"
-if [[ "$CALENDAR_CANARY_STATE" != '1|1|1|1|2|1|1' ]]; then
+if [[ "$CALENDAR_CANARY_STATE" != '1|1|1|1|1|2|1|1' ]]; then
   printf '%s\n' 'Preview Calendar canary baseline was not provisioned exactly.' >&2
   exit 1
 fi
@@ -987,6 +992,8 @@ select concat(
     where id = '76000000-0000-4000-8000-000000000001'), '|',
   (select count(*) from public.permission_grants
     where id = '73000000-0000-4000-8000-000000000023'), '|',
+  (select count(*) from public.hotel_staff_assignments
+    where id = '76100000-0000-4000-8000-000000000001'), '|',
   (select count(*) from public.process_definitions
     where id = '77000000-0000-4000-8000-000000000001'), '|',
   (select count(*) from public.process_definition_revisions
@@ -1001,7 +1008,7 @@ select concat(
 );
 SQL
 )"
-if [[ "$CALENDAR_CANARY_RETRY_STATE" != '1|1|1|1|1|2|1|1' ]]; then
+if [[ "$CALENDAR_CANARY_RETRY_STATE" != '1|1|1|1|1|1|2|1|1' ]]; then
   printf '%s\n' 'Preview Calendar canary baseline retry was not idempotent.' >&2
   exit 1
 fi

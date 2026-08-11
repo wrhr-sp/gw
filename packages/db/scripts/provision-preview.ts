@@ -60,6 +60,8 @@ const previewRepairCreateGrantId = "73000000-0000-4000-8000-000000000023";
 const previewCalendarCanaryCommonAreaId =
   "75000000-0000-4000-8000-000000000001";
 const previewCalendarCanaryPriorityId = "76000000-0000-4000-8000-000000000001";
+const previewCalendarCanaryPerformerAssignmentId =
+  "76100000-0000-4000-8000-000000000001";
 const previewCalendarCanaryProcessDefinitionId =
   "77000000-0000-4000-8000-000000000001";
 const previewCalendarCanaryProcessRevisionId =
@@ -1428,6 +1430,18 @@ try {
       }
       if (canaryHotelId) {
         await sql`
+          insert into public.hotel_staff_assignments (
+            id, company_id, branch_id, user_id, assignment_type,
+            start_date, end_date, reason, created_by
+          ) values (
+            ${previewCalendarCanaryPerformerAssignmentId}::uuid,
+            ${previewCompanyId}::uuid, ${canaryHotelId}::uuid,
+            ${previewUserId}::uuid, 'SUPPORT', '2026-01-01'::date,
+            null, 'Preview Calendar canary 내부 수행자', ${previewUserId}::uuid
+          )
+          on conflict (id) do nothing
+        `;
+        await sql`
         insert into public.hotel_common_areas (
           id, company_id, branch_id, name, status, version,
           created_by, updated_by
@@ -1588,6 +1602,44 @@ try {
         )
           fail(
             "Preview Calendar canary baseline does not match the approved seed",
+          );
+        const [canaryPerformerAssignment] = await sql<
+          {
+            assignment_type: string;
+            branch_id: string;
+            company_id: string;
+            created_by: string;
+            end_date: string | null;
+            reason: string;
+            start_date: string;
+            terminated_at: string | null;
+            user_id: string;
+            version: number;
+          }[]
+        >`
+          select company_id::text as company_id, branch_id::text as branch_id,
+                 user_id::text as user_id, assignment_type,
+                 start_date::text as start_date, end_date::text as end_date,
+                 reason, created_by::text as created_by,
+                 terminated_at::text as terminated_at, version
+            from public.hotel_staff_assignments
+           where id = ${previewCalendarCanaryPerformerAssignmentId}::uuid
+        `;
+        if (
+          canaryPerformerAssignment?.company_id !== previewCompanyId ||
+          canaryPerformerAssignment.branch_id !== canaryHotelId ||
+          canaryPerformerAssignment.user_id !== previewUserId ||
+          canaryPerformerAssignment.assignment_type !== "SUPPORT" ||
+          canaryPerformerAssignment.start_date !== "2026-01-01" ||
+          canaryPerformerAssignment.end_date !== null ||
+          canaryPerformerAssignment.reason !==
+            "Preview Calendar canary 내부 수행자" ||
+          canaryPerformerAssignment.created_by !== previewUserId ||
+          canaryPerformerAssignment.terminated_at !== null ||
+          canaryPerformerAssignment.version !== 1
+        )
+          fail(
+            "Preview Calendar canary performer assignment does not match the approved seed",
           );
         const [canaryProcess] = await sql<
           {
