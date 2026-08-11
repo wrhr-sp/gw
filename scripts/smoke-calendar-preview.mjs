@@ -155,7 +155,7 @@ try {
         idempotencyKey: randomUUID(),
         method: "POST",
       });
-      repair = createdRepair?.repair;
+      repair = createdRepair?.repair ?? createdRepair;
     }
     if (!repair?.id || repair.status !== "OPEN")
       throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
