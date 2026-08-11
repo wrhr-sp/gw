@@ -20,6 +20,8 @@ const mutationMode = process.env.PREVIEW_CALENDAR_REQUIRE_MUTATION?.trim();
 if (mutationMode && mutationMode !== "1")
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 const requireMutation = mutationMode === "1";
+const canaryCommonAreaId = "75000000-0000-4000-8000-000000000001";
+const canaryPriorityId = "76000000-0000-4000-8000-000000000001";
 if (!baseUrl?.startsWith("https://") || !bootstrapSubject || !apiUrlFile)
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 
@@ -124,9 +126,38 @@ try {
       throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
     const hotelId = hotel.id;
     const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
-    const repair = options?.repairs?.[0];
+    let repair = options?.repairs?.find(
+      (candidate) =>
+        candidate.targetName === "Preview Calendar 검증구역" &&
+        candidate.priorityName === "Preview Calendar 검증",
+    );
     const performer = options?.internalPerformers?.[0];
-    if (!repair?.id || !performer?.userId)
+    if (!performer?.userId)
+      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+    if (!repair?.id) {
+      const createdRepair = await api(`/api/hotels/${hotelId}/repairs`, {
+        body: {
+          followUpOfRepairCaseId: null,
+          followUpParentVersion: null,
+          priorityId: canaryPriorityId,
+          repairCaseId: randomUUID(),
+          source: {
+            description: "Preview Calendar 저장·재조회 검증",
+            fileVersionIds: [],
+            type: "DIRECT",
+            unavailableReason: "Preview canary에는 첨부파일이 없습니다.",
+          },
+          target: {
+            commonAreaId: canaryCommonAreaId,
+            type: "COMMON_AREA",
+          },
+        },
+        idempotencyKey: randomUUID(),
+        method: "POST",
+      });
+      repair = createdRepair?.repair;
+    }
+    if (!repair?.id || repair.status !== "OPEN")
       throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
 
     const startsAt = new Date(Date.now() + 3_600_000);

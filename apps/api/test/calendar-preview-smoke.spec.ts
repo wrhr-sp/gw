@@ -27,7 +27,23 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain('const requireMutation = mutationMode === "1";');
     expect(source).toContain("if (requireMutation) {");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
+    expect(source).toContain("`/api/hotels/${hotelId}/repairs`");
+    expect(source).toContain('type: "COMMON_AREA"');
+    expect(source).toContain(
+      'candidate.targetName === "Preview Calendar 검증구역"',
+    );
+    expect(source).toContain(
+      'candidate.priorityName === "Preview Calendar 검증"',
+    );
+    expect(source).not.toContain("options?.repairs?.[0]");
+    expect(source).toContain(
+      'const canaryCommonAreaId = "75000000-0000-4000-8000-000000000001";',
+    );
+    expect(source).toContain(
+      'const canaryPriorityId = "76000000-0000-4000-8000-000000000001";',
+    );
     expect(source).toContain("/repair-visits/${visitId}/delete");
+    expect(source).not.toContain("/api/admin/process-definitions");
     expect(source).not.toContain("calendarProjectionStatus");
     expect(source).not.toContain("RECONCILER_DATABASE_URL_FILE");
     expect(source).not.toContain("reconcilerSql");

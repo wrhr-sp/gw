@@ -943,6 +943,69 @@ insert into runtime_database_capabilities (role_name, capability)
 values ('preview_stale_runtime_capability', 'API_RUNTIME');
 SQL
 run_provision CONTRACT >/dev/null
+CALENDAR_CANARY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select concat(
+  (select count(*) from public.hotel_common_areas
+    where id = '75000000-0000-4000-8000-000000000001'
+      and name = 'Preview Calendar 검증구역'
+      and status = 'ACTIVE' and version = 1), '|',
+  (select count(*) from public.hotel_repair_priorities
+    where id = '76000000-0000-4000-8000-000000000001'
+      and name = 'Preview Calendar 검증'
+      and sort_order = 99999 and color = 'TEAL'
+      and status = 'ACTIVE' and version = 1), '|',
+  (select count(*) from public.permission_grants
+    where id = '73000000-0000-4000-8000-000000000023'
+      and permission_code = 'REPAIR_CREATE'
+      and subject_id = '71000000-0000-4000-8000-000000000001'
+      and effect = 'ALLOW' and version = 1), '|',
+  (select count(*) from public.process_definitions
+    where id = '77000000-0000-4000-8000-000000000001'
+      and application_type = 'REPAIR_CASE'
+      and current_revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.process_stage_snapshots
+    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.process_transition_snapshots
+    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.hotel_process_defaults
+    where application_type = 'REPAIR_CASE'
+      and definition_id = '77000000-0000-4000-8000-000000000001'
+      and revision_id = '77100000-0000-4000-8000-000000000001')
+);
+SQL
+)"
+if [[ "$CALENDAR_CANARY_STATE" != '1|1|1|1|2|1|1' ]]; then
+  printf '%s\n' 'Preview Calendar canary baseline was not provisioned exactly.' >&2
+  exit 1
+fi
+run_provision CONTRACT >/dev/null
+CALENDAR_CANARY_RETRY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select concat(
+  (select count(*) from public.hotel_common_areas
+    where id = '75000000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.hotel_repair_priorities
+    where id = '76000000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.permission_grants
+    where id = '73000000-0000-4000-8000-000000000023'), '|',
+  (select count(*) from public.process_definitions
+    where id = '77000000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.process_definition_revisions
+    where id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.process_stage_snapshots
+    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.process_transition_snapshots
+    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+  (select count(*) from public.hotel_process_defaults
+    where application_type = 'REPAIR_CASE'
+      and definition_id = '77000000-0000-4000-8000-000000000001')
+);
+SQL
+)"
+if [[ "$CALENDAR_CANARY_RETRY_STATE" != '1|1|1|1|1|2|1|1' ]]; then
+  printf '%s\n' 'Preview Calendar canary baseline retry was not idempotent.' >&2
+  exit 1
+fi
+printf 'PREVIEW_CALENDAR_CANARY_BASELINE_OK\n'
 STALE_CAPABILITY_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select count(*) from runtime_database_capabilities
 where role_name = 'preview_stale_runtime_capability';
