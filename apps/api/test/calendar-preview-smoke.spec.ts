@@ -28,6 +28,9 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("if (requireMutation) {");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_HOTEL_UNAVAILABLE");
+    expect(source).toContain(
+      "PREVIEW_CALENDAR_MUTATION_CREATE_PERMISSION_UNAVAILABLE",
+    );
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_PERFORMER_UNAVAILABLE");
     expect(source).toContain(
       "PREVIEW_CALENDAR_MUTATION_CREATED_REPAIR_INVALID",
