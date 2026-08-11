@@ -83,6 +83,15 @@ describe("hosted Preview Calendar smoke", () => {
     );
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
+    expect(source).toContain("rollback_clean");
+    for (const rollbackObject of [
+      "public.hotel_repair_cases",
+      "public.process_executions",
+      "public.idempotency_records",
+      "public.audit_events",
+    ]) {
+      expect(source).toContain(rollbackObject);
+    }
     expect(source).toContain("HOTEL_REPAIR_CASE_COMMAND_V1_SHA256");
     expect(source).not.toContain("constraintError.message");
     expect(source).not.toContain("console.log(ownerDatabaseUrl)");
