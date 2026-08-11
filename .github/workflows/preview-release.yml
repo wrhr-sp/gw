@@ -21,7 +21,7 @@ jobs:
   deploy-preview:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment:
       name: preview
       url: https://werehere-hotel-web-preview.wereheresp.workers.dev

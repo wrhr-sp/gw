@@ -600,6 +600,8 @@ describe("Preview account provisioning wiring", () => {
   });
 
   it("dry-runs the Reconciler artifact in CI and fences hosted smoke to exact active Worker versions", () => {
+    expect(workflow).toContain("timeout-minutes: 45");
+    expect(workflow).not.toContain("timeout-minutes: 25");
     expect(ciWorkflow).toContain("render-reconciler-preview-config.mjs");
     expect(ciWorkflow).toContain("wrangler.reconciler.preview.generated.json");
     expect(ciWorkflow).toContain(
