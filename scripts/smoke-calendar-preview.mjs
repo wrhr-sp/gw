@@ -16,6 +16,10 @@ const AxeBuilder = axeModule.default ?? axeModule;
 const baseUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
+const mutationMode = process.env.PREVIEW_CALENDAR_REQUIRE_MUTATION?.trim();
+if (mutationMode && mutationMode !== "1")
+  throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
+const requireMutation = mutationMode === "1";
 if (!baseUrl?.startsWith("https://") || !bootstrapSubject || !apiUrlFile)
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 
@@ -112,87 +116,90 @@ try {
   if (/providerEventId|calendarId|refreshToken/iu.test(serialized))
     throw new Error("PREVIEW_CALENDAR_PROVIDER_IDENTIFIER_EXPOSED");
 
-  const hotel = capabilities.hotels.find(
-    (candidate) => candidate.canCreateVisit,
-  );
-  if (!hotel?.id)
-    throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
-  const hotelId = hotel.id;
-  const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
-  const repair = options?.repairs?.[0];
-  const performer = options?.internalPerformers?.[0];
-  if (!repair?.id || !performer?.userId)
-    throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+  if (requireMutation) {
+    const hotel = capabilities.hotels.find(
+      (candidate) => candidate.canCreateVisit,
+    );
+    if (!hotel?.id)
+      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
+    const hotelId = hotel.id;
+    const options = await api(`/api/hotels/${hotelId}/calendar/visit-options`);
+    const repair = options?.repairs?.[0];
+    const performer = options?.internalPerformers?.[0];
+    if (!repair?.id || !performer?.userId)
+      throw new Error("PREVIEW_CALENDAR_MUTATION_FIXTURE_UNAVAILABLE");
 
-  const startsAt = new Date(Date.now() + 3_600_000);
-  startsAt.setUTCSeconds(0, 0);
-  const endsAt = new Date(startsAt.getTime() + 1_800_000);
-  const title = `Preview Calendar canary ${randomUUID()}`;
-  const createKey = randomUUID();
-  const created = await api(`/api/hotels/${hotelId}/repair-visits`, {
-    body: {
-      endsAt: endsAt.toISOString(),
-      performer: { type: "INTERNAL", userId: performer.userId },
-      repairCaseId: repair.id,
-      startsAt: startsAt.toISOString(),
-      title,
-    },
-    idempotencyKey: createKey,
-    method: "POST",
-  });
-  createdVisit = created?.visit;
-  createdVisitHotelId = hotelId;
-  const visitId = createdVisit?.id;
-  if (
-    !visitId ||
-    createdVisit.repairCaseId !== repair.id ||
-    createdVisit.title !== title ||
-    createdVisit.status !== "SCHEDULED"
-  )
-    throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
-
-  const detail = await api(`/api/hotels/${hotelId}/repairs/${repair.id}`);
-  if (
-    !detail?.repair?.visits?.some(
-      (visit) => visit.id === visitId && visit.title === title,
+    const startsAt = new Date(Date.now() + 3_600_000);
+    startsAt.setUTCSeconds(0, 0);
+    const endsAt = new Date(startsAt.getTime() + 1_800_000);
+    const title = `Preview Calendar canary ${randomUUID()}`;
+    const createKey = randomUUID();
+    const created = await api(`/api/hotels/${hotelId}/repair-visits`, {
+      body: {
+        endsAt: endsAt.toISOString(),
+        performer: { type: "INTERNAL", userId: performer.userId },
+        repairCaseId: repair.id,
+        startsAt: startsAt.toISOString(),
+        title,
+      },
+      idempotencyKey: createKey,
+      method: "POST",
+    });
+    createdVisit = created?.visit;
+    createdVisitHotelId = hotelId;
+    const visitId = createdVisit?.id;
+    if (
+      !visitId ||
+      createdVisit.repairCaseId !== repair.id ||
+      createdVisit.title !== title ||
+      createdVisit.status !== "SCHEDULED"
     )
-  )
-    throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
-  const hotelCalendar = await api(`/api/hotels/${hotelId}/calendar?${query}`);
-  if (
-    !hotelCalendar?.events?.some(
-      (event) =>
-        event.type === "REPAIR_VISIT" &&
-        event.id === visitId &&
-        event.title === title &&
-        event.startsAt === startsAt.toISOString() &&
-        event.endsAt === endsAt.toISOString(),
+      throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+
+    const detail = await api(`/api/hotels/${hotelId}/repairs/${repair.id}`);
+    if (
+      !detail?.repair?.visits?.some(
+        (visit) => visit.id === visitId && visit.title === title,
+      )
     )
-  )
-    throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+      throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+    const hotelCalendar = await api(`/api/hotels/${hotelId}/calendar?${query}`);
+    if (
+      !hotelCalendar?.events?.some(
+        (event) =>
+          event.type === "REPAIR_VISIT" &&
+          event.id === visitId &&
+          event.title === title &&
+          event.startsAt === startsAt.toISOString() &&
+          event.endsAt === endsAt.toISOString(),
+      )
+    )
+      throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
 
-  const denied = await request(
-    `/api/hotels/50000000-0000-4000-8000-000000000099/calendar?${query}`,
-  );
-  if (
-    denied.response.status !== 403 ||
-    denied.payload?.ok !== false ||
-    denied.payload?.data !== null
-  )
-    throw new Error("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
+    const denied = await request(
+      `/api/hotels/50000000-0000-4000-8000-000000000099/calendar?${query}`,
+    );
+    if (
+      denied.response.status !== 403 ||
+      denied.payload?.ok !== false ||
+      denied.payload?.data !== null
+    )
+      throw new Error("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
 
-  await api(`/api/hotels/${hotelId}/repair-visits/${visitId}/delete`, {
-    body: {
-      reason: "Preview Calendar canary cleanup",
-      version: createdVisit.version,
-    },
-    idempotencyKey: randomUUID(),
-    method: "POST",
-  });
-  createdVisit = null;
-  const afterDelete = await api(`/api/hotels/${hotelId}/calendar?${query}`);
-  if (afterDelete?.events?.some((event) => event.id === visitId))
-    throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+    await api(`/api/hotels/${hotelId}/repair-visits/${visitId}/delete`, {
+      body: {
+        reason: "Preview Calendar canary cleanup",
+        version: createdVisit.version,
+      },
+      idempotencyKey: randomUUID(),
+      method: "POST",
+    });
+    createdVisit = null;
+    const afterDelete = await api(`/api/hotels/${hotelId}/calendar?${query}`);
+    if (afterDelete?.events?.some((event) => event.id === visitId))
+      throw new Error("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
+    console.log("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
+  }
 
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({

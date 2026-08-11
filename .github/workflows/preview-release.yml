@@ -1062,9 +1062,11 @@ jobs:
 
       - name: Verify hosted Preview own Calendar and responsive UI before contract
         id: calendar_smoke
+        env:
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           set -o pipefail
-          ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log
+          node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log
           grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-smoke.log
 
       - name: Verify exact active Workers after Calendar smoke
@@ -1160,9 +1162,16 @@ jobs:
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
+
+      - name: Verify hosted Preview own Calendar mutation after contract
+        env:
+          PREVIEW_CALENDAR_REQUIRE_MUTATION: "1"
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
           set -o pipefail
-          ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log
+          node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log
           grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
+          grep -qx 'PREVIEW_CALENDAR_MUTATION_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
 
       - name: Verify exact active Workers after post-contract own Calendar smoke
         env:

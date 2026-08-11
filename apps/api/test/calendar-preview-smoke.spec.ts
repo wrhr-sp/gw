@@ -24,6 +24,9 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain('"idempotency-key"');
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
+    expect(source).toContain('const requireMutation = mutationMode === "1";');
+    expect(source).toContain("if (requireMutation) {");
+    expect(source).toContain("PREVIEW_CALENDAR_MUTATION_SMOKE_OK");
     expect(source).toContain("/repair-visits/${visitId}/delete");
     expect(source).not.toContain("calendarProjectionStatus");
     expect(source).not.toContain("RECONCILER_DATABASE_URL_FILE");
