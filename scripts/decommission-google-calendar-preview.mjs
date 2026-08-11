@@ -135,17 +135,12 @@ export async function refreshGoogleAccessToken(input) {
 }
 
 async function calendarMetadata(fetcher, accessToken, calendarId) {
-  let response;
-  try {
-    response = await providerRequest(
-      fetcher,
-      `${API}/calendars/${encodeURIComponent(calendarId)}?fields=id%2Cdescription`,
-      { headers: authorization(accessToken) },
-      [200, 404],
-    );
-  } catch (error) {
-    throw error;
-  }
+  const response = await providerRequest(
+    fetcher,
+    `${API}/calendars/${encodeURIComponent(calendarId)}?fields=id%2Cdescription`,
+    { headers: authorization(accessToken) },
+    [200, 404],
+  );
   if (response.status === 404) return null;
   const value = await strictJson(response);
   if (
