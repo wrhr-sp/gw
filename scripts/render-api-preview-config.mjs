@@ -42,19 +42,6 @@ if (redirectUri.toString() !== expectedRedirect) {
 }
 const clientId = required("ZITADEL_CLIENT_ID");
 const consoleClientId = required("ZITADEL_CONSOLE_CLIENT_ID");
-const googleCalendarClientId = required("GOOGLE_CALENDAR_OAUTH_CLIENT_ID");
-const googleCalendarRedirectUri = new URL(required("GOOGLE_CALENDAR_OAUTH_REDIRECT_URI"));
-const calendarAesVersion = required("CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION");
-const calendarHmacVersion = required("CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION");
-if (!/^[1-9][0-9]*$/u.test(calendarAesVersion) || !/^[1-9][0-9]*$/u.test(calendarHmacVersion)) {
-  throw new Error("Calendar key versions must be positive integers");
-}
-if (googleCalendarRedirectUri.toString() !== new URL("/api/admin/calendar-connections/oauth/callback", webPreviewUrl).toString()) {
-  throw new Error("GOOGLE_CALENDAR_OAUTH_REDIRECT_URI must match the Preview Web callback");
-}
-if (!/^[A-Za-z0-9._-]{10,300}$/u.test(googleCalendarClientId)) {
-  throw new Error("GOOGLE_CALENDAR_OAUTH_CLIENT_ID is invalid");
-}
 if (
   !/^[A-Za-z0-9_-]{1,200}$/u.test(clientId) ||
   !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId) ||
@@ -75,10 +62,6 @@ config.vars = {
   ZITADEL_CONSOLE_CLIENT_ID: consoleClientId,
   ZITADEL_ORGANIZATION_ID: required("ZITADEL_ORGANIZATION_ID"),
   ZITADEL_REDIRECT_URI: redirectUri.toString(),
-  GOOGLE_CALENDAR_OAUTH_CLIENT_ID: googleCalendarClientId,
-  GOOGLE_CALENDAR_OAUTH_REDIRECT_URI: googleCalendarRedirectUri.toString(),
-  CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION: calendarAesVersion,
-  CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION: calendarHmacVersion,
 };
 
 await writeFile(resolve(outputPath), `${JSON.stringify(config, null, 2)}\n`);

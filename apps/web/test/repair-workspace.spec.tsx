@@ -1,11 +1,8 @@
-import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
-import { repairVisitResponseSchema } from "@werehere/contracts";
-import { RepairWorkspace, requestMutation } from "../components/repairs/repair-workspace";
-import { createLogicalIdempotencyKeyStore } from "../lib/logical-idempotency";
+import { describe, expect, it } from "vitest";
+import { RepairWorkspace } from "../components/repairs/repair-workspace";
 
 const hotelId = "50000000-0000-4000-8000-000000000001";
 const repair = {
@@ -20,7 +17,6 @@ const repair = {
   visits: [],
   predecessor: null,
   followUpCount: 0,
-  calendarProjectionStatus: "NOT_CONNECTED" as const,
   createdAt: "2026-08-06T12:00:00.000Z",
   updatedAt: "2026-08-06T12:00:00.000Z",
 };
@@ -40,54 +36,6 @@ function renderWorkspace(node: ReactNode) {
 }
 
 describe("repair workspace", () => {
-  it("maps malformed successful receipts to a safe message and retains the uncertain key", async () => {
-    const calls: string[] = [];
-    const keys = createLogicalIdempotencyKeyStore(() => "repair-key-stable");
-    const fetcher = vi.fn<typeof fetch>(async (_input, init) => {
-      calls.push(new Headers(init?.headers).get("Idempotency-Key") ?? "");
-      return Response.json({ data: {}, error: null, ok: true });
-    });
-    vi.stubGlobal("fetch", fetcher);
-    try {
-      for (let attempt = 0; attempt < 2; attempt += 1)
-        await expect(
-          requestMutation(
-            keys,
-            "/api/hotels/hotel/repairs/repair/visits",
-            "POST",
-            { title: "배관 점검" },
-            repairVisitResponseSchema,
-            "방문일정 응답을 안전하게 확인하지 못했습니다.",
-          ),
-        ).rejects.toThrow("방문일정 응답을 안전하게 확인하지 못했습니다.");
-      expect(calls).toEqual(["repair-key-stable", "repair-key-stable"]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-  it("keeps one key for an uncertain repair operation and rotates after definitive completion", () => {
-    let sequence = 0;
-    const keys = createLogicalIdempotencyKeyStore(() => `repair-key-${++sequence}`);
-    const operation = {
-      path: "/api/hotels/hotel/repairs/repair/visits",
-      body: { startsAt: "2026-08-08T01:00:00.000Z", title: "배관 점검" },
-    };
-    const first = keys.acquire(operation);
-    keys.settle(operation, false);
-    expect(keys.acquire({ path: operation.path, body: { ...operation.body } })).toBe(first);
-    keys.settle(operation, true);
-    expect(keys.acquire(operation)).not.toBe(first);
-  });
-
-  it("binds repair mutations to the shared logical-operation key store", () => {
-    const source = readFileSync(
-      new URL("../components/repairs/repair-workspace.tsx", import.meta.url),
-      "utf8",
-    );
-    expect(source).toContain("idempotencyKeys.acquire(operation)");
-    expect(source).toContain("idempotencyKeys.settle(operation, definitive)");
-    expect(source).not.toContain('"Idempotency-Key": crypto.randomUUID()');
-  });
   it("renders a PC master/detail and a mobile action-first repair card without provider UI", () => {
     const html = renderWorkspace(
       <RepairWorkspace {...workspaceData} hotelId={hotelId} initialRepairs={[repair]} initialSelected={repair} />,

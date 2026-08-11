@@ -8,7 +8,7 @@
 | 상태          | `user_approved`                                                                 |
 | 사용자 정본   | `제품요구사항(사용자)/0. 공통기능.md`, `5. 운영사업부.md`, `8. 관리자페이지.md` |
 | 제품 범위     | 객실점검, 시설물점검, 공통 검토 프로세스, 하자·보수, 방문일정                   |
-| 외부 provider | Google Calendar API는 backend-only 단방향 일정 반영                             |
+| 외부 provider | 사용하지 않음                                                                   |
 
 이 문서는 객실점검과 시설물점검이 공유하는 업무기반과 하자·보수 세로 기능의 정본이다. 객실 기준정보의 고유 규칙은 [02-room-and-inspection-prd.md](02-room-and-inspection-prd.md), 인증·파일·감사 공통통제는 [06-platform-security-prd.md](06-platform-security-prd.md)를 함께 따른다.
 
@@ -46,7 +46,6 @@
 - 점검 연결·직접 등록 보수 건
 - 우선순위·복수 방문일정·완료증빙
 - 자체 월간·주간 달력
-- Google Calendar backend-only 단방향 반영
 - 인앱 알림·승인된 PWA 푸시
 
 ### 제외
@@ -58,20 +57,20 @@
 - 비용·견적·청구·지급
 - SMS·이메일·Google 참석자·Google reminder
 - 관리번호·QR·바코드·자산가액·제조사·모델·보증기간·교체주기
-- Google Calendar UI·iframe·브라우저 직접 API 호출
+- 외부 달력 provider·OAuth·외부 event 동기화·외부 달력 UI·iframe·브라우저 직접 API 호출
 - mock·placeholder·static sample 성공·in-memory fallback
 
 ## 4. 구현후보 gate
 
-| 구현영역                                        | 상태       | 기존 승인 재사용 여부                                                             |
-| ----------------------------------------------- | ---------- | --------------------------------------------------------------------------------- |
-| 공통 process definition/revision·실행 엔진      | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수         |
-| 객실·시설물 공통 inspection 대상·결과 모델      | `approved` | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK                        |
-| 객실·시설물 공통 점검항목 revision              | `approved` | PostgreSQL v2 공통 revision + v1 ROOM 양방향 bridge, 별도 v2 계약·통합 설정 UI    |
-| 시설물·공용공간 기준정보                        | `approved` | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK        |
-| 보수 건·우선순위·방문일정                       | `approved` | 정규화 PostgreSQL aggregate + append-only history                                 |
-| Calendar adapter·OAuth credential·outbox 재시도 | `approved` | OAuth 2.0 offline + direct REST + PostgreSQL projection outbox + scheduled Worker |
-| 자체 월간·주간 달력 UI                          | `approved` | FullCalendar 표준 MIT runtime + shadcn/Radix/Tailwind 제품 UI                     |
+| 구현영역                                   | 상태       | 기존 승인 재사용 여부                                                          |
+| ------------------------------------------ | ---------- | ------------------------------------------------------------------------------ |
+| 공통 process definition/revision·실행 엔진 | `approved` | PostgreSQL 정본 + TypeScript 자체 엔진, XState·Camunda의 검증 개념만 흡수      |
+| 객실·시설물 공통 inspection 대상·결과 모델 | `approved` | 공통 실행·대상 child + `ROOM`/`FACILITY` 직접 composite FK                     |
+| 객실·시설물 공통 점검항목 revision         | `approved` | PostgreSQL v2 공통 revision + v1 ROOM 양방향 bridge, 별도 v2 계약·통합 설정 UI |
+| 시설물·공용공간 기준정보                   | `approved` | 공용공간·시설물유형 정본 + 시설물의 `ROOM`/`COMMON_AREA` 직접 composite FK     |
+| 보수 건·우선순위·방문일정                  | `approved` | 정규화 PostgreSQL aggregate + append-only history                              |
+| 외부 Calendar provider 미사용              | `approved` | 자체 Calendar + PostgreSQL 정본; OAuth·credential·outbox·provider API 없음     |
+| 자체 월간·주간 달력 UI                     | `approved` | FullCalendar 표준 MIT runtime + shadcn/Radix/Tailwind 제품 UI                  |
 
 ### 4.0.1 공통 점검항목 revision 후보 결정 — 2026-08-04
 
@@ -152,7 +151,7 @@
 
 ### 4.4 구현 전 필수 gate
 
-- 이 절의 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐다.
+- 이 절의 승인은 공통 process engine 구현방식에만 적용한다. 공통 inspection 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델과 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐고 외부 Calendar provider는 미사용으로 확정됐다.
 - 구현 전 exact source snapshot에서 Contracts·DB schema/command·Repository/Service/API·Web UI·테스트 경계를 확정하고 별도 mutation 범위를 승인받는다.
 - Red 테스트는 잘못된 그래프, 도달 불가능 단계, 최종경로 부재, revision snapshot 불변, 주 검토자·대리인 동시처리, stale version, 권한회수·배정만료, 기한초과 비자동전이, 최종완료 잠금, 멱등 replay·응답유실을 포함한다.
 - 실제 PostgreSQL 18에서 회사/호텔 scope CHECK·복합 FK·RLS·`FORCE ROW LEVEL SECURITY`·non-owner/non-`BYPASSRLS` runtime·command ACL·동시 transition을 검증한다.
@@ -209,7 +208,7 @@
 - 기존 dirty 객실점검 구현의 command authority·RLS·멱등 receipt·revision·lease·generation fencing·Repository/test harness는 최신 Red를 통과하는 최소 hunk만 재사용 후보로 둔다.
 - 기존 `hotel_inspections.room_id NOT NULL`, 고정 완료책임자·참여자, `SCHEDULED/UNASSIGNED`, 실행 공통 item snapshot 구조는 최신 복수대상·항목별 실제 수행자·설정형 process 모델의 완료 구현으로 재사용하지 않는다.
 - 별도 canonical target registry, generic polymorphic DB FK, JSONB-only 대상·결과 정본, 신규 package·외부 서비스는 도입하지 않는다.
-- 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 각각 별도 후보선택으로 `approved`됐다. 승인은 각 절에 기록된 제품경계와 재선정 조건 안에서만 재사용한다.
+- 공통 inspection 대상·결과 모델, 시설물·공용공간 기준정보, 보수 건·우선순위·방문일정 모델과 자체 달력 UI는 각각 별도 후보선택으로 `approved`됐다. 외부 Calendar provider는 미사용으로 확정됐다.
 - 시설물 relation·typed composite FK·lifecycle은 9.4~9.6을 따른다. 다만 현재 source의 객실 lifecycle이 최신 정본과 다르므로 9.6의 선행조건을 닫기 전에는 시설물 migration·Red·코드를 시작하지 않는다.
 - 구현 전 Red는 복수대상 생성, 실행·대상 중복경쟁, 잘못된 null/FK 조합, 타 회사·타 호텔 대상, 사용중지·삭제 신규대상 차단과 기존 snapshot 지속, 대상별 항목 snapshot, 항목별 실제 수행자, 서로 다른 대상·항목 병렬수정, 같은 항목 stale version, 결과별 설명·사진조건, 최종완료 잠금을 포함한다.
 
@@ -220,7 +219,7 @@
 - 객실·시설물 외 다수 대상유형을 schema 변경 없이 동적으로 운영해야 한다.
 - 공통 target registry가 별도 제품 정본으로 승인된다.
 
-각 기능후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면·Google 연동을 시작하지 않는다. Calendar adapter는 16.0, 자체 달력 UI는 15.1에서 별도로 승인됐다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인은 결과·사진·완료·프로세스·시설물·보수·Calendar에 적용되지 않는다.
+각 기능후보가 `approved`가 되기 전에는 구현계획 확정, Red 테스트, 코드·migration·화면을 시작하지 않는다. 외부 Calendar provider 미사용은 16절, 자체 달력 UI는 15.1에서 승인됐다. 기존 객실점검 branch의 좁은 체크리스트·일정 승인은 결과·사진·완료·프로세스·시설물·보수·Calendar에 적용되지 않는다.
 
 ## 5. 공통 설정형 검토 프로세스
 
@@ -408,7 +407,7 @@
 - legacy `TEMP_SUSPENDED/OUT_OF_SERVICE`는 forward migration에서 `INACTIVE`로 변환하고 자동 `DELETED` 변환은 하지 않는다. current `planned_resume_date`는 제거하되 append-only 과거 이력 값은 보존하며 날짜 기반 자동 활성화는 없다.
 - 살아 있는 객실번호에만 partial unique를 적용해 삭제 번호 재사용 시 새 room ID를 만들고, 이전 점검·보수·감사·snapshot은 이전 ID에 유지한다. lifecycle command는 company/hotel scope, RLS·`FORCE ROW LEVEL SECURITY`, 활성 사용자·배정, 동적권한·개인회수, expected version, 멱등키, 현재 상태를 transaction에서 재검증한다.
 - 별도 canonical location registry, generic polymorphic DB FK, JSONB-only 위치 정본, 신규 package·외부 서비스는 도입하지 않는다.
-- 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용한다. 보수 건·우선순위·방문일정 모델, Calendar adapter와 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐다.
+- 이 승인은 시설물·공용공간 기준정보 저장구조에만 적용한다. 보수 건·우선순위·방문일정 모델과 자체 달력 UI는 이후 각각 별도 후보선택으로 `approved`됐고 외부 Calendar provider는 미사용으로 확정됐다.
 
 다음 중 하나가 제품정책으로 확정되면 시설물 위치모델 후보를 다시 선정한다.
 
@@ -516,20 +515,20 @@
 - 취소는 원래 일정·수행자·사유·처리자·시각·version을 보존하고 달력 원래 위치에 회색·취소선·배지로 표시한다.
 - 취소일정·취소사유 조회와 취소 실행·감사원문 조회는 각각 동적 권한으로 설정한다.
 - 취소 일정은 `취소 복구` 또는 `새 일정 만들기`로 다시 잡을 수 있다.
-- 취소 복구는 동일 일정·provider event ID를 유지하고 취소이력을 보존한다.
-- 새 일정 만들기는 원본 취소일정을 유지하고 새 일정·provider event를 생성해 원본 ID를 연결한다.
+- 취소 복구는 동일 PostgreSQL 일정 ID를 유지하고 취소이력을 보존한다.
+- 새 일정 만들기는 원본 취소일정을 유지하고 새 PostgreSQL 일정 ID를 생성해 원본 관계와 감사를 보존한다.
 - 삭제는 시작 전 미래 일정이며 작업·첨부·완료·알림 전송이 하나도 없을 때만 허용한다.
-- 삭제는 활성 일정과 Google 이벤트를 제거하되 삭제 전 snapshot·사유·처리자·시각은 감사에 남긴다.
+- 삭제는 자체 Calendar의 활성 일정에서 제외하되 삭제 전 snapshot·사유·처리자·시각은 PostgreSQL history와 감사에 남긴다.
 
 ### 14.2 구현후보 비교·선택 (`2026-08-01`)
 
-보수 건·우선순위·다중 방문일정의 같은 기능결과를 만드는 저장·실행방식만 비교했다. 당시 분리한 Calendar provider adapter와 자체 달력 UI는 이후 16.0과 15.1에서 각각 별도 후보선택으로 승인됐다.
+보수 건·우선순위·다중 방문일정의 같은 기능결과를 만드는 저장·실행방식만 비교했다. 자체 달력 UI는 이후 15.1에서 별도 후보선택으로 승인됐고 외부 Calendar provider는 16절에서 미사용으로 확정됐다.
 
-| 후보                                                     | 구조·기능 적합성                                                                                                             | UX·PC/모바일                                                                                                   | 보안·격리·동시성                                                                                              | 비용·상업이용·유지보수                                                                                                           | 확장성                                                                                                  | 판정     |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------- |
-| 정규화 PostgreSQL repair aggregate + append-only history | typed source·target, priority·process snapshot, case 아래 독립 visit·performer·완료증빙 current relation과 별도 불변 history | PC 필터·달력 query와 모바일 방문카드·일정별 저장이 직접 relation에 대응하고 서로 다른 visit 수정충돌이 작음    | composite FK·null-safe CHECK·RLS·`FORCE ROW LEVEL SECURITY`; case·visit별 expected version과 transaction 잠금 | 신규 package·서비스·비용 없음, PostgreSQL License로 상업이용 가능; 기존 SQL migration·DB·감사 운영 재사용으로 유지보수 가장 단순 | index·필요 시 partition으로 case·visit·history를 독립 확장하고 Calendar adapter를 경계 밖에서 추가 가능 | **선택** |
-| PostgreSQL append-only event stream + current projection | 모든 변경 event를 stream version으로 append하고 case·visit projection을 같은 transaction에서 갱신                            | PC·모바일은 projection을 읽어 같은 화면이 가능하지만 projection 오류·재구축 중 최신상태 판정이 추가됨          | event·projection 양쪽 tenant 정책, event schema version·replay·projection rebuild 필요                        | PostgreSQL License로 상업이용 가능하고 신규 라이선스 비용은 없지만 자체 event 규약·upcaster·projection을 지속 유지               | 다수 event 소비자와 과거시점 replay에는 유리하나 stream·projection 저장량과 rebuild 운영이 함께 증가    | 비선택   |
-| PostgreSQL JSONB repair document aggregate               | case 한 행 JSONB에 priority·visits·performer·result·history 배열 저장                                                        | 같은 화면은 가능하지만 모바일에서 visit 하나 저장해도 case 전체 version 충돌, PC 관계형 필터·달력 query가 복잡 | 문서 내부 typed FK·행 CHECK가 약하고 방문별 병렬수정이 case 전체 version에서 충돌; RLS는 case 단위            | PostgreSQL License로 상업이용 가능하고 신규 비용은 없지만 자체 JSON schema·과거문서 migration·GIN query를 지속 유지              | 필드 추가는 쉽지만 문서성장·row 경합·visit/performer별 권한·관계형 분석 확장이 불리                     | 비선택   |
+| 후보                                                     | 구조·기능 적합성                                                                                                             | UX·PC/모바일                                                                                                   | 보안·격리·동시성                                                                                              | 비용·상업이용·유지보수                                                                                                           | 확장성                                                                                               | 판정     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------- |
+| 정규화 PostgreSQL repair aggregate + append-only history | typed source·target, priority·process snapshot, case 아래 독립 visit·performer·완료증빙 current relation과 별도 불변 history | PC 필터·달력 query와 모바일 방문카드·일정별 저장이 직접 relation에 대응하고 서로 다른 visit 수정충돌이 작음    | composite FK·null-safe CHECK·RLS·`FORCE ROW LEVEL SECURITY`; case·visit별 expected version과 transaction 잠금 | 신규 package·서비스·비용 없음, PostgreSQL License로 상업이용 가능; 기존 SQL migration·DB·감사 운영 재사용으로 유지보수 가장 단순 | index·필요 시 partition으로 case·visit·history와 자체 Calendar 조회를 독립 확장 가능                 | **선택** |
+| PostgreSQL append-only event stream + current projection | 모든 변경 event를 stream version으로 append하고 case·visit projection을 같은 transaction에서 갱신                            | PC·모바일은 projection을 읽어 같은 화면이 가능하지만 projection 오류·재구축 중 최신상태 판정이 추가됨          | event·projection 양쪽 tenant 정책, event schema version·replay·projection rebuild 필요                        | PostgreSQL License로 상업이용 가능하고 신규 라이선스 비용은 없지만 자체 event 규약·upcaster·projection을 지속 유지               | 다수 event 소비자와 과거시점 replay에는 유리하나 stream·projection 저장량과 rebuild 운영이 함께 증가 | 비선택   |
+| PostgreSQL JSONB repair document aggregate               | case 한 행 JSONB에 priority·visits·performer·result·history 배열 저장                                                        | 같은 화면은 가능하지만 모바일에서 visit 하나 저장해도 case 전체 version 충돌, PC 관계형 필터·달력 query가 복잡 | 문서 내부 typed FK·행 CHECK가 약하고 방문별 병렬수정이 case 전체 version에서 충돌; RLS는 case 단위            | PostgreSQL License로 상업이용 가능하고 신규 비용은 없지만 자체 JSON schema·과거문서 migration·GIN query를 지속 유지              | 필드 추가는 쉽지만 문서성장·row 경합·visit/performer별 권한·관계형 분석 확장이 불리                  | 비선택   |
 
 선택안은 현재상태를 정규화 relation으로 유지하고 후보 2의 append-only 이력 장점만 흡수한다. JSONB는 감사 before/after summary처럼 제한되고 비정본인 metadata에만 허용하며 대상·우선순위·방문·수행자·완료결과·파일의 업무 정본을 대체하지 않는다.
 
@@ -556,7 +555,7 @@
 - 추가 작업의 새 case는 nullable `follow_up_of_repair_case_id`로 직전 최종완료 case 하나를 같은 회사·호텔 composite FK 참조한다. 승인 command는 parent를 잠그고 최종완료·같은 typed target·version을 재검증한다. relation INSERT·UPDATE와 parent 상태를 감시하는 deferred constraint trigger도 commit 시 같은 tenant·최종완료·동일 target·자기참조·순환·관계불변을 강제해 직접 SQL 우회를 차단한다. source는 기존 `DIRECT` 규칙에 따라 새 설명과 사진 또는 촬영불가 사유를 저장하고 parent 완료자료를 복제하지 않는다. 완료된 후속 case에 추가 작업이 생기면 직전 case를 참조해 체인을 만든다.
 - PC의 새 case에는 `이전 보수 보기`, parent에는 권한 있는 즉시 후속만 계산한 `후속 보수 N건` 링크를 표시하고 모바일에는 같은 내용을 별도 카드로 제공한다. 전체 graph를 한 번에 펼치지 않고 링크를 따라 탐색하며, 각 case 자료권한을 다시 검사해 미허용 이전·후속의 존재·번호·건수를 노출하지 않는다.
 - 모든 정본·history는 회사·호텔 scope CHECK, tenant 포함 composite FK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime을 적용한다. migration owner만 FK·UNIQUE를 생성하고 runtime·reconciler role에는 table owner·superuser·`BYPASSRLS`·DDL·직접 `REFERENCES` 권한을 부여하지 않는다. 승인 command는 권한·tenant를 FK 평가 전에 검증하고 타 tenant parent 존재여부를 구분할 수 없는 안정 오류를 반환한다. `REPAIR_EXTERNAL_CONTACT_VIEW` 동적권한 보유자만 목록·상세·직접 API·history에서 외부업체 담당자명·연락처 원문을 보고, 미보유자는 업체명과 마스킹 연락처만 본다. 원문은 로그·오류·감사요약·검색색인·Calendar payload에 포함하지 않는다.
-- 방문일정 저장은 PostgreSQL current·history 재조회까지 성공으로 본다. Calendar adapter 방식은 16.0에서 승인됐지만 outbox·provider event ID·OAuth·재시도 코드와 provider 호출은 별도 implementation mutation·비운영 provider PoC 승인 전 생성하거나 실행하지 않는다.
+- 방문일정 저장은 PostgreSQL current·history와 자체 Calendar 상세·목록 재조회까지 성공으로 본다. outbox·provider event ID·OAuth·credential·재시도 코드와 외부 provider 호출은 제품 기능이 아니다.
 
 ### 14.4 재사용·제외·구현 전 gate
 
@@ -599,14 +598,14 @@
 - PC 달력 배치에는 FullCalendar의 월간·주간 표준 view를 사용하되 toolbar·호텔필터·상태필터·상세 panel·빈 상태·오류 UI는 기존 shadcn/Radix/Tailwind 제품 component로 구현한다.
 - 모바일 390px에서는 PC calendar grid를 축소하지 않는다. 날짜 이동·보기 선택은 간결한 control로 유지하고 선택 날짜의 점검·보수 방문일정을 44px 이상 현장업무 카드로 표시한다.
 - FullCalendar는 권한필터된 표시 model만 받고 업무정본·권한·회사/호텔 격리·version·감사는 same-origin API와 PostgreSQL에 유지한다. 일반 browser storage에는 마지막 보기종류와 사용시각만 2시간 저장한다.
-- Google Calendar API는 16절의 backend-only 단방향 projection이다. FullCalendar가 Google API를 호출하거나 Google UI·iframe·provider ID·credential을 받지 않는다.
+- FullCalendar는 same-origin API의 권한필터된 PostgreSQL 일정만 받고 외부 provider UI·iframe·provider ID·credential을 사용하지 않는다.
 - Schedule-X의 간결한 날짜 이동·보기 전환과 React Big Calendar의 날짜별 agenda 개념은 제품 UX로만 흡수하며 해당 package를 도입한 것으로 표현하지 않는다.
 - 구현 전 latest `main`에서 Contracts·DB read model·API·public Web proxy·PC/390px Web·접근성·visual·Preview smoke의 exact mutation 범위를 별도 승인받는다.
 
 다음 조건이 제품요구사항으로 확정되면 UI 후보를 다시 선정한다.
 
 - resource timeline·수천 건 동시 편집·spreadsheet형 대량 drag/drop이 핵심업무가 된다.
-- 일간 view, 외부 참석자 scheduling 또는 Google Calendar UI embed가 승인된다.
+- 일간 view, 외부 참석자 scheduling 또는 외부 달력 provider 도입이 별도 승인된다.
 - FullCalendar 표준 MIT 범위로 월·주·모바일 카드와 접근성 기준을 충족할 수 없다.
 - React·Next.js 호환 또는 유지보수 상태가 현재 stack을 지원하지 않게 된다.
 
@@ -620,142 +619,21 @@
 - 전체호텔 보기에서 일정 생성 시 호텔을 첫 필수항목으로 직접 선택하고 자동선택하지 않는다.
 - 호텔 선택 후 해당 호텔의 보수 건·대상·수행자만 조회하고 저장 transaction에서 범위를 다시 검증한다.
 
-## 16. Google Calendar backend-only 연동
-
-### 16.0 Calendar adapter 후보 결정 — 2026-08-01
+## 16. 외부 달력 provider 미사용
 
 - 선택자: 대장.
 - 선택상태: `approved`.
-- 선택안: 회사별 전용 Google 연동계정의 OAuth 2.0 authorization code·offline credential, 호텔별 app-created Calendar, PostgreSQL transactional projection outbox와 기존 scheduled Cloudflare Worker, package 없는 direct Google Calendar REST adapter를 사용한다.
-
-같은 단방향 Calendar projection 결과를 만드는 독립 후보는 정확히 다음 세 개다.
-
-| 후보                                                                   | 구조·PC/모바일 UX                                                                                                                                                                       | 인증·보안·회사/호텔 격리                                                                                                                                                                                                                                                                                                                                                          | 비용·라이선스·상업이용                                                                                                                     | 운영·유지보수                                                                                                          | 확장성                                                                                                                              | 판정     |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| OAuth 2.0 offline + direct REST + PostgreSQL outbox                    | 권한 있는 내부 운영자만 회사 전용계정을 한 번 연결하고 일반 PC·모바일 사용자는 Google 동의 없이 자체 UI의 반영상태만 봄; 같은 transaction의 호텔범위 job을 기존 scheduled Worker가 처리 | `openid` + `calendar.app.created` + `calendar.calendarlist.readonly` exact set, state hash·PKCE·browser binding·OIDC nonce·중요작업 재인증, 검증된 Google `sub`의 HMAC fingerprint, AES-GCM refresh credential, 회사 connection·호텔 calendar link·RLS와 version fence; 앱 fetch/XHR·Calendar REST는 브라우저 호출 없음, 운영자의 OAuth authorization top-level navigation만 예외 | REST 계약 자체에 client package 비용·라이선스 없음; 기존 PostgreSQL·Worker 재사용, Google 계정/Workspace 비용은 고객 정책에 따름           | 좁은 OAuth refresh·Calendar endpoint·오류 schema를 Zod allowlist로 직접 유지하지만 bundle·transitive dependency가 없음 | 회사별 계정으로 사용자 quota를 분산하고 source version·claim fence·backoff로 확장; Calendar 외 Google API가 늘면 직접유지 부담 증가 | **선택** |
-| OAuth 2.0 offline + 공식 `googleapis` Node client + PostgreSQL outbox  | 연결 UX와 자체 UI는 선택안과 같고 client helper로 OAuth·Calendar 호출                                                                                                                   | scope·credential·tenant 경계는 선택안과 동일하며 package 사용이 최소권한·격리를 대신하지 않음                                                                                                                                                                                                                                                                                     | Apache-2.0 상업이용 가능, API 호출비 경계는 동일; 조사시 npm 173.0.0의 registry reported unpacked size가 약 207MB라 Worker bundle PoC 필요 | 공식 client 모델을 얻지만 대형 신규 dependency·transitive update·Cloudflare node compatibility·cold start 부담         | 여러 Google Workspace API가 추가되면 유리하나 현재 소수 endpoint에는 과대                                                           | 미선택   |
-| service account + Workspace domain-wide delegation + PostgreSQL outbox | 일반 사용자 동의는 없지만 회사 Workspace 최고관리자가 client ID·scope·impersonation을 별도 설정                                                                                         | 사용자 동의 없이 조직자료 접근 가능한 강한 권한, 회사별 service account·impersonation 격리와 private key 또는 federation 필요; 일반 Gmail·비Workspace 회사 사용 불가                                                                                                                                                                                                              | Workspace·관리자 운영비 가능, REST 계약 자체는 package 비용 없음                                                                           | super-admin 승인·scope·key 회전/폐기·침해대응 부담이 가장 크고 Google은 가능한 경우 service-account key 회피를 권고    | 하나의 통제된 Workspace 대규모 자동화에는 유리하나 독립 호텔회사 SaaS onboarding에는 불리                                           | 미선택   |
-
-공식 조사 근거:
-
-- [OAuth 2.0 Web Server Applications](https://developers.google.com/identity/protocols/oauth2/web-server)
-- [Google Calendar API Discovery](https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest)
-- [Google Calendar authorization scopes](https://developers.google.com/workspace/calendar/api/auth)
-- [Google Calendar usage limits](https://developers.google.com/workspace/calendar/api/guides/quota)
-- [Google service account best practices](https://cloud.google.com/iam/docs/best-practices-service-accounts)
-- [Google Workspace domain-wide delegation](https://knowledge.workspace.google.com/admin/apps/control-api-access-with-domain-wide-delegation)
-- [`googleapis` Apache-2.0 License](https://github.com/googleapis/google-api-nodejs-client/blob/main/LICENSE)
-
-Calendar resource 생성 응답유실 복구방식은 2026-08-01 Google 공식 Discovery 재검증에서 `calendar.app.created`가 `calendars.insert/get`과 event CRUD에는 허용되지만 Calendar ID 회수에 필요한 `calendarList.list`에는 허용되지 않음을 확인한 뒤 정확히 다음 세 후보를 다시 비교했다.
-
-| 복구 후보                                                           | 기능·PC/모바일 UX                                                                                                                      | 인증·보안·회사/호텔 격리                                                                                                                                                | 비용·라이선스                                       | 운영·유지보수·확장성                                                        | 판정     |
-| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
-| `calendar.app.created` 단일 scope + 수동 orphan 정리                | 정상 응답 때만 자동연결하고 timeout·connection loss·비결정 5xx는 관리자가 전용 Google 계정에서 orphan Calendar를 찾아 제거한 뒤 재시도 | 최소권한이지만 provider ID를 잃은 Calendar는 서버가 존재여부를 판정할 수 없고 사람의 오정리·중복위험이 남음                                                             | 추가 API·라이선스 비용 없음                         | 드문 장애라도 호텔별 수동복구와 고객지원이 필요해 확장성이 낮음             | 미선택   |
-| `calendar.app.created` + `calendar.calendarlist.readonly` exact set | 일반 사용자는 변화가 없고 관리자는 자동 read-back 상태만 확인; scheduled Worker가 opaque link key로 생성결과를 복구                    | 전용 연동계정의 구독 Calendar 목록 ID·description을 읽을 수 있으나 exact fields·메모리 필터·불일치 metadata 무보존·회사 credential/호텔 link 격리로 blast radius를 제한 | 추가 package·라이선스 비용 없고 Google quota만 사용 | 자동복구·중복차단이 가능하며 호텔 증가에도 동일 aggregate-head job으로 확장 | **선택** |
-| Google에서 호텔 Calendar 수동생성 + `calendar.events.owned`         | 관리자가 호텔마다 Calendar를 직접 만들고 ID를 입력한 뒤 event CRUD만 자동화                                                            | 앱 생성 Calendar 정책을 폐기하고 owned Calendar 전체 event 권한과 ID 오입력 검증이 필요; 수동 tenant mapping 위험                                                       | 추가 package 비용은 없으나 운영인력 비용 증가       | 호텔 추가·계정교체마다 수동작업, 자동 onboarding과 복구에 부적합            | 미선택   |
-
-선택한 세 scope `openid`, `calendar.app.created`, `calendar.calendarlist.readonly`는 순서무관 exact set으로만 요청·수락하며 `email`, `profile`, `calendar.readonly`, `calendar.calendarlist`, 전체 `calendar`, `calendar.events.owned` 또는 그 밖의 scope로 자동확대하지 않는다. 전용 연동계정에도 primary Calendar는 존재할 수 있으므로 “관련 없는 Calendar가 없다”고 가정하지 않고, 목록 응답의 불일치 metadata를 영속화·로그·감사·metrics·API 응답에 남기지 않는 것을 보안불변식으로 둔다.
-
-선택안의 정본·실행 경계:
-
-- 회사범위 `calendar_connections`와 `(company_id, connection_id)` composite FK의 `calendar_connection_credentials`를 분리한다. 발급된 token provenance·credential version은 불변이고 `CANDIDATE/ACTIVE/RETIRED` lifecycle과 암호화 envelope/key version은 expected row version·append-only history로 변경한다. active·candidate 각각 최대 하나를 partial unique로 강제한다. candidate row에는 verification claim token·lease·attempt·available time을 두어 scheduled Worker 한 건만 검증하고 lease reclaim의 늦은 결과를 fence한다. raw access/refresh token 열은 만들지 않고 access token은 호출 메모리에서만 사용한다.
-- OAuth callback은 Google 고정 issuer·JWKS·`RS256`·client audience·expiry·issued-at·transaction nonce를 검증한 ID token의 non-empty `sub`만 사용하고 ID token·raw `sub`는 저장하지 않는다. `sub`는 독립 HMAC keyring과 `provider-principal` domain으로 즉시 32-byte fingerprint화한다. 최초 credential만 callback의 현재권한 재검증으로 active가 될 수 있다. 재연결 credential은 candidate로 저장한다. scheduled Worker는 provider read 전 originating actor의 현재 활성상태·회사 Calendar 권한·영향호텔 전체권한을 다시 검사하고 회수·만료면 호출 없이 중지한다. candidate와 active의 저장된 subject fingerprint가 같을 때만 모든 active hotel link 접근을 검증해 `ACCESS_VERIFIED`, 다르면 접근 없이 `ACCOUNT_CHANGE_REQUIRES_CONFIRMATION`을 기록하며 자동 승격하지 않는다.
-- `ACCESS_VERIFIED` candidate도 최초 요청 actor 권한 snapshot을 재사용하지 않는다. 회사범위 Calendar 권한·영향 호텔 전체권한·현재 session·최신 중요작업 재인증·connection/candidate version·사유를 다시 갖춘 명시적 promote command만 기존 link를 유지한 채 candidate를 active 승격하고 이전 credential을 retire한다.
-- candidate의 검증된 subject fingerprint가 active와 다르면 `ACCOUNT_CHANGE_REQUIRES_CONFIRMATION`으로 중지하며 기존 active credential·link를 보존한다. fingerprint가 같지만 기존 calendar 접근이 실패하면 안전 오류로 중지하고 account switch로 자동 분류하지 않는다. 회사범위 Calendar 권한과 영향 호텔 전체권한·최신 중요작업 재인증·version·사유를 갖춘 명시적 confirm만 candidate를 승격한다. 이때 기존 link generation은 중지하고 새 account용 호텔 calendar generation을 각각 `PENDING_CREATE`로 만들며, old provider calendar·event는 접근·수정·자동삭제하지 않는다.
-- `calendar_oauth_transactions`는 10분 만료 state hash·PKCE verifier ciphertext·HttpOnly/Secure/SameSite=Lax browser binding hash·OIDC nonce hash·최초 actor/session·재인증시각·allowlist return path를 갖는다. start는 `access_type=offline`, `include_granted_scopes=false`, `scope={openid, calendar.app.created, calendar.calendarlist.readonly}` exact set을 사용하고 재동의가 필요한 연결에는 `prompt=consent`를 사용한다.
-- callback은 duplicate·empty query를 허용하지 않고 exact-one non-empty `state`와 (`code` xor provider `error`)만 받는다. 외부 token fetch 전에 짧은 transaction으로 일치 state를 `PENDING→CLAIMED`와 새 claim token으로 원자 소비해 동시 callback 한 건만 진행한다. provider `error`는 state 소비·실패감사 뒤 code 교환 없이 종료하고, `error`와 `code` 혼합·malformed·provider timeout 뒤에도 transaction을 재사용하지 않는다.
-- token endpoint 호출 중 DB transaction을 열어두지 않는다. 반환 scope를 공백 분리·중복금지·순서무관 set으로 정규화해 `openid`, `calendar.app.created`, `calendar.calendarlist.readonly` 정확 세 개와 일치하고 신규 refresh token과 nonce-bound 검증 ID token도 있을 때만, 별도 finalize transaction이 claim token·최초 actor/session·현재 회사/영향호텔 권한·expected connection version을 재검증해 first active 또는 candidate credential을 저장한다. 누락·추가·다른 scope 또는 refresh token 누락은 기존 credential을 덮어쓰거나 폐기하지 않고 안전 실패한다. query·binding·DB claim/repository·provider·finalize·예상 밖 내부 오류를 포함한 모든 callback 종료는 exact binding cookie를 삭제하고 token·code·state 없는 same-origin allowlist 경로로 303·empty body를 반환하며 오류·로그는 안정코드만 사용한다.
-- OAuth client ID·secret과 credential AES-GCM keyring, 별도 fingerprint HMAC keyring은 API·reconciler Worker secret 경계에 version으로 배포한다. AES-GCM은 암호화마다 CSPRNG 96-bit nonce를 새로 만든다. credential AAD는 `credential|company_id|connection_id|credential_version`, provider calendar ID AAD는 `calendar_id|company_id|branch_id|hotel_link_id|generation`을 사용한다. fingerprint HMAC도 독립 key 또는 명시적 domain-separated key로 계산한다. provider principal fingerprint에는 생성 HMAC key version을 credential row에 함께 저장하고, 기존 principal 비교는 저장된 old version으로 재계산한다.
-- key rotation은 current key write·old key read-only 방식이다. expected row version으로 read-old/write-new 점진 재암호화하고 decrypt·AAD·fingerprint read-back을 통과한 행만 전환한다. old-key 참조 0건과 승인된 backup 보존기간 종료를 확인한 뒤에만 key 폐기를 별도 파괴작업으로 승인받는다. nonce 재사용·AAD/tenant 바꿔치기·unknown key version·부분 rotation은 안전 실패한다.
-- OAuth start 성공 응답은 origin `https://accounts.google.com`, path `/o/oauth2/v2/auth`, duplicate 없는 exact query key, 위 세 scope exact set, 승인 callback path, `response_type=code`, `access_type=offline`, `include_granted_scopes=false`, `code_challenge_method=S256`를 모두 검증한 URL만 반환한다. transaction에는 secret derivation에 사용한 HMAC key version을 함께 저장하고 동일 `Idempotency-Key` replay는 current version이 회전했어도 영수증의 retained version으로 transaction ID·state·browser binding·PKCE verifier·OIDC nonce를 결정적으로 재생성한다. exact state와 binding으로 식별 가능한 malformed callback은 DB claim 뒤 terminal 실패로 소비하고 binding cookie를 삭제하며, 식별 불가능한 입력에는 임의 transaction을 소비하지 않는다.
-- 공개 Calendar mutation은 idempotency reservation·fresh authorization·업무 mutation·감사·completed receipt를 각 승인 `SECURITY DEFINER` command transaction 안에서 원자 수행한다. generic receipt begin/store helper는 owner-only 내부 dependency이며 API runtime에 직접 `EXECUTE`를 부여하지 않고 readiness가 body·metadata·ACL 손상을 차단한다. Web은 endpoint·canonical body가 같은 논리 작업의 network/parse/retryable 불확정 재시도에 같은 `Idempotency-Key`를 유지하고, 성공 또는 non-retryable 확정 실패 뒤에만 폐기하며 body/version이 달라지면 새 key를 사용한다.
-- `calendar_hotel_links`는 `(company_id, branch_id)`로 호텔을, `(company_id, connection_id)`로 회사범위 connection을 각각 composite FK 참조한다. 호텔당 `REPAIR` active generation 하나, encrypted provider calendar ID, link/connection version, `catch_up_cutoff`, 상태를 갖고 다른 호텔 fallback·복사·자동선택은 없다. 새 generation 생성 transaction은 CSPRNG 256-bit를 base64url no-padding 43자로 만든 provider lookup key를 `calendar_lookup_key|company_id|branch_id|hotel_link_id|generation` AAD의 AES-GCM ciphertext·IV·key version으로 저장하고 SHA-256 digest global unique로 충돌을 차단한다. generation·raw key material·digest는 생성 뒤 불변이며 승인 key rotation만 decrypt+digest read-back으로 같은 plaintext를 보존한 envelope 재암호화를 허용한다. raw key·digest는 일반 API·로그·감사·metrics에 반환하지 않는다.
-- `calendar_event_links`는 `(company_id, branch_id, hotel_link_id)`와 `(company_id, branch_id, visit_id)` composite FK, link generation, Google base32hex 규칙의 stable provider event ID, ownership marker를 만든 HMAC key version, desired/applied source version을 구조화한다. 기존 event read/update/delete의 `werehere-link` marker는 저장된 old version으로 재생성하고 신규 generation만 current version을 사용한다. provider ID는 backend relation·암호화 경계에만 있고 frontend·일반 API·로그·감사에 반환하지 않는다.
-- `calendar_projection_jobs`는 `HOTEL_CALENDAR`의 hotel link 또는 `VISIT_EVENT`의 event link 중 정확히 하나를 tenant 포함 composite FK 참조하는 null-safe CHECK를 가진다. `calendar_projection_attempts`와 `calendar_sync_failures`도 `(company_id, branch_id, job_id)`와 즉시 hotel/event link parent를 composite FK 참조해 직접 SQL의 교차호텔 연결을 막는다. JSONB는 비민감 dispatch metadata만 허용한다.
-- 호텔 calendar create API는 link와 `HOTEL_CALENDAR` aggregate-head job만 transaction으로 만들고 요청 thread에서 provider를 호출하지 않는다. 최초 claim·lease reclaim·재시도는 generation row의 같은 lookup key를 복호화해 calendar 이름 `보수일정`, description exact `werehere-link:v1:<43-char-key>`를 재현한다. job payload에는 key·digest를 복제하지 않는다. provider insert 전에 `calendarList.list?maxResults=250&fields=nextPageToken,items(id,description)`를 page token 종료까지 읽는다.
-- 목록 envelope는 strict object이며 `items` 부재 또는 빈 array는 정상 0건이다. `items`가 있으면 array이고 각 item은 strict object·non-empty string `id` 필수, `description`은 optional string이다. description 부재·빈 문자열은 정상 non-match이고 non-string description, empty/non-string ID, unknown field, non-array items, non-object envelope, empty/repeated page token은 provider insert 없이 `ACTION_REQUIRED`다. 최대 40 page/10,000 item을 넘겨도 같은 결과다.
-- Calendar 목록의 ID·description·page token은 호출 메모리에서만 처리하고 expected description과 전체 일치하지 않는 item은 즉시 폐기한다. 불일치 metadata는 PostgreSQL·outbox·attempt/failure·감사·로그·metrics·오류·일반 API에 저장하지 않는다. full pagination 뒤 일치 1건이면 URL-encoded list ID로 `calendars.get?fields=id,description`을 호출한다. get 응답은 strict object·non-empty string `id`·string `description` 정확 두 필드이고 ID가 list ID와 같으며 description이 expected와 전체 일치할 때만 provider ID를 암호화해 성공한다. malformed·mismatch·404는 provider ID를 저장하지 않고 `ACTION_REQUIRED`다. 일치 2건 이상도 관리자조치다. 0건은 provider insert를 아직 시도하지 않은 최초 attempt에서만 한 번 insert하며 timeout·connection loss·definitive response 없는 5xx 뒤에는 read-back-only로 제한 재시도하고 자동 insert하지 않는다.
-- provider calendar 생성·기존 link 재활성·확정 account switch의 새 generation 활성화 transaction은 `catch_up_cutoff`을 DB 시각으로 고정하고 `예정/진행`이며 `end_at >= catch_up_cutoff`인 current visit을 `calendar_catch_up_items`에 snapshot한다. catch-up item은 hotel link와 visit을 tenant composite FK 참조하고 같은 event-link reconcile signal을 멱등 생성한다. 완료·취소·논리삭제·cutoff 이전 visit은 새 calendar에 만들지 않는다.
-- calendar link 생성·활성화와 방문일정 mutation은 `branch → hotel link → visit UUID → event link/job` 전역 잠금순서를 사용한다. provider calendar finalize가 branch/link를 잠근 상태에서 catch-up snapshot·link 활성화를 한 transaction으로 확정하고, visit mutation도 먼저 같은 branch/link를 잠가 snapshot 직후 누락을 막는다. connection 장애 복구 후 같은 link를 재활성할 때도 새 cutoff와 catch-up snapshot을 만들고, 기존 provider event가 있으면 applied state로 update/no-op을 결정한다.
-- 방문일정 current·append-only history·감사·event link·desired source version과 aggregate-head reconcile signal은 한 transaction이다. 연결이 없으면 job 없이 `NOT_CONNECTED`, 연결은 있으나 미반영이면 `PENDING`, applied version 일치면 `SYNCED`, terminal failure면 `ACTION_REQUIRED`를 반환하며 Google 성공을 주장하지 않는다.
-- hotel link 또는 event link aggregate마다 `PENDING/PROCESSING` head job 최대 하나를 partial unique로 강제한다. 새 visit mutation은 desired source version을 올리고 head가 processing이면 replay flag를 세운다. Worker는 `FOR UPDATE SKIP LOCKED`로 head만 claim하고 claim token·attempted source/connection version·lease expiry를 기록한다. lease 만료 job은 새 claim token으로 reclaim하며 늦은 worker 결과는 claim-token fence로 폐기한다.
-- provider operation은 job 생성 당시 문자열을 정본으로 쓰지 않고 호출 직전 최신 visit과 event link의 desired/applied state에서 재결정한다. provider event가 없고 visit이 예정/진행이면 `CREATE`, 있으면 `UPDATE`, 취소/논리삭제이고 event가 있으면 취소/삭제, event가 없으면 no-op이다. 따라서 최초 CREATE가 적용되기 전에 UPDATE가 선행하지 않는다.
-- provider 호출 중 DB transaction을 열지 않는다. finalize transaction은 claim token을 검증해 attempted version까지만 applied로 기록하고, desired version·connection version·replay flag가 더 최신이면 같은 head를 다시 `PENDING`으로 전환한다. stale connection/generation job은 호출 전 `SUPERSEDED`한다.
-- event create는 durable stable ID를 재사용한다. timeout 또는 provider duplicate/409는 같은 ID를 read-back해 불투명 연결키가 일치할 때만 성공으로 수렴하고 불일치는 `ACTION_REQUIRED`다. active visit의 update에서 provider event 404가 확인되면 `UPDATE 404 → provider calendar GET 확인 → PostgreSQL applied-existence reset → create-dispatch durable mark → 같은 stable ID CREATE → finalize/read-back` 순서로만 수렴하며, calendar 자체 404는 terminal failure다. 실제 PostgreSQL Repository와 Reconciler를 함께 실행한 journey가 이 순서와 최종 `SYNCED`, desired/applied version 일치, active job 0건을 검증한다. Google direct edit는 역수입하지 않으며 다음 DB mutation/reconcile이 PostgreSQL 값을 다시 투영한다.
-- timeout·429·5xx만 최대 8회 재시도한다. `Retry-After`를 우선하되 24시간으로 제한하고, 그 외에는 `min(30초×2^(attempt-1), 6시간)`에 0~30% jitter를 더한다. 8회 소진은 `DEAD_LETTER`와 sync failure를 원자 기록한다. refresh `invalid_grant`, 400 invalid request, 인증·권한·scope, 삭제/미존재 calendar는 즉시 `DEAD_LETTER`·관리자조치로 전환한다. 수동재시도는 active 사내 actor·현재 유효 호텔배정·`CALENDAR_PROJECTION_RETRY`·개인 DENY 우선·15분 재인증·exact failure/link/source version을 DB transaction에서 재검증해 attempt 0의 새 head signal을 만들고 과거 attempt는 append-only 보존한다.
-- disconnect는 connection/link version을 올리고 credential/link를 중지해 신규·stale projection을 차단하되 provider calendar·event를 자동삭제하지 않는다. 공개 mutation은 승인된 connection/candidate/hotel-calendar resource path의 URL identity와 body expected version을 Repository command까지 전달하며 generic `/command` action route를 노출하지 않는다. 연결·candidate promote/confirm·호텔 link 생성·해제·수동재시도는 현재 session·회사/호텔 범위·동적권한·개인회수·중요작업 재인증을 다시 검사하고 감사한다. 회사 connection 전체중지와 credential promote/confirm은 영향 호텔 전체권한이 없으면 차단한다.
-- 모든 Calendar 회사행은 `branch_id IS NULL`, 호텔행은 `branch_id IS NOT NULL` scope CHECK를 갖고 RLS·`FORCE ROW LEVEL SECURITY`를 적용한다. migration owner만 composite FK·UNIQUE·CHECK를 만들며 API·reconciler runtime은 non-owner·non-superuser·non-`BYPASSRLS`이고 DDL·직접 `REFERENCES` 없이 승인 command와 허용 read만 사용한다.
-- provider event payload는 일반 제목·확정 시작/종료·호텔 업무시간대·불투명 연결키만 포함한다. 참석자·Google 알림·reminder와 호텔명·대상·하자·사진·사람·연락처·사유는 포함하지 않는다.
-- OAuth token endpoint 호출은 bound callback API에서만 하고 calendar resource/event REST 호출은 scheduled Worker에서만 한다. 앱의 browser fetch/XHR·Calendar REST 호출은 금지하고 권한 있는 운영자의 명시적 Google OAuth authorization top-level navigation만 예외다. `googleapis` package·service-account key·domain-wide delegation·Google 역동기화는 도입하지 않는다.
-
-PoC·보안·provider mutation gate:
-
-- 이 결정기록은 provider mutation 승인이 아니다. Google Cloud 프로젝트·OAuth client·consent screen·credential/token·실제 calendar/event 생성은 별도 exact 승인 전 금지한다.
-- 승인된 비운영 테스트 프로젝트에서 승인된 exact 3-scope set으로 paginated `calendarList.list`·app-created calendar 생성/목록 read-back/`calendars.get`과 event create/read/update/delete·disconnect 후 복구가 가능한지 확인한다. primary/unrelated Calendar가 섞인 fixture에서 불일치 metadata 비보존과 timeout 뒤 no-reinsert도 확인하며, 부족해도 scope를 자동확대하지 않고 후보·보안 gate로 되돌린다.
-- OAuth 앱 게시·검증·개인정보처리 요구, Worker secret·credential key rotation·폐기, callback CSRF/replay, 401/403/404/409/429/5xx, timeout read-back, quota·dead-letter를 보안검토한다.
-- 자체 월간·주간 달력 UI는 15.1의 별도 후보선택으로 `approved`됐으며, 이 Calendar adapter 승인과 구현경계는 서로 대체하지 않는다.
-
-다음이면 후보를 다시 선정한다.
-
-- 승인된 `openid` + `calendar.app.created` + `calendar.calendarlist.readonly` exact set으로 목록 privacy·Calendar 생성 응답유실 복구·event lifecycle을 충족할 수 없다.
-- OAuth 앱 검증·게시 또는 고객정책상 사용자 OAuth를 수용할 수 없다.
-- 모든 고객이 하나의 통제된 Workspace에 있고 domain-wide delegation이 의무화된다.
-- 여러 Google Workspace API가 추가돼 direct REST schema 유지비가 공식 client의 bundle·운영비보다 커진다.
-- 회사별 연동계정으로도 provider quota를 감당할 수 없거나 Google Calendar가 단방향 projection이 아닌 외부 정본이 된다.
-
-### 16.1 정본과 범위
-
-```text
-호텔관리 자체 UI
-→ same-origin API
-→ PostgreSQL transaction·outbox
-→ Google Calendar API
-```
-
-- PostgreSQL이 일정·권한·version·감사의 정본이다.
-- Google 직접수정 값은 호텔관리로 역수입하지 않는다.
-- 초기 MVP는 호텔마다 `보수일정` Google Calendar 리소스 하나를 연결한다.
-- 호텔별 DB 테이블을 만들지 않고 공용 연결 테이블의 회사·범위유형·범위 ID·용도·provider calendar ID로 구분한다.
-- 다른 호텔 캘린더로 fallback하거나 이벤트를 복사하지 않는다.
-- 전용 Google 연동계정은 현재 DB 동적 Calendar 연동설정권한과 회사·호텔 범위·개인 회수 우선을 통과한 내부 운영자가 중요작업 재인증 뒤 OAuth 2.0 authorization code·offline으로 연결한다. 연결·교체·해제·호텔 calendar 생성·수동 재시도마다 현재 권한을 다시 검증하고 안전한 전후값·행위자·시각·결과를 감사한다.
-- 일반 사용자는 Google 로그인·동의화면·Google 계정연결을 하지 않는다.
-- 구현은 앱이 생성·관리하는 보수 Calendar·event와 생성 응답유실 read-back에 공식 `calendar.app.created` + `calendar.calendarlist.readonly` 순서무관 exact set만 allowlist하고, 더 넓거나 다른 scope는 안전 실패한다. 비운영 provider PoC가 부족함을 증명해도 자동확대하지 않고 별도 보안·제품 승인을 받는다.
-- refresh credential은 versioned AES-GCM 암호문으로만 PostgreSQL에 저장하고 access token은 호출 메모리 밖에 보존하지 않는다. OAuth client ID·secret·암호화 root key는 Worker secret 경계이며 브라우저·API 응답·로그·감사에 token·provider ID 원문을 남기지 않는다. 연결대상은 안전한 fingerprint로 감사하고 credential 저장·회전·폐기는 provider mutation 승인에 포함한다.
-
-### 16.2 최소정보
-
-Google에 보내는 값:
-
-- calendar resource의 일반 이름 `보수일정`·호텔 업무시간대·random opaque link key
-- 일반 제목 `보수 방문일정` 또는 `취소된 보수 방문일정`
-- 확정 시작·종료일시
-- 호텔 업무시간대
-- 불투명 내부 연결키
-
-Google에 보내지 않는 값:
-
-- 호텔명·객실번호·공용공간·시설물·층
-- 하자내용·점검결과·사진
-- 사내 수행자·외부업체·담당자·연락처
-- 변경·취소·삭제 사유
-- 참석자·Google 이메일 알림·Google reminder
-
-### 16.3 실패·재시도
-
-- PostgreSQL 일정 확정 뒤 outbox에는 최신 desired state·source version을 기록하고, Worker가 applied state와 비교해 생성·변경·취소·삭제·no-op을 호출 직전에 재결정한다.
-- timeout·일시적 provider 오류·rate limit만 16.0의 최대 8회·상한·jitter 계약으로 재시도한다.
-- 인증·권한·scope·삭제된 캘린더·유효하지 않은 요청은 반복하지 않고 관리자 확인 대상으로 중지한다.
-- 최대시도 소진은 `캘린더 반영 실패`·`ACTION_REQUIRED`로 유지하고 권한 있는 관리자에게 안전 원인·마지막 시도·호텔을 알린다.
-- 관리자는 원인을 해결한 뒤 수동 재시도할 수 있다.
-- 자동·수동 재시도 전 최신 일정 version·호텔·연결·권한을 다시 검증한다.
-- idempotency key와 provider event ID로 중복 이벤트를 차단한다.
-- 일정 aggregate별 outbox는 단일 직렬순서와 단조 증가 source version으로 처리한다. provider 호출 전에 최신 정본 version·provider 적용 version을 비교하고 오래된 job은 `SUPERSEDED`로 종료한다.
-- 생성 timeout 뒤 취소, 변경 v2 뒤 v1 재시도, 취소 뒤 복구 경쟁에서도 최신 source version만 provider에 반영하며 취소·삭제가 오래된 생성·변경으로 되돌아가지 않도록 claim token과 version fence를 함께 검증한다.
-- Google 실패가 PostgreSQL 일정·보수·process를 rollback하거나 가짜 성공시키지 않는다.
+- 자체 월간·주간 달력과 PostgreSQL 정본만 사용한다.
+- Cloudflare Web/API Workers는 same-origin API를 제공하고 기존 Reconciler는 계정·파일·점검 materialization 같은 DB 업무만 수행한다.
+- Google OAuth, 외부 Calendar API, 외부 Calendar resource/event ID, provider credential, projection outbox·재시도·dead-letter는 제품 기능이 아니다.
+- 일정 생성·수정·취소·복구는 보수 방문 aggregate의 기존 command·멱등·version·감사 규칙으로 처리하고 저장 직후 canonical 상세와 목록을 재조회한다.
+- 과거 Google projection schema가 적용된 환경은 기존 migration을 수정하지 않고 forward-only CONTRACT migration으로 trigger·함수·테이블·권한을 제거한다.
+- 새 Worker는 CONTRACT 전 legacy 응답 key를 경계에서 제거해 혼합버전 배포를 허용하며, 새 Worker 배포와 exact active-version 확인 뒤 schema를 제거한다.
+- Production DB·실데이터·secret·DNS·유료 리소스는 별도 승인 전 건드리지 않는다.
 
 ## 17. API 경계 제안
 
-승인된 adapter와 자체 달력 UI 경로는 구현 시 `packages/contracts`에 먼저 정의한다. UI 승인으로 Google provider 경로·scope·credential 권한을 확대하지 않는다.
+승인된 자체 달력 UI·API 경로는 구현 시 `packages/contracts`에 먼저 정의한다. 외부 Calendar provider 경로·scope·credential 권한은 제품 계약에 존재하지 않는다.
 
 ```text
 /api/process-definitions/*
@@ -768,18 +646,17 @@ Google에 보내지 않는 값:
 /api/hotels/:hotelId/inspections/*
 /api/hotels/:hotelId/repairs/*
 /api/hotels/:hotelId/repair-visits/*
-/api/admin/calendar-connections/*
-/api/admin/calendar-sync-failures/*
+
 ```
 
-- 앱의 browser fetch/XHR는 same-origin API만 호출한다. 권한 있는 운영자가 OAuth start 응답 뒤 수행하는 Google authorization endpoint top-level navigation만 cross-origin 예외이며 token exchange·Calendar REST는 서버 전용이다.
+- 앱의 browser fetch/XHR는 same-origin API만 호출하며 외부 Calendar authorization·REST 예외는 없다.
 - 변경 API는 version·멱등키·transaction·감사·안전 오류코드를 사용한다.
 - 타 회사·타 호텔·타 대상 ID 직접전송은 존재·건수·식별정보를 노출하지 않고 차단한다.
-- DB·R2·schema 미설정과 Calendar 연결관리·provider projection API의 연결 미설정은 부분자료나 가짜 성공 없이 안전 실패한다. 방문일정 CRUD는 Calendar 미연결이어도 PostgreSQL current·history·감사 저장에 성공하고 provider job 0건·`NOT_CONNECTED`를 반환한다.
+- DB·R2·schema 미설정은 부분자료나 가짜 성공 없이 안전 실패한다. 방문일정 CRUD는 PostgreSQL current·history·감사를 저장하고 자체 Calendar에서 canonical 결과를 재조회한다.
 
 ## 18. 데이터 경계 제안
 
-이 절은 전체 도메인의 논리경계를 요약한다. 실제 테이블명은 `approved` 후보 결정절에서 명시한 공통 process·inspection·시설물 기준정보·보수·Calendar adapter 범위를 정본으로 사용하며, 아직 `unresearched`인 자체 달력 UI의 추가 relation은 확정하지 않는다.
+이 절은 전체 도메인의 논리경계를 요약한다. 실제 테이블명은 `approved` 후보 결정절에서 명시한 공통 process·inspection·시설물 기준정보·보수·자체 Calendar 범위를 정본으로 사용한다.
 
 - process definition·revision·stage·transition·assignment·execution·history
 - 공용공간·시설물유형·시설물·위치 snapshot
@@ -790,7 +667,7 @@ Google에 보내지 않는 값:
 - repair priority definition·snapshot
 - repair case·source snapshot·target snapshot·process execution
 - repair visit·status history·notification
-- calendar OAuth transaction·connection·credential version·hotel link generation·catch-up item·event link·projection job/attempt·sync failure
+- 자체 Calendar는 inspection·repair visit PostgreSQL 정본을 직접 읽으며 별도 provider relation을 만들지 않음
 
 모든 tenant table은 `company_id`를 필수로 가진다. 호텔 범위 실행·설정·일정·파일·outbox는 호텔 지점 정본 `branch_id`와 `(company_id, branch_id)` 복합 FK를 필수로 하며, 회사 공통 process·역할·권한처럼 회사 범위인 행은 `scope_type=COMPANY + branch_id IS NULL`, 호텔 범위 행은 `scope_type=HOTEL + branch_id IS NOT NULL` CHECK로 구분한다. sentinel 호텔 지점 ID나 범위 우회를 금지한다.
 
@@ -810,11 +687,11 @@ Google에 보내지 않는 값:
 - 보수 완료가 공식 점검상태를 자동 정상화하거나 재점검을 만들지 않는다.
 - 객실·공용공간·시설물 대상 무결성과 snapshot이 유지된다.
 - 31일 catch-up·초과 backlog·claim fencing·idempotent receipt가 실제 PostgreSQL에서 검증된다.
-- 취소·삭제·복구·새 일정 생성이 서로 다른 감사이력과 provider 동작을 만든다.
+- 취소·삭제·복구·새 일정 생성이 서로 다른 감사이력과 자체 Calendar canonical 결과를 만든다.
 - 전체호텔 보기와 일정 생성이 호텔별 동적 권한을 재검증한다.
-- Google에는 승인된 최소정보만 전송되고 실패가 PostgreSQL 업무를 rollback하지 않는다.
-- 앱의 browser fetch/XHR는 same-origin API만 호출하고 운영자의 명시적 Google OAuth authorization top-level navigation만 예외이며, frontend bundle·응답·브라우저 저장소에 OAuth credential·provider calendar/event ID가 없다.
-- 오래된 Google outbox version은 provider 호출 없이 superseded되고 생성·변경·취소·삭제 경쟁에서 최신 PostgreSQL version만 반영된다.
+- 외부 Calendar provider로 호텔·보수·일정정보를 전송하지 않는다.
+- 앱의 browser fetch/XHR는 same-origin API만 호출하며 frontend bundle·응답·브라우저 저장소에 외부 provider route·credential·calendar/event ID가 없다.
+- 생성·변경·취소·삭제 경쟁에서는 latest PostgreSQL version과 멱등 receipt만 반영된다.
 - 타 회사·타 호텔·회수된 권한·만료 배정의 UI·API·DB 우회가 차단된다.
 - 회사/호텔 scope CHECK, RLS·`FORCE ROW LEVEL SECURITY`, non-owner/non-`BYPASSRLS` runtime·reconciler와 직접 SQL 교차 tenant 차단을 실제 PostgreSQL에서 검증한다.
 - PC 월간·주간, 모바일 현장 카드, 키보드·포커스·스크린리더·44px 터치영역을 검증한다.

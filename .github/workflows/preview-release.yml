@@ -31,10 +31,6 @@ jobs:
       ZITADEL_CONSOLE_CLIENT_ID: ${{ vars.ZITADEL_CONSOLE_CLIENT_ID }}
       ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
       ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
-      GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}
-      GOOGLE_CALENDAR_OAUTH_REDIRECT_URI: ${{ vars.GOOGLE_CALENDAR_OAUTH_REDIRECT_URI }}
-      CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION: ${{ vars.CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION }}
-      CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION: ${{ vars.CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION }}
       PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
       WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
       API_RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-api-runtime-url
@@ -61,18 +57,14 @@ jobs:
       - name: Install Chromium for Console smoke
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Verify Google Calendar scheduled entrypoint contract
+      - name: Verify scheduled account and hotel entrypoint contract
         run: |
           pnpm exec vitest run \
-            apps/api/test/inspection-materializer.spec.ts \
-            apps/api/test/google-calendar-reconciler.spec.ts
+            apps/api/test/inspection-materializer.spec.ts
 
       - name: Validate required Preview configuration
         env:
           AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
-          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
-          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
-          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
           DATABASE_API_RUNTIME_PASSWORD_PREVIEW: ${{ secrets.DATABASE_API_RUNTIME_PASSWORD_PREVIEW }}
@@ -88,9 +80,6 @@ jobs:
           set -euo pipefail
           required=(
             AUTH_TRANSACTION_ENCRYPTION_KEY
-            GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
-            CALENDAR_CREDENTIAL_AES_KEYRING_JSON
-            CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
             DATABASE_URL
             DATABASE_URL_PREVIEW
             DATABASE_API_RUNTIME_PASSWORD_PREVIEW
@@ -106,10 +95,6 @@ jobs:
             ZITADEL_CONSOLE_CLIENT_ID
             ZITADEL_REDIRECT_URI
             ZITADEL_ORGANIZATION_ID
-            GOOGLE_CALENDAR_OAUTH_CLIENT_ID
-            GOOGLE_CALENDAR_OAUTH_REDIRECT_URI
-            CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION
-            CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION
             PREVIEW_BOOTSTRAP_APPROVAL_REF
           )
           missing=()
@@ -124,9 +109,6 @@ jobs:
             done
             exit 1
           fi
-          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
-          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
-          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
           unset DATABASE_URL
           unset DATABASE_URL_PREVIEW
           unset DATABASE_API_RUNTIME_PASSWORD_PREVIEW
@@ -786,39 +768,14 @@ jobs:
           DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
-          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
-          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
         shell: bash
         run: |
           set -euo pipefail
           printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
-          reconciler_secrets_file="$(mktemp)"
-          trap 'rm -f "$reconciler_secrets_file"' EXIT
-          export RECONCILER_SECRETS_FILE="$reconciler_secrets_file"
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          path = Path(os.environ['RECONCILER_SECRETS_FILE'])
-          path.write_text(json.dumps({
-              'GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET': os.environ['GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET'],
-              'CALENDAR_CREDENTIAL_AES_KEYRING_JSON': os.environ['CALENDAR_CREDENTIAL_AES_KEYRING_JSON'],
-              'CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON': os.environ['CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON'],
-          }))
-          path.chmod(0o600)
-          PY
-          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
-          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
-          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
-          (
-            trap 'rm -f "$reconciler_secrets_file"' EXIT
-            pnpm exec wrangler deploy \
-              --config wrangler.reconciler.preview.generated.json \
-              --secrets-file "$reconciler_secrets_file" \
-              --strict \
-              --tag "$DEPLOY_TAG"
-          )
-          rm -f "$reconciler_secrets_file"
+          pnpm exec wrangler deploy \
+            --config wrangler.reconciler.preview.generated.json \
+            --strict \
+            --tag "$DEPLOY_TAG"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
@@ -885,9 +842,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
-          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
-          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
-          CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON: ${{ secrets.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON }}
           ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
           ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
         shell: bash
@@ -905,16 +859,10 @@ jobs:
               'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
               'ZITADEL_SERVICE_USER_TOKEN': os.environ['ZITADEL_SERVICE_USER_TOKEN'],
               'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN'],
-              'GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET': os.environ['GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET'],
-              'CALENDAR_CREDENTIAL_AES_KEYRING_JSON': os.environ['CALENDAR_CREDENTIAL_AES_KEYRING_JSON'],
-              'CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON': os.environ['CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON'],
           }))
           path.chmod(0o600)
           PY
           unset AUTH_TRANSACTION_ENCRYPTION_KEY
-          unset GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET
-          unset CALENDAR_CREDENTIAL_AES_KEYRING_JSON
-          unset CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON
           unset ZITADEL_SERVICE_USER_TOKEN
           unset ZITADEL_USER_PROVISIONER_TOKEN
           (
@@ -1076,7 +1024,7 @@ jobs:
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
 
-      - name: Drain previous scheduled executions and verify exact active Workers
+      - name: Verify exact active Workers before own Calendar smoke
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -1085,7 +1033,6 @@ jobs:
           EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
         run: |
           set -euo pipefail
-          node scripts/wait-reconciler-drain.mjs
           verify_active() {
             local worker_name="$1" expected_version="$2" deployments_file
             deployments_file="$(mktemp)"
@@ -1113,14 +1060,11 @@ jobs:
           grep -qx 'PREVIEW_PROCESS_WORKS_UI_SMOKE_OK' /tmp/preview-account-smoke.log
           grep -qx 'PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK' /tmp/preview-account-smoke.log
 
-      - name: Verify hosted Preview Calendar API and responsive UI before contract
+      - name: Verify hosted Preview own Calendar and responsive UI before contract
         id: calendar_smoke
         run: |
           set -o pipefail
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK' /tmp/preview-calendar-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK' /tmp/preview-calendar-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_CALLBACK_REPLAY_COOKIE_SMOKE_OK' /tmp/preview-calendar-smoke.log
           grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-smoke.log
 
       - name: Verify exact active Workers after Calendar smoke
@@ -1152,6 +1096,26 @@ jobs:
           ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
         run: ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
 
+      - name: Drain all scheduled Reconciler invocations before contract
+        env:
+          RECONCILER_DATABASE_URL_FILE: ${{ env.RECONCILER_DATABASE_URL_FILE }}
+        run: node scripts/wait-reconciler-drain.mjs
+
+      - name: Decommission Preview Google Calendar provider artifacts and grants
+        id: google_calendar_disposition
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}
+          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
+          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
+        run: |
+          set -euo pipefail
+          output_file="$(mktemp)"
+          trap 'rm -f "$output_file"' EXIT
+          printf 'disposition_started=true\n' >> "$GITHUB_OUTPUT"
+          node scripts/decommission-google-calendar-preview.mjs | tee "$output_file"
+          grep -Eq '^PREVIEW_GOOGLE_PROVIDER_DISPOSITION_OK calendars=[0-9]+ credentials=[0-9]+$' "$output_file"
+
       - name: Contract Neon Preview tenant authority
         id: contract_database
         env:
@@ -1169,12 +1133,7 @@ jobs:
           printf 'contract_started=true\n' >> "$GITHUB_OUTPUT"
           pnpm exec tsx packages/db/scripts/provision-preview.ts
 
-      - name: Drain scheduled executions after contract
-        run: |
-          set -euo pipefail
-          node scripts/wait-reconciler-drain.mjs
-
-      - name: Verify exact active Workers before post-contract Calendar smoke
+      - name: Verify exact active Workers before post-contract own Calendar smoke
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -1203,12 +1162,9 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
           set -o pipefail
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} node scripts/smoke-calendar-preview.mjs | tee /tmp/preview-calendar-post-contract-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
-          grep -qx 'PREVIEW_CALENDAR_CALLBACK_REPLAY_COOKIE_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
           grep -qx 'PREVIEW_CALENDAR_API_UI_SMOKE_OK' /tmp/preview-calendar-post-contract-smoke.log
 
-      - name: Verify exact active Workers after post-contract Calendar smoke
+      - name: Verify exact active Workers after post-contract own Calendar smoke
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -1229,6 +1185,52 @@ jobs:
           verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
           verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
           verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
+
+      - name: Retire Preview Google Calendar Worker secrets
+        working-directory: apps/api
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          retired_keys='["GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET","CALENDAR_CREDENTIAL_AES_KEYRING_JSON","CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON"]'
+          workers=(
+            werehere-hotel-api-preview
+            werehere-hotel-account-reconciler-preview
+          )
+          for worker_name in "${workers[@]}"; do
+            before_file="$temp_dir/$worker_name-before.json"
+            after_file="$temp_dir/$worker_name-after.json"
+            pnpm exec wrangler secret list \
+              --name "$worker_name" \
+              --format json > "$before_file"
+            jq -e '
+              type == "array"
+              and all(.[]; type == "object" and (.name | type) == "string")
+            ' "$before_file" >/dev/null
+            while IFS= read -r key; do
+              if jq -e --arg key "$key" 'any(.[]; .name == $key)' "$before_file" >/dev/null; then
+                pnpm exec wrangler secret delete "$key" --name "$worker_name"
+              fi
+            done < <(jq -r '.[]' <<<"$retired_keys")
+            pnpm exec wrangler secret list \
+              --name "$worker_name" \
+              --format json > "$after_file"
+            jq -e '
+              type == "array"
+              and all(.[]; type == "object" and (.name | type) == "string")
+            ' "$after_file" >/dev/null
+            if jq -e --argjson retired "$retired_keys" '
+              any(.[]; .name as $name | $retired | index($name) != null)
+            ' "$after_file" >/dev/null; then
+              printf 'Retired provider Worker secret remains on %s.\n' "$worker_name" >&2
+              exit 1
+            fi
+          done
+          printf '%s\n' 'PREVIEW_PROVIDER_WORKER_SECRETS_REMOVED'
 
       - name: Record secure session-authority rollback baseline
         id: secure_rollback_baseline
@@ -1273,6 +1275,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CONTRACT_STARTED: ${{ steps.contract_database.outputs.contract_started }}
+          DISPOSITION_STARTED: ${{ steps.google_calendar_disposition.outputs.disposition_started }}
           API_PREVIOUS: ${{ steps.worker_snapshot.outputs.api_previous }}
           API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
           API_DEPLOY_OUTCOME: ${{ steps.deploy_api.outcome }}
@@ -1556,20 +1559,24 @@ jobs:
             fi
             return 1
           }
-          if [[ "$CONTRACT_STARTED" == "true" ]]; then
-            contract_active_failed=0
+          if [[ "$CONTRACT_STARTED" == "true" || "$DISPOSITION_STARTED" == "true" ]]; then
+            protected_active_failed=0
             [[ "$(active_worker_version werehere-hotel-api-preview)" == "$API_DEPLOYED" ]] \
-              || contract_active_failed=1
+              || protected_active_failed=1
             [[ "$(active_worker_version werehere-hotel-account-reconciler-preview)" == "$RECONCILER_DEPLOYED" ]] \
-              || contract_active_failed=1
+              || protected_active_failed=1
             [[ "$(active_worker_version werehere-hotel-web-preview)" == "$WEB_DEPLOYED" ]] \
-              || contract_active_failed=1
-            if [[ "$contract_active_failed" -ne 0 ]]; then
-              printf '%s\n' 'POST_CONTRACT_ACTIVE_WORKER_CHANGED' >&2
+              || protected_active_failed=1
+            if [[ "$protected_active_failed" -ne 0 ]]; then
+              printf '%s\n' 'POST_PROVIDER_DISPOSITION_ACTIVE_WORKER_CHANGED' >&2
             else
-              printf '%s\n' 'POST_CONTRACT_COMPATIBLE_WORKERS_PRESERVED' >&2
+              printf '%s\n' 'POST_PROVIDER_DISPOSITION_COMPATIBLE_WORKERS_PRESERVED' >&2
             fi
-            printf '%s\n' 'PREVIEW_CONTRACT_OPERATOR_RECOVERY_REQUIRED' >&2
+            if [[ "$CONTRACT_STARTED" == "true" ]]; then
+              printf '%s\n' 'PREVIEW_CONTRACT_OPERATOR_RECOVERY_REQUIRED' >&2
+            else
+              printf '%s\n' 'PREVIEW_GOOGLE_PROVIDER_DISPOSITION_OPERATOR_RECOVERY_REQUIRED' >&2
+            fi
             exit 1
           fi
 

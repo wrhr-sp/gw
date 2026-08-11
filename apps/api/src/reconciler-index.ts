@@ -13,24 +13,11 @@ import {
   reconcileInspectionMaterializationsFromBindings,
   type InspectionMaterializerBindings,
 } from "./inspections/materializer-factory";
-import {
-  reconcileGoogleCalendarsFromBindings,
-  type CalendarProjectionBindings,
-} from "./calendar-projections/factory";
 import { resolveDatabaseUrl } from "./database";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
 };
-
-function calendarProjectionConfigured(env: CalendarProjectionBindings) {
-  return Boolean(
-    env.GOOGLE_CALENDAR_OAUTH_CLIENT_ID ||
-    env.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET ||
-    env.CALENDAR_CREDENTIAL_AES_KEYRING_JSON ||
-    env.CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON,
-  );
-}
 
 async function settleScheduled(tasks: Promise<unknown>[]) {
   const settled = await Promise.allSettled(tasks);
@@ -56,8 +43,7 @@ async function settleScheduled(tasks: Promise<unknown>[]) {
 async function runScheduled(
   env: AccountReconcilerBindings &
     FileReconcilerBindings &
-    InspectionMaterializerBindings &
-    CalendarProjectionBindings,
+    InspectionMaterializerBindings,
 ) {
   const databaseUrl = resolveDatabaseUrl(env, "RECONCILER");
   if (!databaseUrl)
@@ -68,9 +54,6 @@ async function runScheduled(
       reconcileHotelFileEvidenceFromBindings(env),
       recoverExpiredHotelFileAccessGrantsFromBindings(env),
       reconcileInspectionMaterializationsFromBindings(env),
-      ...(calendarProjectionConfigured(env)
-        ? [reconcileGoogleCalendarsFromBindings(env)]
-        : []),
     ]),
   );
 }
@@ -80,8 +63,7 @@ const worker = {
     _controller: unknown,
     env: AccountReconcilerBindings &
       FileReconcilerBindings &
-      InspectionMaterializerBindings &
-      CalendarProjectionBindings,
+      InspectionMaterializerBindings,
     context: ScheduledExecutionContext,
   ) {
     context.waitUntil(runScheduled(env));

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -36,7 +37,117 @@ const facilityExecutionContractMigrationSource = readFileSync(
   "utf8",
 );
 
+const googleCalendarRemovalMigrationSource = readFileSync(
+  new URL(
+    "../migrations/0045_remove_google_calendar_projection.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+const googleCalendarProjectionMigrationSource = readFileSync(
+  new URL("../migrations/0044_google_calendar_projection.sql", import.meta.url),
+  "utf8",
+);
+const scheduledReconcilerLockMigrationSource = readFileSync(
+  new URL(
+    "../migrations/0046_scheduled_reconciler_invocation_lock.sql",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
 describe("account administration readiness contract", () => {
+  it("pins the post-CONTRACT own Calendar function body without the retired projection key", () => {
+    const declaration = "function public.hotel_calendar_events_read_v1(";
+    const functionStart =
+      googleCalendarRemovalMigrationSource.indexOf(declaration);
+    const bodyStart =
+      googleCalendarRemovalMigrationSource.indexOf(
+        "$function$",
+        functionStart,
+      ) + "$function$".length;
+    const bodyEnd = googleCalendarRemovalMigrationSource.indexOf(
+      "$function$",
+      bodyStart,
+    );
+    const body = googleCalendarRemovalMigrationSource.slice(bodyStart, bodyEnd);
+    const digest = createHash("sha256").update(body).digest("hex");
+    const providerFunctionStart =
+      googleCalendarProjectionMigrationSource.indexOf(declaration);
+    const providerBodyStart =
+      googleCalendarProjectionMigrationSource.indexOf(
+        "$function$",
+        providerFunctionStart,
+      ) + "$function$".length;
+    const providerBodyEnd = googleCalendarProjectionMigrationSource.indexOf(
+      "$function$",
+      providerBodyStart,
+    );
+    const providerDigest = createHash("sha256")
+      .update(
+        googleCalendarProjectionMigrationSource.slice(
+          providerBodyStart,
+          providerBodyEnd,
+        ),
+      )
+      .digest("hex");
+
+    expect(functionStart).toBeGreaterThanOrEqual(0);
+    expect(bodyEnd).toBeGreaterThan(bodyStart);
+    expect(body).not.toContain("calendarProjectionStatus");
+    expect(source).toContain(
+      `HOTEL_CALENDAR_EVENTS_REMOVED_SHA256 =\n  "${digest}"`,
+    );
+    const contractOnlyStart = provisionSource.indexOf(
+      "const contractOnlyMigrations = new Set([",
+    );
+    const contractOnlyEnd = provisionSource.indexOf("]);", contractOnlyStart);
+    const contractOnlySource = provisionSource.slice(
+      contractOnlyStart,
+      contractOnlyEnd,
+    );
+    expect(provisionSource).not.toContain(
+      '["0044_google_calendar_projection", "0044_google_calendar_projection.sql"]',
+    );
+    expect(contractOnlySource).not.toContain(
+      '"0044_google_calendar_projection"',
+    );
+    expect(contractOnlySource).toContain(
+      '"0045_remove_google_calendar_projection"',
+    );
+    expect(provisionSource).toContain(
+      '"0046_scheduled_reconciler_invocation_lock.sql"',
+    );
+    expect(contractOnlySource).not.toContain(
+      '"0046_scheduled_reconciler_invocation_lock"',
+    );
+    for (const routine of [
+      "scheduled_reconciler_invocation_enter_v1",
+      "scheduled_reconciler_invocation_exit_v1",
+      "scheduled_reconciler_drain_barrier_v1",
+    ]) {
+      expect(scheduledReconcilerLockMigrationSource).toContain(
+        `create or replace function public.${routine}()`,
+      );
+      expect(provisionSource).toContain(
+        `grant execute on function public.${routine}()`,
+      );
+      expect(source).toContain(`name: "${routine}"`);
+    }
+    expect(source).toContain("google_calendar_removal_marker_count");
+    expect(source).toContain("google_calendar_projection_marker_count");
+    expect(source).toContain(
+      `HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256 =\n  "${providerDigest}"`,
+    );
+    expect(source).toContain(
+      'googleCalendarProjectionPhase === "PROVIDER_PRESENT"',
+    );
+    expect(source).toContain('googleCalendarProjectionPhase === "REMOVED"');
+    expect(source).toContain(
+      'digest: "3c36b55187d36e47d690e75287aa744a1e62603982fbbe61bdb41d7f71f36b3b"',
+    );
+  });
+
   it("requires exact EXPAND and CONTRACT migration marker sets", () => {
     expect(source).toContain("expand_marker_count");
     expect(source).toContain("contract_marker_count");
@@ -69,23 +180,6 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).not.toContain(
       '"0015_neon_definer_contract_hardening",\n    "0016_hotel_relationship_management",',
     );
-  });
-
-  it("pins resource-fenced Calendar routine signatures in readiness and provisioning", () => {
-    const signatures = [
-      "public.calendar_oauth_start_v1(uuid,text,uuid,bytea,bytea,bytea,bytea,bytea,integer,text,boolean,integer,integer,uuid,text,text,text)",
-      "public.calendar_connection_command_v1(uuid,uuid,text,text,integer,uuid,integer,jsonb,text,uuid,text,text,text)",
-      "public.calendar_hotel_link_command_v1(uuid,uuid,uuid,text,text,integer,integer,integer,uuid,bytea,bytea,integer,bytea,text,uuid,text,text,text)",
-      "public.calendar_projection_failure_retry_v1(uuid,uuid,text,uuid,integer,text,uuid,text,text,text)",
-      "public.scheduled_reconciler_invocation_enter_v1()",
-      "public.scheduled_reconciler_invocation_exit_v1()",
-      "public.scheduled_reconciler_drain_barrier_v1()",
-    ];
-    const normalizedProvisionSource = provisionSource.replace(/\s+/gu, "");
-    for (const signature of signatures) {
-      expect(source).toContain(signature);
-      expect(normalizedProvisionSource).toContain(signature);
-    }
   });
 
   it("seeds exact Preview inspection permissions for the hosted checklist journey", () => {
@@ -803,9 +897,7 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       "onSchemaNotReady?: (checkpoint: string) => unknown;",
     );
-    expect(source).toContain(
-      "const schemaNotReady = (checkpoint?: string) => {",
-    );
+    expect(source).toContain("const schemaNotReady = () => {");
     expect(source).toContain("options.onSchemaNotReady?.(");
     expect(source).toContain('return { status: "SCHEMA_NOT_READY" } as const;');
     expect(provisionSource).toContain(
@@ -860,22 +952,6 @@ describe("account administration readiness contract", () => {
       expect(
         `${foundationIntegrationSource}\n${previewProvisioningIntegrationSource}`,
       ).toContain(contract);
-    }
-  });
-
-  it("provisions the current Calendar HMAC version and distinct management grants", () => {
-    for (const contract of [
-      "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION",
-      "insert into public.calendar_crypto_settings",
-      "current_hmac_key_version=excluded.current_hmac_key_version",
-      "PREVIEW_CALENDAR_CRYPTO_SETTINGS_ACL_UNSAFE",
-      "public.calendar_crypto_settings",
-      "previewCalendarConnectionManageGrantId",
-      "previewCalendarProjectionRetryGrantId",
-      "'CALENDAR_CONNECTION_MANAGE'",
-      "'CALENDAR_PROJECTION_RETRY'",
-    ]) {
-      expect(provisionSource).toContain(contract);
     }
   });
 });

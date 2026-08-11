@@ -76,7 +76,7 @@ export const hotelFeatureGuides = {
     cautions: [
       "점검은 실제 마감시각에 표시되며 별도의 종료시각을 만들어 표시하지 않습니다.",
       "하우스키핑 사용자는 권한 있는 점검과 본인에게 배정된 방문일정만 확인할 수 있습니다.",
-      "Google 미연결 상태에서도 그룹웨어 일정은 PostgreSQL 정본으로 정상 저장됩니다.",
+      "그룹웨어 일정은 PostgreSQL 정본으로 저장되며 저장 직후 자체 달력에서 다시 확인합니다.",
     ],
     featureKey: "hotel-calendar.workspace",
     permissions: ["달력 조회권한과 점검·보수 자료별 조회권한을 요청마다 다시 확인합니다."],

@@ -64,12 +64,60 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf("Deploy private API Worker"),
       workflow.indexOf("Deploy public Web Worker"),
     );
-    expect(reconcilerDeploy).toContain("RECONCILER_SECRETS_FILE");
+    expect(reconcilerDeploy).not.toContain("SECRETS_FILE");
     expect(reconcilerDeploy).not.toContain("AUTH_TRANSACTION_ENCRYPTION_KEY");
     expect(reconcilerDeploy).not.toContain("ZITADEL_SERVICE_USER_TOKEN");
+    expect(reconcilerDeploy).toContain("--strict");
     expect(apiDeploy).toContain("API_SECRETS_FILE");
     expect(apiDeploy).toContain("AUTH_TRANSACTION_ENCRYPTION_KEY");
     expect(workflow).not.toContain("werehere-api-preview-secrets.json");
+    const cleanupMarker =
+      "      - name: Retire Preview Google Calendar Worker secrets\n";
+    const cleanupStart = workflow.indexOf(cleanupMarker);
+    const cleanupEnd = workflow.indexOf(
+      "\n      - name: ",
+      cleanupStart + cleanupMarker.length,
+    );
+    expect(cleanupStart).toBeGreaterThanOrEqual(0);
+    expect(cleanupEnd).toBeGreaterThan(cleanupStart);
+    const cleanupStep = workflow.slice(cleanupStart, cleanupEnd);
+    const dispositionMarker =
+      "      - name: Decommission Preview Google Calendar provider artifacts and grants\n";
+    const dispositionStart = workflow.indexOf(dispositionMarker);
+    const dispositionEnd = workflow.indexOf(
+      "\n      - name: ",
+      dispositionStart + dispositionMarker.length,
+    );
+    expect(dispositionStart).toBeGreaterThanOrEqual(0);
+    expect(dispositionEnd).toBeGreaterThan(dispositionStart);
+    const dispositionStep = workflow.slice(dispositionStart, dispositionEnd);
+    const workflowWithoutProviderLifecycle = workflow
+      .replace(cleanupStep, "")
+      .replace(dispositionStep, "");
+    expect(workflowWithoutProviderLifecycle).not.toMatch(
+      /GOOGLE_CALENDAR|CALENDAR_CREDENTIAL|CALENDAR_FINGERPRINT/u,
+    );
+    expect(cleanupStep).not.toMatch(
+      /\$\{\{\s*(?:secrets|vars)\.(?:GOOGLE_CALENDAR|CALENDAR_)/u,
+    );
+    expect(dispositionStep).toContain("        env:\n");
+    for (const mapping of [
+      "DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}",
+      "GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}",
+      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}",
+      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}",
+    ])
+      expect(dispositionStep).toContain(mapping);
+    const dispositionRun = dispositionStep.slice(
+      dispositionStep.indexOf("        run: |"),
+    );
+    expect(dispositionRun).not.toContain("${{");
+    expect(dispositionRun).toContain(
+      "node scripts/decommission-google-calendar-preview.mjs",
+    );
+    expect(dispositionStep).not.toContain(
+      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
+    );
     const preflight = workflow.slice(
       workflow.indexOf("Validate required Preview configuration"),
       workflow.indexOf("Verify approved ZITADEL bootstrap identity"),
@@ -77,46 +125,11 @@ describe("Preview account provisioning wiring", () => {
     expect(preflight).not.toMatch(
       /CLOUDFLARE_(?:ACCOUNT_ID|API_TOKEN):\s*\$\{\{\s*secrets\./u,
     );
-    expect(reconcilerDeploy).toMatch(
-      /reconciler_secrets_file="\$\(mktemp\)"\n\s*trap 'rm -f "\$reconciler_secrets_file"' EXIT/u,
-    );
     expect(apiDeploy).toMatch(
       /api_secrets_file="\$\(mktemp\)"\n\s*trap 'rm -f "\$api_secrets_file"' EXIT/u,
     );
-    const preflightNode = preflight.slice(0, preflight.indexOf("node <<'NODE'"));
-    for (const name of [
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
-      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
-      "DATABASE_URL",
-      "DATABASE_URL_PREVIEW",
-      "DATABASE_API_RUNTIME_PASSWORD_PREVIEW",
-      "DATABASE_RECONCILER_PASSWORD_PREVIEW",
-      "ZITADEL_SERVICE_USER_TOKEN",
-      "ZITADEL_USER_PROVISIONER_TOKEN",
-      "ZITADEL_PREVIEW_SUBJECT",
-      "ZITADEL_PREVIEW_SUBJECT_SHA256",
-      "PREVIEW_BOOTSTRAP_LOGIN_ID",
-      "ZITADEL_PREVIEW_PASSWORD",
-    ])
-      expect(preflightNode).toContain(`unset ${name}`);
-    expect(reconcilerDeploy.indexOf('rm -f "$reconciler_secrets_file"')).toBeLessThan(
-      reconcilerDeploy.indexOf('deployments_file="$(mktemp)"'),
-    );
-    expect(apiDeploy.indexOf('rm -f "$api_secrets_file"')).toBeLessThan(
-      apiDeploy.indexOf('deployments_file="$(mktemp)"'),
-    );
-    for (const name of [
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
-      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
-    ])
-      expect(reconcilerDeploy).toContain(`unset ${name}`);
     for (const name of [
       "AUTH_TRANSACTION_ENCRYPTION_KEY",
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
-      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
       "ZITADEL_SERVICE_USER_TOKEN",
       "ZITADEL_USER_PROVISIONER_TOKEN",
     ])
@@ -157,9 +170,6 @@ describe("Preview account provisioning wiring", () => {
       .filter(Boolean);
     expect(required).toEqual([
       "AUTH_TRANSACTION_ENCRYPTION_KEY",
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
-      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
       "DATABASE_URL",
       "DATABASE_URL_PREVIEW",
       "DATABASE_API_RUNTIME_PASSWORD_PREVIEW",
@@ -175,10 +185,6 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_CONSOLE_CLIENT_ID",
       "ZITADEL_REDIRECT_URI",
       "ZITADEL_ORGANIZATION_ID",
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_ID",
-      "GOOGLE_CALENDAR_OAUTH_REDIRECT_URI",
-      "CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION",
-      "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION",
       "PREVIEW_BOOTSTRAP_APPROVAL_REF",
     ]);
 
@@ -200,8 +206,8 @@ describe("Preview account provisioning wiring", () => {
       .filter((line) =>
         line.startsWith("Missing required Preview configuration: "),
       );
-    expect(missingLines).toHaveLength(24);
-    expect(new Set(missingLines).size).toBe(24);
+    expect(missingLines).toHaveLength(required?.length ?? 0);
+    expect(new Set(missingLines).size).toBe(required?.length ?? 0);
     expect(preflight.indexOf("unset ZITADEL_PREVIEW_PASSWORD")).toBeGreaterThan(
       preflight.indexOf('for name in "${missing[@]}"'),
     );
@@ -308,7 +314,10 @@ describe("Preview account provisioning wiring", () => {
       if (callIndex < 0) break;
       const stepStart = workflow.lastIndexOf("\n      - name:", callIndex);
       expect(stepStart).toBeGreaterThanOrEqual(0);
-      const stepBlock = workflow.slice(stepStart, callIndex + consoleSmokeCall.length);
+      const stepBlock = workflow.slice(
+        stepStart,
+        callIndex + consoleSmokeCall.length,
+      );
       expect(stepBlock).not.toMatch(
         /^\s+(?:ZITADEL_PREVIEW_SUBJECT|PREVIEW_BOOTSTRAP_LOGIN_ID):/mu,
       );
@@ -326,8 +335,12 @@ describe("Preview account provisioning wiring", () => {
     expect(consoleSmokeCount).toBeGreaterThan(0);
 
     const accountSmoke = workflow.slice(
-      workflow.indexOf("Verify hosted Preview account management and canonical login before contract"),
-      workflow.indexOf("Verify hosted Preview Calendar API and responsive UI before contract"),
+      workflow.indexOf(
+        "Verify hosted Preview account management and canonical login before contract",
+      ),
+      workflow.indexOf(
+        "Verify hosted Preview own Calendar and responsive UI before contract",
+      ),
     );
     for (const name of [
       "ZITADEL_PREVIEW_SUBJECT",
@@ -344,11 +357,17 @@ describe("Preview account provisioning wiring", () => {
     let calendarSmokeCursor = 0;
     let calendarSmokeCount = 0;
     while (true) {
-      const callIndex = workflow.indexOf(calendarSmokeCall, calendarSmokeCursor);
+      const callIndex = workflow.indexOf(
+        calendarSmokeCall,
+        calendarSmokeCursor,
+      );
       if (callIndex < 0) break;
       const stepStart = workflow.lastIndexOf("\n      - name:", callIndex);
       expect(stepStart).toBeGreaterThanOrEqual(0);
-      const stepBlock = workflow.slice(stepStart, callIndex + calendarSmokeCall.length);
+      const stepBlock = workflow.slice(
+        stepStart,
+        callIndex + calendarSmokeCall.length,
+      );
       expect(stepBlock).not.toMatch(/^\s+ZITADEL_PREVIEW_SUBJECT:/mu);
       const invocationStart = workflow.lastIndexOf("\n", callIndex) + 1;
       const invocationEnd = workflow.indexOf("\n", callIndex);
@@ -368,13 +387,10 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf("Record secure session-authority rollback baseline"),
     );
     expect(postContract).toContain("node scripts/smoke-calendar-preview.mjs");
-    for (const marker of [
-      "PREVIEW_CALENDAR_PROJECTION_EVIDENCE_SMOKE_OK",
-      "PREVIEW_CALENDAR_STRICT_STATUS_DTO_SMOKE_OK",
-      "PREVIEW_CALENDAR_CALLBACK_REPLAY_COOKIE_SMOKE_OK",
-      "PREVIEW_CALENDAR_API_UI_SMOKE_OK",
-    ])
-      expect(postContract).toContain(marker);
+    expect(postContract).toContain("PREVIEW_CALENDAR_API_UI_SMOKE_OK");
+    expect(postContract).not.toMatch(
+      /PROJECTION_EVIDENCE|STRICT_STATUS_DTO|CALLBACK_REPLAY/u,
+    );
   });
 
   it("accepts only complete, empty, or the exact reconciler bootstrap Worker topology", () => {
@@ -509,19 +525,12 @@ describe("Preview account provisioning wiring", () => {
         /^[A-Z][A-Z0-9_]*=\S+ \\$/u.test(line),
       ),
     ).toBe(true);
-    expect(ciApiRenderEnvironment).toContain(
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_ID=preview-calendar-client",
+    expect(ciApiRenderEnvironment).not.toMatch(
+      /GOOGLE_CALENDAR|CALENDAR_CREDENTIAL|CALENDAR_FINGERPRINT/u,
     );
-    expect(ciApiRenderEnvironment).toContain(
-      "GOOGLE_CALENDAR_OAUTH_REDIRECT_URI=https://preview.invalid/api/admin/calendar-connections/oauth/callback",
+    expect(ciWorkflow).not.toMatch(
+      /GOOGLE_CALENDAR|CALENDAR_CREDENTIAL|CALENDAR_FINGERPRINT/u,
     );
-    expect(ciApiRenderEnvironment).toContain(
-      "CALENDAR_CREDENTIAL_AES_CURRENT_KEY_VERSION=1",
-    );
-    expect(ciApiRenderEnvironment).toContain(
-      "CALENDAR_FINGERPRINT_HMAC_CURRENT_KEY_VERSION=1",
-    );
-    expect(ciWorkflow).not.toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
     expect(ciWorkflow).toContain(
       "API_HYPERDRIVE_ID=00000000000000000000000000000000",
     );
@@ -572,6 +581,10 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerEntry).toContain(
       "reconcileInspectionMaterializationsFromBindings(env)",
     );
+    expect(reconcilerEntry).toContain(
+      "withPostgresScheduledReconcilerInvocation",
+    );
+    expect(reconcilerEntry).toContain('resolveDatabaseUrl(env, "RECONCILER")');
     expect(reconcilerEntry).toContain("Promise.allSettled(tasks)");
     expect(reconcilerEntry).toContain("SCHEDULED_RECONCILIATION_FAILED");
     expect(reconcilerEntry).not.toContain("fetch(");
@@ -581,44 +594,121 @@ describe("Preview account provisioning wiring", () => {
   it("dry-runs the Reconciler artifact in CI and fences hosted smoke to exact active Worker versions", () => {
     expect(ciWorkflow).toContain("render-reconciler-preview-config.mjs");
     expect(ciWorkflow).toContain("wrangler.reconciler.preview.generated.json");
-    expect(ciWorkflow).toContain("RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000");
-    expect(ciWorkflow).toContain("--dry-run --config wrangler.reconciler.preview.generated.json");
-    const beforeSmoke = workflow.slice(
-      workflow.indexOf("Drain previous scheduled executions and verify exact active Workers"),
-      workflow.indexOf("Verify public Preview path and bootstrap mapping before contract"),
+    expect(ciWorkflow).toContain(
+      "RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000",
     );
-    expect(beforeSmoke).toContain("node scripts/wait-reconciler-drain.mjs");
+    expect(ciWorkflow).toContain(
+      "--dry-run --config wrangler.reconciler.preview.generated.json",
+    );
+    const beforeSmoke = workflow.slice(
+      workflow.indexOf("Verify exact active Workers before own Calendar smoke"),
+      workflow.indexOf(
+        "Verify public Preview path and bootstrap mapping before contract",
+      ),
+    );
+    expect(beforeSmoke).not.toContain("wait-reconciler-drain");
     expect(beforeSmoke).not.toContain("sleep 35");
-    expect(beforeSmoke).toContain("steps.deploy_reconciler.outputs.deployed_version");
+    const contractDrain = workflow.slice(
+      workflow.indexOf(
+        "Verify hosted Preview Console credential and callback before contract",
+      ),
+      workflow.indexOf("Contract Neon Preview tenant authority"),
+    );
+    expect(contractDrain).toContain("node scripts/wait-reconciler-drain.mjs");
+    expect(contractDrain).toContain("RECONCILER_DATABASE_URL_FILE");
+    expect(contractDrain).toContain(
+      "node scripts/decommission-google-calendar-preview.mjs",
+    );
+    expect(contractDrain).toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
+    expect(contractDrain).toContain("CALENDAR_CREDENTIAL_AES_KEYRING_JSON");
+    expect(contractDrain.indexOf("wait-reconciler-drain.mjs")).toBeLessThan(
+      contractDrain.indexOf("decommission-google-calendar-preview.mjs"),
+    );
+    expect(contractDrain).not.toContain("sleep 35");
+    expect(contractDrain).toContain(
+      "printf 'disposition_started=true\\n' >> \"$GITHUB_OUTPUT\"",
+    );
+    const rollback = workflow.slice(
+      workflow.indexOf("Roll back failed Worker release"),
+      workflow.indexOf("Remove transient credential files"),
+    );
+    expect(rollback).toContain(
+      "DISPOSITION_STARTED: ${{ steps.google_calendar_disposition.outputs.disposition_started }}",
+    );
+    expect(rollback).toContain(
+      '[[ "$CONTRACT_STARTED" == "true" || "$DISPOSITION_STARTED" == "true" ]]',
+    );
+    expect(rollback).toContain(
+      "PREVIEW_GOOGLE_PROVIDER_DISPOSITION_OPERATOR_RECOVERY_REQUIRED",
+    );
+    expect(beforeSmoke).toContain(
+      "steps.deploy_reconciler.outputs.deployed_version",
+    );
     expect(beforeSmoke).toContain("steps.deploy_api.outputs.deployed_version");
     expect(beforeSmoke).toContain("steps.deploy_web.outputs.deployed_version");
     expect(beforeSmoke.match(/percentage == 100/gu)).toHaveLength(1);
     const afterCalendar = workflow.slice(
-      workflow.indexOf("Verify hosted Preview Calendar API and responsive UI before contract"),
-      workflow.indexOf("Verify hosted Preview Console credential and callback before contract"),
+      workflow.indexOf(
+        "Verify hosted Preview own Calendar and responsive UI before contract",
+      ),
+      workflow.indexOf(
+        "Verify hosted Preview Console credential and callback before contract",
+      ),
     );
-    expect(afterCalendar).toContain("Verify exact active Workers after Calendar smoke");
-    expect(afterCalendar).toContain("steps.deploy_reconciler.outputs.deployed_version");
-    expect(afterCalendar).toContain("steps.deploy_api.outputs.deployed_version");
-    expect(afterCalendar).toContain("steps.deploy_web.outputs.deployed_version");
+    expect(afterCalendar).toContain(
+      "Verify exact active Workers after Calendar smoke",
+    );
+    expect(afterCalendar).toContain(
+      "steps.deploy_reconciler.outputs.deployed_version",
+    );
+    expect(afterCalendar).toContain(
+      "steps.deploy_api.outputs.deployed_version",
+    );
+    expect(afterCalendar).toContain(
+      "steps.deploy_web.outputs.deployed_version",
+    );
     const postContract = workflow.slice(
       workflow.indexOf("Contract Neon Preview tenant authority"),
       workflow.indexOf("Record secure session-authority rollback baseline"),
     );
-    expect(postContract).toContain("Verify exact active Workers before post-contract Calendar smoke");
-    expect(postContract).toContain("Verify exact active Workers after post-contract Calendar smoke");
-    expect(postContract.match(/steps\.deploy_reconciler\.outputs\.deployed_version/gu)).toHaveLength(2);
-    expect(postContract.match(/steps\.deploy_api\.outputs\.deployed_version/gu)).toHaveLength(2);
-    expect(postContract.match(/steps\.deploy_web\.outputs\.deployed_version/gu)).toHaveLength(2);
-    expect(workflow.match(/pnpm --filter @werehere\/api exec wrangler deployments list/gu)).toHaveLength(10);
+    expect(postContract).toContain(
+      "Verify exact active Workers before post-contract own Calendar smoke",
+    );
+    expect(postContract).toContain(
+      "Verify exact active Workers after post-contract own Calendar smoke",
+    );
+    expect(
+      postContract.match(
+        /steps\.deploy_reconciler\.outputs\.deployed_version/gu,
+      ),
+    ).toHaveLength(2);
+    expect(
+      postContract.match(/steps\.deploy_api\.outputs\.deployed_version/gu),
+    ).toHaveLength(2);
+    expect(
+      postContract.match(/steps\.deploy_web\.outputs\.deployed_version/gu),
+    ).toHaveLength(2);
+    expect(
+      workflow.match(
+        /pnpm --filter @werehere\/api exec wrangler deployments list/gu,
+      ),
+    ).toHaveLength(10);
     expect(workflow).not.toContain("pnpm exec wrangler deployments list");
   });
 
   it("pins every CI third-party action to the reviewed immutable commit", () => {
-    expect(ciWorkflow).toContain("actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1");
-    expect(ciWorkflow).toContain("pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996");
-    expect(ciWorkflow).toContain("actions/setup-node@820762786026740c76f36085b0efc47a31fe5020");
-    expect(ciWorkflow).toContain("actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a");
+    expect(ciWorkflow).toContain(
+      "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    );
+    expect(ciWorkflow).toContain(
+      "pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996",
+    );
+    expect(ciWorkflow).toContain(
+      "actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
+    );
+    expect(ciWorkflow).toContain(
+      "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    );
     expect(ciWorkflow).not.toMatch(/uses:\s+(?:actions|pnpm)\/[^@\s]+@v\d+/u);
   });
 });

@@ -1,7 +1,5 @@
 import {
   calendarCapabilitiesResponseSchema,
-  calendarConnectionRoutes,
-  calendarConnectionStatusResponseSchema,
   calendarEventsResponseSchema,
   calendarRoutes,
   hotelErrorResponseSchema,
@@ -37,14 +35,6 @@ export async function fetchCalendarCapabilities() {
   if (!response.ok) return { canViewAllHotels: false, hotels: [] };
   const parsed = calendarCapabilitiesResponseSchema.safeParse(await response.json().catch(() => undefined));
   return parsed.success ? parsed.data.data : { canViewAllHotels: false, hotels: [] };
-}
-
-export async function fetchCalendarConnectionStatus() {
-  const response=await request(calendarConnectionRoutes.status);
-  if(response.status===401)redirect("/login");
-  if(!response.ok)return {ok:false as const,forbidden:response.status===403,error:errorMessage(await response.json().catch(()=>undefined),"Google Calendar 연결 상태를 확인하지 못했습니다.")};
-  const parsed=calendarConnectionStatusResponseSchema.safeParse(await response.json().catch(()=>undefined));
-  return parsed.success?{ok:true as const,data:parsed.data.data}:{ok:false as const,forbidden:false,error:"Google Calendar 연결 상태 응답을 안전하게 확인하지 못했습니다."};
 }
 
 export async function fetchCalendar(hotelId: string | null) {

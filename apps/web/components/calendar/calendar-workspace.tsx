@@ -37,14 +37,6 @@ export function seoulLocalDateTimeToInstant(value: string) {
 export function sameInstant(left: string, right: string) {
   return Temporal.Instant.compare(Temporal.Instant.from(left), Temporal.Instant.from(right)) === 0;
 }
-export function calendarProjectionLabel(status: "NOT_CONNECTED" | "PENDING" | "SYNCED" | "ACTION_REQUIRED") {
-  return {
-    NOT_CONNECTED: "Google 미연결",
-    PENDING: "Google 반영 대기",
-    SYNCED: "Google 반영 완료",
-    ACTION_REQUIRED: "Google 확인 필요",
-  }[status];
-}
 type VisitOperation = { fingerprint: string; key: string };
 type VisitOperationStore = Record<string, { key: string }>;
 function visitOperationStore(): VisitOperationStore {
@@ -205,7 +197,7 @@ function CalendarWorkspaceContent({ initialData, initialScope }: { initialData: 
           <strong>{dateLabel(selectedDate)}</strong>
           <button aria-label="다음 날짜" className="grid min-h-11 min-w-11 place-items-center rounded-button" onClick={() => setSelectedDate(new Date(Date.parse(`${selectedDate}T00:00:00Z`) + 86400000).toISOString().slice(0,10))} type="button"><ChevronRight/></button>
         </div>
-        {dayEvents.length === 0 ? <div className="rounded-panel border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">선택한 날짜에 업무가 없습니다.</div> : dayEvents.map((event) => <button key={`${event.type}:${event.id}`} className="w-full rounded-panel border border-border bg-surface p-4 text-left shadow-sm" onClick={() => setSelectedEventId(event.id)} type="button"><span className="text-xs font-semibold text-primary">{event.type === "INSPECTION" ? "점검 마감" : "보수 방문"}</span><strong className="mt-1 block">{event.title}</strong><span className="mt-2 block text-sm text-muted">{timeLabel(event.startsAt)} · {event.hotelName}</span><span className="mt-1 block text-sm">{event.targetSummary}</span>{event.type === "REPAIR_VISIT" ? <span className="mt-1 block text-xs text-muted">{calendarProjectionLabel(event.calendarProjectionStatus)}</span> : null}</button>)}
+        {dayEvents.length === 0 ? <div className="rounded-panel border border-dashed border-border bg-surface p-6 text-center text-sm text-muted">선택한 날짜에 업무가 없습니다.</div> : dayEvents.map((event) => <button key={`${event.type}:${event.id}`} className="w-full rounded-panel border border-border bg-surface p-4 text-left shadow-sm" onClick={() => setSelectedEventId(event.id)} type="button"><span className="text-xs font-semibold text-primary">{event.type === "INSPECTION" ? "점검 마감" : "보수 방문"}</span><strong className="mt-1 block">{event.title}</strong><span className="mt-2 block text-sm text-muted">{timeLabel(event.startsAt)} · {event.hotelName}</span><span className="mt-1 block text-sm">{event.targetSummary}</span></button>)}
         {selected ? <EventDetail event={selected} selectedDate={selectedDate} events={dayEvents}/> : null}
       </div>
       {createOpen ? <CreateVisitPanel
@@ -242,7 +234,6 @@ function EventDetail({ event, selectedDate, events }: { event: CalendarEvent | n
             <dt className="text-muted">시작</dt><dd>{dateLabel(localDate(event.startsAt))} {timeLabel(event.startsAt)}</dd>
             <dt className="text-muted">대상</dt><dd>{event.targetSummary}</dd>
             <dt className="text-muted">상태</dt><dd>{event.status}</dd>
-            {event.type === "REPAIR_VISIT" ? <><dt className="text-muted">Google</dt><dd>{calendarProjectionLabel(event.calendarProjectionStatus)}</dd></> : null}
           </dl>
           <Link className="inline-flex min-h-11 items-center rounded-button border border-border px-4 text-sm font-semibold" href={event.detailHref}>
             {event.type === "INSPECTION" ? "점검 화면 열기" : "보수 화면에서 변경"}

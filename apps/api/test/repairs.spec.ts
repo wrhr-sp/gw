@@ -13,7 +13,6 @@ const principal = {
 const hotelId = "50000000-0000-4000-8000-000000000001";
 const repairId = "a1000000-0000-4000-8000-000000000001";
 const repair = {
-  calendarProjectionStatus: "NOT_CONNECTED" as const,
   createdAt: "2026-08-06T12:00:00.000Z",
   followUpCount: 0,
   hotelId,
@@ -62,66 +61,7 @@ function repository(payload: unknown) {
   };
 }
 
-const validVisit = {
-  calendarProjectionStatus: "NOT_CONNECTED" as const,
-  endsAt: "2026-08-10T04:00:00.000Z",
-  fileVersionIds: [],
-  id: "a5000000-0000-4000-8000-000000000001",
-  performer: { type: "INTERNAL" as const, userId: principal.userId },
-  repairCaseId: repairId,
-  result: null,
-  startsAt: "2026-08-10T03:00:00.000Z",
-  status: "SCHEDULED" as const,
-  title: "배관 점검",
-  unavailableReason: null,
-  version: 1,
-};
-
-function malformedVisit(kind: "extra" | "missing") {
-  if (kind === "extra") return { ...validVisit, unexpected: "unsafe" };
-  const missing: Partial<typeof validVisit> = { ...validVisit };
-  delete missing.title;
-  return missing;
-}
-
 describe("repair service", () => {
-  it.each([
-    ["create", "missing"],
-    ["create", "extra"],
-    ["update", "missing"],
-    ["update", "extra"],
-  ] as const)("rejects malformed %s visit %s-field receipts before returning success", async (operation, kind) => {
-    const repo = repository(null);
-    repo.visitCommand.mockResolvedValue({
-      status: operation === "create" ? "CREATED" : "UPDATED",
-      payload: malformedVisit(kind),
-    });
-    const service = createRepairService(repo);
-    const result = operation === "create"
-      ? service.createVisit(
-          principal,
-          hotelId,
-          {
-            endsAt: validVisit.endsAt,
-            performer: validVisit.performer,
-            repairCaseId: repairId,
-            startsAt: validVisit.startsAt,
-            title: validVisit.title,
-          },
-          `visit-${operation}-${kind}`,
-        )
-      : service.visitMutation(
-          principal,
-          hotelId,
-          validVisit.id,
-          "UPDATE",
-          1,
-          { endsAt: validVisit.endsAt, startsAt: validVisit.startsAt, title: validVisit.title },
-          `visit-${operation}-${kind}`,
-        );
-    await expect(result).rejects.toMatchObject({ code: "INTERNAL_ERROR", httpStatus: 500 });
-  });
-
   it("returns the canonical DB detail and does not synthesize provider success", async () => {
     const repo = repository({ repair });
     const service = createRepairService(repo);
@@ -137,8 +77,18 @@ describe("repair service", () => {
     });
   });
 
+  it("accepts the pre-CONTRACT repair snapshot but strips its retired projection key", async () => {
+    const legacyRepair = { ...repair, calendarProjectionStatus: "NOT_CONNECTED" };
+    const repo = repository({ repair: legacyRepair });
+    const service = createRepairService(repo);
+
+    const result = await service.getRepair(principal, hotelId, repairId);
+    expect(result).toEqual(repair);
+    expect(result).not.toHaveProperty("calendarProjectionStatus");
+  });
+
   it("uses the canonical method/path/body hash boundary for direct creation", async () => {
-    const payload = { repair };
+    const payload = { repair: { ...repair, calendarProjectionStatus: "NOT_CONNECTED" } };
     const repo = repository(payload);
     const service = createRepairService(repo);
     const request = {
