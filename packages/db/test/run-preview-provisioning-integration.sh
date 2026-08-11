@@ -945,12 +945,27 @@ SQL
 run_provision CONTRACT >/dev/null
 CALENDAR_CANARY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select concat(
+  (select count(*) from public.branches
+    where id = '74900000-0000-4000-8000-000000000002'
+      and company_id = '70000000-0000-4000-8000-000000000001'
+      and branch_code = 'PREVIEW-CALENDAR-CANARY'
+      and name = 'Preview Calendar 검증 호텔'
+      and branch_type = 'HOTEL' and status = 'ACTIVE' and version = 1), '|',
+  (select count(*) from public.hotel_profiles
+    where company_id = '70000000-0000-4000-8000-000000000001'
+      and branch_id = '74900000-0000-4000-8000-000000000002'
+      and hotel_status = 'ACTIVE' and business_timezone = 'Asia/Seoul'
+      and road_address = '서울특별시 중구 세종대로 1'
+      and detail_address = 'Preview Calendar canary'
+      and representative_phone = '02-0000-0000'
+      and contract_start_date = '2026-01-01'
+      and contract_end_date = '2099-12-31' and version = 1), '|',
   (select count(*) from public.hotel_common_areas
-    where id = '75000000-0000-4000-8000-000000000001'
+    where id = '75000000-0000-4000-8000-000000000002'
       and name = 'Preview Calendar 검증구역'
       and status = 'ACTIVE' and version = 1), '|',
   (select count(*) from public.hotel_repair_priorities
-    where id = '76000000-0000-4000-8000-000000000001'
+    where id = '76000000-0000-4000-8000-000000000002'
       and name = 'Preview Calendar 검증'
       and sort_order = 99999 and color = 'TEAL'
       and status = 'ACTIVE' and version = 1), '|',
@@ -960,55 +975,64 @@ select concat(
       and subject_id = '71000000-0000-4000-8000-000000000001'
       and effect = 'ALLOW' and version = 1), '|',
   (select count(*) from public.hotel_staff_assignments
-    where id = '76100000-0000-4000-8000-000000000001'
+    where id = '76100000-0000-4000-8000-000000000002'
+      and branch_id = '74900000-0000-4000-8000-000000000002'
       and user_id = '71000000-0000-4000-8000-000000000001'
       and assignment_type = 'SUPPORT' and start_date = '2026-01-01'
       and end_date is null and terminated_at is null and version = 1), '|',
   (select count(*) from public.process_definitions
-    where id = '77000000-0000-4000-8000-000000000001'
+    where id = '77000000-0000-4000-8000-000000000002'
+      and branch_id = '74900000-0000-4000-8000-000000000002'
       and application_type = 'REPAIR_CASE'
-      and current_revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+      and current_revision_id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_stage_snapshots
-    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+    where revision_id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_transition_snapshots
-    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+    where revision_id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.hotel_process_defaults
-    where application_type = 'REPAIR_CASE'
-      and definition_id = '77000000-0000-4000-8000-000000000001'
-      and revision_id = '77100000-0000-4000-8000-000000000001')
+    where branch_id = '74900000-0000-4000-8000-000000000002'
+      and application_type = 'REPAIR_CASE'
+      and definition_id = '77000000-0000-4000-8000-000000000002'
+      and revision_id = '77100000-0000-4000-8000-000000000002')
 );
 SQL
 )"
-if [[ "$CALENDAR_CANARY_STATE" != '1|1|1|1|1|2|1|1' ]]; then
+if [[ "$CALENDAR_CANARY_STATE" != '1|1|1|1|1|1|1|2|1|1' ]]; then
   printf '%s\n' 'Preview Calendar canary baseline was not provisioned exactly.' >&2
   exit 1
 fi
 run_provision CONTRACT >/dev/null
 CALENDAR_CANARY_RETRY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select concat(
+  (select count(*) from public.branches
+    where id = '74900000-0000-4000-8000-000000000002'), '|',
+  (select count(*) from public.hotel_profiles
+    where company_id = '70000000-0000-4000-8000-000000000001'
+      and branch_id = '74900000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.hotel_common_areas
-    where id = '75000000-0000-4000-8000-000000000001'), '|',
+    where id = '75000000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.hotel_repair_priorities
-    where id = '76000000-0000-4000-8000-000000000001'), '|',
+    where id = '76000000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.permission_grants
     where id = '73000000-0000-4000-8000-000000000023'), '|',
   (select count(*) from public.hotel_staff_assignments
-    where id = '76100000-0000-4000-8000-000000000001'), '|',
+    where id = '76100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_definitions
-    where id = '77000000-0000-4000-8000-000000000001'), '|',
+    where id = '77000000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_definition_revisions
-    where id = '77100000-0000-4000-8000-000000000001'), '|',
+    where id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_stage_snapshots
-    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+    where revision_id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.process_transition_snapshots
-    where revision_id = '77100000-0000-4000-8000-000000000001'), '|',
+    where revision_id = '77100000-0000-4000-8000-000000000002'), '|',
   (select count(*) from public.hotel_process_defaults
-    where application_type = 'REPAIR_CASE'
-      and definition_id = '77000000-0000-4000-8000-000000000001')
+    where branch_id = '74900000-0000-4000-8000-000000000002'
+      and application_type = 'REPAIR_CASE'
+      and definition_id = '77000000-0000-4000-8000-000000000002')
 );
 SQL
 )"
-if [[ "$CALENDAR_CANARY_RETRY_STATE" != '1|1|1|1|1|1|2|1|1' ]]; then
+if [[ "$CALENDAR_CANARY_RETRY_STATE" != '1|1|1|1|1|1|1|1|2|1|1' ]]; then
   printf '%s\n' 'Preview Calendar canary baseline retry was not idempotent.' >&2
   exit 1
 fi

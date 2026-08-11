@@ -82,9 +82,16 @@ describe("hotel repair lifecycle migration", () => {
       expect(readiness).toContain(contract);
       expect(provision).toContain(contract);
     }
+    expect(provision).toContain("'PREVIEW-CALENDAR-CANARY'");
+    expect(provision).toContain("'Preview Calendar 검증 호텔', 'ACTIVE', 1");
+    expect(provision).toContain("'ACTIVE', 'Asia/Seoul', 1");
+    expect(provision).toContain("previewCalendarCanaryHotelId");
+    expect(provision).not.toContain("const existingCanaryAreas");
+    expect(provision).not.toContain("let canaryHotelId");
     for (const canaryContract of [
       "previewRepairCreateGrantId",
       "previewCalendarCanaryCommonAreaId",
+      "previewCalendarCanaryHotelId",
       "previewCalendarCanaryPriorityId",
       "previewCalendarCanaryPerformerAssignmentId",
       "previewCalendarCanaryProcessDefinitionId",
