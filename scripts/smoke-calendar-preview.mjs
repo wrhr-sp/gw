@@ -17,16 +17,29 @@ const baseUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
 const mutationMode = process.env.PREVIEW_CALENDAR_REQUIRE_MUTATION?.trim();
+const ownerDatabaseUrl =
+  process.env.PREVIEW_CALENDAR_OWNER_DATABASE_URL?.trim();
 if (mutationMode && mutationMode !== "1")
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 const requireMutation = mutationMode === "1";
 const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";
 const canaryPriorityId = "76000000-0000-4000-8000-000000000002";
-if (!baseUrl?.startsWith("https://") || !bootstrapSubject || !apiUrlFile)
+const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
+  "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c";
+const repairCaseCatchAll = `exception when sqlstate '55000' then return query select case when sqlerrm in ('REPAIR_EVIDENCE_REQUIRED','REPAIR_FOLLOW_UP_INVALID','REPAIR_COMPLETED_LOCKED') then sqlerrm else 'REPAIR_FOLLOW_UP_INVALID' end,null::jsonb; when foreign_key_violation or check_violation or invalid_text_representation then return query select 'REPAIR_FOLLOW_UP_INVALID',null::jsonb;`;
+if (
+  !baseUrl?.startsWith("https://") ||
+  !bootstrapSubject ||
+  !apiUrlFile ||
+  (requireMutation && !ownerDatabaseUrl)
+)
   throw new Error("PREVIEW_CALENDAR_SMOKE_CONFIGURATION_INVALID");
 
 const databaseUrl = (await readFile(apiUrlFile, "utf8")).trim();
 const sql = postgres(databaseUrl, { max: 1, prepare: false });
+const ownerSql = requireMutation
+  ? postgres(ownerDatabaseUrl, { max: 1, prepare: false })
+  : null;
 const token = randomBytes(32).toString("base64url");
 const tokenHash = createHash("sha256").update(token, "utf8").digest();
 const sessionId = randomUUID();
@@ -68,6 +81,140 @@ async function api(path, options = {}) {
     );
   }
   return payload.data;
+}
+
+async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
+  if (!ownerSql)
+    throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_CONFIGURATION_INVALID");
+  const rollbackSignal = new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK");
+  let diagnosticMarker = null;
+  try {
+    await ownerSql.begin(async (transaction) => {
+      const [functionRecord] = await transaction`
+        select pg_catalog.pg_get_functiondef(function_record.oid) as definition,
+               pg_catalog.encode(
+                 pg_catalog.sha256(
+                   pg_catalog.convert_to(function_record.prosrc, 'UTF8')
+                 ),
+                 'hex'
+               ) as source_sha256
+          from pg_catalog.pg_proc function_record
+         where function_record.oid = pg_catalog.to_regprocedure(
+           'public.hotel_repair_case_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+         )
+      `;
+      if (
+        functionRecord?.source_sha256 !== HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 ||
+        typeof functionRecord.definition !== "string"
+      )
+        throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_SOURCE_INVALID");
+      const canonicalHeader =
+        "CREATE OR REPLACE FUNCTION public.hotel_repair_case_command_v1(";
+      const temporaryHeader =
+        "CREATE OR REPLACE FUNCTION pg_temp.preview_hotel_repair_case_probe_v1(";
+      if (
+        functionRecord.definition.indexOf(canonicalHeader) < 0 ||
+        functionRecord.definition.indexOf(canonicalHeader) !==
+          functionRecord.definition.lastIndexOf(canonicalHeader) ||
+        functionRecord.definition.indexOf(repairCaseCatchAll) < 0 ||
+        functionRecord.definition.indexOf(repairCaseCatchAll) !==
+          functionRecord.definition.lastIndexOf(repairCaseCatchAll)
+      )
+        throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_SOURCE_INVALID");
+      const diagnosticDefinition = functionRecord.definition
+        .replace(canonicalHeader, temporaryHeader)
+        .replace(repairCaseCatchAll, "exception when others then raise;");
+      await transaction.unsafe(
+        "create temporary table preview_calendar_temp_schema_guard(id integer) on commit drop",
+      );
+      await transaction.unsafe(diagnosticDefinition);
+      await transaction`
+        select set_config('app.company_id', ${companyId}, true),
+               set_config('app.session_id', ${sessionId}, true),
+               set_config('TimeZone', 'Asia/Seoul', true)
+      `;
+      await transaction.unsafe("savepoint preview_calendar_constraint_probe");
+      try {
+        const probeRows = await transaction`
+          select * from pg_temp.preview_hotel_repair_case_probe_v1(
+            ${companyId}::uuid,
+            ${hotelId}::uuid,
+            ${value.repairCaseId}::uuid,
+            ${"CREATE_DIRECT"},
+            0,
+            ${transaction.json(value)}::jsonb,
+            ${token},
+            ${randomUUID()}::uuid,
+            ${randomUUID()},
+            ${"POST"},
+            ${`/api/hotels/${hotelId}/repairs`},
+            ${createHash("sha256").update(JSON.stringify(value)).digest("hex")},
+            ${randomUUID()}::uuid,
+            ${randomUUID()}::uuid
+          )
+        `;
+        const safeStatus =
+          typeof probeRows[0]?.command_status === "string" &&
+          /^[A-Z_]+$/u.test(probeRows[0].command_status)
+            ? probeRows[0].command_status
+            : "UNKNOWN";
+        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_NONE_CONSTRAINT_NONE_STATUS_${safeStatus}`;
+      } catch (constraintError) {
+        const errorRecord =
+          constraintError && typeof constraintError === "object"
+            ? constraintError
+            : {};
+        const sqlstate =
+          typeof errorRecord.code === "string" &&
+          /^[0-9A-Z]{5}$/u.test(errorRecord.code)
+            ? errorRecord.code
+            : "UNKNOWN";
+        const rawConstraint =
+          typeof errorRecord.constraint_name === "string"
+            ? errorRecord.constraint_name
+            : typeof errorRecord.constraint === "string"
+              ? errorRecord.constraint
+              : "NONE";
+        const constraint = /^[A-Za-z0-9_]{1,128}$/u.test(rawConstraint)
+          ? rawConstraint.toUpperCase()
+          : "UNKNOWN";
+        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}`;
+      } finally {
+        await transaction.unsafe(
+          "rollback to savepoint preview_calendar_constraint_probe",
+        );
+      }
+      const readRows = await transaction`
+        select * from public.hotel_repair_read_v1(
+          ${companyId}::uuid,
+          ${hotelId}::uuid,
+          ${value.repairCaseId}::uuid,
+          ${transaction.json({})}::jsonb,
+          ${token}
+        )
+      `;
+      if (
+        readRows.length !== 1 ||
+        readRows[0]?.command_status !== "NOT_FOUND" ||
+        readRows[0]?.result_snapshot !== null
+      )
+        throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_INVALID");
+      throw rollbackSignal;
+    });
+  } catch (diagnosticError) {
+    if (diagnosticError !== rollbackSignal)
+      throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_PROBE_FAILED");
+  }
+  const [temporaryFunctionState] = await ownerSql`
+    select pg_catalog.to_regprocedure(
+      'pg_temp.preview_hotel_repair_case_probe_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+    ) is null as absent
+  `;
+  if (!temporaryFunctionState?.absent || !diagnosticMarker)
+    throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_INVALID");
+  console.log("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
+  console.log(diagnosticMarker);
+  throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_DIAGNOSTIC_CAPTURED");
 }
 
 async function probeCreateDirectRollback({ companyId, hotelId, value }) {
@@ -130,6 +277,7 @@ async function probeCreateDirectRollback({ companyId, hotelId, value }) {
   )
     throw new Error("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
   if (commandStatus !== "CREATED") {
+    await diagnoseCreateDirectConstraint({ companyId, hotelId, value });
     const safeStatus =
       typeof commandStatus === "string" && /^[A-Z_]+$/u.test(commandStatus)
         ? commandStatus
@@ -405,5 +553,6 @@ try {
       },
     );
   }
+  if (ownerSql) await ownerSql.end({ timeout: 5 }).catch(() => undefined);
   await sql.end({ timeout: 5 }).catch(() => undefined);
 }
