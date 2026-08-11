@@ -9,6 +9,10 @@ const smokeUrl = new URL(
 );
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
+const workflow = readFileSync(
+  new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
+  "utf8",
+);
 
 describe("hosted Preview Calendar smoke", () => {
   it("is executable and verifies the canonical own-Calendar API, UI, and Axe", () => {
@@ -55,6 +59,19 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_PROBE_FAILED");
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
+    expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_DIAGNOSTIC_CAPTURED");
+    expect(source).toContain("pg_get_functiondef");
+    expect(source).toContain("pg_temp.preview_hotel_repair_case_probe_v1");
+    expect(source).toContain("savepoint preview_calendar_constraint_probe");
+    expect(source).toContain(
+      "rollback to savepoint preview_calendar_constraint_probe",
+    );
+    expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
+    expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
+    expect(source).toContain("HOTEL_REPAIR_CASE_COMMAND_V1_SHA256");
+    expect(source).not.toContain("constraintError.message");
+    expect(source).not.toContain("console.log(ownerDatabaseUrl)");
+    expect(source).not.toContain("console.error(ownerDatabaseUrl)");
     expect(source).toContain("hotel_repair_read_v1");
     expect(source).toContain("throw rollbackSignal");
     expect(source).not.toContain("probeError.message");
@@ -80,6 +97,10 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).not.toContain("/api/admin/process-definitions");
     expect(source).not.toContain("calendarProjectionStatus");
     expect(source).not.toContain("RECONCILER_DATABASE_URL_FILE");
+    expect(workflow).toContain(
+      "PREVIEW_CALENDAR_OWNER_DATABASE_URL: ${{ secrets.DATABASE_URL_PREVIEW }}",
+    );
+    expect(source).toContain("PREVIEW_CALENDAR_OWNER_DATABASE_URL");
     expect(source).not.toContain("reconcilerSql");
     expect(source).toContain("page.goto(`${baseUrl}/hotels/calendar`");
     expect(source).toContain('getByRole("heading", { name: "업무 달력" })');
@@ -99,6 +120,7 @@ describe("hosted Preview Calendar smoke", () => {
         WEB_PREVIEW_URL: "invalid-preview-url",
         ZITADEL_PREVIEW_SUBJECT: sentinel,
         API_RUNTIME_DATABASE_URL_FILE: "/protected/runtime-url",
+        PREVIEW_CALENDAR_OWNER_DATABASE_URL: `postgres://${sentinel}@protected/preview`,
       },
     });
     expect(result.status).not.toBe(0);
