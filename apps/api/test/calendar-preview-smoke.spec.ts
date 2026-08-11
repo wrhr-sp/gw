@@ -18,10 +18,21 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain('api("/api/calendar/capabilities")');
     expect(source).toContain("api(`/api/calendar?${query}`)");
     expect(source).toContain(
-      "api(`/api/hotels/${hotelId}/calendar/visit-options`)",
+      "api(`/api/hotels/${hotelId}/calendar/visit-options`, {",
     );
     expect(source).toContain('method: "POST"');
     expect(source).toContain('"idempotency-key"');
+    for (const mutationApiFailure of [
+      "PREVIEW_CALENDAR_MUTATION_OPTIONS_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_REPAIR_CREATE_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_DETAIL_READ_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_HOTEL_READ_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_VISIT_DELETE_API_INVALID",
+      "PREVIEW_CALENDAR_MUTATION_AFTER_DELETE_READ_API_INVALID",
+    ]) {
+      expect(source).toContain(mutationApiFailure);
+    }
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
     expect(source).toContain('const requireMutation = mutationMode === "1";');
