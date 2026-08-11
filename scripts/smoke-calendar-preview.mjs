@@ -88,6 +88,7 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
     throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_CONFIGURATION_INVALID");
   const rollbackSignal = new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK");
   let diagnosticMarker = null;
+  let diagnosticStage = "CATALOG_READ";
   try {
     await ownerSql.begin(async (transaction) => {
       const [functionRecord] = await transaction`
@@ -103,6 +104,7 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
            'public.hotel_repair_case_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
          )
       `;
+      diagnosticStage = "SOURCE_VERIFY";
       if (
         functionRecord?.source_sha256 !== HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 ||
         typeof functionRecord.definition !== "string"
@@ -124,16 +126,20 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
       const diagnosticDefinition = functionRecord.definition
         .replace(canonicalHeader, temporaryHeader)
         .replace(repairCaseCatchAll, "exception when others then raise;");
+      diagnosticStage = "TEMP_SCHEMA_CREATE";
       await transaction.unsafe(
         "create temporary table preview_calendar_temp_schema_guard(id integer) on commit drop",
       );
+      diagnosticStage = "TEMP_FUNCTION_CREATE";
       await transaction.unsafe(diagnosticDefinition);
       await transaction`
         select set_config('app.company_id', ${companyId}, true),
                set_config('app.session_id', ${sessionId}, true),
                set_config('TimeZone', 'Asia/Seoul', true)
       `;
+      diagnosticStage = "SAVEPOINT_CREATE";
       await transaction.unsafe("savepoint preview_calendar_constraint_probe");
+      diagnosticStage = "TEMP_FUNCTION_CALL";
       try {
         const probeRows = await transaction`
           select * from pg_temp.preview_hotel_repair_case_probe_v1(
@@ -184,6 +190,7 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
           "rollback to savepoint preview_calendar_constraint_probe",
         );
       }
+      diagnosticStage = "ROLLBACK_READ";
       const readRows = await transaction`
         select * from public.hotel_repair_read_v1(
           ${companyId}::uuid,
@@ -199,11 +206,14 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
         readRows[0]?.result_snapshot !== null
       )
         throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_INVALID");
+      diagnosticStage = "OUTER_ROLLBACK";
       throw rollbackSignal;
     });
   } catch (diagnosticError) {
     if (diagnosticError !== rollbackSignal)
-      throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_PROBE_FAILED");
+      throw new Error(
+        `PREVIEW_CALENDAR_TEMP_CLONE_PROBE_FAILED_${diagnosticStage}`,
+      );
   }
   const [temporaryFunctionState] = await ownerSql`
     select pg_catalog.to_regprocedure(
