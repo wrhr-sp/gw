@@ -57,6 +57,11 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain(
       "PREVIEW_CALENDAR_MUTATION_CREATED_REPAIR_INVALID",
     );
+    expect(source).toContain("let createdRepairInThisRun = false;");
+    expect(source).toContain("createdRepairInThisRun = true;");
+    expect(source).toContain(
+      'if (!repair?.id || (createdRepairInThisRun && repair.status !== "OPEN"))',
+    );
     expect(source).toContain("hotel_repair_case_command_v1");
     expect(source).toContain('"CREATE_DIRECT"');
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_PROBE_FAILED");
