@@ -490,8 +490,14 @@ describe("Preview account Worker release safety", () => {
     );
     expect(baseline).toContain("steps.deploy_api.outputs.deployed_version");
     expect(baseline).toContain("deployments list");
-    expect(baseline).toContain(".[-1].versions[0].percentage == 100");
-    expect(baseline).toContain(".[-1].versions[0].version_id == $version");
+    expect(baseline).toContain(".[-1].versions[0].percentage != 100");
+    expect(baseline).toContain('secure_version="$(jq -er');
+    expect(baseline).toContain(".[-1].versions[0].version_id");
+    expect(baseline).toContain(
+      'printf \'secure_version=%s\\n\' "$secure_version" >> "$GITHUB_OUTPUT"',
+    );
+    expect(baseline).toContain("Source deploy version");
+    expect(baseline).not.toContain("version_id == $version");
     expect(baseline).toContain("session-derived-tenant-authority-v1");
     expect(baseline).toContain("$GITHUB_STEP_SUMMARY");
     expect(baseline).toContain("PREVIEW_SECURE_ROLLBACK_BASELINE_VERIFIED");

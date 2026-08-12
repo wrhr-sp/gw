@@ -1260,22 +1260,28 @@ jobs:
           trap 'rm -f "$deployments_file"' EXIT
           pnpm --filter @werehere/api exec wrangler deployments list \
             --name werehere-hotel-api-preview --json > "$deployments_file"
-          jq -e --arg version "$API_DEPLOYED" '
-            type == "array" and length > 0
-            and (.[-1].versions | type) == "array"
-            and (.[-1].versions | length) == 1
-            and .[-1].versions[0].percentage == 100
-            and .[-1].versions[0].version_id == $version
-          ' "$deployments_file" >/dev/null
+          secure_version="$(jq -er '
+            if type != "array" or length == 0
+              or (.[-1].versions | type) != "array"
+              or (.[-1].versions | length) != 1
+              or .[-1].versions[0].percentage != 100
+              or (.[-1].versions[0].version_id | type) != "string"
+              or (.[-1].versions[0].version_id | length) == 0 then
+              error("Secret-free API deployment was not a single 100 percent version")
+            else
+              .[-1].versions[0].version_id
+            end
+          ' "$deployments_file")"
           {
             printf '## Secure Preview rollback baseline\n'
             printf -- '- Security contract: `session-derived-tenant-authority-v1`\n'
             printf -- '- Source commit: `%s`\n' "$GITHUB_SHA"
             printf -- '- Workflow run: `%s`\n' "$GITHUB_RUN_ID"
-            printf -- '- API Worker version: `%s`\n' "$API_DEPLOYED"
+            printf -- '- API Worker version: `%s`\n' "$secure_version"
+            printf -- '- Source deploy version: `%s`\n' "$API_DEPLOYED"
             printf -- '- Deploy tag: `%s`\n' "$API_DEPLOY_TAG"
           } >> "$GITHUB_STEP_SUMMARY"
-          printf 'secure_version=%s\n' "$API_DEPLOYED" >> "$GITHUB_OUTPUT"
+          printf 'secure_version=%s\n' "$secure_version" >> "$GITHUB_OUTPUT"
           printf '%s\n' 'PREVIEW_SECURE_ROLLBACK_BASELINE_VERIFIED'
 
       - name: Roll back failed Worker release
