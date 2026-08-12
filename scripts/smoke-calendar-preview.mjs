@@ -26,7 +26,27 @@ const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";
 const canaryPriorityId = "76000000-0000-4000-8000-000000000002";
 const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
   "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c";
-const repairCaseCatchAll = `exception when sqlstate '55000' then return query select case when sqlerrm in ('REPAIR_EVIDENCE_REQUIRED','REPAIR_FOLLOW_UP_INVALID','REPAIR_COMPLETED_LOCKED') then sqlerrm else 'REPAIR_FOLLOW_UP_INVALID' end,null::jsonb; when foreign_key_violation or check_violation or invalid_text_representation then return query select 'REPAIR_FOLLOW_UP_INVALID',null::jsonb;`;
+const repairCaseCatchAll =
+  "exception when sqlstate '55000' then return query select case when sqlerrm in ('REPAIR_EVIDENCE_REQUIRED','REPAIR_FOLLOW_UP_INVALID','REPAIR_COMPLETED_LOCKED') then sqlerrm else 'REPAIR_FOLLOW_UP_INVALID' end,null::jsonb; when foreign_key_violation or check_violation or invalid_text_representation then return query select 'REPAIR_FOLLOW_UP_INVALID',null::jsonb;";
+const stableRepairDiagnosticReasons = new Map([
+  ["repair history is append-only", "REPAIR_HISTORY_APPEND_ONLY"],
+  [
+    "repair priority physical deletion is forbidden",
+    "REPAIR_PRIORITY_DELETE_FORBIDDEN",
+  ],
+  ["deleted repair priority is immutable", "REPAIR_PRIORITY_DELETED_IMMUTABLE"],
+  ["REPAIR_PERFORMER_INVALID", "REPAIR_PERFORMER_INVALID"],
+  ["REPAIR_FOLLOW_UP_INVALID", "REPAIR_FOLLOW_UP_INVALID"],
+  ["REPAIR_COMPLETED_LOCKED", "REPAIR_COMPLETED_LOCKED"],
+  ["REPAIR_EVIDENCE_REQUIRED", "REPAIR_EVIDENCE_REQUIRED"],
+  ["hotel immutable record cannot be changed", "HOTEL_IMMUTABLE_CHANGE"],
+  ["INSPECTION_FINAL_LOCKED", "INSPECTION_FINAL_LOCKED"],
+  ["audit_events are append-only", "AUDIT_APPEND_ONLY"],
+  [
+    "access subjects are deactivated, not deleted",
+    "ACCESS_SUBJECT_DELETE_FORBIDDEN",
+  ],
+]);
 if (
   !baseUrl?.startsWith("https://") ||
   !bootstrapSubject ||
@@ -210,9 +230,11 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
           ? rawConstraint.toUpperCase()
           : "UNKNOWN";
         const safeReason =
-          typeof errorRecord.message === "string" &&
-          /^[A-Z_]+$/u.test(errorRecord.message)
-            ? errorRecord.message
+          typeof errorRecord.message === "string"
+            ? (stableRepairDiagnosticReasons.get(errorRecord.message) ??
+              (/^[A-Z_]+$/u.test(errorRecord.message)
+                ? errorRecord.message
+                : "UNKNOWN"))
             : "UNKNOWN";
         diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}_REASON_${safeReason}`;
       } finally {
