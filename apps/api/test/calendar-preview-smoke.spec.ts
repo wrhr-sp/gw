@@ -67,6 +67,29 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_PROBE_FAILED");
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
+    expect(source).toContain("HOTEL_REPAIR_VISIT_COMMAND_V1_SHA256");
+    expect(source).toContain("diagnoseVisitCreateRollback");
+    expect(source).toContain("hotel_repair_visit_command_v1");
+    expect(source).toContain(
+      "PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_SOURCE_INVALID",
+    );
+    expect(source).toContain("savepoint preview_calendar_visit_probe");
+    expect(source).toContain(
+      "rollback to savepoint preview_calendar_visit_probe",
+    );
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_SQLSTATE_");
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_STATUS_");
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_ROLLBACK_OK");
+    for (const rollbackObject of [
+      "public.hotel_repair_visits",
+      "public.hotel_repair_visit_performers",
+      "public.hotel_repair_visit_history",
+      "public.hotel_repair_visit_performer_history",
+      "public.idempotency_records",
+      "public.audit_events",
+    ]) {
+      expect(source).toContain(rollbackObject);
+    }
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_DIAGNOSTIC_CAPTURED");
     expect(source).toContain(
       "PREVIEW_CALENDAR_TEMP_CLONE_PROBE_FAILED_${diagnosticStage}",
