@@ -83,6 +83,24 @@ describe("hosted Preview Calendar smoke", () => {
     );
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
     expect(source).toContain("_REASON_${safeReason}");
+    expect(source).toContain(
+      "stableRepairDiagnosticReasons.get(errorRecord.message)",
+    );
+    for (const safeReason of [
+      "REPAIR_HISTORY_APPEND_ONLY",
+      "REPAIR_PRIORITY_DELETE_FORBIDDEN",
+      "REPAIR_PRIORITY_DELETED_IMMUTABLE",
+      "REPAIR_PERFORMER_INVALID",
+      "REPAIR_FOLLOW_UP_INVALID",
+      "REPAIR_COMPLETED_LOCKED",
+      "REPAIR_EVIDENCE_REQUIRED",
+      "HOTEL_IMMUTABLE_CHANGE",
+      "INSPECTION_FINAL_LOCKED",
+      "AUDIT_APPEND_ONLY",
+      "ACCESS_SUBJECT_DELETE_FORBIDDEN",
+    ]) {
+      expect(source).toContain(`"${safeReason}"`);
+    }
     expect(source).toContain("/^[A-Z_]+$/u.test(errorRecord.message)");
     expect(source).not.toContain("console.log(errorRecord.message)");
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
