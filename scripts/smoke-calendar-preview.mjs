@@ -25,7 +25,7 @@ const requireMutation = mutationMode === "1";
 const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";
 const canaryPriorityId = "76000000-0000-4000-8000-000000000002";
 const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
-  "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c";
+  "2cdd2a22ce28bf20b4e632ea7c12c270909a701fb1d64d2d9af1c2e857f59710";
 const repairCaseCatchAll =
   "exception when sqlstate '55000' then return query select case when sqlerrm in ('REPAIR_EVIDENCE_REQUIRED','REPAIR_FOLLOW_UP_INVALID','REPAIR_COMPLETED_LOCKED') then sqlerrm else 'REPAIR_FOLLOW_UP_INVALID' end,null::jsonb; when foreign_key_violation or check_violation or invalid_text_representation then return query select 'REPAIR_FOLLOW_UP_INVALID',null::jsonb;";
 const stableRepairDiagnosticReasons = new Map([

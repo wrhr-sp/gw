@@ -83,6 +83,31 @@ async function main() {
     if (priorities.length !== 1 || priorities[0]?.id !== priorityId)
       throw new Error("priority read-back mismatch");
 
+
+    const createBody = {
+      followUpOfRepairCaseId: null,
+      followUpParentVersion: null,
+      priorityId,
+      repairCaseId: repairId,
+      source: {
+        description: "욕실 천장 누수 실제 통합검증",
+        fileVersionIds: ["ad000000-0000-4000-8000-000000000002"],
+        type: "DIRECT",
+        unavailableReason: null,
+      },
+      target: { roomId, type: "ROOM" },
+    };
+    const createPath = `/api/hotels/${hotelId}/repairs`;
+    const createdResponse = await jsonRequest(app, createPath, token, "POST", createBody, "repair-actual-create-1");
+    await expectStatus(createdResponse, 201, "repair create");
+    const created = repairCaseResponseSchema.parse(await createdResponse.json()).data.repair;
+    if (created.id !== repairId || created.target.id !== roomId || created.process.state !== "PENDING_INPUT")
+      throw new Error("repair create snapshot mismatch");
+    const replayResponse = await jsonRequest(app, createPath, token, "POST", createBody, "repair-actual-create-1");
+    await expectStatus(replayResponse, 201, "repair replay");
+    const replay = repairCaseResponseSchema.parse(await replayResponse.json()).data.repair;
+    if (replay.id !== repairId) throw new Error("repair committed replay mismatch");
+
     const inspectionSource = JSON.parse(
       await readFile(
         `/tmp/werehere-repair-inspection-${createHash("sha256").update(fixturePath).digest("hex").slice(0, 16)}.json`,
@@ -143,30 +168,6 @@ async function main() {
       inspectionRepair.target.id !== inspectionSource.facilityId
     )
       throw new Error("inspection repair source snapshot mismatch");
-
-    const createBody = {
-      followUpOfRepairCaseId: null,
-      followUpParentVersion: null,
-      priorityId,
-      repairCaseId: repairId,
-      source: {
-        description: "욕실 천장 누수 실제 통합검증",
-        fileVersionIds: ["ad000000-0000-4000-8000-000000000002"],
-        type: "DIRECT",
-        unavailableReason: null,
-      },
-      target: { roomId, type: "ROOM" },
-    };
-    const createPath = `/api/hotels/${hotelId}/repairs`;
-    const createdResponse = await jsonRequest(app, createPath, token, "POST", createBody, "repair-actual-create-1");
-    await expectStatus(createdResponse, 201, "repair create");
-    const created = repairCaseResponseSchema.parse(await createdResponse.json()).data.repair;
-    if (created.id !== repairId || created.target.id !== roomId || created.process.state !== "PENDING_INPUT")
-      throw new Error("repair create snapshot mismatch");
-    const replayResponse = await jsonRequest(app, createPath, token, "POST", createBody, "repair-actual-create-1");
-    await expectStatus(replayResponse, 201, "repair replay");
-    const replay = repairCaseResponseSchema.parse(await replayResponse.json()).data.repair;
-    if (replay.id !== repairId) throw new Error("repair committed replay mismatch");
 
     const invalidPerformerResponse = await jsonRequest(
       app,

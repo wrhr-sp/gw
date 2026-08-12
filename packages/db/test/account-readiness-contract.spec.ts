@@ -118,8 +118,14 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).toContain(
       '"0046_scheduled_reconciler_invocation_lock.sql"',
     );
+    expect(provisionSource).toContain(
+      '"0047_repair_direct_record_initialization.sql"',
+    );
     expect(contractOnlySource).not.toContain(
       '"0046_scheduled_reconciler_invocation_lock"',
+    );
+    expect(contractOnlySource).not.toContain(
+      '"0047_repair_direct_record_initialization"',
     );
     for (const routine of [
       "scheduled_reconciler_invocation_enter_v1",

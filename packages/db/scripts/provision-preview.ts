@@ -76,7 +76,7 @@ const previewCalendarCanaryTransitionId =
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
-  "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c";
+  "2cdd2a22ce28bf20b4e632ea7c12c270909a701fb1d64d2d9af1c2e857f59710";
 const previewBootstrapAuditId = "74000000-0000-4000-8000-000000000001";
 const localCiTestMode = process.env.PREVIEW_PROVISION_LOCAL_CI_TEST === "1";
 const provisionPhase =
@@ -422,6 +422,7 @@ try {
     }
   }
   let checklistExpandPrerequisitesPresent = false;
+  let repairLifecycleExpandPrerequisitePresent = false;
   if (existingMigrationMarker?.exists) {
     const [checklistPrerequisites] = await owner<{ exact: boolean }[]>`
       select count(*) = 2 as exact
@@ -433,6 +434,14 @@ try {
     `;
     checklistExpandPrerequisitesPresent =
       checklistPrerequisites?.exact === true;
+    const [repairLifecyclePrerequisite] = await owner<{ present: boolean }[]>`
+      select exists(
+        select 1 from public.schema_migrations
+         where version = '0042_hotel_repair_lifecycle'
+      ) as present
+    `;
+    repairLifecycleExpandPrerequisitePresent =
+      repairLifecyclePrerequisite?.present === true;
   }
 
   await updateLocalCiDefinerMembership(
@@ -576,6 +585,10 @@ try {
       "0046_scheduled_reconciler_invocation_lock",
       "0046_scheduled_reconciler_invocation_lock.sql",
     ],
+    [
+      "0047_repair_direct_record_initialization",
+      "0047_repair_direct_record_initialization.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -621,7 +634,9 @@ try {
           ([version]) =>
             !contractOnlyMigrations.has(version) &&
             (!prerequisiteGatedExpandMigrations.has(version) ||
-              checklistExpandPrerequisitesPresent),
+              checklistExpandPrerequisitesPresent) &&
+            (version !== "0047_repair_direct_record_initialization" ||
+              repairLifecycleExpandPrerequisitePresent),
         );
 
   const readContractBaseState = async () => {
