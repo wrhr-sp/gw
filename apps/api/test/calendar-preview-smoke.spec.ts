@@ -84,6 +84,12 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
     expect(source).toContain("_REASON_${safeReason}");
     expect(source).toContain("_REASON_SHA256_${reasonSha256}");
+    expect(source).toContain("PREVIEW_CALENDAR_IDEMPOTENCY_PUBLICATION_");
+    expect(source).toContain("pg_catalog.pg_publication_tables");
+    expect(source).toContain("pg_catalog.pg_class");
+    expect(source).toContain("relreplident");
+    expect(source).toContain("publication_member");
+    expect(source).toContain("replica_identity_ready");
     expect(source).toContain('createHash("sha256")');
     expect(source).toContain('.update(errorRecord.message, "utf8")');
     expect(source).toContain('.digest("hex")');
