@@ -136,6 +136,29 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
         )
       `;
       diagnosticStage = "CATALOG_READ";
+      const [idempotencyPublicationState] = await transaction`
+        select
+          exists (
+            select 1
+              from pg_catalog.pg_publication_tables publication_table
+             where publication_table.schemaname = 'public'
+               and publication_table.tablename = 'idempotency_records'
+          ) as publication_member,
+          coalesce(
+            (
+              select relation.relreplident in ('f', 'i')
+                from pg_catalog.pg_class relation
+                join pg_catalog.pg_namespace namespace
+                  on namespace.oid = relation.relnamespace
+               where namespace.nspname = 'public'
+                 and relation.relname = 'idempotency_records'
+            ),
+            false
+          ) as replica_identity_ready
+      `;
+      console.log(
+        `PREVIEW_CALENDAR_IDEMPOTENCY_PUBLICATION_${idempotencyPublicationState?.publication_member ? "MEMBER" : "ABSENT"}_REPLICA_IDENTITY_${idempotencyPublicationState?.replica_identity_ready ? "READY" : "NOT_READY"}`,
+      );
       const [functionRecord] = await transaction`
         select pg_catalog.pg_get_functiondef(function_record.oid) as definition,
                pg_catalog.encode(
