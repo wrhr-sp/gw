@@ -224,6 +224,24 @@ async function api(
     ) {
       error.previewFailureCode = `ACCOUNT_CREATE_${code}`;
     }
+    if (journeyFailureCode === "ACCOUNT_DEACTIVATE") {
+      const deactivateCodes = new Set([
+        "ACCOUNT_NOT_FOUND",
+        "ACCOUNT_SELF_DEACTIVATION_FORBIDDEN",
+        "ACCOUNT_VERSION_CONFLICT",
+        "AUTHENTICATION_REQUIRED",
+        "DB_NOT_CONFIGURED",
+        "EXTERNAL_AUTH_UNAVAILABLE",
+        "FORBIDDEN",
+        "IDEMPOTENCY_CONFLICT",
+        "INTERNAL_ERROR",
+        "LAST_ADMIN_DEACTIVATION_FORBIDDEN",
+        "SCHEMA_NOT_READY",
+        "VALIDATION_ERROR",
+      ]);
+      const safeCode = deactivateCodes.has(code) ? code : "OTHER";
+      error.previewFailureCode = `ACCOUNT_DEACTIVATE_${safeCode}`;
+    }
     if (journeyFailureCode === "INSPECTION_CHECKLIST_V2_INITIAL_READ") {
       const checklistReadCodes = new Set([
         "AUTHENTICATION_REQUIRED",
