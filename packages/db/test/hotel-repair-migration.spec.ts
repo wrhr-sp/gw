@@ -10,6 +10,14 @@ const provisionUrl = new URL(
   "../scripts/provision-preview.ts",
   import.meta.url,
 );
+const directRecordCorrectionUrl = new URL(
+  "../migrations/0047_repair_direct_record_initialization.sql",
+  import.meta.url,
+);
+const actualApiIntegrationUrl = new URL(
+  "../../../apps/api/test/repair-lifecycle-actual-api-integration.ts",
+  import.meta.url,
+);
 
 describe("hotel repair lifecycle migration", () => {
   it("creates normalized tenant aggregates, append-only history and exact typed relations", () => {
@@ -64,6 +72,26 @@ describe("hotel repair lifecycle migration", () => {
       "audit_events",
     ])
       expect(sql).toContain(contract);
+  });
+
+  it("initializes the inspection record before a first-call CREATE_DIRECT command", () => {
+    const correction = readFileSync(directRecordCorrectionUrl, "utf8");
+    const provision = readFileSync(provisionUrl, "utf8");
+    const actualApi = readFileSync(actualApiIntegrationUrl, "utf8");
+
+    expect(correction).toContain("0047_repair_direct_record_initialization");
+    expect(correction).toContain("inspection_source_result_id uuid");
+    expect(correction).toContain("inspection_source_result_version integer");
+    expect(correction).toContain("inspection_source_description text");
+    expect(correction).toContain("inspection_source_file_version_ids uuid[]");
+    expect(correction).not.toContain("inspection_source record");
+    expect(provision).toContain(
+      '"0047_repair_direct_record_initialization.sql"',
+    );
+    expect(provision).toContain("repairLifecycleExpandPrerequisitePresent");
+    expect(actualApi.indexOf('type: "DIRECT"')).toBeLessThan(
+      actualApi.indexOf('type: "INSPECTION"'),
+    );
   });
 
   it("registers exact Preview/readiness ACL for API runtime and denies Reconciler", () => {

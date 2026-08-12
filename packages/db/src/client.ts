@@ -279,7 +279,7 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
-    digest: "66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c",
+    digest: "2cdd2a22ce28bf20b4e632ea7c12c270909a701fb1d64d2d9af1c2e857f59710",
     name: "hotel_repair_case_command_v1",
     repairLifecycle: true,
     result: "TABLE(command_status text, result_snapshot jsonb)",
@@ -2355,6 +2355,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_facility_execution_marker_count: number;
         hotel_inspection_facility_execution_contract_marker_count: number;
         hotel_repair_lifecycle_marker_count: number;
+        repair_direct_record_initialization_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2458,6 +2459,9 @@ export async function probeDatabaseReadiness(
                where version = '0042_hotel_repair_lifecycle'
              )::integer as hotel_repair_lifecycle_marker_count,
              count(*) filter (
+               where version = '0047_repair_direct_record_initialization'
+             )::integer as repair_direct_record_initialization_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2513,7 +2517,8 @@ export async function probeDatabaseReadiness(
         '0043_hotel_calendar_read_model',
         '0044_google_calendar_projection',
         '0045_remove_google_calendar_projection',
-        '0046_scheduled_reconciler_invocation_lock'
+        '0046_scheduled_reconciler_invocation_lock',
+        '0047_repair_direct_record_initialization'
       )
     `;
     const schemaPhase =
@@ -2525,9 +2530,12 @@ export async function probeDatabaseReadiness(
           ? "EXPAND"
           : null;
     const repairLifecyclePhase =
-      migrationRows[0]?.hotel_repair_lifecycle_marker_count === 1
+      migrationRows[0]?.hotel_repair_lifecycle_marker_count === 1 &&
+      migrationRows[0].repair_direct_record_initialization_marker_count === 1
         ? "CONTRACT"
-        : migrationRows[0]?.hotel_repair_lifecycle_marker_count === 0
+        : migrationRows[0]?.hotel_repair_lifecycle_marker_count === 0 &&
+            migrationRows[0]
+              .repair_direct_record_initialization_marker_count === 0
           ? "PRE_CONTRACT"
           : null;
     const calendarReadModelPhase =

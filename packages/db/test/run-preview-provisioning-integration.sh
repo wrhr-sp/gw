@@ -956,7 +956,7 @@ select pg_catalog.encode(
  );
 SQL
 )"
-if [[ "$FRESH_REPAIR_CASE_FUNCTION_SHA256" != '66146354b5e78564d9c1ff364aab6d1d2867a930d80a6948d4f158dff13f7f6c' ]]; then
+if [[ "$FRESH_REPAIR_CASE_FUNCTION_SHA256" != '2cdd2a22ce28bf20b4e632ea7c12c270909a701fb1d64d2d9af1c2e857f59710' ]]; then
   printf 'Fresh repair case command digest mismatch: %s\n' \
     "$FRESH_REPAIR_CASE_FUNCTION_SHA256" >&2
   exit 1
