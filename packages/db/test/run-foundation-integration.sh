@@ -1391,6 +1391,7 @@ GOOGLE_CALENDAR_PROJECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0044_goog
 GOOGLE_CALENDAR_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0045_remove_google_calendar_projection.sql"
 SCHEDULED_RECONCILER_LOCK_MIGRATION="$ROOT_DIR/packages/db/migrations/0046_scheduled_reconciler_invocation_lock.sql"
 REPAIR_DIRECT_RECORD_INITIALIZATION_MIGRATION="$ROOT_DIR/packages/db/migrations/0047_repair_direct_record_initialization.sql"
+REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION="$ROOT_DIR/packages/db/migrations/0048_repair_visit_trigger_definer.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
 HOTEL_CALENDAR_READ_MODEL_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-calendar-read-model-integration.sql"
@@ -1582,6 +1583,10 @@ if [[ -n "${TEST_DATABASE_URL:-}" ]]; then
     fi
     if [[ "$reset_status" -eq 0 ]]; then
       psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$REPAIR_DIRECT_RECORD_INITIALIZATION_MIGRATION" >/dev/null 2>&1
+      reset_status="$?"
+    fi
+    if [[ "$reset_status" -eq 0 ]]; then
+      psql -X -v ON_ERROR_STOP=1 -d "$TEST_DATABASE_URL" -f "$REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION" >/dev/null 2>&1
       reset_status="$?"
     fi
     if [[ "$reset_status" -eq 0 ]]; then
@@ -2368,6 +2373,7 @@ psql -X -v ON_ERROR_STOP=1 -h "$SOCKET_DIR" -p "$PORT" -U postgres \
 
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_REPAIR_LIFECYCLE_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$REPAIR_DIRECT_RECORD_INITIALIZATION_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_CALENDAR_READ_MODEL_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$SCHEDULED_RECONCILER_LOCK_MIGRATION" >/dev/null
 grant_repair_lifecycle_capabilities "$ADMIN_URL"

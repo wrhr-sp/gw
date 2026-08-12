@@ -2356,6 +2356,7 @@ export async function probeDatabaseReadiness(
         hotel_inspection_facility_execution_contract_marker_count: number;
         hotel_repair_lifecycle_marker_count: number;
         repair_direct_record_initialization_marker_count: number;
+        repair_visit_trigger_definer_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2462,6 +2463,9 @@ export async function probeDatabaseReadiness(
                where version = '0047_repair_direct_record_initialization'
              )::integer as repair_direct_record_initialization_marker_count,
              count(*) filter (
+               where version = '0048_repair_visit_trigger_definer'
+             )::integer as repair_visit_trigger_definer_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2518,7 +2522,8 @@ export async function probeDatabaseReadiness(
         '0044_google_calendar_projection',
         '0045_remove_google_calendar_projection',
         '0046_scheduled_reconciler_invocation_lock',
-        '0047_repair_direct_record_initialization'
+        '0047_repair_direct_record_initialization',
+        '0048_repair_visit_trigger_definer'
       )
     `;
     const schemaPhase =
@@ -2531,11 +2536,13 @@ export async function probeDatabaseReadiness(
           : null;
     const repairLifecyclePhase =
       migrationRows[0]?.hotel_repair_lifecycle_marker_count === 1 &&
-      migrationRows[0].repair_direct_record_initialization_marker_count === 1
+      migrationRows[0].repair_direct_record_initialization_marker_count === 1 &&
+      migrationRows[0].repair_visit_trigger_definer_marker_count === 1
         ? "CONTRACT"
         : migrationRows[0]?.hotel_repair_lifecycle_marker_count === 0 &&
             migrationRows[0]
-              .repair_direct_record_initialization_marker_count === 0
+              .repair_direct_record_initialization_marker_count === 0 &&
+            migrationRows[0].repair_visit_trigger_definer_marker_count === 0
           ? "PRE_CONTRACT"
           : null;
     const calendarReadModelPhase =
