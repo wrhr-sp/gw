@@ -480,6 +480,7 @@ try {
         candidate.targetName === "Preview Calendar 검증구역" &&
         candidate.priorityName === "Preview Calendar 검증",
     );
+    let createdRepairInThisRun = false;
     const performer = options?.internalPerformers?.[0];
     if (!performer?.userId)
       throw new Error("PREVIEW_CALENDAR_MUTATION_PERFORMER_UNAVAILABLE");
@@ -513,8 +514,9 @@ try {
         failureCode: "PREVIEW_CALENDAR_MUTATION_REPAIR_CREATE_API_INVALID",
       });
       repair = createdRepair?.repair ?? createdRepair;
+      createdRepairInThisRun = true;
     }
-    if (!repair?.id || repair.status !== "OPEN")
+    if (!repair?.id || (createdRepairInThisRun && repair.status !== "OPEN"))
       throw new Error("PREVIEW_CALENDAR_MUTATION_CREATED_REPAIR_INVALID");
 
     const startsAt = new Date(Date.now() + 3_600_000);
