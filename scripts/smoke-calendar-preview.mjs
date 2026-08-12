@@ -533,6 +533,7 @@ try {
       idempotencyKey: createKey,
       method: "POST",
       failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",
+      includeSafeErrorCode: true,
     });
     createdVisit = created?.visit;
     createdVisitHotelId = hotelId;
