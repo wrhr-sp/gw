@@ -943,6 +943,35 @@ insert into runtime_database_capabilities (role_name, capability)
 values ('preview_stale_runtime_capability', 'API_RUNTIME');
 SQL
 run_provision CONTRACT >/dev/null
+REPAIR_VISIT_TRIGGER_SECURITY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select concat(
+  (select count(*) from public.schema_migrations
+    where version = '0048_repair_visit_trigger_definer'), '|',
+  function_record.prosecdef::integer, '|',
+  (coalesce(function_record.proconfig, '{}'::text[]) @> array['search_path=pg_catalog'])::integer, '|',
+  (not exists(
+    select 1
+      from pg_catalog.aclexplode(
+        coalesce(
+          function_record.proacl,
+          pg_catalog.acldefault('f', function_record.proowner)
+        )
+      ) function_acl
+     where function_acl.grantee = 0
+       and function_acl.privilege_type = 'EXECUTE'
+  ))::integer
+)
+  from pg_catalog.pg_proc function_record
+ where function_record.oid = pg_catalog.to_regprocedure(
+   'public.repair_visit_performer_cardinality()'
+ );
+SQL
+)"
+if [[ "$REPAIR_VISIT_TRIGGER_SECURITY_STATE" != '1|1|1|1' ]]; then
+  printf '%s\n' 'Repair visit trigger definer contract mismatch.' >&2
+  exit 1
+fi
+printf '%s\n' 'PREVIEW_REPAIR_VISIT_TRIGGER_DEFINER_OK'
 FRESH_REPAIR_CASE_FUNCTION_SHA256="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select pg_catalog.encode(
          pg_catalog.sha256(

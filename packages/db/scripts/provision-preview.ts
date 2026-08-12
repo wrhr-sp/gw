@@ -589,6 +589,10 @@ try {
       "0047_repair_direct_record_initialization",
       "0047_repair_direct_record_initialization.sql",
     ],
+    [
+      "0048_repair_visit_trigger_definer",
+      "0048_repair_visit_trigger_definer.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -636,6 +640,8 @@ try {
             (!prerequisiteGatedExpandMigrations.has(version) ||
               checklistExpandPrerequisitesPresent) &&
             (version !== "0047_repair_direct_record_initialization" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0048_repair_visit_trigger_definer" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 

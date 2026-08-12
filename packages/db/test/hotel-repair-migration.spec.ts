@@ -14,6 +14,10 @@ const directRecordCorrectionUrl = new URL(
   "../migrations/0047_repair_direct_record_initialization.sql",
   import.meta.url,
 );
+const visitTriggerDefinerCorrectionUrl = new URL(
+  "../migrations/0048_repair_visit_trigger_definer.sql",
+  import.meta.url,
+);
 const actualApiIntegrationUrl = new URL(
   "../../../apps/api/test/repair-lifecycle-actual-api-integration.ts",
   import.meta.url,
@@ -92,6 +96,27 @@ describe("hotel repair lifecycle migration", () => {
     expect(actualApi.indexOf('type: "DIRECT"')).toBeLessThan(
       actualApi.indexOf('type: "INSPECTION"'),
     );
+  });
+
+  it("runs deferred visit performer cardinality with fixed definer authority", () => {
+    const correction = readFileSync(visitTriggerDefinerCorrectionUrl, "utf8");
+    const provision = readFileSync(provisionUrl, "utf8");
+    const readiness = readFileSync(readinessUrl, "utf8");
+
+    expect(correction).toContain("0048_repair_visit_trigger_definer");
+    expect(correction).toContain(
+      "alter function public.repair_visit_performer_cardinality() security definer",
+    );
+    expect(correction).toContain(
+      "alter function public.repair_visit_performer_cardinality() set search_path = pg_catalog",
+    );
+    expect(correction).toContain(
+      "revoke all on function public.repair_visit_performer_cardinality() from public",
+    );
+    expect(correction).not.toContain("grant select on");
+    expect(correction).not.toContain("create constraint trigger");
+    expect(provision).toContain('"0048_repair_visit_trigger_definer.sql"');
+    expect(readiness).toContain("repair_visit_trigger_definer_marker_count");
   });
 
   it("registers exact Preview/readiness ACL for API runtime and denies Reconciler", () => {
