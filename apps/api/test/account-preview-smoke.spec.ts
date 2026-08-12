@@ -976,6 +976,29 @@ describe("hosted Preview account-management smoke", () => {
     ).rejects.toThrow("Preview provider identity boundary mismatch");
   });
 
+  it("classifies account deactivation failures with a safe stable suffix", () => {
+    expect(source).toContain(
+      'journeyFailureCode === "ACCOUNT_DEACTIVATE"',
+    );
+    for (const code of [
+      "ACCOUNT_NOT_FOUND",
+      "ACCOUNT_SELF_DEACTIVATION_FORBIDDEN",
+      "ACCOUNT_VERSION_CONFLICT",
+      "AUTHENTICATION_REQUIRED",
+      "DB_NOT_CONFIGURED",
+      "EXTERNAL_AUTH_UNAVAILABLE",
+      "FORBIDDEN",
+      "IDEMPOTENCY_CONFLICT",
+      "INTERNAL_ERROR",
+      "LAST_ADMIN_DEACTIVATION_FORBIDDEN",
+      "SCHEMA_NOT_READY",
+      "VALIDATION_ERROR",
+    ]) {
+      expect(source).toContain(`"${code}"`);
+    }
+    expect(source).toContain("`ACCOUNT_DEACTIVATE_${safeCode}`");
+  });
+
   it("allows only the final non-sensitive success marker in output code", () => {
     expect(source).toContain('redirect: "manual"');
     expect(source.match(/console\./gu)).toEqual(["console."]);
