@@ -105,6 +105,38 @@ async function api(path, options = {}) {
   return payload.data;
 }
 
+async function createVisitWithFailureReadback({
+  hotelId,
+  value,
+  idempotencyKey,
+}) {
+  const { payload, response } = await request(
+    `/api/hotels/${hotelId}/repair-visits`,
+    { body: value, idempotencyKey, method: "POST" },
+  );
+  if (!response.ok || payload?.ok !== true || payload?.error !== null) {
+    const [readback] = await ownerSql`
+      select count(*) = 1 as committed
+        from public.hotel_repair_visits
+       where branch_id = ${hotelId}::uuid
+         and repair_case_id = ${value.repairCaseId}::uuid
+         and title = ${value.title}
+    `;
+    console.log(
+      readback?.committed
+        ? "PREVIEW_CALENDAR_VISIT_HTTP_FAILURE_DB_COMMITTED"
+        : "PREVIEW_CALENDAR_VISIT_HTTP_FAILURE_DB_ABSENT",
+    );
+    const safeErrorCode = /^[A-Z_]+$/u.test(payload?.error?.code)
+      ? payload.error.code
+      : null;
+    throw new Error(
+      `PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID${safeErrorCode ? `_${safeErrorCode}` : ""}`,
+    );
+  }
+  return payload.data;
+}
+
 async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
   if (!ownerSql)
     throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_CONFIGURATION_INVALID");
@@ -833,12 +865,10 @@ try {
       hotelId,
       value: visitBody,
     });
-    const created = await api(`/api/hotels/${hotelId}/repair-visits`, {
-      body: visitBody,
+    const created = await createVisitWithFailureReadback({
+      hotelId,
       idempotencyKey: createKey,
-      method: "POST",
-      failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",
-      includeSafeErrorCode: true,
+      value: visitBody,
     });
     createdVisit = created?.visit;
     createdVisitHotelId = hotelId;
