@@ -651,6 +651,8 @@ async function diagnoseVisitRuntimeRollback({ companyId, hotelId, value }) {
           /^[A-Z_]+$/u.test(probeRows[0].command_status)
             ? probeRows[0].command_status
             : "UNKNOWN";
+        await transaction.unsafe("set constraints all immediate");
+        console.log("PREVIEW_CALENDAR_VISIT_RUNTIME_DEFERRED_OK");
         diagnosticMarker = `PREVIEW_CALENDAR_VISIT_RUNTIME_STATUS_${safeStatus}`;
       } catch (visitError) {
         const errorRecord =
