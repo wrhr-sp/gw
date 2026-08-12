@@ -83,6 +83,10 @@ describe("hosted Preview Calendar smoke", () => {
     );
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
+    expect(source).toContain("public.runtime_database_capabilities");
+    expect(source).toContain("session_user");
+    expect(source).toContain('diagnosticStage = "OWNER_CAPABILITY_SCOPE"');
+    expect(source).toContain("owner_capability_absent");
     expect(source).toContain("rollback_clean");
     for (const rollbackObject of [
       "public.hotel_repair_cases",
