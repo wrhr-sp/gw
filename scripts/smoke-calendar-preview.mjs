@@ -88,12 +88,34 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
     throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_CONFIGURATION_INVALID");
   const rollbackSignal = new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK");
   let diagnosticMarker = null;
-  let diagnosticStage = "CATALOG_READ";
+  let diagnosticStage = "OWNER_CAPABILITY_SCOPE";
   const diagnosticIdempotencyRecordId = randomUUID();
   const diagnosticIdempotencyKey = randomUUID();
   const diagnosticAuditEventId = randomUUID();
   try {
     await ownerSql.begin(async (transaction) => {
+      const [ownerCapabilityBaseline] = await transaction`
+        select not exists (
+          select 1
+            from public.runtime_database_capabilities
+           where role_name = session_user
+             and capability = 'API_RUNTIME'
+        ) as owner_capability_absent
+      `;
+      if (!ownerCapabilityBaseline?.owner_capability_absent)
+        throw new Error(
+          "PREVIEW_CALENDAR_TEMP_CLONE_CAPABILITY_BASELINE_INVALID",
+        );
+      await transaction`
+        insert into public.runtime_database_capabilities (
+          role_name,
+          capability
+        ) values (
+          session_user,
+          'API_RUNTIME'
+        )
+      `;
+      diagnosticStage = "CATALOG_READ";
       const [functionRecord] = await transaction`
         select pg_catalog.pg_get_functiondef(function_record.oid) as definition,
                pg_catalog.encode(
@@ -231,9 +253,19 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
   const [temporaryFunctionState] = await ownerSql`
     select pg_catalog.to_regprocedure(
       'pg_temp.preview_hotel_repair_case_probe_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
-    ) is null as absent
+    ) is null as absent,
+    not exists (
+      select 1
+        from public.runtime_database_capabilities
+       where role_name = session_user
+         and capability = 'API_RUNTIME'
+    ) as owner_capability_absent
   `;
-  if (!temporaryFunctionState?.absent || !diagnosticMarker)
+  if (
+    !temporaryFunctionState?.absent ||
+    !temporaryFunctionState?.owner_capability_absent ||
+    !diagnosticMarker
+  )
     throw new Error("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_INVALID");
   console.log("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
   console.log(diagnosticMarker);
