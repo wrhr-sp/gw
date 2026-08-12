@@ -26,6 +26,8 @@ const canaryCommonAreaId = "75000000-0000-4000-8000-000000000002";
 const canaryPriorityId = "76000000-0000-4000-8000-000000000002";
 const HOTEL_REPAIR_CASE_COMMAND_V1_SHA256 =
   "2cdd2a22ce28bf20b4e632ea7c12c270909a701fb1d64d2d9af1c2e857f59710";
+const HOTEL_REPAIR_VISIT_COMMAND_V1_SHA256 =
+  "bf72032dc653f3d1f0a939df3f8779b670168dba97f33b2e918fbe5df10ab7d0";
 const repairCaseCatchAll =
   "exception when sqlstate '55000' then return query select case when sqlerrm in ('REPAIR_EVIDENCE_REQUIRED','REPAIR_FOLLOW_UP_INVALID','REPAIR_COMPLETED_LOCKED') then sqlerrm else 'REPAIR_FOLLOW_UP_INVALID' end,null::jsonb; when foreign_key_violation or check_violation or invalid_text_representation then return query select 'REPAIR_FOLLOW_UP_INVALID',null::jsonb;";
 const stableRepairDiagnosticReasons = new Map([
@@ -405,6 +407,173 @@ async function probeCreateDirectRollback({ companyId, hotelId, value }) {
   console.log("PREVIEW_CALENDAR_CREATE_DIRECT_ROLLBACK_OK");
 }
 
+async function diagnoseVisitCreateRollback({ companyId, hotelId, value }) {
+  if (!ownerSql)
+    throw new Error("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_CONFIGURATION_INVALID");
+  const rollbackSignal = new Error(
+    "PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_EXPECTED_ROLLBACK",
+  );
+  const visitId = randomUUID();
+  const idempotencyRecordId = randomUUID();
+  const auditEventId = randomUUID();
+  let diagnosticMarker = null;
+  let diagnosticStage = "OWNER_CAPABILITY_SCOPE";
+  try {
+    await ownerSql.begin(async (transaction) => {
+      const [capabilityBaseline] = await transaction`
+        select not exists (
+          select 1 from public.runtime_database_capabilities
+           where role_name = session_user and capability = 'API_RUNTIME'
+        ) as owner_capability_absent
+      `;
+      if (!capabilityBaseline?.owner_capability_absent)
+        throw new Error(
+          "PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_CAPABILITY_BASELINE_INVALID",
+        );
+      await transaction`
+        insert into public.runtime_database_capabilities(role_name, capability)
+        values (session_user, 'API_RUNTIME')
+      `;
+      diagnosticStage = "SOURCE_VERIFY";
+      const [functionRecord] = await transaction`
+        select pg_catalog.encode(
+                 pg_catalog.sha256(
+                   pg_catalog.convert_to(function_record.prosrc, 'UTF8')
+                 ),
+                 'hex'
+               ) as source_sha256
+          from pg_catalog.pg_proc function_record
+         where function_record.oid = pg_catalog.to_regprocedure(
+           'public.hotel_repair_visit_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'
+         )
+      `;
+      if (
+        functionRecord?.source_sha256 !== HOTEL_REPAIR_VISIT_COMMAND_V1_SHA256
+      )
+        throw new Error("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_SOURCE_INVALID");
+      await transaction`
+        select set_config('app.company_id', ${companyId}, true),
+               set_config('app.session_id', ${sessionId}, true),
+               set_config('TimeZone', 'Asia/Seoul', true)
+      `;
+      diagnosticStage = "SAVEPOINT_CREATE";
+      await transaction.unsafe("savepoint preview_calendar_visit_probe");
+      diagnosticStage = "FUNCTION_CALL";
+      try {
+        const probeRows = await transaction`
+          select * from public.hotel_repair_visit_command_v1(
+            ${companyId}::uuid,
+            ${hotelId}::uuid,
+            ${visitId}::uuid,
+            ${"CREATE"},
+            0,
+            ${transaction.json(value)}::jsonb,
+            ${token},
+            ${idempotencyRecordId}::uuid,
+            ${randomUUID()},
+            ${"POST"},
+            ${`/api/hotels/${hotelId}/repair-visits`},
+            ${createHash("sha256").update(JSON.stringify(value)).digest("hex")},
+            ${randomUUID()}::uuid,
+            ${auditEventId}::uuid
+          )
+        `;
+        const safeStatus =
+          probeRows.length === 1 &&
+          typeof probeRows[0]?.command_status === "string" &&
+          /^[A-Z_]+$/u.test(probeRows[0].command_status)
+            ? probeRows[0].command_status
+            : "UNKNOWN";
+        diagnosticMarker = `PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_STATUS_${safeStatus}`;
+      } catch (visitError) {
+        const errorRecord =
+          visitError && typeof visitError === "object" ? visitError : {};
+        const sqlstate =
+          typeof errorRecord.code === "string" &&
+          /^[0-9A-Z]{5}$/u.test(errorRecord.code)
+            ? errorRecord.code
+            : "UNKNOWN";
+        const rawConstraint =
+          typeof errorRecord.constraint_name === "string"
+            ? errorRecord.constraint_name
+            : typeof errorRecord.constraint === "string"
+              ? errorRecord.constraint
+              : "NONE";
+        const constraint = /^[A-Za-z0-9_]{1,128}$/u.test(rawConstraint)
+          ? rawConstraint.toUpperCase()
+          : "UNKNOWN";
+        const reasonSha256 =
+          typeof errorRecord.message === "string"
+            ? createHash("sha256")
+                .update(errorRecord.message, "utf8")
+                .digest("hex")
+            : "NONE";
+        const routine =
+          typeof errorRecord.routine === "string" &&
+          /^[A-Za-z0-9_]{1,128}$/u.test(errorRecord.routine)
+            ? errorRecord.routine.toUpperCase()
+            : "NONE";
+        diagnosticMarker = `PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}_REASON_SHA256_${reasonSha256}_ROUTINE_${routine}`;
+      } finally {
+        await transaction.unsafe(
+          "rollback to savepoint preview_calendar_visit_probe",
+        );
+      }
+      diagnosticStage = "ROLLBACK_READ";
+      const [rollbackRead] = await transaction`
+        select
+          not exists (
+            select 1 from public.hotel_repair_visits
+             where company_id = ${companyId}::uuid and id = ${visitId}::uuid
+          )
+          and not exists (
+            select 1 from public.hotel_repair_visit_performers
+             where company_id = ${companyId}::uuid
+               and repair_visit_id = ${visitId}::uuid
+          )
+          and not exists (
+            select 1 from public.hotel_repair_visit_history
+             where company_id = ${companyId}::uuid
+               and repair_visit_id = ${visitId}::uuid
+          )
+          and not exists (
+            select 1 from public.hotel_repair_visit_performer_history
+             where company_id = ${companyId}::uuid
+               and repair_visit_id = ${visitId}::uuid
+          )
+          and not exists (
+            select 1 from public.idempotency_records
+             where company_id = ${companyId}::uuid
+               and id = ${idempotencyRecordId}::uuid
+          )
+          and not exists (
+            select 1 from public.audit_events
+             where company_id = ${companyId}::uuid and id = ${auditEventId}::uuid
+          ) as rollback_clean
+      `;
+      if (!rollbackRead?.rollback_clean)
+        throw new Error("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_ROLLBACK_INVALID");
+      diagnosticStage = "OUTER_ROLLBACK";
+      throw rollbackSignal;
+    });
+  } catch (diagnosticError) {
+    if (diagnosticError !== rollbackSignal)
+      throw new Error(
+        `PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_FAILED_${diagnosticStage}`,
+      );
+  }
+  const [rollbackState] = await ownerSql`
+    select not exists (
+      select 1 from public.runtime_database_capabilities
+       where role_name = session_user and capability = 'API_RUNTIME'
+    ) as owner_capability_absent
+  `;
+  if (!rollbackState?.owner_capability_absent || !diagnosticMarker)
+    throw new Error("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_ROLLBACK_INVALID");
+  console.log("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_ROLLBACK_OK");
+  console.log(diagnosticMarker);
+}
+
 try {
   const rows = await sql`
     select * from public.auth_create_session_v2(
@@ -524,14 +693,20 @@ try {
     const endsAt = new Date(startsAt.getTime() + 1_800_000);
     const title = `Preview Calendar canary ${randomUUID()}`;
     const createKey = randomUUID();
+    const visitBody = {
+      endsAt: endsAt.toISOString(),
+      performer: { type: "INTERNAL", userId: performer.userId },
+      repairCaseId: repair.id,
+      startsAt: startsAt.toISOString(),
+      title,
+    };
+    await diagnoseVisitCreateRollback({
+      companyId: rows[0].company_id,
+      hotelId,
+      value: visitBody,
+    });
     const created = await api(`/api/hotels/${hotelId}/repair-visits`, {
-      body: {
-        endsAt: endsAt.toISOString(),
-        performer: { type: "INTERNAL", userId: performer.userId },
-        repairCaseId: repair.id,
-        startsAt: startsAt.toISOString(),
-        title,
-      },
+      body: visitBody,
       idempotencyKey: createKey,
       method: "POST",
       failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",
