@@ -40,8 +40,8 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("options.includeSafeErrorCode");
     expect(source).toContain("/^[A-Z_]+$/u.test(payload?.error?.code)");
     expect(source).toContain("includeSafeErrorCode: true");
-    expect(source).toMatch(
-      /failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",\s+includeSafeErrorCode: true/u,
+    expect(source).toContain(
+      "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID${safeErrorCode",
     );
     expect(source).not.toContain("payload?.error?.message");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
@@ -84,6 +84,11 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_STATUS_");
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_SQLSTATE_");
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_ROLLBACK_OK");
+    expect(source).toContain("createVisitWithFailureReadback");
+    expect(source).toContain(
+      "PREVIEW_CALENDAR_VISIT_HTTP_FAILURE_DB_COMMITTED",
+    );
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_HTTP_FAILURE_DB_ABSENT");
     for (const rollbackObject of [
       "public.hotel_repair_visits",
       "public.hotel_repair_visit_performers",
