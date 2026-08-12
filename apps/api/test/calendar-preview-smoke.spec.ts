@@ -82,6 +82,9 @@ describe("hosted Preview Calendar smoke", () => {
       "rollback to savepoint preview_calendar_constraint_probe",
     );
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
+    expect(source).toContain("_REASON_${safeReason}");
+    expect(source).toContain("/^[A-Z_]+$/u.test(errorRecord.message)");
+    expect(source).not.toContain("console.log(errorRecord.message)");
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_ROLLBACK_OK");
     expect(source).toContain("public.runtime_database_capabilities");
     expect(source).toContain("session_user");
