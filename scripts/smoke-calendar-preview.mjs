@@ -209,7 +209,12 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
         const constraint = /^[A-Za-z0-9_]{1,128}$/u.test(rawConstraint)
           ? rawConstraint.toUpperCase()
           : "UNKNOWN";
-        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}`;
+        const safeReason =
+          typeof errorRecord.message === "string" &&
+          /^[A-Z_]+$/u.test(errorRecord.message)
+            ? errorRecord.message
+            : "UNKNOWN";
+        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}_REASON_${safeReason}`;
       } finally {
         await transaction.unsafe(
           "rollback to savepoint preview_calendar_constraint_probe",
