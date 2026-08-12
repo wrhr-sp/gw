@@ -80,6 +80,10 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_SQLSTATE_");
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_STATUS_");
     expect(source).toContain("PREVIEW_CALENDAR_VISIT_DIAGNOSTIC_ROLLBACK_OK");
+    expect(source).toContain("diagnoseVisitRuntimeRollback");
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_STATUS_");
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_SQLSTATE_");
+    expect(source).toContain("PREVIEW_CALENDAR_VISIT_RUNTIME_ROLLBACK_OK");
     for (const rollbackObject of [
       "public.hotel_repair_visits",
       "public.hotel_repair_visit_performers",
