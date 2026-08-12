@@ -40,6 +40,9 @@ describe("hosted Preview Calendar smoke", () => {
     expect(source).toContain("options.includeSafeErrorCode");
     expect(source).toContain("/^[A-Z_]+$/u.test(payload?.error?.code)");
     expect(source).toContain("includeSafeErrorCode: true");
+    expect(source).toMatch(
+      /failureCode: "PREVIEW_CALENDAR_MUTATION_VISIT_CREATE_API_INVALID",\s+includeSafeErrorCode: true/u,
+    );
     expect(source).not.toContain("payload?.error?.message");
     expect(source).toContain("PREVIEW_CALENDAR_MUTATION_READBACK_INVALID");
     expect(source).toContain("PREVIEW_CALENDAR_PERMISSION_DENY_INVALID");
