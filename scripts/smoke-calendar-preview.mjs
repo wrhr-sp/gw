@@ -236,7 +236,13 @@ async function diagnoseCreateDirectConstraint({ companyId, hotelId, value }) {
                 ? errorRecord.message
                 : "UNKNOWN"))
             : "UNKNOWN";
-        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}_REASON_${safeReason}`;
+        const reasonSha256 =
+          typeof errorRecord.message === "string"
+            ? createHash("sha256")
+                .update(errorRecord.message, "utf8")
+                .digest("hex")
+            : "NONE";
+        diagnosticMarker = `PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_${sqlstate}_CONSTRAINT_${constraint}_REASON_${safeReason}_REASON_SHA256_${reasonSha256}`;
       } finally {
         await transaction.unsafe(
           "rollback to savepoint preview_calendar_constraint_probe",

@@ -83,6 +83,10 @@ describe("hosted Preview Calendar smoke", () => {
     );
     expect(source).toContain("PREVIEW_CALENDAR_TEMP_CLONE_SQLSTATE_");
     expect(source).toContain("_REASON_${safeReason}");
+    expect(source).toContain("_REASON_SHA256_${reasonSha256}");
+    expect(source).toContain('createHash("sha256")');
+    expect(source).toContain('.update(errorRecord.message, "utf8")');
+    expect(source).toContain('.digest("hex")');
     expect(source).toContain(
       "stableRepairDiagnosticReasons.get(errorRecord.message)",
     );
