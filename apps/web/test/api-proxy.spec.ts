@@ -11,6 +11,41 @@ afterEach(() => {
 });
 
 describe("same-origin API runtime proxy", () => {
+  it("proxies only the approved operational-issue paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const issueId = "8a000000-0000-4000-8000-000000000001";
+    const approved = [
+      [GET, "GET", ["issues", "capabilities"]],
+      [GET, "GET", ["hotels", hotelId, "issues"]],
+      [POST, "POST", ["hotels", hotelId, "issues"]],
+      [GET, "GET", ["hotels", hotelId, "issues", issueId]],
+      [POST, "POST", ["hotels", hotelId, "issues", issueId, "assign"]],
+      [POST, "POST", ["hotels", hotelId, "issues", issueId, "transitions"]],
+      [POST, "POST", ["hotels", hotelId, "issues", issueId, "work-logs"]],
+      [POST, "POST", ["hotels", hotelId, "issues", issueId, "public-comments"]],
+      [POST, "POST", ["hotels", hotelId, "issues", issueId, "internal-notes"]],
+    ] as const;
+    for (const [handler, method, path] of approved) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, { method }),
+        { params: Promise.resolve({ path: [...path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+    const rejected = await PATCH(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/issues`, {
+        method: "PATCH",
+      }),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "issues"] }) },
+    );
+    expect(rejected.status).toBe(405);
+    expect(rejected.headers.get("allow")).toBe("GET, POST");
+    expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
+  });
+
   it("streams only the approved upload body with its exact length", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const uploadId = "10000000-0000-4000-8000-000000000001";

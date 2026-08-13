@@ -31,6 +31,7 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["health/ready", new Set(["GET"])],
   ["calendar", new Set(["GET"])],
   ["calendar/capabilities", new Set(["GET"])],
+  ["issues/capabilities", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -39,6 +40,27 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 ]);
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/issues$`, "iu").test(apiPath)
+  ) {
+    return new Set(["GET", "POST"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/issues/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/issues/${UUID_PATH_PATTERN}/(?:assign|transitions|work-logs|public-comments|internal-notes)$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["POST"]);
+  }
   if (
     new RegExp(`^admin/process-definitions/${UUID_PATH_PATTERN}$`, "iu").test(
       apiPath,
