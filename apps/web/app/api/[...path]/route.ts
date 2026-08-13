@@ -46,6 +46,13 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["GET", "POST"]);
   }
   if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/staff-assignments$`, "iu").test(
+      apiPath,
+    )
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
     new RegExp(
       `^hotels/${UUID_PATH_PATTERN}/issues/${UUID_PATH_PATTERN}$`,
       "iu",

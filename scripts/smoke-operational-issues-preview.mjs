@@ -308,10 +308,20 @@ try {
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
   if (new URL(page.url()).pathname === "/login")
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_LOGIN_REDIRECTED");
+  if (new URL(page.url()).pathname === "/account/initial-password")
+    throw new Error(
+      "PREVIEW_OPERATIONAL_ISSUES_UI_PASSWORD_CHANGE_REDIRECTED",
+    );
   if (documentResponse.status() === 404)
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ROUTE_NOT_FOUND");
   if (!documentResponse.ok())
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
+  if (
+    await page
+      .getByRole("heading", { name: "호텔 화면을 불러오지 못했습니다" })
+      .isVisible()
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ERROR_BOUNDARY");
   if (
     await page
       .getByRole("heading", {

@@ -21,6 +21,7 @@ describe("same-origin API runtime proxy", () => {
       [GET, "GET", ["issues", "capabilities"]],
       [GET, "GET", ["hotels", hotelId, "issues"]],
       [POST, "POST", ["hotels", hotelId, "issues"]],
+      [GET, "GET", ["hotels", hotelId, "staff-assignments"]],
       [GET, "GET", ["hotels", hotelId, "issues", issueId]],
       [POST, "POST", ["hotels", hotelId, "issues", issueId, "assign"]],
       [POST, "POST", ["hotels", hotelId, "issues", issueId, "transitions"]],
