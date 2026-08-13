@@ -43,6 +43,7 @@ let sessionCreated = false;
 let grantsCreated = false;
 let createdIssue = null;
 let hotelId = null;
+let failureStage = "SESSION";
 
 async function request(path, options = {}) {
   const headers = {
@@ -93,6 +94,7 @@ async function command(path, body, failureCode) {
 }
 
 try {
+  failureStage = "SESSION";
   const sessions = await sql`
     select * from public.auth_create_session_v2(
       ${sessionId}::uuid, ${tokenHash}, ${bootstrapSubject},
@@ -110,9 +112,13 @@ try {
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_SESSION_FAILED");
   sessionCreated = true;
 
+  failureStage = "HOTEL_SCOPE";
   const [scope] = await ownerSql`
     select assignment.branch_id
       from public.hotel_staff_assignments assignment
+      join public.branches branch
+        on branch.company_id=assignment.company_id
+       and branch.id=assignment.branch_id
       join public.hotel_profiles hotel
         on hotel.company_id=assignment.company_id
        and hotel.branch_id=assignment.branch_id
@@ -121,13 +127,16 @@ try {
        and assignment.terminated_at is null
        and assignment.start_date<=statement_timestamp()::date
        and (assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
-       and hotel.status='ACTIVE'
+       and branch.branch_type='HOTEL'
+       and branch.status='ACTIVE'
+       and hotel.hotel_status='ACTIVE'
      order by assignment.created_at,assignment.id
      limit 1
   `;
   hotelId = scope?.branch_id;
   if (!hotelId) throw new Error("PREVIEW_OPERATIONAL_ISSUES_HOTEL_UNAVAILABLE");
 
+  failureStage = "GRANTS";
   await ownerSql.begin(async (transaction) => {
     for (let index = 0; index < permissionCodes.length; index += 1) {
       await transaction`
@@ -145,6 +154,7 @@ try {
   });
   grantsCreated = true;
 
+  failureStage = "API_DB";
   const issueId = randomUUID();
   const title = `Preview 운영이슈 canary ${randomUUID()}`;
   let issue = await command(
@@ -262,6 +272,7 @@ try {
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_DATABASE_READBACK_INVALID");
   console.log("PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK");
 
+  failureStage = "UI";
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -309,7 +320,7 @@ try {
     error instanceof Error &&
     /^PREVIEW_OPERATIONAL_ISSUES_[A-Z_]+(?:_[A-Z_]+)?$/u.test(error.message)
       ? error.message
-      : "PREVIEW_OPERATIONAL_ISSUES_UNCLASSIFIED";
+      : `PREVIEW_OPERATIONAL_ISSUES_FAILED_${failureStage}`;
   console.error(code);
   process.exitCode = 1;
 } finally {
@@ -319,12 +330,14 @@ try {
       delete from public.permission_grants
        where id = any(${grantIds}::uuid[])
     `.catch(() => {
+      console.error("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_GRANTS_FAILED");
       process.exitCode = 1;
     });
   }
   if (sessionCreated) {
     await sql`select * from public.auth_revoke_session_v2(${tokenHash}, 'Preview 운영이슈 smoke cleanup', ${randomUUID()}::uuid)`.catch(
       () => {
+        console.error("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_SESSION_FAILED");
         process.exitCode = 1;
       },
     );
