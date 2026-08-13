@@ -285,6 +285,23 @@ try {
   console.log("PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK");
 
   failureStage = "UI";
+  const uiCapabilities = await api("/api/issues/capabilities", {
+    failureCode:
+      "PREVIEW_OPERATIONAL_ISSUES_UI_CAPABILITIES_PREFLIGHT_INVALID",
+  });
+  if (!uiCapabilities?.hotels?.some((hotel) => hotel.hotelId === hotelId))
+    throw new Error(
+      "PREVIEW_OPERATIONAL_ISSUES_UI_CAPABILITIES_PREFLIGHT_INVALID",
+    );
+  await api(`/api/hotels/${hotelId}/staff-assignments`, {
+    failureCode: "PREVIEW_OPERATIONAL_ISSUES_UI_ASSIGNMENTS_PREFLIGHT_INVALID",
+  });
+  const uiList = await api(
+    `/api/hotels/${hotelId}/issues?page=1&pageSize=100`,
+    { failureCode: "PREVIEW_OPERATIONAL_ISSUES_UI_LIST_PREFLIGHT_INVALID" },
+  );
+  if (!uiList?.issues?.some((candidate) => candidate.id === issueId))
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_LIST_PREFLIGHT_INVALID");
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
@@ -318,6 +335,12 @@ try {
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
   if (
     await page
+      .getByText("This page could not be found.", { exact: true })
+      .isVisible()
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_SOFT_NOT_FOUND");
+  if (
+    await page
       .getByRole("heading", { name: "호텔 화면을 불러오지 못했습니다" })
       .isVisible()
   )
@@ -330,6 +353,8 @@ try {
       .isVisible()
   )
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED");
+  if (!(await page.locator("[data-issue-workspace]").isVisible()))
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_WORKSPACE_MISSING");
   await requireVisible(
     page.getByRole("heading", { name: "운영이슈" }),
     "PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING",
