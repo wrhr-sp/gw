@@ -101,4 +101,11 @@ export {
   type RepairRepository,
   type RepairRepositoryResult,
 } from "./repairs";
+export {
+  createPostgresOperationalIssueRepository,
+  type OperationalIssueCommandInput,
+  type OperationalIssueReadInput,
+  type OperationalIssueRepository,
+  type OperationalIssueRepositoryResult,
+} from "./operational-issues";
 export { probeDatabaseReadiness, type DatabaseReadiness } from "./client";
