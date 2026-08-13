@@ -179,13 +179,15 @@ try {
   hotelId = scope?.branch_id;
   if (!hotelId) throw new Error("PREVIEW_DAILY_SALES_HOTEL_UNAVAILABLE");
   failureStage = "GRANTS";
-  const [permissionCatalog] = await ownerSql`
-    select count(*)::integer as count
-      from public.permissions
-     where code = any(${permissionCodes}::text[])
-  `;
-  if (permissionCatalog?.count !== permissionCodes.length)
-    throw new Error("PREVIEW_DAILY_SALES_GRANT_CATALOG_INVALID");
+  for (const permissionCode of permissionCodes) {
+    const [permission] = await ownerSql`
+      select exists(
+        select 1 from public.permissions where code=${permissionCode}
+      ) as present
+    `;
+    if (!permission?.present)
+      throw new Error("PREVIEW_DAILY_SALES_GRANT_CATALOG_INVALID");
+  }
   try {
     createdGrantIds = await ownerSql.begin(async (tx) => {
       const inserted = [];
