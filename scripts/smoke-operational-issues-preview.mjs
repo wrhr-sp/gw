@@ -95,6 +95,14 @@ async function command(path, body, failureCode) {
   return issue;
 }
 
+async function requireVisible(locator, failureCode, timeout = 30_000) {
+  try {
+    await locator.waitFor({ state: "visible", timeout });
+  } catch {
+    throw new Error(failureCode);
+  }
+}
+
 try {
   failureStage = "SESSION";
   const sessions = await sql`
@@ -292,20 +300,46 @@ try {
     },
   ]);
   const page = await context.newPage();
-  await page.goto(`${baseUrl}/hotels/${hotelId}/issues`, {
+  const documentResponse = await page.goto(`${baseUrl}/hotels/${hotelId}/issues`, {
     timeout: 120_000,
     waitUntil: "domcontentloaded",
   });
-  await page
-    .getByRole("heading", { name: "운영이슈" })
-    .waitFor({ state: "visible", timeout: 120_000 });
-  await page
-    .getByText(title)
-    .first()
-    .waitFor({ state: "visible", timeout: 120_000 });
-  await page.getByText("Preview 공개댓글").waitFor({ state: "visible" });
-  await page.getByText("Preview 현장 작업기록").waitFor({ state: "visible" });
-  await page.getByText("Preview 내부메모").waitFor({ state: "visible" });
+  if (!documentResponse)
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
+  if (new URL(page.url()).pathname === "/login")
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_LOGIN_REDIRECTED");
+  if (documentResponse.status() === 404)
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ROUTE_NOT_FOUND");
+  if (!documentResponse.ok())
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
+  if (
+    await page
+      .getByRole("heading", {
+        name: "운영이슈 화면을 불러오지 못했습니다",
+      })
+      .isVisible()
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED");
+  await requireVisible(
+    page.getByRole("heading", { name: "운영이슈" }),
+    "PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING",
+  );
+  await requireVisible(
+    page.getByText(title).first(),
+    "PREVIEW_OPERATIONAL_ISSUES_UI_TITLE_MISSING",
+  );
+  await requireVisible(
+    page.getByText("Preview 공개댓글"),
+    "PREVIEW_OPERATIONAL_ISSUES_UI_PUBLIC_COMMENT_MISSING",
+  );
+  await requireVisible(
+    page.getByText("Preview 현장 작업기록"),
+    "PREVIEW_OPERATIONAL_ISSUES_UI_WORK_LOG_MISSING",
+  );
+  await requireVisible(
+    page.getByText("Preview 내부메모"),
+    "PREVIEW_OPERATIONAL_ISSUES_UI_INTERNAL_NOTE_MISSING",
+  );
   if (
     await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,

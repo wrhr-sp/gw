@@ -53,8 +53,21 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_FAILED_");
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_GRANTS_FAILED");
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_SESSION_FAILED");
+    for (const marker of [
+      "PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_LOGIN_REDIRECTED",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_ROUTE_NOT_FOUND",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_TITLE_MISSING",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_PUBLIC_COMMENT_MISSING",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_WORK_LOG_MISSING",
+      "PREVIEW_OPERATIONAL_ISSUES_UI_INTERNAL_NOTE_MISSING",
+    ])
+      expect(source).toContain(marker);
     expect(source).not.toContain("console.error(error");
     expect(source).not.toContain("payload?.error?.message");
+    expect(source).not.toContain("console.log(await page.content())");
   });
 
   it("is a mandatory pre-contract Preview release gate", () => {
