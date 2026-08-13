@@ -39,7 +39,7 @@ const permissionCodes = [
   "HOTEL_FILE_UPLOAD",
   "HOTEL_FILE_READ",
 ];
-const grantIds = permissionCodes.map(() => randomUUID());
+let createdGrantIds = [];
 const png = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
   "base64",
@@ -180,13 +180,63 @@ try {
   hotelId = scope?.branch_id;
   if (!hotelId) throw new Error("PREVIEW_DAILY_SALES_HOTEL_UNAVAILABLE");
   failureStage = "GRANTS";
-  await ownerSql.begin(async (tx) => {
-    for (let i = 0; i < permissionCodes.length; i += 1)
-      await tx`
-    insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)
-    values(${grantIds[i]}::uuid,${principal.company_id}::uuid,${hotelId}::uuid,'USER',${principal.user_id}::uuid,${permissionCodes[i]},'ALLOW',statement_timestamp()-interval '1 minute',${principal.user_id}::uuid,'Preview 일매출 canary 권한')`;
-  });
-  grantsCreated = true;
+  const [permissionCatalog] = await ownerSql`
+    select count(*)::integer as count
+      from public.permissions
+     where code = any(${permissionCodes}::text[])
+  `;
+  if (permissionCatalog?.count !== permissionCodes.length)
+    throw new Error("PREVIEW_DAILY_SALES_GRANT_CATALOG_INVALID");
+  try {
+    createdGrantIds = await ownerSql.begin(async (tx) => {
+      const inserted = [];
+      for (const permissionCode of permissionCodes) {
+        const [existing] = await tx`
+          select id
+            from public.permission_grants
+           where company_id=${principal.company_id}::uuid
+             and branch_id=${hotelId}::uuid
+             and subject_type='USER'
+             and subject_id=${principal.user_id}::uuid
+             and permission_code=${permissionCode}
+             and effect='ALLOW'
+             and valid_from<=statement_timestamp()
+             and (valid_until is null or valid_until>statement_timestamp())
+           order by valid_from desc,id
+           limit 1
+        `;
+        if (existing) continue;
+        const grantId = randomUUID();
+        await tx`
+          insert into public.permission_grants(
+            id,company_id,branch_id,subject_type,subject_id,permission_code,
+            effect,valid_from,granted_by,reason
+          ) values(
+            ${grantId}::uuid,${principal.company_id}::uuid,${hotelId}::uuid,
+            'USER',${principal.user_id}::uuid,${permissionCode},'ALLOW',
+            statement_timestamp()-interval '1 minute',${principal.user_id}::uuid,
+            'Preview 일매출 canary 권한'
+          )
+        `;
+        inserted.push(grantId);
+      }
+      return inserted;
+    });
+  } catch (error) {
+    const sqlState =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "";
+    const classification = sqlState.startsWith("23")
+      ? "CONSTRAINT"
+      : sqlState.startsWith("42")
+        ? "CONTRACT"
+        : sqlState.startsWith("28")
+          ? "AUTHORITY"
+          : "UNKNOWN";
+    throw new Error(`PREVIEW_DAILY_SALES_GRANTS_${classification}`);
+  }
+  grantsCreated = createdGrantIds.length > 0;
   const [dateRow] = await ownerSql`
     select candidate::date as business_date from generate_series(date '2090-01-01',date '2190-12-31',interval '1 day') candidate
     where not exists(select 1 from public.hotel_daily_sales sales where sales.company_id=${principal.company_id}::uuid and sales.branch_id=${hotelId}::uuid and sales.business_date=candidate::date)
@@ -357,7 +407,7 @@ try {
 } finally {
   if (browser) await browser.close().catch(() => undefined);
   if (grantsCreated)
-    await ownerSql`delete from public.permission_grants where id=any(${grantIds}::uuid[])`.catch(
+    await ownerSql`delete from public.permission_grants where id=any(${createdGrantIds}::uuid[])`.catch(
       () => {
         console.error("PREVIEW_DAILY_SALES_CLEANUP_GRANTS_FAILED");
         process.exitCode = 1;
