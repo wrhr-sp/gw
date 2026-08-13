@@ -24,6 +24,8 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).toContain("branch.status='ACTIVE'");
     expect(source).toContain("hotel.hotel_status='ACTIVE'");
     expect(source).not.toContain("hotel.status='ACTIVE'");
+    expect(source).toContain("branch.id::text ~* ${apiUuidPattern.source}");
+    expect(source).toContain("apiUuidPattern.test(String(hotelId))");
     expect(source).toContain("insert into public.permission_grants");
     expect(source).toContain('"HOTEL_ISSUE_MANAGE"');
     for (const path of [
