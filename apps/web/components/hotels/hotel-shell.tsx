@@ -1,5 +1,17 @@
-import type { AccountPermission, AuthenticatedPrincipal, OperationalIssueCapability } from "@werehere/contracts";
-import { Building2, CalendarDays, CircleAlert, LayoutDashboard, Users } from "lucide-react";
+import type {
+  AccountPermission,
+  AuthenticatedPrincipal,
+  DailySalesCapability,
+  OperationalIssueCapability,
+} from "@werehere/contracts";
+import {
+  Banknote,
+  Building2,
+  CalendarDays,
+  CircleAlert,
+  LayoutDashboard,
+  Users,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { AppShell } from "../shell/app-shell";
 
@@ -20,6 +32,7 @@ type HotelShellProps = {
   children: ReactNode;
   accountPermissions?: AccountPermission[];
   calendarHref?: string | undefined;
+  dailySalesCapabilities?: DailySalesCapability[];
   issueCapabilities?: OperationalIssueCapability[];
   currentPath: string;
   hotelName?: string;
@@ -31,15 +44,40 @@ export function HotelShell({
   calendarHref,
   children,
   currentPath,
+  dailySalesCapabilities = [],
   hotelName = "호텔 미선택",
   issueCapabilities = [],
   principal,
 }: HotelShellProps) {
   const navigation = [...baseNavigation];
-  if (calendarHref) navigation.push({ href: calendarHref, icon: <CalendarDays />, label: "업무 달력" });
+  if (calendarHref)
+    navigation.push({
+      href: calendarHref,
+      icon: <CalendarDays />,
+      label: "업무 달력",
+    });
+  const dailySalesHotel = dailySalesCapabilities.find(
+    (capability) => capability.canRead,
+  );
+  if (dailySalesHotel)
+    navigation.push({
+      href: `/hotels/${dailySalesHotel.hotelId}/daily-sales`,
+      icon: <Banknote />,
+      label: "일매출",
+    });
   const issueHotel = issueCapabilities.find((capability) => capability.canRead);
-  if (issueHotel) navigation.push({ href: `/hotels/${issueHotel.hotelId}/issues`, icon: <CircleAlert />, label: "운영이슈" });
-  if (accountPermissions.includes("USER_READ")) navigation.push({ href: "/admin/users", icon: <Users />, label: "사용자 계정" });
+  if (issueHotel)
+    navigation.push({
+      href: `/hotels/${issueHotel.hotelId}/issues`,
+      icon: <CircleAlert />,
+      label: "운영이슈",
+    });
+  if (accountPermissions.includes("USER_READ"))
+    navigation.push({
+      href: "/admin/users",
+      icon: <Users />,
+      label: "사용자 계정",
+    });
   return (
     <AppShell
       currentPath={currentPath}

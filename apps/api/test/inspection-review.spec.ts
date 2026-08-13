@@ -108,7 +108,10 @@ function canonicalReview() {
   };
 }
 
-function repository(reviewPayload: unknown, commandPayload: unknown = { id: inspectionId }) {
+function repository(
+  reviewPayload: unknown,
+  commandPayload: unknown = { id: inspectionId },
+) {
   return {
     close: vi.fn(),
     command: vi.fn().mockResolvedValue({
@@ -248,7 +251,12 @@ describe("inspection review evidence stream", () => {
       },
     );
     const service = createHotelFileService(
-      { close, fileViewCommand, repairFileViewCommand: fileViewCommand } as never,
+      {
+        close,
+        dailySalesFileViewCommand: fileViewCommand,
+        fileViewCommand,
+        repairFileViewCommand: fileViewCommand,
+      } as never,
       {
         openCleanVersion: vi.fn().mockResolvedValue({
           body: new ReadableStream<Uint8Array>({
@@ -322,6 +330,21 @@ describe("inspection review evidence stream", () => {
       principal,
       hotelId,
       "a1000000-0000-4000-8000-000000000001",
+      "99000000-0000-4000-8000-000000000001",
+    );
+    expect(new Uint8Array(await new Response(view.body).arrayBuffer())).toEqual(
+      new Uint8Array([1, 2, 3]),
+    );
+    expect(fixture.terminalActions).toEqual(["SUCCEEDED"]);
+    expect(fixture.close).toHaveBeenCalledOnce();
+  });
+
+  it("uses the daily-sales parent command while preserving terminal stream audit", async () => {
+    const fixture = setupStream();
+    const view = await fixture.service.dailySalesView(
+      principal,
+      hotelId,
+      "da500000-0000-4000-8000-000000000001",
       "99000000-0000-4000-8000-000000000001",
     );
     expect(new Uint8Array(await new Response(view.body).arrayBuffer())).toEqual(

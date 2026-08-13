@@ -71,6 +71,20 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-daily-sales.ledger": {
+    audience: ["일매출 조회권한과 현재 호텔배정 또는 소유주 연결이 있는 사용자"],
+    cautions: [
+      "확정에는 검역 완료된 마감 증빙이 필요하며 확정 뒤 원본은 수정할 수 없습니다.",
+      "확정 뒤 오류는 기존 값을 덮어쓰지 않고 사유와 새 증빙을 포함한 정정 버전으로 남깁니다.",
+      "소유주 화면에는 확정된 금액·증빙·정정이력만 표시되고 내부 메모와 작성자는 표시되지 않습니다.",
+    ],
+    featureKey: "hotel-daily-sales.ledger",
+    permissions: ["조회·임시저장·확정·정정 권한과 현재 호텔배정 또는 소유주 연결을 요청마다 다시 확인합니다."],
+    steps: ["업무일을 선택하고 매출구분·결제수단별 총매출, 할인, 환불을 입력합니다.","임시저장 후 서버가 다시 계산한 순매출을 확인합니다.","마감 증빙을 업로드하고 확정해 해당 업무일을 잠급니다.","확정 뒤 오류가 있으면 정정 사유와 새 증빙으로 정정 버전을 등록합니다."],
+    summary: "날짜별 매출을 임시저장하고 증빙과 함께 확정하며, 확정 뒤 변경은 정정이력으로 보존합니다.",
+    title: "일매출 장부",
+    version: "1.0",
+  },
   "hotel-operational-issue.lifecycle": {
     audience: ["운영이슈 권한과 현재 호텔배정 또는 소유주 연결이 있는 사용자"],
     cautions: [
@@ -185,6 +199,7 @@ export const hotelFeatureGuideRoutes = {
   "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
   "/hotels/[hotelId]": "hotel-management.detail",
   "/hotels/[hotelId]/issues": "hotel-operational-issue.lifecycle",
+  "/hotels/[hotelId]/daily-sales": "hotel-daily-sales.ledger",
   "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
   "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
 } as const satisfies Record<string, HotelFeatureGuideKey>;

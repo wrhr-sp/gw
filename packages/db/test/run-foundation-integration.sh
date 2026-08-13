@@ -184,6 +184,12 @@ begin
       execute format('grant execute on function public.hotel_issue_read_v1(uuid,uuid,uuid,jsonb,text) to %I', capability_role.role_name);
       execute format('grant execute on function public.hotel_issue_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
     end if;
+    if to_regprocedure('public.hotel_daily_sales_read_v1(uuid,uuid,uuid,jsonb,text)') is not null then
+      execute format('grant execute on function public.hotel_daily_sales_capabilities_v1(uuid,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_daily_sales_read_v1(uuid,uuid,uuid,jsonb,text) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_daily_sales_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_daily_sales_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid) to %I', capability_role.role_name);
+    end if;
     if to_regprocedure('public.hotel_calendar_capabilities_v1(uuid,text)') is not null then
       execute format('grant execute on function public.hotel_calendar_capabilities_v1(uuid,text) to %I', capability_role.role_name);
       execute format('grant execute on function public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text) to %I', capability_role.role_name);
@@ -288,6 +294,23 @@ run_actual_operational_issue_api_probe() {
     cd "$ROOT_DIR"
     TEST_READY_URL="$api_probe_url" \
       pnpm exec tsx apps/api/test/hotel-operational-issues-actual-api-integration.ts
+  )
+  probe_status=$?
+  set -e
+  cleanup_api_probe_role "$admin_url"
+  return "$probe_status"
+}
+
+run_actual_daily_sales_api_probe() {
+  local admin_url="$1"
+  local api_probe_url probe_status
+  api_probe_url="$(configure_api_probe_role "$admin_url")"
+  grant_repair_lifecycle_capabilities "$admin_url"
+  set +e
+  (
+    cd "$ROOT_DIR"
+    TEST_READY_URL="$api_probe_url" \
+      pnpm exec tsx apps/api/test/hotel-daily-sales-actual-api-integration.ts
   )
   probe_status=$?
   set -e
@@ -614,6 +637,27 @@ assert_operational_issue_readiness_damage() {
     >/dev/null
   assert_schema_ready "$probe_url"
   printf 'HOTEL_OPERATIONAL_ISSUES_READINESS_DAMAGE_OK\n'
+}
+
+assert_daily_sales_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_daily_sales
+  drop constraint hotel_daily_sales_company_id_branch_id_business_date_key;
+alter table public.hotel_daily_sales
+  add constraint hotel_daily_sales_company_id_branch_id_business_date_key unique(id);
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_daily_sales
+  drop constraint hotel_daily_sales_company_id_branch_id_business_date_key;
+alter table public.hotel_daily_sales
+  add constraint hotel_daily_sales_company_id_branch_id_business_date_key unique(company_id,branch_id,business_date);
+SQL
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_DAILY_SALES_READINESS_DAMAGE_OK\n'
 }
 
 assert_checklist_expand_readiness_damage() {
@@ -1438,12 +1482,14 @@ SCHEDULED_RECONCILER_LOCK_MIGRATION="$ROOT_DIR/packages/db/migrations/0046_sched
 REPAIR_DIRECT_RECORD_INITIALIZATION_MIGRATION="$ROOT_DIR/packages/db/migrations/0047_repair_direct_record_initialization.sql"
 REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION="$ROOT_DIR/packages/db/migrations/0048_repair_visit_trigger_definer.sql"
 HOTEL_OPERATIONAL_ISSUES_MIGRATION="$ROOT_DIR/packages/db/migrations/0049_hotel_operational_issues.sql"
+HOTEL_DAILY_SALES_MIGRATION="$ROOT_DIR/packages/db/migrations/0050_hotel_daily_sales.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
 HOTEL_CALENDAR_READ_MODEL_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-calendar-read-model-integration.sql"
 HOTEL_REPAIR_LIFECYCLE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-lifecycle-integration.sql"
 HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-private-evidence-integration.sql"
 HOTEL_OPERATIONAL_ISSUES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-operational-issues-integration.sql"
+HOTEL_DAILY_SALES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-daily-sales-integration.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -2427,6 +2473,13 @@ if [[ "$HOTEL_OPERATIONAL_ISSUES_RESULT" != *"HOTEL_OPERATIONAL_ISSUES_INTEGRATI
   printf '%s\n' "$HOTEL_OPERATIONAL_ISSUES_RESULT" >&2
   exit 1
 fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_DAILY_SALES_MIGRATION" >/dev/null
+HOTEL_DAILY_SALES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_DAILY_SALES_TEST_SQL")"
+if [[ "$HOTEL_DAILY_SALES_RESULT" != *"HOTEL_DAILY_SALES_INTEGRATION_OK"* ]]; then
+  printf '%s\n' "$HOTEL_DAILY_SALES_RESULT" >&2
+  exit 1
+fi
+assert_daily_sales_readiness_damage "$ADMIN_URL" "$PROBE_URL"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_CALENDAR_READ_MODEL_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$SCHEDULED_RECONCILER_LOCK_MIGRATION" >/dev/null
 grant_repair_lifecycle_capabilities "$ADMIN_URL"
@@ -2435,6 +2488,7 @@ assert_operational_issue_readiness_damage "$ADMIN_URL" "$PROBE_URL"
 assert_scheduled_reconciler_lock_runtime "$PROBE_URL"
 run_actual_repair_api_probe "$ADMIN_URL"
 run_actual_operational_issue_api_probe "$ADMIN_URL"
+run_actual_daily_sales_api_probe "$ADMIN_URL"
 run_actual_calendar_api_probe "$ADMIN_URL"
 REPAIR_PRIVATE_EVIDENCE_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL")"
 if [[ "$REPAIR_PRIVATE_EVIDENCE_RESULT" != *"HOTEL_REPAIR_PRIVATE_EVIDENCE_INTEGRATION_OK"* ]]; then

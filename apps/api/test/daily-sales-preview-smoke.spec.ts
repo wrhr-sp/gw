@@ -1,0 +1,46 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+const smoke = readFileSync(
+  new URL("../../../scripts/smoke-daily-sales-preview.mjs", import.meta.url),
+  "utf8",
+);
+const workflow = readFileSync(
+  new URL("../../../.github/workflows/preview-release.yml", import.meta.url),
+  "utf8",
+);
+describe("daily sales Preview smoke", () => {
+  it("uses the hosted API, private R2 quarantine, scanner read-back and canonical PostgreSQL", () => {
+    expect(smoke).toContain("/files/upload-init");
+    expect(smoke).toContain("READY_UNLINKED");
+    expect(smoke).toContain("HOTEL_FILE_READ");
+    expect(smoke).toContain("/files/${correctionFile}/view");
+    expect(smoke).toContain("viewedBody.equals(png)");
+    expect(smoke).toContain("/confirm");
+    expect(smoke).toContain("/corrections");
+    expect(smoke).toContain("hotel_daily_sales_versions");
+    expect(smoke).toContain("hotel_daily_sales_attachments");
+    expect(smoke).toContain("PREVIEW_DAILY_SALES_API_DB_SMOKE_OK");
+  });
+  it("checks 390px route, navigation, overflow and Axe without exposing a story route", () => {
+    expect(smoke).toContain("width: 390, height: 844");
+    expect(smoke).toContain("data-daily-sales-workspace");
+    expect(smoke).toContain('name: "일매출"');
+    expect(smoke).toContain("AxeBuilder");
+    expect(smoke).toContain("PREVIEW_DAILY_SALES_UI_SMOKE_OK");
+    expect(smoke).not.toContain("playwright/stories");
+  });
+  it("keeps append-only sales history and audit while cleaning only transient grants and session", () => {
+    expect(smoke).not.toMatch(/delete from public\.hotel_daily_sales/u);
+    expect(smoke).not.toMatch(/delete from public\.audit_events/u);
+    expect(smoke).toContain("delete from public.permission_grants");
+    expect(smoke).toContain("auth_revoke_session_v2");
+  });
+  it("is wired before Preview contract with exact success markers", () => {
+    expect(workflow).toContain("node scripts/smoke-daily-sales-preview.mjs");
+    expect(workflow).toContain("PREVIEW_DAILY_SALES_API_DB_SMOKE_OK");
+    expect(workflow).toContain("PREVIEW_DAILY_SALES_UI_SMOKE_OK");
+    expect(
+      workflow.indexOf("node scripts/smoke-daily-sales-preview.mjs"),
+    ).toBeLessThan(workflow.indexOf("Contract Neon Preview tenant authority"));
+  });
+});

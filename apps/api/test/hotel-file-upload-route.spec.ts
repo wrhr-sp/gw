@@ -58,6 +58,9 @@ describe("hotel file upload route", () => {
       '"/api/hotels/:hotelId/repairs/:repairId/files/:fileVersionId/view"',
     );
     expect(appSource).toContain(
+      '"/api/hotels/:hotelId/daily-sales/:salesId/files/:fileVersionId/view"',
+    );
+    expect(appSource).toContain(
       'context.req.header("sec-fetch-site") !== "same-origin"',
     );
     expect(appSource).toContain('"Cache-Control": "private, no-store"');

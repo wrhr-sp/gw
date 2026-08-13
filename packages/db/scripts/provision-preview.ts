@@ -2342,6 +2342,7 @@ try {
   const [repairLifecycleState] = await owner<
     {
       hotel_calendar_read_model_marker_count: number;
+      hotel_daily_sales_marker_count: number;
       hotel_operational_issues_marker_count: number;
       hotel_repair_lifecycle_marker_count: number;
     }[]
@@ -2354,12 +2355,16 @@ try {
     )::integer as hotel_calendar_read_model_marker_count,
     count(*) filter (
       where version = '0049_hotel_operational_issues'
-    )::integer as hotel_operational_issues_marker_count
+    )::integer as hotel_operational_issues_marker_count,
+    count(*) filter (
+      where version = '0050_hotel_daily_sales'
+    )::integer as hotel_daily_sales_marker_count
     from public.schema_migrations
   `;
   if (
     !repairLifecycleState ||
-    repairLifecycleState.hotel_calendar_read_model_marker_count !== 1
+    repairLifecycleState.hotel_calendar_read_model_marker_count !== 1 ||
+    ![0, 1].includes(repairLifecycleState.hotel_daily_sales_marker_count)
   ) {
     fail("Preview repair or Calendar lifecycle marker state is unavailable");
   }
@@ -2886,6 +2891,10 @@ try {
              'hotel_issue_capabilities_v1',
              'hotel_issue_read_v1',
              'hotel_issue_command_v1',
+             'hotel_daily_sales_capabilities_v1',
+             'hotel_daily_sales_read_v1',
+             'hotel_daily_sales_command_v1',
+             'hotel_daily_sales_file_view_command_v1',
              'hotel_calendar_actor_v1',
              'hotel_calendar_permission_allowed_v1',
              'hotel_calendar_accessible_hotels_v1',
@@ -2947,6 +2956,22 @@ try {
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_issue_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
+    ${
+      repairLifecycleState.hotel_daily_sales_marker_count === 1
+        ? `grant execute on function public.hotel_daily_sales_capabilities_v1(
+      uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_daily_sales_read_v1(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_daily_sales_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_daily_sales_file_view_command_v1(
+      uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
     ) to ${apiRuntimeRole};`
         : ""
     }
