@@ -44,8 +44,30 @@ const HOTEL_FILE_ACCESS_SCHEMA_SHA256 =
   "2df7d2a8c90a059efdf7eaa66ecd8d5f5a5144115ad46385ed8b3c18c41678e5";
 const HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256 =
   "fc32af3cf8312e2c640b95cc88c118b2aa524478670d4eed98eb9691550f6bbf";
+const HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256 =
+  "ab305e42dbcc0b626072f2dc3ad9dc1eb55f466a34e7b447d2afc121a36f3eb6";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
+const HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256 =
+  "508c9daf9cc33001a0f2d47bd8e033748468671aba5c7b7ed313ee8e2043edd4";
+const HOTEL_DAILY_SALES_ACTOR_V1_PROSRC_SHA256 =
+  "93de58bcd56ba3eecd6ed5482183eacfa39e901a33e7b67972dec3a63f5c5701";
+const HOTEL_DAILY_SALES_SNAPSHOT_V1_PROSRC_SHA256 =
+  "3fd4af3564db7c12bf296288b251a56436e673bd5cb88b8a445e068479231ec4";
+const HOTEL_DAILY_SALES_CAPABILITIES_V1_PROSRC_SHA256 =
+  "5349751c5ca5c257781eaf78199e34ff8a3c677bc8159192f944a6abae87f719";
+const HOTEL_DAILY_SALES_READ_V1_PROSRC_SHA256 =
+  "4b0741f412d6be7c566cb10069e069830233e05f46b6258932633a26c78d7f85";
+const HOTEL_DAILY_SALES_COMMAND_V1_PROSRC_SHA256 =
+  "4e94a2fe62f1d5d5d0037999c799c0e220a4980ab127a685fa7d2a4c343f706e";
+const HOTEL_DAILY_SALES_FILE_VIEW_V1_PROSRC_SHA256 =
+  "d138b41d54642999a7544d13a5abe6ba20d0898636aae544cf2383590da955ed";
+const HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256 =
+  "bbbf7276d1f83bb2c03b9167791f087eed46cdcc0589299a27874f5e13f19976";
+const HOTEL_DAILY_SALES_HISTORY_APPEND_ONLY_PROSRC_SHA256 =
+  "a9590d523dc891996f9aefaf658a09923ac632a8076097898f4f337627a0c031";
+const HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256 =
+  "a37cbfb523026e3323277e04e8c14503d1832015e95cd2c065425310922c50aa";
 const HOTEL_OPERATIONAL_ISSUES_CAPABILITIES_V1_PROSRC_SHA256 =
   "080cddf4c3ebd51ed6e9a92087468e35d7032ece25d0d330f745b02e8cd4748f";
 const HOTEL_OPERATIONAL_ISSUES_ACTOR_V1_PROSRC_SHA256 =
@@ -359,6 +381,40 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_CAPABILITIES_V1_PROSRC_SHA256,
+    name: "hotel_daily_sales_capabilities_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_daily_sales_capabilities_v1(uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_READ_V1_PROSRC_SHA256,
+    name: "hotel_daily_sales_read_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_daily_sales_read_v1(uuid,uuid,uuid,jsonb,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_COMMAND_V1_PROSRC_SHA256,
+    name: "hotel_daily_sales_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_daily_sales_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_FILE_VIEW_V1_PROSRC_SHA256,
+    name: "hotel_daily_sales_file_view_command_v1",
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_daily_sales_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
     calendarReadModel: true,
     digest: "d9eb41741498a10a26ce04f793d35091a380fa754f941d0ba20989f36a1bf228",
     name: "hotel_calendar_capabilities_v1",
@@ -430,6 +486,27 @@ const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
     result: "jsonb",
     securityDefiner: true,
     signature: "public.hotel_issue_snapshot_v1(uuid,uuid,uuid,boolean)",
+    volatility: "s",
+  },
+  {
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_ACTOR_V1_PROSRC_SHA256,
+    language: "sql",
+    name: "hotel_daily_sales_actor_v1",
+    result:
+      "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
+    securityDefiner: true,
+    signature: "public.hotel_daily_sales_actor_v1(uuid,uuid,text,text)",
+    volatility: "s",
+  },
+  {
+    dailySales: true,
+    digest: HOTEL_DAILY_SALES_SNAPSHOT_V1_PROSRC_SHA256,
+    language: "sql",
+    name: "hotel_daily_sales_snapshot_v1",
+    result: "jsonb",
+    securityDefiner: true,
+    signature: "public.hotel_daily_sales_snapshot_v1(uuid,uuid,uuid,boolean)",
     volatility: "s",
   },
   {
@@ -2414,6 +2491,7 @@ export async function probeDatabaseReadiness(
         repair_direct_record_initialization_marker_count: number;
         repair_visit_trigger_definer_marker_count: number;
         hotel_operational_issues_marker_count: number;
+        hotel_daily_sales_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2526,6 +2604,9 @@ export async function probeDatabaseReadiness(
                where version = '0049_hotel_operational_issues'
              )::integer as hotel_operational_issues_marker_count,
              count(*) filter (
+               where version = '0050_hotel_daily_sales'
+             )::integer as hotel_daily_sales_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2584,7 +2665,8 @@ export async function probeDatabaseReadiness(
         '0046_scheduled_reconciler_invocation_lock',
         '0047_repair_direct_record_initialization',
         '0048_repair_visit_trigger_definer',
-        '0049_hotel_operational_issues'
+        '0049_hotel_operational_issues',
+        '0050_hotel_daily_sales'
       )
     `;
     const schemaPhase =
@@ -2610,6 +2692,12 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_operational_issues_marker_count === 1
         ? "EXPAND"
         : migrationRows[0]?.hotel_operational_issues_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
+    const dailySalesPhase =
+      migrationRows[0]?.hotel_daily_sales_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_daily_sales_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
@@ -2739,6 +2827,7 @@ export async function probeDatabaseReadiness(
     if (
       !repairLifecyclePhase ||
       !operationalIssuesPhase ||
+      !dailySalesPhase ||
       !calendarReadModelPhase ||
       !scheduledReconcilerLockPhase ||
       !googleCalendarRemovalPhase ||
@@ -2925,7 +3014,158 @@ export async function probeDatabaseReadiness(
         repairFoundation.permission_count !== 9 ||
         repairFoundation.direct_acl_count !== 0 ||
         repairFoundation.catalog_digest !==
-          HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256
+          (dailySalesPhase === "EXPAND"
+            ? HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256
+            : HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)
+      )
+        return schemaNotReady();
+    }
+    const dailySalesTableNames = [
+      "hotel_sales_categories",
+      "hotel_payment_methods",
+      "hotel_daily_sales",
+      "hotel_daily_sales_lines",
+      "hotel_daily_sales_versions",
+      "hotel_daily_sales_corrections",
+      "hotel_daily_sales_attachments",
+    ] as const;
+    if (dailySalesPhase === "PRE_EXPAND") {
+      const [prematureDailySales] = await sql<
+        {
+          function_count: number;
+          permission_count: number;
+          table_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'
+             and table_record.relname = any(${dailySalesTableNames as unknown as string[]})) as table_count,
+          (select count(*)::integer from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname in (
+               'sales_history_append_only','hotel_daily_sales_actor_v1',
+               'hotel_daily_sales_snapshot_v1','hotel_daily_sales_capabilities_v1',
+               'hotel_daily_sales_read_v1','hotel_daily_sales_command_v1',
+               'hotel_daily_sales_file_view_command_v1'
+             )) as function_count,
+          (select count(*)::integer from public.permissions permission_record
+           where permission_record.code = any(array[
+             'HOTEL_SALES_VIEW','HOTEL_SALES_MANAGE','HOTEL_SALES_CONFIRM',
+             'HOTEL_SALES_CORRECT','HOTEL_OWNER_SALES_READ'
+           ]::text[])) as permission_count
+      `;
+      if (
+        prematureDailySales?.table_count !== 0 ||
+        prematureDailySales.function_count !== 0 ||
+        prematureDailySales.permission_count !== 0
+      )
+        return schemaNotReady();
+    } else {
+      const [dailySalesFoundation] = await sql<
+        {
+          actor_source: string | null;
+          append_only_source: string | null;
+          direct_acl_count: number;
+          force_rls_count: number;
+          function_count: number;
+          grant_parent_count: number;
+          permission_count: number;
+          rls_count: number;
+          table_count: number;
+          trigger_count: number;
+        }[]
+      >`
+        select
+          count(distinct table_record.oid)::integer as table_count,
+          count(distinct table_record.oid) filter (where table_record.relrowsecurity)::integer as rls_count,
+          count(distinct table_record.oid) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
+          (select count(*)::integer from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname in (
+               'sales_history_append_only','hotel_daily_sales_actor_v1',
+               'hotel_daily_sales_snapshot_v1','hotel_daily_sales_capabilities_v1',
+               'hotel_daily_sales_read_v1','hotel_daily_sales_command_v1',
+               'hotel_daily_sales_file_view_command_v1'
+             )) as function_count,
+          (select procedure_record.prosrc from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname='hotel_daily_sales_actor_v1') as actor_source,
+          (select procedure_record.prosrc from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname='sales_history_append_only') as append_only_source,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+           where not trigger_record.tgisinternal and trigger_record.tgname in (
+             'hotel_daily_sales_versions_append_only',
+             'hotel_daily_sales_corrections_append_only',
+             'hotel_daily_sales_attachments_append_only'
+           )) as trigger_count,
+          (select count(*)::integer from public.permissions permission_record
+           where permission_record.code = any(array[
+             'HOTEL_SALES_VIEW','HOTEL_SALES_MANAGE','HOTEL_SALES_CONFIRM',
+             'HOTEL_SALES_CORRECT','HOTEL_OWNER_SALES_READ'
+           ]::text[])) as permission_count,
+          (select count(*)::integer from information_schema.table_privileges privilege
+           where privilege.table_schema='public'
+             and privilege.table_name = any(${dailySalesTableNames as unknown as string[]})
+             and privilege.grantee <> current_user
+             and privilege.privilege_type in ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE')) as direct_acl_count,
+          (select count(*)::integer
+             from pg_catalog.pg_attribute column_record
+             join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public'
+              and table_record.relname='hotel_file_access_grants'
+              and column_record.attname='daily_sales_id'
+              and not column_record.attisdropped
+              and exists (
+                select 1 from pg_catalog.pg_constraint constraint_record
+                 where constraint_record.conrelid=table_record.oid
+                   and constraint_record.conname='hotel_file_access_grants_parent_check'
+                   and pg_catalog.pg_get_constraintdef(constraint_record.oid,true) like '%daily_sales_id%'
+              )) as grant_parent_count
+        from pg_catalog.pg_class table_record
+        join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+        where table_namespace.nspname='public'
+          and table_record.relname = any(${dailySalesTableNames as unknown as string[]})
+      `;
+      if (
+        dailySalesFoundation?.table_count !== dailySalesTableNames.length ||
+        dailySalesFoundation.rls_count !== dailySalesTableNames.length ||
+        dailySalesFoundation.force_rls_count !== dailySalesTableNames.length ||
+        dailySalesFoundation.function_count !== 7 ||
+        dailySalesFoundation.permission_count !== 5 ||
+        dailySalesFoundation.trigger_count !== 3 ||
+        dailySalesFoundation.direct_acl_count !== 0 ||
+        dailySalesFoundation.grant_parent_count !== 1 ||
+        !dailySalesFoundation.actor_source ||
+        (await sourceSha256(dailySalesFoundation.actor_source)) !==
+          HOTEL_DAILY_SALES_ACTOR_V1_PROSRC_SHA256 ||
+        !dailySalesFoundation.append_only_source ||
+        (await sourceSha256(dailySalesFoundation.append_only_source)) !==
+          HOTEL_DAILY_SALES_HISTORY_APPEND_ONLY_PROSRC_SHA256
+      )
+        return schemaNotReady();
+      const dailySalesShape = await sql<{ value: string }[]>`
+        with objects as (
+          select 'column|'||table_record.relname||'|'||column_record.attnum||'|'||column_record.attname||'|'||pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)||'|'||column_record.attnotnull||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid),'') as value
+            from pg_catalog.pg_class table_record join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace join pg_catalog.pg_attribute column_record on column_record.attrelid=table_record.oid and column_record.attnum>0 and not column_record.attisdropped left join pg_catalog.pg_attrdef default_record on default_record.adrelid=table_record.oid and default_record.adnum=column_record.attnum
+           where table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
+          union all select 'constraint|'||table_record.relname||'|'||constraint_record.conname||'|'||constraint_record.contype::text||'|'||pg_catalog.pg_get_constraintdef(constraint_record.oid,true) from pg_catalog.pg_constraint constraint_record join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
+          union all select 'index|'||table_record.relname||'|'||index_record.relname||'|'||pg_catalog.pg_get_indexdef(index_record.oid) from pg_catalog.pg_index index_catalog join pg_catalog.pg_class index_record on index_record.oid=index_catalog.indexrelid join pg_catalog.pg_class table_record on table_record.oid=index_catalog.indrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
+          union all select 'policy|'||table_record.relname||'|'||policy_record.polname||'|'||policy_record.polcmd::text||'|'||policy_record.polpermissive||'|'||coalesce(pg_catalog.pg_get_expr(policy_record.polqual,policy_record.polrelid),'')||'|'||coalesce(pg_catalog.pg_get_expr(policy_record.polwithcheck,policy_record.polrelid),'') from pg_catalog.pg_policy policy_record join pg_catalog.pg_class table_record on table_record.oid=policy_record.polrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
+          union all select 'trigger|'||table_record.relname||'|'||trigger_record.tgname||'|'||pg_catalog.pg_get_triggerdef(trigger_record.oid,true) from pg_catalog.pg_trigger trigger_record join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where not trigger_record.tgisinternal and table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
+        ) select value from objects order by value
+      `;
+      if (
+        (await sourceSha256(
+          dailySalesShape.map((record) => record.value).join("\n"),
+        )) !== HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256
       )
         return schemaNotReady();
     }
@@ -4373,9 +4613,11 @@ export async function probeDatabaseReadiness(
         )), 'hex') as digest
       `;
       const expectedFileAccessSchema =
-        repairLifecyclePhase === "CONTRACT"
-          ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
-          : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
+        dailySalesPhase === "EXPAND"
+          ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
+          : repairLifecyclePhase === "CONTRACT"
+            ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
+            : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
       if (fileAccessSchema?.digest !== expectedFileAccessSchema) {
         return schemaNotReady();
       }
@@ -4411,6 +4653,7 @@ export async function probeDatabaseReadiness(
             );
           if ("operationalIssues" in contract)
             return operationalIssuesPhase === "EXPAND";
+          if ("dailySales" in contract) return dailySalesPhase === "EXPAND";
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (contract.name === "hotel_inspection_checklist_v2_command")
@@ -4421,13 +4664,16 @@ export async function probeDatabaseReadiness(
         });
       for (const contract of activeInspectionCommandContracts) {
         const expectedDigest =
-          contract.name === "hotel_calendar_events_read_v1"
-            ? googleCalendarProjectionPhase === "REMOVED"
-              ? HOTEL_CALENDAR_EVENTS_REMOVED_SHA256
-              : googleCalendarProjectionPhase === "PROVIDER_PRESENT"
-                ? HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256
-                : contract.digest
-            : contract.digest;
+          contract.name === "hotel_repair_file_upload_init_v1" &&
+          dailySalesPhase === "EXPAND"
+            ? HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256
+            : contract.name === "hotel_calendar_events_read_v1"
+              ? googleCalendarProjectionPhase === "REMOVED"
+                ? HOTEL_CALENDAR_EVENTS_REMOVED_SHA256
+                : googleCalendarProjectionPhase === "PROVIDER_PRESENT"
+                  ? HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256
+                  : contract.digest
+              : contract.digest;
         const [command] = await sql<
           {
             executable: boolean;
@@ -4529,6 +4775,7 @@ export async function probeDatabaseReadiness(
         HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
           if ("operationalIssues" in contract)
             return operationalIssuesPhase === "EXPAND";
+          if ("dailySales" in contract) return dailySalesPhase === "EXPAND";
           if ("calendarReadModel" in contract)
             return calendarReadModelPhase === "CONTRACT";
           if ("facilityExecution" in contract)

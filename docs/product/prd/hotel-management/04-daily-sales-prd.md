@@ -12,6 +12,16 @@
 
 PMS·OTA 없이 호텔별 업무일 일매출을 직접 입력·확정·정정하고 증빙과 책임자를 보존한다. 고객 이름·연락처·예약번호 등 고객별 개인정보는 수집하지 않는다.
 
+## 구현후보 결정 — 2026-08-13
+
+- 선택자: 대장
+- 선택상태: `approved`
+- 선택안: 정규화 일매출 aggregate와 PostgreSQL command function을 정본으로 사용한다.
+- 외부 패키지·회계서비스·PMS·OTA 없이 현재 PostgreSQL·TypeScript·TanStack Query·React Hook Form·Zod 기반으로 구현한다.
+- 임시저장 aggregate와 line을 수정할 수 있으나 확정 snapshot은 append-only로 잠근다.
+- 정정은 확정 원본을 덮어쓰지 않고 사유·증빙·전후 snapshot을 포함한 새 version으로 남긴다.
+- 서버와 DB가 원 단위 `총매출-할인-환불`을 재계산하며 프론트 계산값을 정본으로 사용하지 않는다.
+
 ## 입력 단위
 
 호텔 + `Asia/Seoul` 업무일의 일 집계.

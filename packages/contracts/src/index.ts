@@ -59,6 +59,10 @@ export const hotelErrorCodeSchema = z.enum([
   "ISSUE_ASSIGNEE_INVALID",
   "ISSUE_STATE_INVALID",
   "ISSUE_TERMINAL_LOCKED",
+  "HOTEL_SALES_DUPLICATE_DATE",
+  "HOTEL_SALES_TOTAL_MISMATCH",
+  "HOTEL_SALES_EVIDENCE_REQUIRED",
+  "HOTEL_SALES_LOCKED",
   "CALENDAR_RANGE_INVALID",
   "CALENDAR_RANGE_TOO_LARGE",
   "CALENDAR_CURSOR_INVALID",
@@ -2707,6 +2711,12 @@ export const hotelFileUploadInitRequestSchema = z
     parent: z.union([
       inspectionEvidenceParentSchema,
       repairEvidenceParentSchema,
+      z
+        .object({
+          type: z.literal("DAILY_SALES_EVIDENCE"),
+          salesId: z.uuid(),
+        })
+        .strict(),
     ]),
     fileName: safeEvidenceFileNameSchema,
     sizeBytes: z
@@ -2868,6 +2878,8 @@ export const hotelFileRoutes = {
     `/api/hotels/${encodeURIComponent(hotelId)}/inspections/${encodeURIComponent(inspectionId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   repairView: (hotelId: string, repairId: string, fileVersionId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/repairs/${encodeURIComponent(repairId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
+  dailySalesView: (hotelId: string, salesId: string, fileVersionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/daily-sales/${encodeURIComponent(salesId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   uploadInit: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/files/upload-init` as const,
   uploadBody: (uploadId: string) =>
@@ -3574,12 +3586,17 @@ const operationalIssueCapabilityBaseSchema = z.object({
   hotelId: z.uuid(),
   hotelName: z.string().trim().min(1).max(200),
 });
-export const operationalIssueCapabilitySchema = z.discriminatedUnion("canWork", [
-  operationalIssueCapabilityBaseSchema
-    .extend({ actorUserId: z.uuid(), canWork: z.literal(true) })
-    .strict(),
-  operationalIssueCapabilityBaseSchema.extend({ canWork: z.literal(false) }).strict(),
-]);
+export const operationalIssueCapabilitySchema = z.discriminatedUnion(
+  "canWork",
+  [
+    operationalIssueCapabilityBaseSchema
+      .extend({ actorUserId: z.uuid(), canWork: z.literal(true) })
+      .strict(),
+    operationalIssueCapabilityBaseSchema
+      .extend({ canWork: z.literal(false) })
+      .strict(),
+  ],
+);
 export type OperationalIssueCapability = z.infer<
   typeof operationalIssueCapabilitySchema
 >;
@@ -3610,4 +3627,275 @@ export const operationalIssueRoutes = {
     `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/public-comments` as const,
   internalNotes: (hotelId: string, issueId: string) =>
     `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/internal-notes` as const,
+} as const;
+
+export const dailySalesStatusSchema = z.enum(["DRAFT", "LOCKED"]);
+export type DailySalesStatus = z.infer<typeof dailySalesStatusSchema>;
+const dailySalesMoneySchema = z.number().int().min(0).max(9_000_000_000_000);
+const dailySalesReasonSchema = z.string().trim().min(2).max(500);
+const dailySalesLineSchema = z
+  .object({
+    categoryId: z.uuid(),
+    paymentMethodId: z.uuid(),
+    grossAmount: dailySalesMoneySchema,
+    discountAmount: dailySalesMoneySchema,
+    refundAmount: dailySalesMoneySchema,
+    refundReason: dailySalesReasonSchema.nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.refundAmount > 0 && value.refundReason === null)
+      context.addIssue({
+        code: "custom",
+        path: ["refundReason"],
+        message: "환불금액이 있으면 환불근거가 필요합니다.",
+      });
+    if (value.refundAmount === 0 && value.refundReason !== null)
+      context.addIssue({
+        code: "custom",
+        path: ["refundReason"],
+        message: "환불이 없으면 환불근거를 입력할 수 없습니다.",
+      });
+    if (value.discountAmount + value.refundAmount > value.grossAmount)
+      context.addIssue({
+        code: "custom",
+        path: ["grossAmount"],
+        message: "할인과 환불의 합은 총매출을 초과할 수 없습니다.",
+      });
+  });
+export type DailySalesLineInput = z.infer<typeof dailySalesLineSchema>;
+const dailySalesLinesSchema = z
+  .array(dailySalesLineSchema)
+  .min(1)
+  .max(200)
+  .superRefine((lines, context) => {
+    const keys = new Set<string>();
+    lines.forEach((line, index) => {
+      const key = `${line.categoryId}:${line.paymentMethodId}`;
+      if (keys.has(key))
+        context.addIssue({
+          code: "custom",
+          path: [index],
+          message: "같은 매출구분과 결제수단은 한 번만 입력할 수 있습니다.",
+        });
+      keys.add(key);
+    });
+  });
+export const createDailySalesDraftRequestSchema = z
+  .object({
+    salesId: z.uuid(),
+    businessDate: z.iso.date(),
+    memo: z.string().trim().max(2000).nullable(),
+    lines: dailySalesLinesSchema,
+  })
+  .strict();
+export type CreateDailySalesDraftRequest = z.infer<
+  typeof createDailySalesDraftRequestSchema
+>;
+export const updateDailySalesDraftRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    memo: z.string().trim().max(2000).nullable(),
+    lines: dailySalesLinesSchema,
+  })
+  .strict();
+export type UpdateDailySalesDraftRequest = z.infer<
+  typeof updateDailySalesDraftRequestSchema
+>;
+const dailySalesEvidenceIdsSchema = z
+  .array(z.uuid())
+  .min(1)
+  .max(20)
+  .superRefine((ids, context) => {
+    if (new Set(ids).size !== ids.length)
+      context.addIssue({
+        code: "custom",
+        message: "증빙 파일은 중복될 수 없습니다.",
+      });
+  });
+export const confirmDailySalesRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    evidenceFileVersionIds: dailySalesEvidenceIdsSchema,
+  })
+  .strict();
+export type ConfirmDailySalesRequest = z.infer<
+  typeof confirmDailySalesRequestSchema
+>;
+export const correctDailySalesRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    reason: dailySalesReasonSchema,
+    evidenceFileVersionIds: dailySalesEvidenceIdsSchema,
+    memo: z.string().trim().max(2000).nullable(),
+    lines: dailySalesLinesSchema,
+  })
+  .strict();
+export type CorrectDailySalesRequest = z.infer<
+  typeof correctDailySalesRequestSchema
+>;
+export const dailySalesListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    status: dailySalesStatusSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.from && value.to && value.from > value.to)
+      context.addIssue({
+        code: "custom",
+        path: ["to"],
+        message: "종료 업무일은 시작 업무일보다 빠를 수 없습니다.",
+      });
+  });
+const dailySalesTotalsSchema = z
+  .object({
+    grossAmount: dailySalesMoneySchema,
+    discountAmount: dailySalesMoneySchema,
+    refundAmount: dailySalesMoneySchema,
+    netAmount: dailySalesMoneySchema,
+  })
+  .strict();
+const dailySalesEvidenceSchema = z
+  .object({
+    fileVersionId: z.uuid(),
+    displayName: z.string().trim().min(1).max(180),
+  })
+  .strict();
+const dailySalesCorrectionPublicSchema = z
+  .object({
+    version: z.number().int().positive(),
+    reason: dailySalesReasonSchema,
+    correctedAt: z.iso.datetime(),
+  })
+  .strict();
+const dailySalesPublicSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    businessDate: z.iso.date(),
+    status: z.literal("LOCKED"),
+    version: z.number().int().positive(),
+    totals: dailySalesTotalsSchema,
+    lines: z.array(dailySalesLineSchema).max(200),
+    evidence: z.array(dailySalesEvidenceSchema).max(20),
+    corrections: z.array(dailySalesCorrectionPublicSchema).max(100),
+    confirmedAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type DailySalesPublic = z.infer<typeof dailySalesPublicSchema>;
+const dailySalesInternalSchema = dailySalesPublicSchema
+  .omit({ status: true, confirmedAt: true })
+  .extend({
+    status: dailySalesStatusSchema,
+    confirmedAt: z.iso.datetime().nullable(),
+    internalMemo: z.string().max(2000).nullable(),
+    createdBy: z
+      .object({
+        userId: z.uuid(),
+        displayName: z.string().trim().min(1).max(100),
+      })
+      .strict(),
+  })
+  .strict();
+export type DailySales = z.infer<typeof dailySalesInternalSchema>;
+export const dailySalesOwnerResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ sales: dailySalesPublicSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const dailySalesInternalResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ sales: dailySalesInternalSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const dailySalesListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        sales: z
+          .array(z.union([dailySalesInternalSchema, dailySalesPublicSchema]))
+          .max(100),
+        pagination: z
+          .object({
+            page: z.number().int().positive(),
+            pageSize: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const dailySalesReferenceResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        categories: z
+          .array(
+            z
+              .object({ id: z.uuid(), name: z.string().trim().min(1).max(100) })
+              .strict(),
+          )
+          .max(100),
+        paymentMethods: z
+          .array(
+            z
+              .object({ id: z.uuid(), name: z.string().trim().min(1).max(100) })
+              .strict(),
+          )
+          .max(100),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const dailySalesCapabilitySchema = z
+  .object({
+    hotelId: z.uuid(),
+    hotelName: z.string().trim().min(1).max(200),
+    canRead: z.boolean(),
+    canManage: z.boolean(),
+    canConfirm: z.boolean(),
+    canCorrect: z.boolean(),
+    ownerView: z.boolean(),
+  })
+  .strict();
+export type DailySalesCapability = z.infer<typeof dailySalesCapabilitySchema>;
+export const dailySalesCapabilitiesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ hotels: z.array(dailySalesCapabilitySchema).max(1000) })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const dailySalesBasePath = (hotelId: string) =>
+  `/api/hotels/${encodeURIComponent(hotelId)}/daily-sales` as const;
+export const dailySalesRoutes = {
+  capabilities: "/api/daily-sales/capabilities" as const,
+  list: dailySalesBasePath,
+  create: dailySalesBasePath,
+  references: (hotelId: string) =>
+    `${dailySalesBasePath(hotelId)}/references` as const,
+  detail: (hotelId: string, salesId: string) =>
+    `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}` as const,
+  update: (hotelId: string, salesId: string) =>
+    `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}` as const,
+  confirm: (hotelId: string, salesId: string) =>
+    `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}/confirm` as const,
+  corrections: (hotelId: string, salesId: string) =>
+    `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}/corrections` as const,
 } as const;

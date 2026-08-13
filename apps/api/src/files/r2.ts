@@ -393,7 +393,7 @@ export interface HotelFileService {
     hotelId: string,
     inspectionId: string,
     fileVersionId: string,
-    parentType?: "INSPECTION" | "REPAIR",
+    parentType?: "DAILY_SALES" | "INSPECTION" | "REPAIR",
   ): Promise<{
     body: ReadableStream<Uint8Array>;
     displayName: string;
@@ -405,6 +405,18 @@ export interface HotelFileService {
     principal: FilePrincipal,
     hotelId: string,
     repairId: string,
+    fileVersionId: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>;
+    displayName: string;
+    etag: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  dailySalesView(
+    principal: FilePrincipal,
+    hotelId: string,
+    salesId: string,
     fileVersionId: string,
   ): Promise<{
     body: ReadableStream<Uint8Array>;
@@ -465,10 +477,13 @@ export function createHotelFileService(
       typeof value === "object" &&
       value !== null &&
       "parentType" in value &&
-      (value as { parentType?: unknown }).parentType !== "INSPECTION_ITEM_EVIDENCE"
-        ? (repository as InspectionRepository & {
-            repairFileUploadInit?: InspectionRepository["fileCommand"];
-          }).repairFileUploadInit
+      (value as { parentType?: unknown }).parentType !==
+        "INSPECTION_ITEM_EVIDENCE"
+        ? (
+            repository as InspectionRepository & {
+              repairFileUploadInit?: InspectionRepository["fileCommand"];
+            }
+          ).repairFileUploadInit
         : undefined;
     const command = repairInit ?? repository.fileCommand;
     const result = await command({
@@ -500,7 +515,7 @@ export function createHotelFileService(
   async function viewCommand(
     principal: FilePrincipal,
     hotelId: string,
-    parentType: "INSPECTION" | "REPAIR",
+    parentType: "DAILY_SALES" | "INSPECTION" | "REPAIR",
     parentId: string,
     fileVersionId: string,
     action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED",
@@ -525,6 +540,11 @@ export function createHotelFileService(
       const command = repository.repairFileViewCommand;
       if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
       return command({ ...shared, repairId: parentId });
+    }
+    if (parentType === "DAILY_SALES") {
+      const command = repository.dailySalesFileViewCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      return command({ ...shared, salesId: parentId });
     }
     const command = repository.fileViewCommand;
     if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
@@ -593,11 +613,16 @@ export function createHotelFileService(
                 parentType: value.parent.type,
                 repairCaseId: value.parent.repairCaseId,
               }
-            : {
-                parentType: value.parent.type,
-                repairCaseId: value.parent.repairCaseId,
-                repairVisitId: value.parent.repairVisitId,
-              };
+            : value.parent.type === "REPAIR_VISIT_COMPLETION_EVIDENCE"
+              ? {
+                  parentType: value.parent.type,
+                  repairCaseId: value.parent.repairCaseId,
+                  repairVisitId: value.parent.repairVisitId,
+                }
+              : {
+                  parentType: value.parent.type,
+                  dailySalesId: value.parent.salesId,
+                };
       const payload = await mutate(
         principal,
         hotelId,
@@ -638,7 +663,13 @@ export function createHotelFileService(
         throw new FileStorageError("RESOURCE_NOT_FOUND");
       return result.payload;
     },
-    async view(principal, hotelId, inspectionId, fileVersionId, parentType = "INSPECTION") {
+    async view(
+      principal,
+      hotelId,
+      inspectionId,
+      fileVersionId,
+      parentType = "INSPECTION",
+    ) {
       const traceId = crypto.randomUUID();
       const grantId = crypto.randomUUID();
       const completionToken = randomCompletionToken();
@@ -754,6 +785,15 @@ export function createHotelFileService(
     },
     async repairView(principal, hotelId, repairId, fileVersionId) {
       return this.view(principal, hotelId, repairId, fileVersionId, "REPAIR");
+    },
+    async dailySalesView(principal, hotelId, salesId, fileVersionId) {
+      return this.view(
+        principal,
+        hotelId,
+        salesId,
+        fileVersionId,
+        "DAILY_SALES",
+      );
     },
   };
 }

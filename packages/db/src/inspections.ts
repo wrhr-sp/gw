@@ -95,6 +95,20 @@ export interface InspectionRepository {
     sessionToken: string;
     traceId: string;
   }): Promise<InspectionCommandResult>;
+  dailySalesFileViewCommand?(input: {
+    action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED";
+    alertAuditEventId: string;
+    auditEventId: string;
+    companyId: string;
+    completionToken: string;
+    fileVersionId: string;
+    grantId: string;
+    hotelId: string;
+    salesId: string;
+    sessionId: string;
+    sessionToken: string;
+    traceId: string;
+  }): Promise<InspectionCommandResult>;
   inspectionQuery?(input: {
     action:
       | "LIST_INSPECTIONS"
@@ -412,6 +426,24 @@ export function createPostgresInspectionRepository(
             select * from public.hotel_repair_file_view_command_v1(
               ${input.companyId}::uuid, ${input.hotelId}::uuid,
               ${input.repairId}::uuid, ${input.fileVersionId}::uuid,
+              ${input.action}::text, ${input.sessionToken}::text,
+              ${input.grantId}::uuid, ${input.completionToken}::text,
+              ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,
+              ${input.traceId}::uuid
+            )
+          `,
+        );
+      });
+    },
+
+    async dailySalesFileViewCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(
+          await transaction<CommandRow[]>`
+            select * from public.hotel_daily_sales_file_view_command_v1(
+              ${input.companyId}::uuid, ${input.hotelId}::uuid,
+              ${input.salesId}::uuid, ${input.fileVersionId}::uuid,
               ${input.action}::text, ${input.sessionToken}::text,
               ${input.grantId}::uuid, ${input.completionToken}::text,
               ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,

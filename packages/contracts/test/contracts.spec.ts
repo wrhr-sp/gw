@@ -108,9 +108,46 @@ import {
   operationalIssueRoutes,
   operationalIssueSeveritySchema,
   operationalIssueStatusSchema,
+  createDailySalesDraftRequestSchema,
+  updateDailySalesDraftRequestSchema,
+  confirmDailySalesRequestSchema,
+  correctDailySalesRequestSchema,
+  dailySalesInternalResponseSchema,
+  dailySalesOwnerResponseSchema,
+  dailySalesListResponseSchema,
+  dailySalesCapabilitiesResponseSchema,
+  dailySalesRoutes,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("defines strict daily-sales money, lock, correction, owner, and route contracts", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const salesId = "da500000-0000-4000-8000-000000000001";
+    const categoryId = "da510000-0000-4000-8000-000000000001";
+    const paymentMethodId = "da520000-0000-4000-8000-000000000001";
+    const evidenceId = "da530000-0000-4000-8000-000000000001";
+    const line = { categoryId, paymentMethodId, grossAmount: 150000, discountAmount: 10000, refundAmount: 5000, refundReason: "고객 요청 당일 환불" };
+    const draft = createDailySalesDraftRequestSchema.parse({ salesId, businessDate: "2026-08-13", memo: "주간 마감", lines: [line] });
+    expect(draft.lines[0]).toMatchObject({ grossAmount: 150000, refundAmount: 5000 });
+    expect(createDailySalesDraftRequestSchema.safeParse({ ...draft, lines: [{ ...line, grossAmount: 1.5 }] }).success).toBe(false);
+    expect(createDailySalesDraftRequestSchema.safeParse({ ...draft, lines: [{ ...line, refundReason: null }] }).success).toBe(false);
+    expect(updateDailySalesDraftRequestSchema.safeParse({ version: 1, memo: null, lines: [{ ...line, refundAmount: 0, refundReason: null }] }).success).toBe(true);
+    expect(confirmDailySalesRequestSchema.safeParse({ version: 2, evidenceFileVersionIds: [] }).success).toBe(false);
+    expect(confirmDailySalesRequestSchema.safeParse({ version: 2, evidenceFileVersionIds: [evidenceId] }).success).toBe(true);
+    expect(correctDailySalesRequestSchema.safeParse({ version: 3, reason: "마감자료 정정", evidenceFileVersionIds: [], memo: null, lines: [line] }).success).toBe(false);
+    expect(correctDailySalesRequestSchema.safeParse({ version: 3, reason: "마감자료 정정", evidenceFileVersionIds: [evidenceId], memo: null, lines: [line] }).success).toBe(true);
+
+    const publicSales = { id: salesId, hotelId, businessDate: "2026-08-13", status: "LOCKED", version: 3, totals: { grossAmount: 150000, discountAmount: 10000, refundAmount: 5000, netAmount: 135000 }, lines: [line], evidence: [{ fileVersionId: evidenceId, displayName: "마감증빙.png" }], corrections: [], confirmedAt: "2026-08-13T12:00:00.000Z", updatedAt: "2026-08-13T12:00:00.000Z" };
+    expect(dailySalesOwnerResponseSchema.safeParse({ ok: true, data: { sales: publicSales }, error: null }).success).toBe(true);
+    expect(dailySalesOwnerResponseSchema.safeParse({ ok: true, data: { sales: { ...publicSales, internalMemo: "비공개", actorUserId: evidenceId } }, error: null }).success).toBe(false);
+    expect(dailySalesInternalResponseSchema.safeParse({ ok: true, data: { sales: { ...publicSales, internalMemo: "주간 마감", createdBy: { userId: evidenceId, displayName: "운영 담당" } } }, error: null }).success).toBe(true);
+    expect(dailySalesListResponseSchema.safeParse({ ok: true, data: { sales: [publicSales], pagination: { page: 1, pageSize: 20, total: 1 } }, error: null }).success).toBe(true);
+    expect(dailySalesCapabilitiesResponseSchema.safeParse({ ok: true, data: { hotels: [{ hotelId, hotelName: "서울호텔", canRead: true, canManage: true, canConfirm: true, canCorrect: true, ownerView: false }] }, error: null }).success).toBe(true);
+    expect(dailySalesRoutes.list(hotelId)).toBe(`/api/hotels/${hotelId}/daily-sales`);
+    expect(dailySalesRoutes.detail(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}`);
+    expect(dailySalesRoutes.confirm(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}/confirm`);
+    expect(dailySalesRoutes.corrections(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}/corrections`);
+  });
   it("keeps facility inspection execution additive, typed, and strict", () => {
     const roomId = "52000000-0000-4000-8000-000000000001";
     const facilityId = "55000000-0000-4000-8000-000000000001";

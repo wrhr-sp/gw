@@ -108,4 +108,11 @@ export {
   type OperationalIssueRepository,
   type OperationalIssueRepositoryResult,
 } from "./operational-issues";
+export {
+  createPostgresDailySalesRepository,
+  type DailySalesCommandInput,
+  type DailySalesReadInput,
+  type DailySalesRepository,
+  type DailySalesRepositoryResult,
+} from "./daily-sales";
 export { probeDatabaseReadiness, type DatabaseReadiness } from "./client";

@@ -11,6 +11,64 @@ afterEach(() => {
 });
 
 describe("same-origin API runtime proxy", () => {
+  it("proxies only exact daily-sales paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const salesId = "da500000-0000-4000-8000-000000000001";
+    const fileVersionId = "da560000-0000-4000-8000-000000000001";
+    const approved = [
+      [GET, "GET", ["hotels", hotelId, "daily-sales"]],
+      [POST, "POST", ["hotels", hotelId, "daily-sales"]],
+      [GET, "GET", ["hotels", hotelId, "daily-sales", "references"]],
+      [GET, "GET", ["hotels", hotelId, "daily-sales", salesId]],
+      [
+        GET,
+        "GET",
+        [
+          "hotels",
+          hotelId,
+          "daily-sales",
+          salesId,
+          "files",
+          fileVersionId,
+          "view",
+        ],
+      ],
+      [PATCH, "PATCH", ["hotels", hotelId, "daily-sales", salesId]],
+      [POST, "POST", ["hotels", hotelId, "daily-sales", salesId, "confirm"]],
+      [
+        POST,
+        "POST",
+        ["hotels", hotelId, "daily-sales", salesId, "corrections"],
+      ],
+    ] as const;
+    for (const [handler, method, path] of approved) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, {
+          method,
+        }),
+        { params: Promise.resolve({ path: [...path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+    const rejected = await PUT(
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/daily-sales/${salesId}`,
+        { method: "PUT" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["hotels", hotelId, "daily-sales", salesId],
+        }),
+      },
+    );
+    expect(rejected.status).toBe(405);
+    expect(rejected.headers.get("allow")).toBe("GET, PATCH");
+    expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
+  });
+
   it("proxies only the approved operational-issue paths and methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
@@ -31,7 +89,9 @@ describe("same-origin API runtime proxy", () => {
     ] as const;
     for (const [handler, method, path] of approved) {
       const response = await handler(
-        new Request(`https://hotel.example.test/api/${path.join("/")}`, { method }),
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, {
+          method,
+        }),
         { params: Promise.resolve({ path: [...path] }) },
       );
       expect(response.status).toBe(200);
@@ -420,14 +480,44 @@ describe("same-origin API runtime proxy", () => {
     const itemId = "95000000-0000-4000-8000-000000000001";
     const cases = [
       { method: "GET", path: ["hotels", hotelId, "inspection-routines", "v2"] },
-      { method: "POST", path: ["hotels", hotelId, "inspection-routines", "v2"] },
-      { method: "GET", path: ["hotels", hotelId, "inspection-routines", "v2", routineId] },
-      { method: "PUT", path: ["hotels", hotelId, "inspection-routines", "v2", routineId] },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspection-routines", "v2"],
+      },
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "inspection-routines", "v2", routineId],
+      },
+      {
+        method: "PUT",
+        path: ["hotels", hotelId, "inspection-routines", "v2", routineId],
+      },
       { method: "GET", path: ["hotels", hotelId, "inspections", "v2"] },
-      { method: "POST", path: ["hotels", hotelId, "inspections", "v2", "manual"] },
-      { method: "GET", path: ["hotels", hotelId, "inspections", "v2", inspectionId] },
-      { method: "PUT", path: ["hotels", hotelId, "inspections", "v2", inspectionId, "items", itemId, "result"] },
-      { method: "POST", path: ["hotels", hotelId, "inspections", "v2", inspectionId, "submit"] },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspections", "v2", "manual"],
+      },
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "inspections", "v2", inspectionId],
+      },
+      {
+        method: "PUT",
+        path: [
+          "hotels",
+          hotelId,
+          "inspections",
+          "v2",
+          inspectionId,
+          "items",
+          itemId,
+          "result",
+        ],
+      },
+      {
+        method: "POST",
+        path: ["hotels", hotelId, "inspections", "v2", inspectionId, "submit"],
+      },
     ] as const;
     const handlers = { GET, POST, PUT } as const;
     for (const item of cases) {
@@ -446,16 +536,21 @@ describe("same-origin API runtime proxy", () => {
       routineId,
     ];
     const rejectedRoutine = await POST(
-      new Request(`https://hotel.example.test/api/${rejectedRoutinePath.join("/")}`, {
-        method: "POST",
-      }),
+      new Request(
+        `https://hotel.example.test/api/${rejectedRoutinePath.join("/")}`,
+        {
+          method: "POST",
+        },
+      ),
       { params: Promise.resolve({ path: rejectedRoutinePath }) },
     );
     expect(rejectedRoutine.status).toBe(405);
     expect(rejectedRoutine.headers.get("allow")).toBe("GET, PUT");
     const rejectedSuffixPath = [...rejectedRoutinePath, "unexpected"];
     const rejectedSuffix = await GET(
-      new Request(`https://hotel.example.test/api/${rejectedSuffixPath.join("/")}`),
+      new Request(
+        `https://hotel.example.test/api/${rejectedSuffixPath.join("/")}`,
+      ),
       { params: Promise.resolve({ path: rejectedSuffixPath }) },
     );
     expect(rejectedSuffix.status).toBe(404);
