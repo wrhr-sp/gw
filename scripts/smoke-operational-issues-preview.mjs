@@ -38,6 +38,8 @@ const permissionCodes = [
   "HOTEL_ISSUE_WORK",
   "HOTEL_ISSUE_MANAGE",
 ];
+const apiUuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 let browser;
 let sessionCreated = false;
 let grantsCreated = false;
@@ -130,11 +132,13 @@ try {
        and branch.branch_type='HOTEL'
        and branch.status='ACTIVE'
        and hotel.hotel_status='ACTIVE'
+       and branch.id::text ~* ${apiUuidPattern.source}
      order by assignment.created_at,assignment.id
      limit 1
   `;
   hotelId = scope?.branch_id;
-  if (!hotelId) throw new Error("PREVIEW_OPERATIONAL_ISSUES_HOTEL_UNAVAILABLE");
+  if (!hotelId || !apiUuidPattern.test(String(hotelId)))
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_HOTEL_UNAVAILABLE");
 
   failureStage = "GRANTS";
   await ownerSql.begin(async (transaction) => {
