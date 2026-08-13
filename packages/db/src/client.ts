@@ -3162,12 +3162,15 @@ export async function probeDatabaseReadiness(
           union all select 'trigger|'||table_record.relname||'|'||trigger_record.tgname||'|'||pg_catalog.pg_get_triggerdef(trigger_record.oid,true) from pg_catalog.pg_trigger trigger_record join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace where not trigger_record.tgisinternal and table_namespace.nspname='public' and table_record.relname=any(${dailySalesTableNames as unknown as string[]})
         ) select value from objects order by value
       `;
-      if (
-        (await sourceSha256(
-          dailySalesShape.map((record) => record.value).join("\n"),
-        )) !== HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256
-      )
+      const dailySalesShapeDigest = await sourceSha256(
+        dailySalesShape.map((record) => record.value).join("\n"),
+      );
+      if (dailySalesShapeDigest !== HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256) {
+        console.error(
+          `DAILY_SALES_SCHEMA_SHAPE_DIGEST_${dailySalesShapeDigest}`,
+        );
         return schemaNotReady();
+      }
     }
     const operationalIssueTableNames = [
       "hotel_issue_sla_policies",
