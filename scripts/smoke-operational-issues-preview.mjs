@@ -333,28 +333,27 @@ try {
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ROUTE_NOT_FOUND");
   if (!documentResponse.ok())
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
-  if (
-    await page
+  const uiOutcome = await Promise.any([
+    page
+      .locator("[data-issue-workspace]")
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "WORKSPACE"),
+    page
       .getByText("This page could not be found.", { exact: true })
-      .isVisible()
-  )
-    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_SOFT_NOT_FOUND");
-  if (
-    await page
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "PREVIEW_OPERATIONAL_ISSUES_UI_SOFT_NOT_FOUND"),
+    page
       .getByRole("heading", { name: "호텔 화면을 불러오지 못했습니다" })
-      .isVisible()
-  )
-    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ERROR_BOUNDARY");
-  if (
-    await page
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "PREVIEW_OPERATIONAL_ISSUES_UI_ERROR_BOUNDARY"),
+    page
       .getByRole("heading", {
         name: "운영이슈 화면을 불러오지 못했습니다",
       })
-      .isVisible()
-  )
-    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED");
-  if (!(await page.locator("[data-issue-workspace]").isVisible()))
-    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_WORKSPACE_MISSING");
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => "PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED"),
+  ]).catch(() => "PREVIEW_OPERATIONAL_ISSUES_UI_WORKSPACE_MISSING");
+  if (uiOutcome !== "WORKSPACE") throw new Error(uiOutcome);
   await requireVisible(
     page.getByRole("heading", { name: "운영이슈" }),
     "PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING",

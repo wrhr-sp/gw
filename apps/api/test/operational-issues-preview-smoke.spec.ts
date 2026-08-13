@@ -77,6 +77,12 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).not.toContain("console.log(await page.content())");
     expect(source).toContain("/assignments`");
     expect(source).not.toContain("/staff-assignments");
+    expect(source).toContain("Promise.any([");
+    expect(source).toContain('.locator("[data-issue-workspace]")');
+    expect(source).toContain('.waitFor({ state: "visible", timeout: 30_000 })');
+    expect(source).not.toContain(
+      'if (!(await page.locator("[data-issue-workspace]").isVisible()))',
+    );
   });
 
   it("is a mandatory pre-contract Preview release gate", () => {
