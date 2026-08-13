@@ -83,6 +83,10 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).not.toContain(
       'if (!(await page.locator("[data-issue-workspace]").isVisible()))',
     );
+    expect(source).toContain('page.locator("#issue-title")');
+    expect(source).not.toContain(
+      'page.getByRole("heading", { name: "운영이슈" })',
+    );
   });
 
   it("is a mandatory pre-contract Preview release gate", () => {
