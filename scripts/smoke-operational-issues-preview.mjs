@@ -354,10 +354,13 @@ try {
       .then(() => "PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED"),
   ]).catch(() => "PREVIEW_OPERATIONAL_ISSUES_UI_WORKSPACE_MISSING");
   if (uiOutcome !== "WORKSPACE") throw new Error(uiOutcome);
+  const issueHeading = page.locator("#issue-title");
   await requireVisible(
-    page.getByRole("heading", { name: "운영이슈" }),
+    issueHeading,
     "PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING",
   );
+  if ((await issueHeading.textContent())?.trim() !== "운영이슈")
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_HEADING_MISSING");
   await requireVisible(
     page.getByText(title).first(),
     "PREVIEW_OPERATIONAL_ISSUES_UI_TITLE_MISSING",
