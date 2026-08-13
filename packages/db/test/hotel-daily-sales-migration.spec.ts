@@ -63,4 +63,21 @@ describe("hotel daily sales migration", () => {
       '(version !== "0050_hotel_daily_sales" ||\n              repairLifecycleExpandPrerequisitePresent)',
     );
   });
+
+  it("keeps exact local and Neon catalog shape digests fail-closed", () => {
+    const readiness = readFileSync(
+      new URL("../src/client.ts", import.meta.url),
+      "utf8",
+    );
+    expect(readiness).toContain(
+      "bbbf7276d1f83bb2c03b9167791f087eed46cdcc0589299a27874f5e13f19976",
+    );
+    expect(readiness).toContain(
+      "02bbb42bfdbaf7bc1aa1438d678bb9bf2d1150af2abe72e1360a0a34b747f32c",
+    );
+    expect(readiness).toContain(
+      "HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256.has(dailySalesShapeDigest)",
+    );
+    expect(readiness).not.toContain("DAILY_SALES_SCHEMA_SHAPE_DIGEST_");
+  });
 });

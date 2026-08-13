@@ -62,8 +62,10 @@ const HOTEL_DAILY_SALES_COMMAND_V1_PROSRC_SHA256 =
   "4e94a2fe62f1d5d5d0037999c799c0e220a4980ab127a685fa7d2a4c343f706e";
 const HOTEL_DAILY_SALES_FILE_VIEW_V1_PROSRC_SHA256 =
   "d138b41d54642999a7544d13a5abe6ba20d0898636aae544cf2383590da955ed";
-const HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256 =
-  "bbbf7276d1f83bb2c03b9167791f087eed46cdcc0589299a27874f5e13f19976";
+const HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256 = new Set([
+  "bbbf7276d1f83bb2c03b9167791f087eed46cdcc0589299a27874f5e13f19976",
+  "02bbb42bfdbaf7bc1aa1438d678bb9bf2d1150af2abe72e1360a0a34b747f32c",
+]);
 const HOTEL_DAILY_SALES_HISTORY_APPEND_ONLY_PROSRC_SHA256 =
   "a9590d523dc891996f9aefaf658a09923ac632a8076097898f4f337627a0c031";
 const HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256 =
@@ -3165,10 +3167,7 @@ export async function probeDatabaseReadiness(
       const dailySalesShapeDigest = await sourceSha256(
         dailySalesShape.map((record) => record.value).join("\n"),
       );
-      if (dailySalesShapeDigest !== HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256) {
-        console.error(
-          `DAILY_SALES_SCHEMA_SHAPE_DIGEST_${dailySalesShapeDigest}`,
-        );
+      if (!HOTEL_DAILY_SALES_SCHEMA_SHAPE_SHA256.has(dailySalesShapeDigest)) {
         return schemaNotReady();
       }
     }
