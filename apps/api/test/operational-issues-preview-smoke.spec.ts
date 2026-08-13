@@ -20,6 +20,10 @@ describe("hosted Preview operational-issues smoke", () => {
       execFileSync(process.execPath, ["--check", smokePath], { stdio: "pipe" }),
     ).not.toThrow();
     expect(source).toContain("auth_create_session_v2");
+    expect(source).toContain("join public.branches branch");
+    expect(source).toContain("branch.status='ACTIVE'");
+    expect(source).toContain("hotel.hotel_status='ACTIVE'");
+    expect(source).not.toContain("hotel.status='ACTIVE'");
     expect(source).toContain("insert into public.permission_grants");
     expect(source).toContain('"HOTEL_ISSUE_MANAGE"');
     for (const path of [
@@ -44,6 +48,9 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).toContain("viewport: { width: 390, height: 844 }");
     expect(source).toContain("delete from public.permission_grants");
     expect(source).toContain("auth_revoke_session_v2");
+    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_FAILED_");
+    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_GRANTS_FAILED");
+    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_SESSION_FAILED");
     expect(source).not.toContain("console.error(error");
     expect(source).not.toContain("payload?.error?.message");
   });
