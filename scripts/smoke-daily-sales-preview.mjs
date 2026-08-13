@@ -186,7 +186,9 @@ try {
       ) as present
     `;
     if (!permission?.present)
-      throw new Error("PREVIEW_DAILY_SALES_GRANT_CATALOG_INVALID");
+      throw new Error(
+        `PREVIEW_DAILY_SALES_GRANT_CATALOG_MISSING_${permissionCode}`,
+      );
   }
   try {
     createdGrantIds = await ownerSql.begin(async (tx) => {
