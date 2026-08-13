@@ -1000,9 +1000,10 @@ describe("hotel platform contracts", () => {
     expect(hotelRoutes.list).toBe("/api/hotels");
     expect(hotelRoutes.create).toBe("/api/hotels");
     expect(hotelRoutes.detail("hotel_1")).toBe("/api/hotels/hotel_1");
-    expect(hotelRoutes.staffAssignments("hotel_1")).toBe(
-      "/api/hotels/hotel_1/staff-assignments",
+    expect(hotelRoutes.assignments("hotel_1")).toBe(
+      "/api/hotels/hotel_1/assignments",
     );
+    expect("staffAssignments" in hotelRoutes).toBe(false);
     expect(hotelRoutes.housekeepingLinks("hotel_1")).toBe(
       "/api/hotels/hotel_1/housekeeping-links",
     );

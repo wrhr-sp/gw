@@ -1016,8 +1016,6 @@ export const hotelRoutes = {
   activate: (hotelId: string) => `${hotelPath(hotelId)}/activate` as const,
   suspend: (hotelId: string) => `${hotelPath(hotelId)}/suspend` as const,
   reactivate: (hotelId: string) => `${hotelPath(hotelId)}/reactivate` as const,
-  staffAssignments: (hotelId: string) =>
-    `${hotelPath(hotelId)}/staff-assignments` as const,
   assignments: (hotelId: string) =>
     `${hotelPath(hotelId)}/assignments` as const,
   owner: (hotelId: string) => `${hotelPath(hotelId)}/owner` as const,

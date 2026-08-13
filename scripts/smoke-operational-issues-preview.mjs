@@ -293,7 +293,7 @@ try {
     throw new Error(
       "PREVIEW_OPERATIONAL_ISSUES_UI_CAPABILITIES_PREFLIGHT_INVALID",
     );
-  await api(`/api/hotels/${hotelId}/staff-assignments`, {
+  await api(`/api/hotels/${hotelId}/assignments`, {
     failureCode: "PREVIEW_OPERATIONAL_ISSUES_UI_ASSIGNMENTS_PREFLIGHT_INVALID",
   });
   const uiList = await api(
