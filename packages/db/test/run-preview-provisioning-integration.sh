@@ -3042,6 +3042,22 @@ select
     'werehere_preview_api_runtime',
     'public.hotel_inspection_checklist_v3_command(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
     'EXECUTE'
+  )
+  and exists (
+    select 1 from public.schema_migrations
+    where version = '0050_hotel_daily_sales'
+  )
+  and (
+    select count(*) = 5 from public.permissions
+    where code in (
+      'HOTEL_SALES_VIEW','HOTEL_SALES_MANAGE','HOTEL_SALES_CONFIRM',
+      'HOTEL_SALES_CORRECT','HOTEL_OWNER_SALES_READ'
+    )
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_daily_sales_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+    'EXECUTE'
   );
 SQL
 )"

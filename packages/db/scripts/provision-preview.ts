@@ -594,6 +594,7 @@ try {
       "0048_repair_visit_trigger_definer.sql",
     ],
     ["0049_hotel_operational_issues", "0049_hotel_operational_issues.sql"],
+    ["0050_hotel_daily_sales", "0050_hotel_daily_sales.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -645,6 +646,8 @@ try {
             (version !== "0048_repair_visit_trigger_definer" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0049_hotel_operational_issues" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0050_hotel_daily_sales" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
