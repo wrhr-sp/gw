@@ -56,6 +56,9 @@ export const hotelErrorCodeSchema = z.enum([
   "REPAIR_VISIT_INVALID",
   "REPAIR_COMPLETED_LOCKED",
   "REPAIR_FOLLOW_UP_INVALID",
+  "ISSUE_ASSIGNEE_INVALID",
+  "ISSUE_STATE_INVALID",
+  "ISSUE_TERMINAL_LOCKED",
   "CALENDAR_RANGE_INVALID",
   "CALENDAR_RANGE_TOO_LARGE",
   "CALENDAR_CURSOR_INVALID",
@@ -3120,12 +3123,16 @@ export const repairCaseSchema = z
   .strict();
 export type RepairCase = z.infer<typeof repairCaseSchema>;
 function stripLegacyCalendarProjectionStatus(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stripLegacyCalendarProjectionStatus);
+  if (Array.isArray(value))
+    return value.map(stripLegacyCalendarProjectionStatus);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
     Object.entries(value)
       .filter(([key]) => key !== "calendarProjectionStatus")
-      .map(([key, nested]) => [key, stripLegacyCalendarProjectionStatus(nested)]),
+      .map(([key, nested]) => [
+        key,
+        stripLegacyCalendarProjectionStatus(nested),
+      ]),
   );
 }
 export const repairCaseReadSchema = z.preprocess(
@@ -3387,4 +3394,222 @@ export const repairRoutes = {
     `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/process/transition` as const,
   complete: (hotelId: string, repairId: string) =>
     `${repairBasePath(hotelId)}/repairs/${encodeURIComponent(repairId)}/complete` as const,
+} as const;
+
+export const operationalIssueSeveritySchema = z.enum([
+  "OBSERVATION",
+  "MINOR",
+  "MAJOR",
+  "EMERGENCY",
+]);
+export type OperationalIssueSeverity = z.infer<
+  typeof operationalIssueSeveritySchema
+>;
+export const operationalIssueStatusSchema = z.enum([
+  "RECEIVED",
+  "ASSIGNED",
+  "IN_PROGRESS",
+  "ON_HOLD",
+  "ACTION_COMPLETED",
+  "CLOSED",
+  "CANCELLED",
+]);
+export type OperationalIssueStatus = z.infer<
+  typeof operationalIssueStatusSchema
+>;
+const operationalIssueTextSchema = z.string().trim().min(2).max(2000);
+export const createOperationalIssueRequestSchema = z
+  .object({
+    issueId: z.uuid(),
+    title: z.string().trim().min(2).max(160),
+    description: operationalIssueTextSchema,
+    severity: operationalIssueSeveritySchema,
+    roomId: z.uuid().nullable().default(null),
+  })
+  .strict();
+export type CreateOperationalIssueRequest = z.infer<
+  typeof createOperationalIssueRequestSchema
+>;
+export const operationalIssueAssigneeRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    assigneeUserId: z.uuid(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
+export const operationalIssueActionRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    action: z.enum([
+      "START",
+      "HOLD",
+      "RESUME",
+      "COMPLETE_ACTION",
+      "CLOSE",
+      "CANCEL",
+      "REOPEN",
+    ]),
+    reason: z.string().trim().min(2).max(500),
+    resumeDueAt: z.iso.datetime().nullable().default(null),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.action !== "HOLD" && value.resumeDueAt !== null)
+      context.addIssue({
+        code: "custom",
+        path: ["resumeDueAt"],
+        message: "재개예정일은 보류할 때만 입력할 수 있습니다.",
+      });
+  });
+export const operationalIssueAddEntryRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    body: operationalIssueTextSchema,
+  })
+  .strict();
+export const operationalIssueListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    status: operationalIssueStatusSchema.optional(),
+    severity: operationalIssueSeveritySchema.optional(),
+  })
+  .strict();
+const operationalIssuePublicActorSchema = z
+  .object({
+    displayName: z.string().trim().min(1).max(100),
+  })
+  .strict();
+const operationalIssueInternalActorSchema = operationalIssuePublicActorSchema
+  .extend({ userId: z.uuid() })
+  .strict();
+const operationalIssuePublicEntrySchema = z
+  .object({
+    id: z.uuid(),
+    body: operationalIssueTextSchema,
+    actor: operationalIssuePublicActorSchema,
+    createdAt: z.iso.datetime(),
+  })
+  .strict();
+const operationalIssueInternalEntrySchema = operationalIssuePublicEntrySchema
+  .extend({ actor: operationalIssueInternalActorSchema })
+  .strict();
+const operationalIssuePublicSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    title: z.string().trim().min(2).max(160),
+    description: operationalIssueTextSchema,
+    severity: operationalIssueSeveritySchema,
+    status: operationalIssueStatusSchema,
+    version: z.number().int().positive(),
+    assignee: operationalIssuePublicActorSchema.nullable(),
+    resumeDueAt: z.iso.datetime().nullable(),
+    isOverdue: z.boolean(),
+    publicComments: z.array(operationalIssuePublicEntrySchema).max(1000),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type OperationalIssuePublic = z.infer<
+  typeof operationalIssuePublicSchema
+>;
+const operationalIssueHistorySchema = z
+  .object({
+    id: z.uuid(),
+    action: z.string().trim().min(1).max(50),
+    fromStatus: operationalIssueStatusSchema.nullable(),
+    toStatus: operationalIssueStatusSchema,
+    reason: z.string().trim().min(2).max(500),
+    actor: operationalIssueInternalActorSchema,
+    createdAt: z.iso.datetime(),
+    version: z.number().int().positive(),
+  })
+  .strict();
+const operationalIssueInternalSchema = operationalIssuePublicSchema
+  .extend({
+    assignee: operationalIssueInternalActorSchema.nullable(),
+    publicComments: z.array(operationalIssueInternalEntrySchema).max(1000),
+    workLogs: z.array(operationalIssueInternalEntrySchema).max(1000),
+    internalNotes: z.array(operationalIssueInternalEntrySchema).max(1000),
+    statusHistory: z.array(operationalIssueHistorySchema).max(1000),
+  })
+  .strict();
+export type OperationalIssue = z.infer<typeof operationalIssueInternalSchema>;
+export const operationalIssueOwnerResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ issue: operationalIssuePublicSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const operationalIssueInternalResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ issue: operationalIssueInternalSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const operationalIssueListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        issues: z.array(operationalIssuePublicSchema).max(100),
+        pagination: z
+          .object({
+            page: z.number().int().positive(),
+            pageSize: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const operationalIssueCapabilityBaseSchema = z.object({
+  canComment: z.boolean(),
+  canCreate: z.boolean(),
+  canManage: z.boolean(),
+  canRead: z.boolean(),
+  hotelId: z.uuid(),
+  hotelName: z.string().trim().min(1).max(200),
+});
+export const operationalIssueCapabilitySchema = z.discriminatedUnion("canWork", [
+  operationalIssueCapabilityBaseSchema
+    .extend({ actorUserId: z.uuid(), canWork: z.literal(true) })
+    .strict(),
+  operationalIssueCapabilityBaseSchema.extend({ canWork: z.literal(false) }).strict(),
+]);
+export type OperationalIssueCapability = z.infer<
+  typeof operationalIssueCapabilitySchema
+>;
+export const operationalIssueCapabilitiesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ hotels: z.array(operationalIssueCapabilitySchema).max(1000) })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const operationalIssueBasePath = (hotelId: string) =>
+  `/api/hotels/${encodeURIComponent(hotelId)}/issues` as const;
+export const operationalIssueRoutes = {
+  capabilities: "/api/issues/capabilities" as const,
+  list: operationalIssueBasePath,
+  create: operationalIssueBasePath,
+  detail: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}` as const,
+  assign: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/assign` as const,
+  transitions: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/transitions` as const,
+  workLogs: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/work-logs` as const,
+  publicComments: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/public-comments` as const,
+  internalNotes: (hotelId: string, issueId: string) =>
+    `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/internal-notes` as const,
 } as const;

@@ -61,6 +61,7 @@ describe("hotel feature-guide registry", () => {
       "/hotels/[hotelId]": "hotel-management.detail",
       "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
       "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
+      "/hotels/[hotelId]/issues": "hotel-operational-issue.lifecycle",
       "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
     });
     expect(hotelFeatureGuides["hotel-repair.lifecycle"].title).toBe("하자·보수");

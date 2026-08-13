@@ -593,6 +593,7 @@ try {
       "0048_repair_visit_trigger_definer",
       "0048_repair_visit_trigger_definer.sql",
     ],
+    ["0049_hotel_operational_issues", "0049_hotel_operational_issues.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -642,6 +643,8 @@ try {
             (version !== "0047_repair_direct_record_initialization" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0048_repair_visit_trigger_definer" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0049_hotel_operational_issues" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
@@ -2339,6 +2342,7 @@ try {
   const [repairLifecycleState] = await owner<
     {
       hotel_calendar_read_model_marker_count: number;
+      hotel_operational_issues_marker_count: number;
       hotel_repair_lifecycle_marker_count: number;
     }[]
   >`
@@ -2347,7 +2351,10 @@ try {
     )::integer as hotel_repair_lifecycle_marker_count,
     count(*) filter (
       where version = '0043_hotel_calendar_read_model'
-    )::integer as hotel_calendar_read_model_marker_count
+    )::integer as hotel_calendar_read_model_marker_count,
+    count(*) filter (
+      where version = '0049_hotel_operational_issues'
+    )::integer as hotel_operational_issues_marker_count
     from public.schema_migrations
   `;
   if (
@@ -2876,6 +2883,9 @@ try {
              'hotel_repair_transition_v1',
              'hotel_repair_file_upload_init_v1',
              'hotel_repair_file_view_command_v1',
+             'hotel_issue_capabilities_v1',
+             'hotel_issue_read_v1',
+             'hotel_issue_command_v1',
              'hotel_calendar_actor_v1',
              'hotel_calendar_permission_allowed_v1',
              'hotel_calendar_accessible_hotels_v1',
@@ -2924,6 +2934,19 @@ try {
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_repair_file_view_command_v1(
       uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
+    ${
+      repairLifecycleState.hotel_operational_issues_marker_count === 1
+        ? `grant execute on function public.hotel_issue_capabilities_v1(
+      uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_issue_read_v1(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_issue_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};`
         : ""
     }

@@ -71,6 +71,29 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-operational-issue.lifecycle": {
+    audience: ["운영이슈 권한과 현재 호텔배정 또는 소유주 연결이 있는 사용자"],
+    cautions: [
+      "긴급 등급은 현장 판단으로 직접 선택하며 시스템이 자동판정하지 않습니다.",
+      "공개댓글은 호텔 소유주에게도 표시되므로 내부 협의 내용은 내부메모에 기록합니다.",
+      "숫자 SLA 정책이 설정되지 않은 경우 일반 초과 알림을 만들지 않습니다.",
+    ],
+    featureKey: "hotel-operational-issue.lifecycle",
+    permissions: [
+      "조회·등록·작업·관리 권한과 현재 호텔배정 또는 소유주 연결을 요청마다 다시 확인합니다.",
+    ],
+    steps: [
+      "등급과 현장 내용을 입력해 운영이슈를 접수합니다.",
+      "같은 호텔의 사내 임직원 또는 하우스키핑 담당자를 지정합니다.",
+      "담당자는 처리 시작, 작업기록과 조치완료를 저장합니다.",
+      "관리자는 필요하면 보류·재개하고 조치결과 확인 후 종료합니다.",
+      "소유주와 공유할 내용은 공개댓글로 기록합니다.",
+    ],
+    summary:
+      "호텔 운영이슈를 접수하고 담당 지정, 현장 처리, 조치완료와 종료까지 관리합니다.",
+    title: "운영이슈",
+    version: "1.0",
+  },
   "hotel-calendar.workspace": {
     audience: ["업무 달력 조회권한과 현재 호텔배정 또는 연결이 있는 사용자"],
     cautions: [
@@ -161,6 +184,7 @@ export const hotelFeatureGuideRoutes = {
   "/hotels/calendar": "hotel-calendar.workspace",
   "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
   "/hotels/[hotelId]": "hotel-management.detail",
+  "/hotels/[hotelId]/issues": "hotel-operational-issue.lifecycle",
   "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
   "/hotels/[hotelId]/inspections/reviews": "hotel-inspection.review",
 } as const satisfies Record<string, HotelFeatureGuideKey>;

@@ -1,5 +1,5 @@
-import type { AccountPermission, AuthenticatedPrincipal } from "@werehere/contracts";
-import { Building2, CalendarDays, LayoutDashboard, Users } from "lucide-react";
+import type { AccountPermission, AuthenticatedPrincipal, OperationalIssueCapability } from "@werehere/contracts";
+import { Building2, CalendarDays, CircleAlert, LayoutDashboard, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { AppShell } from "../shell/app-shell";
 
@@ -20,6 +20,7 @@ type HotelShellProps = {
   children: ReactNode;
   accountPermissions?: AccountPermission[];
   calendarHref?: string | undefined;
+  issueCapabilities?: OperationalIssueCapability[];
   currentPath: string;
   hotelName?: string;
   principal: AuthenticatedPrincipal;
@@ -31,10 +32,13 @@ export function HotelShell({
   children,
   currentPath,
   hotelName = "호텔 미선택",
+  issueCapabilities = [],
   principal,
 }: HotelShellProps) {
   const navigation = [...baseNavigation];
   if (calendarHref) navigation.push({ href: calendarHref, icon: <CalendarDays />, label: "업무 달력" });
+  const issueHotel = issueCapabilities.find((capability) => capability.canRead);
+  if (issueHotel) navigation.push({ href: `/hotels/${issueHotel.hotelId}/issues`, icon: <CircleAlert />, label: "운영이슈" });
   if (accountPermissions.includes("USER_READ")) navigation.push({ href: "/admin/users", icon: <Users />, label: "사용자 계정" });
   return (
     <AppShell

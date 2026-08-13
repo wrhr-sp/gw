@@ -97,6 +97,17 @@ import {
   hotelRoomStatusSchema,
   updateHotelRoomRequestSchema,
   updateHotelRoomTypeRequestSchema,
+  createOperationalIssueRequestSchema,
+  operationalIssueActionRequestSchema,
+  operationalIssueAddEntryRequestSchema,
+  operationalIssueAssigneeRequestSchema,
+  operationalIssueCapabilitiesResponseSchema,
+  operationalIssueInternalResponseSchema,
+  operationalIssueListQuerySchema,
+  operationalIssueOwnerResponseSchema,
+  operationalIssueRoutes,
+  operationalIssueSeveritySchema,
+  operationalIssueStatusSchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
@@ -107,13 +118,15 @@ describe("hotel platform contracts", () => {
     const itemId = "56000000-0000-4000-8000-000000000001";
 
     expect(
-      createManualInspectionV2RequestSchema.parse({
-        processDefinitionId: null,
-        targets: [
-          { type: "ROOM", roomId, selectedItemIds: [itemId] },
-          { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
-        ],
-      }).targets.map((target) => target.type),
+      createManualInspectionV2RequestSchema
+        .parse({
+          processDefinitionId: null,
+          targets: [
+            { type: "ROOM", roomId, selectedItemIds: [itemId] },
+            { type: "FACILITY", facilityId, selectedItemIds: [itemId] },
+          ],
+        })
+        .targets.map((target) => target.type),
     ).toEqual(["ROOM", "FACILITY"]);
     expect(
       createManualInspectionV2RequestSchema.safeParse({
@@ -147,7 +160,10 @@ describe("hotel platform contracts", () => {
         rounds: [
           {
             order: 1,
-            target: { type: "FACILITY_TYPES", facilityTypeIds: [facilityTypeId] },
+            target: {
+              type: "FACILITY_TYPES",
+              facilityTypeIds: [facilityTypeId],
+            },
           },
         ],
       }).rounds[0]?.target.type,
@@ -257,8 +273,11 @@ describe("hotel platform contracts", () => {
       pageSize: 20,
     });
     expect(
-      hotelFacilityWorkspaceResponseSchema.safeParse({ ok: true, data: {}, error: null })
-        .success,
+      hotelFacilityWorkspaceResponseSchema.safeParse({
+        ok: true,
+        data: {},
+        error: null,
+      }).success,
     ).toBe(false);
   });
 
@@ -1274,7 +1293,10 @@ describe("hotel platform contracts", () => {
   it("keeps the additive checklist v2 target union typed and cross-target safe", () => {
     const facilityTypeId = "53000000-0000-4000-8000-000000000001";
     const existingItemId = "d8200000-0000-4000-8000-000000000001";
-    expect(inspectionChecklistTargetTypeSchema.options).toEqual(["ROOM", "FACILITY"]);
+    expect(inspectionChecklistTargetTypeSchema.options).toEqual([
+      "ROOM",
+      "FACILITY",
+    ]);
     const parsed = createInspectionChecklistRevisionV2RequestSchema.parse({
       version: 1,
       reason: "시설물 점검기준 추가",
@@ -1669,7 +1691,12 @@ describe("hotel platform contracts", () => {
     expect(
       createRepairCaseRequestSchema.parse({
         repairCaseId: repairId,
-        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [fileVersionId], unavailableReason: null },
+        source: {
+          type: "DIRECT",
+          description: "욕실 배관 누수",
+          fileVersionIds: [fileVersionId],
+          unavailableReason: null,
+        },
         target: { type: "ROOM", roomId },
         priorityId,
         followUpOfRepairCaseId: null,
@@ -1678,7 +1705,12 @@ describe("hotel platform contracts", () => {
     ).toEqual({ type: "ROOM", roomId });
     expect(
       createRepairCaseRequestSchema.safeParse({
-        source: { type: "DIRECT", description: "욕실 배관 누수", fileVersionIds: [], unavailableReason: null },
+        source: {
+          type: "DIRECT",
+          description: "욕실 배관 누수",
+          fileVersionIds: [],
+          unavailableReason: null,
+        },
         target: { type: "ROOM", roomId, facilityId: roomId },
         priorityId,
         followUpOfRepairCaseId: null,
@@ -1692,7 +1724,12 @@ describe("hotel platform contracts", () => {
         title: "누수 현장 진단",
         startsAt: "2026-08-07T01:00:00.000Z",
         endsAt: "2026-08-07T02:00:00.000Z",
-        performer: { type: "EXTERNAL", contractorName: "승인업체", contactName: null, contactPhone: "010-0000-0000" },
+        performer: {
+          type: "EXTERNAL",
+          contractorName: "승인업체",
+          contactName: null,
+          contactPhone: "010-0000-0000",
+        },
       }).performer.type,
     ).toBe("EXTERNAL");
     expect(
@@ -1705,13 +1742,48 @@ describe("hotel platform contracts", () => {
       }).success,
     ).toBe(false);
 
-    expect(completeRepairVisitRequestSchema.safeParse({ version: 1, result: "배관 교체", fileVersionIds: [], unavailableReason: null }).success).toBe(false);
-    expect(completeRepairCaseRequestSchema.parse({ version: 2, processVersion: 3 }).processVersion).toBe(3);
-    expect(repairRoutes.detail(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}`);
-    expect(repairRoutes.priorities(hotelId)).toBe(`/api/hotels/${hotelId}/repair-priorities`);
-    expect(repairPriorityListResponseSchema.safeParse({ ok: true, data: { priorities: [{ id: priorityId, version: 1, name: "긴급", sortOrder: 1, color: "#dc2626", status: "ACTIVE" }] }, error: null }).success).toBe(true);
-    expect(repairRoutes.followUps(hotelId, repairId)).toBe(`/api/hotels/${hotelId}/repairs/${repairId}/follow-ups`);
-    expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(`/api/hotels/${hotelId}/repair-visits/${visitId}/complete`);
+    expect(
+      completeRepairVisitRequestSchema.safeParse({
+        version: 1,
+        result: "배관 교체",
+        fileVersionIds: [],
+        unavailableReason: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      completeRepairCaseRequestSchema.parse({ version: 2, processVersion: 3 })
+        .processVersion,
+    ).toBe(3);
+    expect(repairRoutes.detail(hotelId, repairId)).toBe(
+      `/api/hotels/${hotelId}/repairs/${repairId}`,
+    );
+    expect(repairRoutes.priorities(hotelId)).toBe(
+      `/api/hotels/${hotelId}/repair-priorities`,
+    );
+    expect(
+      repairPriorityListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          priorities: [
+            {
+              id: priorityId,
+              version: 1,
+              name: "긴급",
+              sortOrder: 1,
+              color: "#dc2626",
+              status: "ACTIVE",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(repairRoutes.followUps(hotelId, repairId)).toBe(
+      `/api/hotels/${hotelId}/repairs/${repairId}/follow-ups`,
+    );
+    expect(repairRoutes.visitComplete(hotelId, visitId)).toBe(
+      `/api/hotels/${hotelId}/repair-visits/${visitId}/complete`,
+    );
     const legacyRepair = {
       calendarProjectionStatus: "NOT_CONNECTED",
       createdAt: "2026-08-06T12:00:00.000Z",
@@ -1719,19 +1791,53 @@ describe("hotel platform contracts", () => {
       hotelId,
       id: repairId,
       predecessor: null,
-      priority: { color: "RED", id: priorityId, name: "긴급", sortOrder: 1, version: 1 },
-      process: { currentStageName: null, executionId: "a5000000-0000-4000-8000-000000000001", state: "PENDING_INPUT", version: 1 },
-      source: { description: "욕실 배관 누수", fileVersionIds: [fileVersionId], type: "DIRECT", unavailableReason: null },
+      priority: {
+        color: "RED",
+        id: priorityId,
+        name: "긴급",
+        sortOrder: 1,
+        version: 1,
+      },
+      process: {
+        currentStageName: null,
+        executionId: "a5000000-0000-4000-8000-000000000001",
+        state: "PENDING_INPUT",
+        version: 1,
+      },
+      source: {
+        description: "욕실 배관 누수",
+        fileVersionIds: [fileVersionId],
+        type: "DIRECT",
+        unavailableReason: null,
+      },
       status: "OPEN",
-      target: { facilityTypeName: null, id: roomId, locationName: "2층", name: "201호", type: "ROOM" },
+      target: {
+        facilityTypeName: null,
+        id: roomId,
+        locationName: "2층",
+        name: "201호",
+        type: "ROOM",
+      },
       updatedAt: "2026-08-06T12:00:00.000Z",
       version: 1,
       visits: [],
     };
     const canonicalRepair = repairCaseReadSchema.parse(legacyRepair);
     expect(canonicalRepair).not.toHaveProperty("calendarProjectionStatus");
-    expect(repairCaseResponseSchema.safeParse({ ok: true, data: { repair: {} }, error: null }).success).toBe(false);
-    expect(repairVisitResponseSchema.safeParse({ ok: true, data: { visit: {} }, error: null }).success).toBe(false);
+    expect(
+      repairCaseResponseSchema.safeParse({
+        ok: true,
+        data: { repair: {} },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      repairVisitResponseSchema.safeParse({
+        ok: true,
+        data: { visit: {} },
+        error: null,
+      }).success,
+    ).toBe(false);
   });
 
   it("defines a bounded, strict Calendar display contract without provider identifiers", () => {
@@ -1768,40 +1874,233 @@ describe("hotel platform contracts", () => {
     };
     expect(calendarEventSchema.safeParse(inspection).success).toBe(true);
     expect(calendarEventSchema.safeParse(repairVisit).success).toBe(true);
-    expect(calendarEventSchema.safeParse({ ...repairVisit, providerEventId: "forbidden" }).success).toBe(false);
+    expect(
+      calendarEventSchema.safeParse({
+        ...repairVisit,
+        providerEventId: "forbidden",
+      }).success,
+    ).toBe(false);
 
-    expect(calendarEventsQuerySchema.parse({ from: "2026-08-01", to: "2026-09-12" }).pageSize).toBe(200);
-    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-09-13" }).success).toBe(false);
-    expect(calendarEventsQuerySchema.safeParse({ from: "2026-08-01", to: "2026-08-01" }).success).toBe(false);
+    expect(
+      calendarEventsQuerySchema.parse({ from: "2026-08-01", to: "2026-09-12" })
+        .pageSize,
+    ).toBe(200);
+    expect(
+      calendarEventsQuerySchema.safeParse({
+        from: "2026-08-01",
+        to: "2026-09-13",
+      }).success,
+    ).toBe(false);
+    expect(
+      calendarEventsQuerySchema.safeParse({
+        from: "2026-08-01",
+        to: "2026-08-01",
+      }).success,
+    ).toBe(false);
 
-    expect(calendarRoutes.hotel(hotelId)).toBe(`/api/hotels/${hotelId}/calendar`);
-    expect(calendarRoutes.hotelVisitOptions(hotelId)).toBe(`/api/hotels/${hotelId}/calendar/visit-options`);
+    expect(calendarRoutes.hotel(hotelId)).toBe(
+      `/api/hotels/${hotelId}/calendar`,
+    );
+    expect(calendarRoutes.hotelVisitOptions(hotelId)).toBe(
+      `/api/hotels/${hotelId}/calendar/visit-options`,
+    );
     expect(calendarRoutes.all).toBe("/api/calendar");
     expect(calendarRoutes.capabilities).toBe("/api/calendar/capabilities");
 
-    expect(calendarEventsResponseSchema.safeParse({
-      ok: true,
-      data: {
-        capabilities: { canCreateVisit: true, canViewAllHotels: false },
-        events: [inspection, repairVisit],
-        hotels: [{ id: hotelId, name: "서울호텔" }],
-        pagination: { nextCursor: null },
-        range: { from: "2026-08-01", timeZone: "Asia/Seoul", to: "2026-09-12" },
-      },
-      error: null,
-    }).success).toBe(true);
-    expect(calendarCapabilitiesResponseSchema.safeParse({
-      ok: true,
-      data: { canViewAllHotels: false, hotels: [{ canCreateVisit: true, id: hotelId, name: "서울호텔" }] },
-      error: null,
-    }).success).toBe(true);
-    expect(calendarVisitOptionsResponseSchema.safeParse({
-      ok: true,
-      data: {
-        internalPerformers: [{ displayName: "김담당", userId: "20000000-0000-4000-8000-000000000001" }],
-        repairs: [{ id: "a1000000-0000-4000-8000-000000000001", priorityName: "긴급", targetName: "703호" }],
-      },
-      error: null,
-    }).success).toBe(true);
+    expect(
+      calendarEventsResponseSchema.safeParse({
+        ok: true,
+        data: {
+          capabilities: { canCreateVisit: true, canViewAllHotels: false },
+          events: [inspection, repairVisit],
+          hotels: [{ id: hotelId, name: "서울호텔" }],
+          pagination: { nextCursor: null },
+          range: {
+            from: "2026-08-01",
+            timeZone: "Asia/Seoul",
+            to: "2026-09-12",
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      calendarCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          canViewAllHotels: false,
+          hotels: [{ canCreateVisit: true, id: hotelId, name: "서울호텔" }],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      calendarVisitOptionsResponseSchema.safeParse({
+        ok: true,
+        data: {
+          internalPerformers: [
+            {
+              displayName: "김담당",
+              userId: "20000000-0000-4000-8000-000000000001",
+            },
+          ],
+          repairs: [
+            {
+              id: "a1000000-0000-4000-8000-000000000001",
+              priorityName: "긴급",
+              targetName: "703호",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("keeps operational issues strict, versioned, and owner-safe", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const issueId = "b1000000-0000-4000-8000-000000000001";
+    const assigneeId = "20000000-0000-4000-8000-000000000001";
+    const createdAt = "2026-08-12T12:00:00.000Z";
+    const publicIssue = {
+      assignee: { displayName: "현장 담당" },
+      createdAt,
+      description: "로비에 반복적인 소음 신고가 접수됐습니다.",
+      hotelId,
+      id: issueId,
+      isOverdue: false,
+      publicComments: [],
+      resumeDueAt: null,
+      severity: "MAJOR",
+      status: "IN_PROGRESS",
+      title: "로비 소음 신고",
+      updatedAt: createdAt,
+      version: 3,
+    } as const;
+
+    expect(operationalIssueSeveritySchema.options).toEqual([
+      "OBSERVATION",
+      "MINOR",
+      "MAJOR",
+      "EMERGENCY",
+    ]);
+    expect(operationalIssueStatusSchema.options).toEqual([
+      "RECEIVED",
+      "ASSIGNED",
+      "IN_PROGRESS",
+      "ON_HOLD",
+      "ACTION_COMPLETED",
+      "CLOSED",
+      "CANCELLED",
+    ]);
+    expect(
+      createOperationalIssueRequestSchema.parse({
+        description: publicIssue.description,
+        issueId,
+        severity: publicIssue.severity,
+        title: publicIssue.title,
+      }),
+    ).toMatchObject({ issueId, severity: "MAJOR" });
+    expect(
+      operationalIssueAssigneeRequestSchema.safeParse({
+        assigneeUserId: assigneeId,
+        reason: "현장 담당 지정",
+        version: 1,
+      }).success,
+    ).toBe(true);
+    expect(
+      operationalIssueActionRequestSchema.safeParse({
+        action: "HOLD",
+        reason: "부품 입고 대기",
+        resumeDueAt: "2026-08-20T00:00:00.000Z",
+        version: 3,
+      }).success,
+    ).toBe(true);
+    expect(
+      operationalIssueAddEntryRequestSchema.safeParse({
+        body: "현장 소음을 확인하고 안내했습니다.",
+        version: 3,
+      }).success,
+    ).toBe(true);
+    expect(
+      operationalIssueListQuerySchema.parse({ severity: "MAJOR" }).pageSize,
+    ).toBe(20);
+    expect(
+      operationalIssueOwnerResponseSchema.safeParse({
+        ok: true,
+        data: { issue: publicIssue },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      operationalIssueOwnerResponseSchema.safeParse({
+        ok: true,
+        data: { issue: { ...publicIssue, internalNotes: [] } },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      operationalIssueInternalResponseSchema.safeParse({
+        ok: true,
+        data: {
+          issue: {
+            ...publicIssue,
+            assignee: { ...publicIssue.assignee, userId: assigneeId },
+            internalNotes: [],
+            statusHistory: [],
+            workLogs: [],
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(operationalIssueRoutes.capabilities).toBe(
+      "/api/issues/capabilities",
+    );
+    expect(
+      operationalIssueCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          hotels: [
+            {
+              canComment: true,
+              canCreate: false,
+              canManage: false,
+              canRead: true,
+              canWork: false,
+              hotelId,
+              hotelName: "서울호텔",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      operationalIssueCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          hotels: [
+            {
+              actorUserId: assigneeId,
+              canComment: true,
+              canCreate: false,
+              canManage: false,
+              canRead: true,
+              canWork: false,
+              hotelId,
+              hotelName: "서울호텔",
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(operationalIssueRoutes.list(hotelId)).toBe(
+      `/api/hotels/${hotelId}/issues`,
+    );
+    expect(operationalIssueRoutes.assign(hotelId, issueId)).toBe(
+      `/api/hotels/${hotelId}/issues/${issueId}/assign`,
+    );
   });
 });

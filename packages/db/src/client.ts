@@ -46,6 +46,16 @@ const HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256 =
   "fc32af3cf8312e2c640b95cc88c118b2aa524478670d4eed98eb9691550f6bbf";
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
+const HOTEL_OPERATIONAL_ISSUES_CAPABILITIES_V1_PROSRC_SHA256 =
+  "080cddf4c3ebd51ed6e9a92087468e35d7032ece25d0d330f745b02e8cd4748f";
+const HOTEL_OPERATIONAL_ISSUES_ACTOR_V1_PROSRC_SHA256 =
+  "5787a713e40c3a6fc71ed335e638a6537c25810b95cd6d58426ca8dc324d1e32";
+const HOTEL_OPERATIONAL_ISSUES_SNAPSHOT_V1_PROSRC_SHA256 =
+  "c222d34e18455aa69988ce45d23814c17f3e907c0a67ef6c80b4e7661519b99e";
+const HOTEL_OPERATIONAL_ISSUES_READ_V1_PROSRC_SHA256 =
+  "82328237b3ae64be736e41e6d10b0b21c36ea33f2a3f4b6dbf2d7ec7f1c1da38";
+const HOTEL_OPERATIONAL_ISSUES_COMMAND_V1_PROSRC_SHA256 =
+  "57dd60f38eb157706b2fdb9117dc3b6783b4fc248be76251a8721faa13d44364";
 const HOTEL_REPAIR_INSPECTION_SNAPSHOT_SHA256 =
   "2a16bd02b21e5d418cad1ae621c732921ea1e0c596d7c01d901c94c6e17d25e0";
 const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
@@ -324,6 +334,31 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
+    digest: HOTEL_OPERATIONAL_ISSUES_CAPABILITIES_V1_PROSRC_SHA256,
+    name: "hotel_issue_capabilities_v1",
+    operationalIssues: true,
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_issue_capabilities_v1(uuid,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: HOTEL_OPERATIONAL_ISSUES_READ_V1_PROSRC_SHA256,
+    name: "hotel_issue_read_v1",
+    operationalIssues: true,
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature: "public.hotel_issue_read_v1(uuid,uuid,uuid,jsonb,text)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: HOTEL_OPERATIONAL_ISSUES_COMMAND_V1_PROSRC_SHA256,
+    name: "hotel_issue_command_v1",
+    operationalIssues: true,
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_issue_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
     calendarReadModel: true,
     digest: "d9eb41741498a10a26ce04f793d35091a380fa754f941d0ba20989f36a1bf228",
     name: "hotel_calendar_capabilities_v1",
@@ -376,6 +411,27 @@ const HOTEL_CALENDAR_EVENTS_REMOVED_SHA256 =
 const HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256 =
   "1f6e414644414d2b1418caf5244711be3080a35b854a40f3d506a118ae187aee";
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
+  {
+    digest: HOTEL_OPERATIONAL_ISSUES_ACTOR_V1_PROSRC_SHA256,
+    language: "sql",
+    name: "hotel_issue_actor_v1",
+    operationalIssues: true,
+    result:
+      "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
+    securityDefiner: true,
+    signature: "public.hotel_issue_actor_v1(uuid,uuid,text,text)",
+    volatility: "s",
+  },
+  {
+    digest: HOTEL_OPERATIONAL_ISSUES_SNAPSHOT_V1_PROSRC_SHA256,
+    language: "sql",
+    name: "hotel_issue_snapshot_v1",
+    operationalIssues: true,
+    result: "jsonb",
+    securityDefiner: true,
+    signature: "public.hotel_issue_snapshot_v1(uuid,uuid,uuid,boolean)",
+    volatility: "s",
+  },
   {
     calendarReadModel: true,
     digest: "cd31781cd3fedc85b0063cc8724139f9b6ae6836beae3fce946a6dd98b870781",
@@ -2357,6 +2413,7 @@ export async function probeDatabaseReadiness(
         hotel_repair_lifecycle_marker_count: number;
         repair_direct_record_initialization_marker_count: number;
         repair_visit_trigger_definer_marker_count: number;
+        hotel_operational_issues_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2466,6 +2523,9 @@ export async function probeDatabaseReadiness(
                where version = '0048_repair_visit_trigger_definer'
              )::integer as repair_visit_trigger_definer_marker_count,
              count(*) filter (
+               where version = '0049_hotel_operational_issues'
+             )::integer as hotel_operational_issues_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2523,7 +2583,8 @@ export async function probeDatabaseReadiness(
         '0045_remove_google_calendar_projection',
         '0046_scheduled_reconciler_invocation_lock',
         '0047_repair_direct_record_initialization',
-        '0048_repair_visit_trigger_definer'
+        '0048_repair_visit_trigger_definer',
+        '0049_hotel_operational_issues'
       )
     `;
     const schemaPhase =
@@ -2544,6 +2605,12 @@ export async function probeDatabaseReadiness(
               .repair_direct_record_initialization_marker_count === 0 &&
             migrationRows[0].repair_visit_trigger_definer_marker_count === 0
           ? "PRE_CONTRACT"
+          : null;
+    const operationalIssuesPhase =
+      migrationRows[0]?.hotel_operational_issues_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_operational_issues_marker_count === 0
+          ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
       migrationRows[0]?.hotel_calendar_read_model_marker_count === 1
@@ -2671,6 +2738,7 @@ export async function probeDatabaseReadiness(
             : null;
     if (
       !repairLifecyclePhase ||
+      !operationalIssuesPhase ||
       !calendarReadModelPhase ||
       !scheduledReconcilerLockPhase ||
       !googleCalendarRemovalPhase ||
@@ -2858,6 +2926,98 @@ export async function probeDatabaseReadiness(
         repairFoundation.direct_acl_count !== 0 ||
         repairFoundation.catalog_digest !==
           HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256
+      )
+        return schemaNotReady();
+    }
+    const operationalIssueTableNames = [
+      "hotel_issue_sla_policies",
+      "hotel_operational_issues",
+      "hotel_issue_assignments",
+      "hotel_issue_status_history",
+      "hotel_issue_work_logs",
+      "hotel_issue_comments",
+      "hotel_issue_internal_notes",
+      "hotel_issue_notification_outbox",
+    ] as const;
+    if (operationalIssuesPhase === "PRE_EXPAND") {
+      const [prematureOperationalIssues] = await sql<
+        {
+          function_count: number;
+          permission_count: number;
+          table_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'
+             and table_record.relname = any(${operationalIssueTableNames as unknown as string[]})) as table_count,
+          (select count(*)::integer from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname in (
+               'issue_history_append_only','hotel_issue_actor_v1',
+               'hotel_issue_snapshot_v1','hotel_issue_capabilities_v1','hotel_issue_read_v1','hotel_issue_command_v1'
+             )) as function_count,
+          (select count(*)::integer from public.permissions permission_record
+           where permission_record.code = any(array[
+             'HOTEL_ISSUE_READ','HOTEL_ISSUE_CREATE','HOTEL_ISSUE_WORK',
+             'HOTEL_ISSUE_MANAGE','HOTEL_OWNER_ISSUE_READ','HOTEL_OWNER_ISSUE_COMMENT'
+           ]::text[])) as permission_count
+      `;
+      if (
+        prematureOperationalIssues?.table_count !== 0 ||
+        prematureOperationalIssues.function_count !== 0 ||
+        prematureOperationalIssues.permission_count !== 0
+      )
+        return schemaNotReady();
+    } else {
+      const [operationalIssueFoundation] = await sql<
+        {
+          direct_acl_count: number;
+          force_rls_count: number;
+          function_count: number;
+          permission_count: number;
+          rls_count: number;
+          table_count: number;
+        }[]
+      >`
+        select
+          count(distinct table_record.oid)::integer as table_count,
+          count(distinct table_record.oid) filter (where table_record.relrowsecurity)::integer as rls_count,
+          count(distinct table_record.oid) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
+          (select count(*)::integer from pg_catalog.pg_proc procedure_record
+            join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+           where procedure_namespace.nspname='public'
+             and procedure_record.proname in (
+               'hotel_issue_actor_v1','hotel_issue_snapshot_v1',
+               'hotel_issue_capabilities_v1','hotel_issue_read_v1','hotel_issue_command_v1'
+             )) as function_count,
+          (select count(*)::integer from public.permissions permission_record
+           where permission_record.code = any(array[
+             'HOTEL_ISSUE_READ','HOTEL_ISSUE_CREATE','HOTEL_ISSUE_WORK',
+             'HOTEL_ISSUE_MANAGE','HOTEL_OWNER_ISSUE_READ','HOTEL_OWNER_ISSUE_COMMENT'
+           ]::text[])) as permission_count,
+          (select count(*)::integer from information_schema.table_privileges privilege
+           where privilege.table_schema='public'
+             and privilege.table_name = any(${operationalIssueTableNames as unknown as string[]})
+             and privilege.grantee <> current_user
+             and privilege.privilege_type in ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE')) as direct_acl_count
+        from pg_catalog.pg_class table_record
+        join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+        where table_namespace.nspname='public'
+          and table_record.relname = any(${operationalIssueTableNames as unknown as string[]})
+      `;
+      if (
+        operationalIssueFoundation?.table_count !==
+          operationalIssueTableNames.length ||
+        operationalIssueFoundation.rls_count !==
+          operationalIssueTableNames.length ||
+        operationalIssueFoundation.force_rls_count !==
+          operationalIssueTableNames.length ||
+        operationalIssueFoundation.function_count !== 5 ||
+        operationalIssueFoundation.permission_count !== 6 ||
+        operationalIssueFoundation.direct_acl_count !== 0
       )
         return schemaNotReady();
     }
@@ -4249,6 +4409,8 @@ export async function probeDatabaseReadiness(
             return (
               contract.repairLifecycle === (repairLifecyclePhase === "CONTRACT")
             );
+          if ("operationalIssues" in contract)
+            return operationalIssuesPhase === "EXPAND";
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (contract.name === "hotel_inspection_checklist_v2_command")
@@ -4365,6 +4527,8 @@ export async function probeDatabaseReadiness(
 
       const activeInspectionInternalFunctionContracts =
         HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS.filter((contract) => {
+          if ("operationalIssues" in contract)
+            return operationalIssuesPhase === "EXPAND";
           if ("calendarReadModel" in contract)
             return calendarReadModelPhase === "CONTRACT";
           if ("facilityExecution" in contract)

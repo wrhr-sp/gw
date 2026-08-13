@@ -1091,6 +1091,17 @@ jobs:
           verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
           verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
+      - name: Verify hosted Preview operational issues API, DB, and responsive UI before contract
+        id: operational_issues_smoke
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -o pipefail
+          node scripts/smoke-operational-issues-preview.mjs | tee /tmp/preview-operational-issues-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
+
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
         env:
