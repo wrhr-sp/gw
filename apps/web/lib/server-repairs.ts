@@ -28,7 +28,7 @@ export async function fetchRepairs(hotelId: string) {
     await Promise.all([
       request(`${repairRoutes.list(hotelId)}?page=1&pageSize=100&status=OPEN`),
       request(repairRoutes.priorities(hotelId)),
-      request(hotelRoutes.staffAssignments(hotelId)),
+      request(hotelRoutes.assignments(hotelId)),
       fetchAllFacilityInspectionData(hotelId),
     ]);
   if (

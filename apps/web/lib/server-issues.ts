@@ -43,7 +43,7 @@ export async function fetchOperationalIssueCapabilities() {
 export async function fetchOperationalIssues(hotelId: string) {
   const [listResponse, assignmentResponse, capabilities] = await Promise.all([
     request(`${operationalIssueRoutes.list(hotelId)}?page=1&pageSize=100`),
-    request(hotelRoutes.staffAssignments(hotelId)),
+    request(hotelRoutes.assignments(hotelId)),
     fetchOperationalIssueCapabilities(),
   ]);
   if (listResponse.status === 401 || assignmentResponse.status === 401)

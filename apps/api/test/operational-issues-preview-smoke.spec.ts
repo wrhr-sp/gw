@@ -75,6 +75,8 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).not.toContain("console.error(error");
     expect(source).not.toContain("payload?.error?.message");
     expect(source).not.toContain("console.log(await page.content())");
+    expect(source).toContain("/assignments`");
+    expect(source).not.toContain("/staff-assignments");
   });
 
   it("is a mandatory pre-contract Preview release gate", () => {
