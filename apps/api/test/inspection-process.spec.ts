@@ -695,6 +695,7 @@ describe("private R2 evidence store", () => {
     });
     expect(putReservedOriginal).toHaveBeenCalledWith({
       body: stream,
+      contentLength: 3,
       mimeType: "image/jpeg",
       objectKey,
       uploadId,

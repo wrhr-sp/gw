@@ -39,13 +39,15 @@ export class FileStorageError extends Error {
       | "FILE_NOT_READY"
       | "FILE_RATE_LIMITED"
       | "FILE_STORAGE_NOT_CONFIGURED"
+      | "FILE_STORAGE_UNAVAILABLE"
       | "RESOURCE_NOT_FOUND",
     public readonly httpStatus: 404 | 409 | 429 | 500 | 503 = code ===
     "RESOURCE_NOT_FOUND"
       ? 404
       : code === "FILE_RATE_LIMITED"
         ? 429
-        : code === "FILE_STORAGE_NOT_CONFIGURED"
+        : code === "FILE_STORAGE_NOT_CONFIGURED" ||
+            code === "FILE_STORAGE_UNAVAILABLE"
           ? 503
           : 409,
     public readonly retryable = false,
@@ -159,6 +161,7 @@ export interface PrivateR2EvidenceStore {
   }): Promise<{ etag: string; objectKey: string }>;
   putReservedOriginal(input: {
     body: Uint8Array | ArrayBuffer | ReadableStream;
+    contentLength: number;
     mimeType: string;
     objectKey: string;
     uploadId: string;
@@ -211,6 +214,7 @@ export function createPrivateR2EvidenceStore(
   }
   async function putReservedOriginal(input: {
     body: Uint8Array | ArrayBuffer | ReadableStream;
+    contentLength?: number;
     mimeType: string;
     objectKey: string;
     uploadId: string;
@@ -218,10 +222,45 @@ export function createPrivateR2EvidenceStore(
     const match = PRIVATE_KEY.exec(input.objectKey);
     if (!match || match[1] !== input.uploadId)
       throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
-    const stored = await requireBinding().put(input.objectKey, input.body, {
-      httpMetadata: { contentType: input.mimeType },
-      onlyIf: { etagDoesNotMatch: "*" },
-    });
+    let body = input.body;
+    let pipe: Promise<void> | undefined;
+    let fixedReadable: ReadableStream<Uint8Array> | undefined;
+    if (body instanceof ReadableStream) {
+      if (
+        !Number.isSafeInteger(input.contentLength) ||
+        !input.contentLength ||
+        input.contentLength < 1 ||
+        input.contentLength > MAX_PRIVATE_FILE_BYTES
+      )
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      type FixedLengthStreamConstructor = new (length: number) => {
+        readable: ReadableStream<Uint8Array>;
+        writable: WritableStream<Uint8Array>;
+      };
+      const FixedLengthStream = Reflect.get(
+        globalThis,
+        "FixedLengthStream",
+      ) as FixedLengthStreamConstructor | undefined;
+      if (!FixedLengthStream)
+        throw new FileStorageError("FILE_STORAGE_UNAVAILABLE", 503, true);
+      const fixed = new FixedLengthStream(input.contentLength);
+      fixedReadable = fixed.readable;
+      pipe = body.pipeTo(fixed.writable);
+      body = fixed.readable;
+    }
+    let stored: Awaited<ReturnType<PrivateR2Binding["put"]>>;
+    try {
+      stored = await requireBinding().put(input.objectKey, body, {
+        httpMetadata: { contentType: input.mimeType },
+        onlyIf: { etagDoesNotMatch: "*" },
+      });
+      await pipe;
+    } catch (error) {
+      await fixedReadable?.cancel().catch(() => undefined);
+      await pipe?.catch(() => undefined);
+      if (error instanceof FileStorageError) throw error;
+      throw new FileStorageError("FILE_STORAGE_UNAVAILABLE", 503, true);
+    }
     return {
       etag: quotedEtag(stored?.etag),
       objectKey: input.objectKey,
@@ -635,6 +674,7 @@ export function createHotelFileService(
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
       const result = await store.putReservedOriginal({
         body,
+        contentLength,
         mimeType,
         objectKey: upload.quarantineObjectKey,
         uploadId,
