@@ -41,15 +41,17 @@ jobs:
           set -euo pipefail
           inventory_file="$(mktemp)"
           trap 'rm -f "$inventory_file"' EXIT
-          pnpm --filter @werehere/api exec wrangler r2 bucket list --json > "$inventory_file"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets" \
+            > "$inventory_file"
           node - "$inventory_file" <<'NODE'
           const fs = require("node:fs");
           const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-          const buckets = Array.isArray(value)
-            ? value
-            : Array.isArray(value?.buckets)
-              ? value.buckets
-              : [];
+          if (value?.success !== true || !Array.isArray(value?.result?.buckets)) {
+            throw new Error("PREVIEW_R2_INVENTORY_RESPONSE_INVALID");
+          }
+          const buckets = value.result.buckets;
           const candidates = buckets.filter(
             (bucket) =>
               typeof bucket?.name === "string" &&
