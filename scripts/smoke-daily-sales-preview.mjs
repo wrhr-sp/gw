@@ -121,6 +121,8 @@ async function uploadEvidence(salesId, label) {
       "content-length": String(png.length),
       "content-type": "image/png",
       "if-none-match": "*",
+      origin: baseUrl,
+      "sec-fetch-site": "same-origin",
     },
     method: "PUT",
     raw: true,

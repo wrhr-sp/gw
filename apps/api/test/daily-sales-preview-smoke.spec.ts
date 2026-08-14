@@ -14,6 +14,8 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("READY_UNLINKED");
     expect(smoke).toContain("HOTEL_FILE_READ");
     expect(smoke).toContain("HOTEL_FILE_UPLOAD");
+    expect(smoke).toContain("origin: baseUrl");
+    expect(smoke).toContain('"sec-fetch-site": "same-origin"');
     expect(smoke).toContain("/files/${correctionFile}/view");
     expect(smoke).toContain("viewedBody.equals(png)");
     expect(smoke).toContain("/confirm");
