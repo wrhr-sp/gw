@@ -62,19 +62,17 @@ describe("Preview account provisioning wiring", () => {
     expect(jobEnvironment).not.toContain("CLOUDFLARE_ACCOUNT_ID");
     const r2Provision = workflow.slice(
       workflow.indexOf("Ensure isolated Preview private R2 bucket"),
-      workflow.indexOf("Build and push exact Preview file processor image"),
-    );
-    const imagePush = workflow.slice(
-      workflow.indexOf("Build and push exact Preview file processor image"),
       workflow.indexOf("Render API Preview configuration"),
     );
     const r2ReadBack = workflow.slice(
-      workflow.indexOf(
-        "Verify deployed API and Reconciler private R2 bindings",
-      ),
+      workflow.indexOf("Verify deployed API private R2 binding"),
+      workflow.indexOf("Verify legacy Preview Container provider resource"),
+    );
+    const containerRetirementReadBack = workflow.slice(
+      workflow.indexOf("Verify legacy Preview Container provider resource"),
       workflow.indexOf("Expand Preview account identity lock ACL"),
     );
-    for (const step of [r2Provision, imagePush, r2ReadBack]) {
+    for (const step of [r2Provision, r2ReadBack, containerRetirementReadBack]) {
       expect(step).toContain(
         "CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
       );
@@ -83,24 +81,12 @@ describe("Preview account provisioning wiring", () => {
       );
       expect(step.slice(step.indexOf("        run: |"))).not.toContain("${{");
     }
-    expect(r2Provision).toContain("containers_stdout_file");
-    expect(r2Provision).toContain("containers_stderr_file");
-    expect(r2Provision).toContain(
-      'chmod 600 "$containers_stdout_file" "$containers_stderr_file"',
-    );
-    expect(r2Provision).toContain("PREVIEW_CONTAINERS_DIAGNOSTIC=");
-    expect(r2Provision).toContain("fs.readSync");
-    expect(r2Provision).not.toContain("fs.readFileSync(path");
-    expect(r2Provision).toContain("key === 'code' || key === 'status'");
-    expect(r2Provision).toContain("visited >= 1000");
-    expect(r2Provision).toContain("depth > 10");
-    expect(r2Provision).not.toContain("matchAll");
-    expect(r2Provision).toContain("paid-entitlement");
-    expect(r2Provision).toContain("authorization");
-    expect(r2Provision).toContain("provider-unavailable");
-    expect(r2Provision).toContain("unknown");
-    expect(r2Provision).not.toContain('cat "$containers_stdout_file"');
-    expect(r2Provision).not.toContain('cat "$containers_stderr_file"');
+    expect(r2Provision).toContain("PREVIEW_R2_BUCKET_READY");
+    expect(r2Provision).toContain("per_page=1000");
+    expect(r2Provision).toContain("result_info.cursor // empty");
+    expect(r2Provision).toContain("seen_cursors");
+    expect(r2Provision).toContain("all(.result.buckets[];");
+    expect(r2Provision).not.toMatch(/container/iu);
     const reconcilerDeploy = workflow.slice(
       workflow.indexOf("Deploy private account reconciler Worker"),
       workflow.indexOf("Deploy private API Worker"),
@@ -109,22 +95,19 @@ describe("Preview account provisioning wiring", () => {
       workflow.indexOf("Deploy private API Worker"),
       workflow.indexOf("Deploy public Web Worker"),
     );
-    expect(reconcilerDeploy).toContain("RECONCILER_SECRETS_FILE");
-    expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET_PREVIEW");
-    expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET");
-    expect(reconcilerDeploy).toContain("unset FILE_PROCESSOR_SHARED_SECRET");
+    expect(reconcilerDeploy).not.toContain("RECONCILER_SECRETS_FILE");
+    expect(reconcilerDeploy).not.toContain("FILE_PROCESSOR_SHARED_SECRET");
     expect(reconcilerDeploy).toContain("reconciler_deploy_output");
     expect(reconcilerDeploy).toContain('> "$reconciler_deploy_output" 2>&1');
     expect(reconcilerDeploy).toContain('chmod 600 "$reconciler_deploy_output"');
     expect(reconcilerDeploy).not.toContain('cat "$reconciler_deploy_output"');
-    expect(
-      reconcilerDeploy.indexOf("unset FILE_PROCESSOR_SHARED_SECRET"),
-    ).toBeLessThan(reconcilerDeploy.indexOf("pnpm exec wrangler deploy"));
     expect(reconcilerDeploy).not.toContain("AUTH_TRANSACTION_ENCRYPTION_KEY");
     expect(reconcilerDeploy).not.toContain("ZITADEL_SERVICE_USER_TOKEN");
     expect(reconcilerDeploy).toContain("--strict");
     expect(apiDeploy).toContain("API_SECRETS_FILE");
     expect(apiDeploy).toContain("AUTH_TRANSACTION_ENCRYPTION_KEY");
+    expect(apiDeploy).toContain("PREVIEW_FILE_SCANNER_AGENT_TOKEN");
+    expect(apiDeploy).toContain("FILE_SCANNER_AGENT_TOKEN");
     expect(workflow).not.toContain("werehere-api-preview-secrets.json");
     const cleanupMarker =
       "      - name: Retire Preview Google Calendar Worker secrets\n";
@@ -136,6 +119,8 @@ describe("Preview account provisioning wiring", () => {
     expect(cleanupStart).toBeGreaterThanOrEqual(0);
     expect(cleanupEnd).toBeGreaterThan(cleanupStart);
     const cleanupStep = workflow.slice(cleanupStart, cleanupEnd);
+    expect(cleanupStep).toContain('"FILE_PROCESSOR_SHARED_SECRET"');
+    expect(cleanupStep).not.toContain("${{ secrets.FILE_PROCESSOR_SHARED_SECRET }}");
     const dispositionMarker =
       "      - name: Decommission Preview Google Calendar provider artifacts and grants\n";
     const dispositionStart = workflow.indexOf(dispositionMarker);
@@ -187,6 +172,7 @@ describe("Preview account provisioning wiring", () => {
       "AUTH_TRANSACTION_ENCRYPTION_KEY",
       "ZITADEL_SERVICE_USER_TOKEN",
       "ZITADEL_USER_PROVISIONER_TOKEN",
+      "PREVIEW_FILE_SCANNER_AGENT_TOKEN",
     ])
       expect(apiDeploy).toContain(`unset ${name}`);
   });
@@ -235,6 +221,7 @@ describe("Preview account provisioning wiring", () => {
       "ZITADEL_PREVIEW_SUBJECT_SHA256",
       "PREVIEW_BOOTSTRAP_LOGIN_ID",
       "ZITADEL_PREVIEW_PASSWORD",
+      "PREVIEW_FILE_SCANNER_AGENT_TOKEN",
       "ZITADEL_ISSUER",
       "ZITADEL_CLIENT_ID",
       "ZITADEL_CONSOLE_CLIENT_ID",
@@ -270,8 +257,12 @@ describe("Preview account provisioning wiring", () => {
       preflight.indexOf("node <<'NODE'"),
     );
 
+    const canaryValue = (name: string, index: number) =>
+      name === "PREVIEW_FILE_SCANNER_AGENT_TOKEN"
+        ? `secret-canary-scanner-${"x".repeat(32)}`
+        : `secret-canary-${index}`;
     const canaryEnv = Object.fromEntries(
-      required!.slice(1).map((name, index) => [name, `secret-canary-${index}`]),
+      required!.slice(1).map((name, index) => [name, canaryValue(name, index)]),
     );
     const oneMissing = spawnSync("bash", {
       input: shell,
@@ -290,7 +281,7 @@ describe("Preview account provisioning wiring", () => {
       input: shell,
       encoding: "utf8",
       env: Object.fromEntries(
-        required!.map((name, index) => [name, `secret-canary-${index}`]),
+        required!.map((name, index) => [name, canaryValue(name, index)]),
       ),
     });
     expect(allPresent.status).toBe(0);
@@ -620,33 +611,17 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerRenderer).toContain(
       '{ binding: "RECONCILER_HYPERDRIVE", id: reconcilerHyperdriveId }',
     );
-    expect(reconcilerRenderer).toContain(
-      '{ binding: "HOTEL_FILES", bucket_name: previewR2BucketName }',
-    );
-    expect(reconcilerRenderer).toContain(
-      'class_name: "FileProcessorContainer"',
-    );
-    expect(reconcilerRenderer).toContain('instance_type: "standard-1"');
-    expect(reconcilerRenderer).toContain("max_instances: 1");
-    expect(reconcilerRenderer).toContain("image: previewFileProcessorImage");
-    expect(reconcilerRenderer).not.toContain(
-      'image: "../file-processor/Dockerfile"',
-    );
+    expect(reconcilerRenderer).not.toContain("HOTEL_FILES");
+    expect(reconcilerRenderer).not.toContain("containers");
+    expect(reconcilerRenderer).not.toContain("durable_objects");
+    expect(reconcilerRenderer).not.toContain("migrations");
     expect(reconcilerRenderer).not.toContain("API_HYPERDRIVE");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_NAME");
-    expect(workflow).toContain("PREVIEW_FILE_PROCESSOR_IMAGE_READY");
-    expect(workflow).toContain("printf '::add-mask::%s\\n' \"$image_ref\"");
-    expect(workflow).toContain("printf '::add-mask::%s\\n' \"$image_digest\"");
-    expect(workflow).toContain("docker image inspect");
-    expect(workflow).toContain("{{json .RepoDigests}}");
+    expect(workflow).not.toContain("PREVIEW_FILE_PROCESSOR_IMAGE");
+    expect(workflow).not.toContain("wrangler containers");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_READY");
     expect(workflow).toContain("validate-cloudflare-worker-r2-binding.mjs");
     expect(workflow).toContain("PREVIEW_R2_BINDINGS_VERIFIED");
-    expect(workflow).toContain(
-      "validate-cloudflare-worker-container-config.mjs",
-    );
-    expect(workflow).toContain("wrangler containers info");
-    expect(workflow).toContain("PREVIEW_CONTAINER_CONFIGURATION_VERIFIED");
     expect(workflow).toContain("wrangler.reconciler.preview.generated.json");
     expect(workflow).toContain("werehere-hotel-account-reconciler-preview");
   });
@@ -663,7 +638,7 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerEntry).toContain(
       "reconcileAccountProviderJobsFromBindings(env)",
     );
-    expect(reconcilerEntry).toContain(
+    expect(reconcilerEntry).not.toContain(
       "reconcileHotelFileEvidenceFromBindings(env)",
     );
     expect(reconcilerEntry).toContain(
@@ -686,9 +661,6 @@ describe("Preview account provisioning wiring", () => {
     expect(ciWorkflow).toContain("wrangler.reconciler.preview.generated.json");
     expect(ciWorkflow).toContain(
       "RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000",
-    );
-    expect(ciWorkflow).toContain(
-      "PREVIEW_FILE_PROCESSOR_IMAGE=registry.cloudflare.com/ci/",
     );
     expect(ciWorkflow).toContain(
       "--dry-run --config wrangler.reconciler.preview.generated.json",

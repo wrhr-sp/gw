@@ -147,6 +147,14 @@ import {
 import { HotelServiceError, type HotelService } from "./hotels/service";
 import { FileStorageError, type HotelFileService } from "./files/r2";
 import {
+  createFileScannerAgentServiceFromBindings,
+  type FileScannerAgentBindings,
+} from "./files/scanner-agent-factory";
+import {
+  FileScannerAgentError,
+  type FileScannerAgentService,
+} from "./files/scanner-agent";
+import {
   createHotelFileServiceFromBindings,
   createInspectionServiceFromBindings,
   type InspectionBindings,
@@ -199,7 +207,8 @@ type Bindings = AccountBindings &
   OperationalIssueBindings &
   DailySalesBindings &
   RepairBindings &
-  RoomBindings;
+  RoomBindings &
+  FileScannerAgentBindings;
 
 type ReadinessProbe = (
   databaseUrl: string | undefined,
@@ -218,6 +227,8 @@ type CreateAppOptions = {
   hotelService?: HotelService;
   hotelFileService?: HotelFileService;
   facilityService?: FacilityService;
+  fileScannerAgentService?: FileScannerAgentService;
+  fileScannerAgentToken?: string;
   inspectionService?: InspectionService;
   operationalIssueService?: OperationalIssueService;
   dailySalesService?: DailySalesService;
@@ -273,6 +284,88 @@ const PASSWORD_RESET_FORM_SCHEMA = z
   })
   .strict();
 const HOTEL_ID_SCHEMA = z.uuid();
+const SCANNER_UPLOAD_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const SCANNER_CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/u;
+const SCANNER_SHA256 = /^[a-f0-9]{64}$/u;
+const SCANNER_MAX_FILE_SIZE = 20 * 1024 * 1024;
+const SCANNER_NO_STORE_HEADERS = { "Cache-Control": "no-store" } as const;
+
+function scannerEmptyResponse(status: 204 | 401): Response {
+  return new Response(null, { headers: SCANNER_NO_STORE_HEADERS, status });
+}
+
+function scannerErrorResponse(code: string, status: 400 | 409 | 422 | 503): Response {
+  return new Response(JSON.stringify({ code }), {
+    headers: {
+      ...SCANNER_NO_STORE_HEADERS,
+      "Content-Type": "application/json; charset=UTF-8",
+    },
+    status,
+  });
+}
+
+async function readBoundedScannerBody(
+  request: Request,
+  expectedLength: number,
+): Promise<Uint8Array | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return null;
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (
+        value.byteLength > SCANNER_MAX_FILE_SIZE - total ||
+        value.byteLength > expectedLength - total
+      ) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+      total += value.byteLength;
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (total !== expectedLength) return null;
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+async function scannerAuthorized(
+  authorization: string | undefined,
+  configuredToken: string | undefined,
+) {
+  const encoder = new TextEncoder();
+  const configured = configuredToken?.trim() ?? "";
+  const presented = authorization ?? "";
+  if (
+    encoder.encode(configured).byteLength < 32 ||
+    encoder.encode(configured).byteLength > 256 ||
+    encoder.encode(presented).byteLength > 512
+  ) {
+    return false;
+  }
+  const [expectedDigest, presentedDigest] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(`Bearer ${configured}`)),
+    crypto.subtle.digest("SHA-256", encoder.encode(presented)),
+  ]);
+  const expected = new Uint8Array(expectedDigest);
+  const actual = new Uint8Array(presentedDigest);
+  let difference = 0;
+  for (let index = 0; index < expected.byteLength; index += 1) {
+    difference |= expected[index]! ^ actual[index]!;
+  }
+  return difference === 0;
+}
 
 function readCookieValues(
   context: Context<{ Bindings: Bindings }>,
@@ -383,6 +476,25 @@ export function createApp(options: CreateAppOptions = {}) {
     return (
       options.hotelFileService ?? createHotelFileServiceFromBindings(bindings)
     );
+  }
+
+  function getFileScannerAgentService(bindings: Bindings | undefined) {
+    return (
+      options.fileScannerAgentService ??
+      createFileScannerAgentServiceFromBindings(bindings)
+    );
+  }
+
+  async function withFileScannerAgentService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: FileScannerAgentService) => Promise<T>,
+  ): Promise<T> {
+    const service = getFileScannerAgentService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.fileScannerAgentService) await service.close?.();
+    }
   }
 
   async function withAuthService<T>(
@@ -949,6 +1061,145 @@ export function createApp(options: CreateAppOptions = {}) {
       404,
     );
   }
+
+  hotelApp.post("/api/internal/v1/file-scanner/claim", async (context) => {
+    const configuredToken =
+      options.fileScannerAgentToken ?? context.env?.FILE_SCANNER_AGENT_TOKEN;
+    if (
+      !(await scannerAuthorized(
+        context.req.header("authorization"),
+        configuredToken,
+      ))
+    ) {
+      return scannerEmptyResponse(401);
+    }
+    try {
+      const claim = await withFileScannerAgentService(context.env, (service) =>
+        service.claim(),
+      );
+      if (!claim) return scannerEmptyResponse(204);
+      return new Response(Uint8Array.from(claim.body).buffer, {
+        headers: {
+          "Cache-Control": "private, no-store",
+          "Content-Length": String(claim.body.byteLength),
+          "Content-Type": claim.declaredMime,
+          "X-Content-Type-Options": "nosniff",
+          "X-Scanner-Claim-Token": claim.claimToken,
+          "X-Scanner-Generation": String(claim.generation),
+          "X-Scanner-Source-Sha256": claim.sourceSha256,
+          "X-Scanner-Upload-Id": claim.uploadId,
+        },
+        status: 200,
+      });
+    } catch (error) {
+      const code =
+        error instanceof FileScannerAgentError
+          ? error.code
+          : "SCANNER_AGENT_UNAVAILABLE";
+      const status =
+        code === "SCANNER_AGENT_STALE_CLAIM"
+          ? 409
+          : code === "SCANNER_AGENT_NOT_CONFIGURED" ||
+              code === "SCANNER_AGENT_UNAVAILABLE"
+            ? 503
+            : 422;
+      return scannerErrorResponse(code, status);
+    }
+  });
+
+  hotelApp.post("/api/internal/v1/file-scanner/complete", async (context) => {
+    const configuredToken =
+      options.fileScannerAgentToken ?? context.env?.FILE_SCANNER_AGENT_TOKEN;
+    if (
+      !(await scannerAuthorized(
+        context.req.header("authorization"),
+        configuredToken,
+      ))
+    ) {
+      return scannerEmptyResponse(401);
+    }
+    const verdict = context.req.header("x-scanner-verdict");
+    const uploadId = context.req.header("x-scanner-upload-id") ?? "";
+    const claimToken = context.req.header("x-scanner-claim-token") ?? "";
+    const sourceSha256 = context.req.header("x-scanner-source-sha256") ?? "";
+    const generation = Number(context.req.header("x-scanner-generation"));
+    const contentLength = Number(context.req.header("content-length"));
+    if (
+      !SCANNER_UPLOAD_ID.test(uploadId) ||
+      !SCANNER_CLAIM_TOKEN.test(claimToken) ||
+      !SCANNER_SHA256.test(sourceSha256) ||
+      !Number.isSafeInteger(generation) ||
+      generation < 1 ||
+      !Number.isSafeInteger(contentLength) ||
+      contentLength < 0 ||
+      contentLength > SCANNER_MAX_FILE_SIZE ||
+      !["CLEAN", "FAILED", "INFECTED"].includes(verdict ?? "")
+    ) {
+      return scannerErrorResponse("SCANNER_AGENT_INVALID_REQUEST", 400);
+    }
+    let completion: Parameters<FileScannerAgentService["complete"]>[0];
+    if (verdict === "CLEAN") {
+      const mimeType = context.req.header("content-type")?.split(";", 1)[0];
+      const maxDimension = Number(
+        context.req.header("x-scanner-max-dimension"),
+      );
+      if (
+        contentLength < 1 ||
+        !["image/jpeg", "image/png", "image/webp"].includes(mimeType ?? "") ||
+        context.req.header("x-scanner-exif-location-removed") !== "true" ||
+        !Number.isSafeInteger(maxDimension) ||
+        maxDimension < 1 ||
+        maxDimension > 2048
+      ) {
+        return scannerErrorResponse("SCANNER_AGENT_INVALID_REQUEST", 400);
+      }
+      const body = await readBoundedScannerBody(context.req.raw, contentLength);
+      if (!body) {
+        return scannerErrorResponse("SCANNER_AGENT_INVALID_REQUEST", 400);
+      }
+      completion = {
+        body,
+        claimToken,
+        exifLocationRemoved: true,
+        generation,
+        maxDimension,
+        mimeType: mimeType as "image/jpeg" | "image/png" | "image/webp",
+        sourceSha256,
+        uploadId,
+        verdict: "CLEAN",
+      };
+    } else {
+      if (contentLength !== 0) {
+        return scannerErrorResponse("SCANNER_AGENT_INVALID_REQUEST", 400);
+      }
+      completion = {
+        claimToken,
+        generation,
+        sourceSha256,
+        uploadId,
+        verdict: verdict as "FAILED" | "INFECTED",
+      };
+    }
+    try {
+      await withFileScannerAgentService(context.env, (service) =>
+        service.complete(completion),
+      );
+      return scannerEmptyResponse(204);
+    } catch (error) {
+      const code =
+        error instanceof FileScannerAgentError
+          ? error.code
+          : "SCANNER_AGENT_UNAVAILABLE";
+      const status =
+        code === "SCANNER_AGENT_STALE_CLAIM"
+          ? 409
+          : code === "SCANNER_AGENT_NOT_CONFIGURED" ||
+              code === "SCANNER_AGENT_UNAVAILABLE"
+            ? 503
+            : 422;
+      return scannerErrorResponse(code, status);
+    }
+  });
 
   hotelApp.get("/api/health/live", (context) =>
     context.json({

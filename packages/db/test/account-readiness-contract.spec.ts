@@ -538,6 +538,12 @@ describe("account administration readiness contract", () => {
     expect(source).toContain("0018_hotel_support_assignment_overlap");
     expect(source).toContain("0019_hotel_room_management");
     expect(source).toContain("0022_hotel_room_contract_hardening");
+    expect(source).toContain("0051_file_scanner_agent_authority");
+    expect(source).toContain("fileScannerAgentAuthorityPhase");
+    expect(source).toContain("hotel_file_scanner_agent_capabilities");
+    expect(source).toContain("allowLegacyFileFinalizerCapability");
+    expect(source).toContain("hotel_file_scanner_agent_command_v1");
+    expect(source).toContain("hotel_file_scanner_agent_candidates_v1");
     expect(source).toContain(
       "hotel_staff_assignments_support_hotel_period_excl",
     );

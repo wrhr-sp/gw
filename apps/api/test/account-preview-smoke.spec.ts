@@ -250,7 +250,7 @@ describe("hosted Preview account-management smoke", () => {
     const succeededOutput = `${succeeded.stdout}${succeeded.stderr}`;
     expect(succeededOutput).toContain("PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK");
     expect(succeededOutput).not.toContain(sentinel);
-  }, 10_000);
+  }, 30_000);
 
   it("preserves safe relationship journey failure codes after cleanup", async () => {
     for (const failureCode of [

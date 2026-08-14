@@ -1146,14 +1146,24 @@ select (
     'public.hotel_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
     'EXECUTE'
   )
-  and not has_function_privilege(
+  and has_function_privilege(
     'werehere_preview_api_runtime',
-    'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'public.hotel_file_scanner_agent_command_v1(uuid,text,text,bigint,jsonb,uuid)',
     'EXECUTE'
   )
   and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_file_scanner_agent_candidates_v1(integer)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
     'werehere_preview_reconciler',
     'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_file_scan_candidates_v1(integer)',
     'EXECUTE'
   )
   and has_function_privilege(
@@ -1181,12 +1191,16 @@ select (
     'werehere_preview_api_runtime', 'public.hotel_file_scan_jobs', 'SELECT'
   )
   and exists (
-    select 1 from hotel_file_finalizer_capabilities
-    where role_name = 'werehere_preview_reconciler'
+    select 1 from hotel_file_scanner_agent_capabilities
+    where role_name = 'werehere_preview_api_runtime'
+  )
+  and not exists (
+    select 1 from hotel_file_scanner_agent_capabilities
+    where role_name <> 'werehere_preview_api_runtime'
   )
   and not exists (
     select 1 from hotel_file_finalizer_capabilities
-    where role_name <> 'werehere_preview_reconciler'
+    where role_name = 'werehere_preview_reconciler'
   )
 )::text;
 SQL
@@ -1576,6 +1590,7 @@ COMPAT_EXPAND_API_RUNTIME_URL="$(<"$API_RUNTIME_URL_FILE")"
 import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 const result = await probeDatabaseReadiness(process.env.TEST_READY_URL, {
   capability: "API_RUNTIME",
+  allowLegacyFileFinalizerCapability: true,
 });
 if (result.status !== "READY") {
   throw new Error(`contracted-base EXPAND was not previous-Worker compatible: ${result.status}`);
@@ -3047,6 +3062,15 @@ select
     select 1 from public.schema_migrations
     where version = '0050_hotel_daily_sales'
   )
+  and exists (
+    select 1 from public.schema_migrations
+    where version = '0051_file_scanner_agent_authority'
+  )
+  and has_function_privilege(
+    'werehere_preview_api_runtime',
+    'public.hotel_file_scanner_agent_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'EXECUTE'
+  )
   and (
     select count(*) = 5 from public.permissions
     where code in (
@@ -3071,7 +3095,10 @@ fi
 import { probeDatabaseReadiness } from "./src/client.ts";
 const databaseUrl = process.env.TEST_READY_URL;
 if (!databaseUrl) throw new Error("Fresh Preview runtime URL is missing");
-const result = await probeDatabaseReadiness(databaseUrl, { capability: "API_RUNTIME" });
+const result = await probeDatabaseReadiness(databaseUrl, {
+  capability: "API_RUNTIME",
+  allowLegacyFileFinalizerCapability: true,
+});
 if (result.status !== "READY") {
   throw new Error(`Fresh Preview predeploy readiness failed: ${result.status}`);
 }

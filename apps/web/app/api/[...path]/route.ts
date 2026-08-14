@@ -41,6 +41,12 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
 
 function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (
+    apiPath === "internal/v1/file-scanner/claim" ||
+    apiPath === "internal/v1/file-scanner/complete"
+  ) {
+    return new Set(["POST"]);
+  }
+  if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/daily-sales$`, "iu").test(apiPath)
   )
     return new Set(["GET", "POST"]);
@@ -480,10 +486,9 @@ async function proxy(
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
       : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
-  const streamingUpload = new RegExp(
-    `^files/uploads/${UUID_PATH_PATTERN}/body$`,
-    "iu",
-  ).test(apiPath);
+  const streamingUpload =
+    apiPath === "internal/v1/file-scanner/complete" ||
+    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}/body$`, "iu").test(apiPath);
 
   const headers = new Headers(request.headers);
   headers.delete("connection");

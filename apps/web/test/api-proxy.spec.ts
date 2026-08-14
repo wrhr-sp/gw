@@ -152,6 +152,57 @@ describe("same-origin API runtime proxy", () => {
     );
   });
 
+  it("streams only the two authenticated scanner agent endpoints", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const body = new Uint8Array([1, 2, 3]);
+    const upstreamFetch = vi.fn(
+      async (_input: URL | RequestInfo, init?: RequestInit) => {
+        const headers = new Headers(init?.headers);
+        expect(init?.method).toBe("POST");
+        expect(init?.body).toBeInstanceOf(ReadableStream);
+        expect(headers.get("authorization")).toBe("Bearer scanner-agent-token");
+        expect(headers.get("content-length")).toBe("3");
+        expect(headers.get("x-scanner-verdict")).toBe("CLEAN");
+        return new Response(null, { status: 204 });
+      },
+    );
+    vi.stubGlobal("fetch", upstreamFetch);
+    const response = await POST(
+      new Request(
+        "https://hotel.example.test/api/internal/v1/file-scanner/complete",
+        {
+          body,
+          headers: {
+            authorization: "Bearer scanner-agent-token",
+            "content-length": "3",
+            "x-scanner-verdict": "CLEAN",
+          },
+          method: "POST",
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["internal", "v1", "file-scanner", "complete"],
+        }),
+      },
+    );
+    expect(response.status).toBe(204);
+
+    const rejected = await POST(
+      new Request(
+        "https://hotel.example.test/api/internal/v1/file-scanner/unknown",
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["internal", "v1", "file-scanner", "unknown"],
+        }),
+      },
+    );
+    expect(rejected.status).toBe(404);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
   it("allows only the inspection evidence and submit route methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     vi.stubGlobal(

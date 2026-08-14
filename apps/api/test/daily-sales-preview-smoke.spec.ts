@@ -18,8 +18,14 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain('"sec-fetch-site": "same-origin"');
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_");
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
+    expect(smoke).toContain("runFileScannerBatch");
+    expect(smoke).toContain("scanWithClamAv");
+    expect(smoke).toContain("optimizeEvidenceImage");
+    expect(smoke).toContain("PREVIEW_FILE_SCANNER_AGENT_TOKEN");
     expect(smoke).toContain("/files/${correctionFile}/view");
     expect(smoke).toContain("viewedBody.equals(png)");
+    expect(smoke).toContain("correction_sha256 !== viewedSha256");
+    expect(smoke).toContain("encode(version.clean_sha256, 'hex')");
     expect(smoke).toContain("/confirm");
     expect(smoke).toContain("/corrections");
     expect(smoke).toContain("hotel_daily_sales_versions");
@@ -53,11 +59,21 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("auth_revoke_session_v2");
   });
   it("is wired before Preview contract with exact success markers", () => {
-    expect(workflow).toContain("node scripts/smoke-daily-sales-preview.mjs");
+    expect(workflow).toContain("bash scripts/prepare-preview-clamav.sh");
+    expect(workflow).toContain("FILE_PROCESSOR_CLAMAV_SELF_TEST_OK");
+    expect(workflow).toContain(
+      "pnpm exec tsx scripts/smoke-daily-sales-preview.mjs",
+    );
+    expect(
+      workflow.indexOf("bash scripts/prepare-preview-clamav.sh"),
+    ).toBeLessThan(
+      workflow.indexOf("pnpm exec tsx scripts/smoke-daily-sales-preview.mjs"),
+    );
+    expect(workflow).toContain("PREVIEW_FILE_SCANNER_AGENT_TOKEN");
     expect(workflow).toContain("PREVIEW_DAILY_SALES_API_DB_SMOKE_OK");
     expect(workflow).toContain("PREVIEW_DAILY_SALES_UI_SMOKE_OK");
     expect(
-      workflow.indexOf("node scripts/smoke-daily-sales-preview.mjs"),
+      workflow.indexOf("pnpm exec tsx scripts/smoke-daily-sales-preview.mjs"),
     ).toBeLessThan(workflow.indexOf("Contract Neon Preview tenant authority"));
   });
 });

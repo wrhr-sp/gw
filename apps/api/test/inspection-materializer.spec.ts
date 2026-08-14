@@ -2,7 +2,6 @@ import type { InspectionMaterializerRepository } from "@werehere/db";
 import { describe, expect, it, vi } from "vitest";
 const scheduledFactories = vi.hoisted(() => ({
   account: vi.fn(async () => undefined),
-  file: vi.fn(async () => undefined),
   inspection: vi.fn(async () => undefined),
   lock: vi.fn(async (_databaseUrl: string, run: () => Promise<unknown>) =>
     run(),
@@ -17,11 +16,7 @@ vi.mock("../src/accounts/factory", () => ({
   reconcileAccountProviderJobsFromBindings: scheduledFactories.account,
 }));
 vi.mock("../src/files/factory", () => ({
-  reconcileHotelFileEvidenceFromBindings: scheduledFactories.file,
   recoverExpiredHotelFileAccessGrantsFromBindings: scheduledFactories.recover,
-}));
-vi.mock("../src/file-processor-container", () => ({
-  FileProcessorContainer: class FileProcessorContainer {},
 }));
 vi.mock("../src/inspections/materializer-factory", () => ({
   reconcileInspectionMaterializationsFromBindings:
@@ -95,14 +90,12 @@ describe("inspection materialization reconciler", () => {
       undefined,
       undefined,
       undefined,
-      undefined,
     ]);
     expect(scheduledFactories.lock).toHaveBeenCalledWith(
       "test",
       expect.any(Function),
     );
     expect(scheduledFactories.account).toHaveBeenCalledWith(env);
-    expect(scheduledFactories.file).toHaveBeenCalledWith(env);
     expect(scheduledFactories.recover).toHaveBeenCalledWith(env);
     expect(scheduledFactories.inspection).toHaveBeenCalledWith(env);
   });

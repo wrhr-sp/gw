@@ -14,10 +14,9 @@
     "test:worker": "bash test/run-worker-auth-smoke.sh"
   },
   "dependencies": {
-    "@cloudflare/containers": "0.3.7",
     "@werehere/contracts": "workspace:*",
     "@werehere/db": "workspace:*",
-    "hono": "4.12.25",
+    "hono": "4.12.34",
     "jose": "6.2.3",
     "zod": "4.1.12"
   },
