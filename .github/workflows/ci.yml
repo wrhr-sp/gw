@@ -63,6 +63,7 @@ jobs:
         run: |
           pnpm run build
           API_HYPERDRIVE_ID=00000000000000000000000000000000 \
+            PREVIEW_R2_BUCKET_NAME=werehere-hotel-files-preview \
             ZITADEL_ISSUER=https://preview.invalid \
             ZITADEL_CLIENT_ID=preview-client \
             ZITADEL_CONSOLE_CLIENT_ID=preview-console-client \
@@ -76,6 +77,7 @@ jobs:
             --dry-run --config wrangler.preview.generated.json
           rm -f apps/api/wrangler.preview.generated.json
           RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000 \
+            PREVIEW_R2_BUCKET_NAME=werehere-hotel-files-preview \
             ZITADEL_ISSUER=https://preview.invalid \
             ZITADEL_ORGANIZATION_ID=preview-organization \
             node scripts/render-reconciler-preview-config.mjs \
