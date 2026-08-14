@@ -118,7 +118,7 @@ describe("same-origin API runtime proxy", () => {
         expect(headers.get("content-length")).toBe("3");
         expect(headers.get("content-type")).toBe("image/jpeg");
         expect(headers.get("if-none-match")).toBe("*");
-        expect(headers.get("origin")).toBe("http://127.0.0.1:8787");
+        expect(headers.get("origin")).toBe("https://hotel.example.test");
         expect(headers.get("sec-fetch-site")).toBe("same-origin");
         return new Response(null, {
           headers: { etag: '"0123456789abcdef0123456789abcdef"' },
@@ -136,6 +136,7 @@ describe("same-origin API runtime proxy", () => {
             "content-length": "3",
             "content-type": "image/jpeg",
             "if-none-match": "*",
+            origin: "https://attacker.example.test",
           },
           method: "PUT",
         },
@@ -163,6 +164,7 @@ describe("same-origin API runtime proxy", () => {
         expect(headers.get("authorization")).toBe("Bearer scanner-agent-token");
         expect(headers.get("content-length")).toBe("3");
         expect(headers.get("x-scanner-verdict")).toBe("CLEAN");
+        expect(headers.get("origin")).toBeNull();
         return new Response(null, { status: 204 });
       },
     );

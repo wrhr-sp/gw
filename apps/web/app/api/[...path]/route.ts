@@ -486,9 +486,12 @@ async function proxy(
       ? { "Set-Cookie": CLEAR_PASSWORD_RESET_COOKIE }
       : {};
   const upstreamPath = `/api/${path.map(encodeURIComponent).join("/")}${new URL(request.url).search}`;
+  const browserUpload = new RegExp(
+    `^files/uploads/${UUID_PATH_PATTERN}/body$`,
+    "iu",
+  ).test(apiPath);
   const streamingUpload =
-    apiPath === "internal/v1/file-scanner/complete" ||
-    new RegExp(`^files/uploads/${UUID_PATH_PATTERN}/body$`, "iu").test(apiPath);
+    apiPath === "internal/v1/file-scanner/complete" || browserUpload;
 
   const headers = new Headers(request.headers);
   headers.delete("connection");
@@ -507,7 +510,11 @@ async function proxy(
 
   try {
     const upstream = streamingUpload
-      ? await fetchApiSameOrigin(upstreamPath, init)
+      ? await fetchApiSameOrigin(
+          upstreamPath,
+          init,
+          browserUpload ? new URL(request.url).origin : undefined,
+        )
       : await fetchApi(upstreamPath, init);
     return new Response(upstream.body, {
       headers: upstream.headers,

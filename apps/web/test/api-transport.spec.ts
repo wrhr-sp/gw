@@ -66,9 +66,9 @@ describe("API transport", () => {
     expect(directFetch).toHaveBeenCalledOnce();
   });
 
-  it("rewrites trusted same-origin metadata to the selected service origin", async () => {
+  it("preserves the trusted public Web origin across the service binding", async () => {
     const serviceFetch = vi.fn(async (request: Request) => {
-      expect(request.headers.get("origin")).toBe("https://api.internal");
+      expect(request.headers.get("origin")).toBe("https://hotel.example.test");
       expect(request.headers.get("sec-fetch-site")).toBe("same-origin");
       expect(request.headers.get("content-length")).toBe("3");
       expect(request.body).toBeInstanceOf(ReadableStream);
@@ -87,6 +87,7 @@ describe("API transport", () => {
         },
         method: "PUT",
       },
+      "https://hotel.example.test",
     );
     expect(response.status).toBe(204);
     expect(serviceFetch).toHaveBeenCalledOnce();
@@ -97,7 +98,7 @@ describe("API transport", () => {
     const directFetch = vi.fn(
       async (_input: URL | RequestInfo, init?: RequestInit) => {
         expect(new Headers(init?.headers).get("origin")).toBe(
-          "http://127.0.0.1:8787",
+          "https://hotel.example.test",
         );
         expect(new Headers(init?.headers).get("sec-fetch-site")).toBe(
           "same-origin",
@@ -106,10 +107,14 @@ describe("API transport", () => {
       },
     );
     vi.stubGlobal("fetch", directFetch);
-    await fetchApiSameOrigin("/api/files/uploads/upload/body", {
-      body: new Blob(["x"]).stream(),
-      method: "PUT",
-    });
+    await fetchApiSameOrigin(
+      "/api/files/uploads/upload/body",
+      {
+        body: new Blob(["x"]).stream(),
+        method: "PUT",
+      },
+      "https://hotel.example.test",
+    );
     expect(directFetch).toHaveBeenCalledOnce();
   });
 

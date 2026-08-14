@@ -46,11 +46,14 @@ type StreamingRequestInit = RequestInit & { duplex?: "half" };
 
 function requestInit(
   init: RequestInit,
-  origin: string | null,
+  trustedOrigin: string | null | undefined,
 ): StreamingRequestInit {
   const headers = new Headers(init.headers);
-  if (origin) {
-    headers.set("origin", origin);
+  if (trustedOrigin === null) {
+    headers.delete("origin");
+    headers.delete("sec-fetch-site");
+  } else if (trustedOrigin) {
+    headers.set("origin", trustedOrigin);
     headers.set("sec-fetch-site", "same-origin");
   }
   const next: StreamingRequestInit = { ...init, headers };
@@ -61,7 +64,7 @@ function requestInit(
 async function fetchApiWithTrust(
   path: string,
   init: RequestInit,
-  trustedSameOrigin: boolean,
+  trustedOrigin: string | null | undefined,
 ): Promise<Response> {
   if (!path.startsWith("/") || path.startsWith("//")) {
     throw new ApiTransportNotConfiguredError();
@@ -73,7 +76,7 @@ async function fetchApiWithTrust(
     return service.fetch(
       new Request(
         new URL(path, origin),
-        requestInit(init, trustedSameOrigin ? origin : null),
+        requestInit(init, trustedOrigin),
       ),
     );
   }
@@ -82,7 +85,7 @@ async function fetchApiWithTrust(
   if (!origin) throw new ApiTransportNotConfiguredError();
   return fetch(
     new URL(path, origin),
-    requestInit(init, trustedSameOrigin ? origin : null),
+    requestInit(init, trustedOrigin),
   );
 }
 
@@ -90,12 +93,38 @@ export async function fetchApi(
   path: string,
   init: RequestInit = {},
 ): Promise<Response> {
-  return fetchApiWithTrust(path, init, false);
+  return fetchApiWithTrust(path, init, undefined);
+}
+
+function canonicalTrustedOrigin(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const localHttp = parsed.protocol === "http:"
+      && (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
+    if (
+      (parsed.protocol !== "https:" && !localHttp)
+      || parsed.username
+      || parsed.password
+      || parsed.pathname !== "/"
+      || parsed.search
+      || parsed.hash
+    ) {
+      throw new Error("invalid trusted origin");
+    }
+    return parsed.origin;
+  } catch {
+    throw new ApiTransportNotConfiguredError();
+  }
 }
 
 export async function fetchApiSameOrigin(
   path: string,
   init: RequestInit = {},
+  trustedOrigin?: string,
 ): Promise<Response> {
-  return fetchApiWithTrust(path, init, true);
+  return fetchApiWithTrust(
+    path,
+    init,
+    trustedOrigin ? canonicalTrustedOrigin(trustedOrigin) : null,
+  );
 }
