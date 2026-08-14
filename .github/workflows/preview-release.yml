@@ -769,8 +769,19 @@ jobs:
               CONTAINERS_STDERR_FILE="$containers_stderr_file" \
               node <<'NODE'
           const fs = require('node:fs');
-          const readBounded = (path) => fs.readFileSync(path, 'utf8').slice(0, 65536);
-          const diagnostic = `${readBounded(process.env.CONTAINERS_STDOUT_FILE)}\n${readBounded(process.env.CONTAINERS_STDERR_FILE)}`.toLowerCase();
+          const readBounded = (path) => {
+            const buffer = Buffer.alloc(65536);
+            const descriptor = fs.openSync(path, 'r');
+            try {
+              const bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, 0);
+              return buffer.toString('utf8', 0, bytesRead);
+            } finally {
+              fs.closeSync(descriptor);
+            }
+          };
+          const stdout = readBounded(process.env.CONTAINERS_STDOUT_FILE);
+          const stderr = readBounded(process.env.CONTAINERS_STDERR_FILE);
+          const diagnostic = `${stdout}\n${stderr}`.toLowerCase();
           const category = /workers paid|paid plan|upgrade[^\n]{0,80}plan|subscription|entitlement|not enabled for this account|not available[^\n]{0,80}free/u.test(diagnostic)
             ? 'paid-entitlement'
             : /unauthenticated|unauthorized|forbidden|permission|scope|authentication|authorization|invalid[^\n]{0,40}(?:api )?token/u.test(diagnostic)
@@ -778,8 +789,30 @@ jobs:
               : /rate limit|temporar|service unavailable|internal server|timed? ?out/u.test(diagnostic)
                 ? 'provider-unavailable'
                 : 'unknown';
-          const codes = [...new Set([...diagnostic.matchAll(/(?:["']?(?:code|status)["']?\s*[:=]\s*)(\d{3,6})/gu)].map((match) => match[1]))].slice(0, 3);
-          process.stderr.write(`PREVIEW_CONTAINERS_DIAGNOSTIC=${category} CODES=${codes.join(',') || 'none'}\n`);
+          const codes = new Set();
+          let visited = 0;
+          const collectCodes = (value, depth = 0) => {
+            if (depth > 10 || visited >= 1000 || value === null) return;
+            visited += 1;
+            if (Array.isArray(value)) {
+              for (const item of value) collectCodes(item, depth + 1);
+              return;
+            }
+            if (typeof value !== 'object') return;
+            for (const [key, candidate] of Object.entries(value)) {
+              if (key === 'code' || key === 'status') {
+                const normalized = String(candidate);
+                if (/^\d{3,6}$/u.test(normalized)) codes.add(normalized);
+              }
+              collectCodes(candidate, depth + 1);
+            }
+          };
+          for (const text of [stdout, stderr]) {
+            try {
+              collectCodes(JSON.parse(text));
+            } catch {}
+          }
+          process.stderr.write(`PREVIEW_CONTAINERS_DIAGNOSTIC=${category} CODES=${[...codes].slice(0, 3).join(',') || 'none'}\n`);
           NODE
             exit 1
           fi

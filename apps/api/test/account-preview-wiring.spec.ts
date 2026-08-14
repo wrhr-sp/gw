@@ -89,6 +89,12 @@ describe("Preview account provisioning wiring", () => {
       'chmod 600 "$containers_stdout_file" "$containers_stderr_file"',
     );
     expect(r2Provision).toContain("PREVIEW_CONTAINERS_DIAGNOSTIC=");
+    expect(r2Provision).toContain("fs.readSync");
+    expect(r2Provision).not.toContain("fs.readFileSync(path");
+    expect(r2Provision).toContain("key === 'code' || key === 'status'");
+    expect(r2Provision).toContain("visited >= 1000");
+    expect(r2Provision).toContain("depth > 10");
+    expect(r2Provision).not.toContain("matchAll");
     expect(r2Provision).toContain("paid-entitlement");
     expect(r2Provision).toContain("authorization");
     expect(r2Provision).toContain("provider-unavailable");
