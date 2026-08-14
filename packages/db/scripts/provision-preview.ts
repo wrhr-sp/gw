@@ -3146,7 +3146,7 @@ try {
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
   `);
 
-  if (contractPhase && fileScannerAgentState.contracted) {
+  if (identityLockPhase && fileScannerAgentState.contracted) {
     await owner.unsafe(`
       revoke execute on function public.hotel_file_scan_command_v1(
         uuid, text, text, bigint, jsonb, uuid
@@ -3600,7 +3600,7 @@ try {
     inspectionProcessRolloutState.contracted ? "CONTRACT" : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
-    allowLegacyFileFinalizerCapability: !contractPhase,
+    allowLegacyFileFinalizerCapability: !identityLockPhase,
     requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
       ? "CONTRACT"
       : "EXPAND",
@@ -3620,7 +3620,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
-      allowLegacyFileFinalizerCapability: !contractPhase,
+      allowLegacyFileFinalizerCapability: !identityLockPhase,
       requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
         ? "CONTRACT"
         : "EXPAND",

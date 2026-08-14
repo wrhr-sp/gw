@@ -2425,6 +2425,30 @@ if [[ "$BOOTSTRAP_PRE_ROTATION_RESULT" != $'1\n0\n1\n0' ]]; then
   exit 1
 fi
 run_provision EXPAND_IDENTITY_LOCK "$ROTATED_BOOTSTRAP_LOGIN_ID" >/dev/null
+IDENTITY_LOCK_FINALIZER_RETIRED="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
+select (
+  not exists (
+    select 1 from public.hotel_file_finalizer_capabilities
+    where role_name = 'werehere_preview_reconciler'
+  )
+  and not has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'werehere_preview_reconciler',
+    'public.hotel_file_scan_candidates_v1(integer)',
+    'EXECUTE'
+  )
+)::text;
+SQL
+)"
+if [[ "$IDENTITY_LOCK_FINALIZER_RETIRED" != "true" ]]; then
+  printf '%s\n' 'Identity-lock phase retained legacy file-finalizer authority.' >&2
+  exit 1
+fi
+printf '%s\n' 'PREVIEW_IDENTITY_LOCK_FILE_FINALIZER_RETIRED'
 BOOTSTRAP_ROTATION_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<SQL
 select count(*) from users
 where id = '71000000-0000-4000-8000-000000000001'

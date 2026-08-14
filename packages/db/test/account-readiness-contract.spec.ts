@@ -57,6 +57,18 @@ const scheduledReconcilerLockMigrationSource = readFileSync(
 );
 
 describe("account administration readiness contract", () => {
+  it("retires legacy file-finalizer authority at the staged identity lock", () => {
+    expect(provisionSource).toContain(
+      "if (identityLockPhase && fileScannerAgentState.contracted)",
+    );
+    expect(provisionSource).toContain(
+      "allowLegacyFileFinalizerCapability: !identityLockPhase",
+    );
+    expect(previewProvisioningIntegrationSource).toContain(
+      "PREVIEW_IDENTITY_LOCK_FILE_FINALIZER_RETIRED",
+    );
+  });
+
   it("pins the post-CONTRACT own Calendar function body without the retired projection key", () => {
     const declaration = "function public.hotel_calendar_events_read_v1(";
     const functionStart =
