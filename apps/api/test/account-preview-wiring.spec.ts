@@ -95,6 +95,10 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET_PREVIEW");
     expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET");
     expect(reconcilerDeploy).toContain("unset FILE_PROCESSOR_SHARED_SECRET");
+    expect(reconcilerDeploy).toContain("reconciler_deploy_output");
+    expect(reconcilerDeploy).toContain('> "$reconciler_deploy_output" 2>&1');
+    expect(reconcilerDeploy).toContain('chmod 600 "$reconciler_deploy_output"');
+    expect(reconcilerDeploy).not.toContain('cat "$reconciler_deploy_output"');
     expect(
       reconcilerDeploy.indexOf("unset FILE_PROCESSOR_SHARED_SECRET"),
     ).toBeLessThan(reconcilerDeploy.indexOf("pnpm exec wrangler deploy"));
@@ -613,6 +617,8 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerRenderer).not.toContain("API_HYPERDRIVE");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_NAME");
     expect(workflow).toContain("PREVIEW_FILE_PROCESSOR_IMAGE_READY");
+    expect(workflow).toContain("printf '::add-mask::%s\\n' \"$image_ref\"");
+    expect(workflow).toContain("printf '::add-mask::%s\\n' \"$image_digest\"");
     expect(workflow).toContain("docker image inspect");
     expect(workflow).toContain("{{json .RepoDigests}}");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_READY");

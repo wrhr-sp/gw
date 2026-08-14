@@ -839,7 +839,11 @@ jobs:
           if (matches.length !== 1) process.exit(1);
           fs.writeFileSync(process.env.IMAGE_REF_FILE, matches[0], { mode: 0o600 });
           NODE
-          printf 'PREVIEW_FILE_PROCESSOR_IMAGE=%s\n' "$(<"$image_ref_file")" \
+          image_ref="$(<"$image_ref_file")"
+          image_digest="${image_ref##*@}"
+          printf '::add-mask::%s\n' "$image_ref"
+          printf '::add-mask::%s\n' "$image_digest"
+          printf 'PREVIEW_FILE_PROCESSOR_IMAGE=%s\n' "$image_ref" \
             >> "$GITHUB_ENV"
           printf '%s\n' 'PREVIEW_FILE_PROCESSOR_IMAGE_READY'
 
@@ -872,7 +876,9 @@ jobs:
             exit 1
           fi
           reconciler_secrets_file="$(mktemp)"
-          trap 'rm -f "$reconciler_secrets_file"' EXIT
+          reconciler_deploy_output="$(mktemp)"
+          chmod 600 "$reconciler_deploy_output"
+          trap 'rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"' EXIT
           export RECONCILER_SECRETS_FILE="$reconciler_secrets_file"
           python - <<'PY'
           import json, os
@@ -884,15 +890,20 @@ jobs:
           path.chmod(0o600)
           PY
           unset FILE_PROCESSOR_SHARED_SECRET
-          (
+          if ! (
             trap 'rm -f "$reconciler_secrets_file"' EXIT
             pnpm exec wrangler deploy \
               --config wrangler.reconciler.preview.generated.json \
               --secrets-file "$reconciler_secrets_file" \
               --strict \
-              --tag "$DEPLOY_TAG"
-          )
-          rm -f "$reconciler_secrets_file"
+              --tag "$DEPLOY_TAG" \
+              > "$reconciler_deploy_output" 2>&1
+          ); then
+            printf '%s\n' 'Preview Reconciler deploy failed.' >&2
+            exit 1
+          fi
+          printf '%s\n' 'PREVIEW_RECONCILER_DEPLOYED'
+          rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
