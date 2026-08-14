@@ -53,7 +53,7 @@ const reconcilerEntry = readFileSync(
 describe("Preview account provisioning wiring", () => {
   it("scopes Cloudflare credentials to mutation steps and separates Worker secret bundles", () => {
     expect(workflow).not.toContain("$CLOUD...OKEN");
-    expect(workflow.match(/\$CLOUDFLARE_API_TOKEN\b/gu)).toHaveLength(11);
+    expect(workflow.match(/\$CLOUDFLARE_API_TOKEN\b/gu)).toHaveLength(12);
     const jobEnvironment = workflow.slice(
       workflow.indexOf("    env:"),
       workflow.indexOf("    steps:"),
