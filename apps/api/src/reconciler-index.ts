@@ -4,7 +4,6 @@ import {
   type AccountReconcilerBindings,
 } from "./accounts/factory";
 import {
-  reconcileHotelFileEvidenceFromBindings,
   recoverExpiredHotelFileAccessGrantsFromBindings,
   type FileReconcilerBindings,
 } from "./files/factory";
@@ -14,7 +13,6 @@ import {
   type InspectionMaterializerBindings,
 } from "./inspections/materializer-factory";
 import { resolveDatabaseUrl } from "./database";
-export { FileProcessorContainer } from "./file-processor-container";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
@@ -52,7 +50,6 @@ async function runScheduled(
   return withPostgresScheduledReconcilerInvocation(databaseUrl, () =>
     settleScheduled([
       reconcileAccountProviderJobsFromBindings(env),
-      reconcileHotelFileEvidenceFromBindings(env),
       recoverExpiredHotelFileAccessGrantsFromBindings(env),
       reconcileInspectionMaterializationsFromBindings(env),
     ]),

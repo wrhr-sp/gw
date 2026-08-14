@@ -21,7 +21,7 @@
     "@werehere/contracts": "workspace:*",
     "@werehere/ui": "workspace:*",
     "lucide-react": "0.468.0",
-    "next": "15.5.20",
+    "next": "15.5.21",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "react-hook-form": "7.65.0",

@@ -60,6 +60,76 @@ const PRIVATE_KEY =
   /^quarantine\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/[A-Za-z0-9_-]{43}$/u;
 const CLEAN_KEY =
   /^clean\/([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/u;
+const MAX_PRIVATE_FILE_BYTES = 20 * 1024 * 1024;
+
+type R2ReadObject = {
+  arrayBuffer(): Promise<ArrayBuffer>;
+  body?: ReadableStream<Uint8Array>;
+  etag?: string;
+  httpMetadata?: { contentType?: string };
+  size?: number;
+  version?: string;
+};
+
+function assertBoundedObjectMetadata(object: R2ReadObject): asserts object is R2ReadObject & {
+  body: ReadableStream<Uint8Array>;
+  httpMetadata: { contentType: string };
+  size: number;
+  version: string;
+} {
+  if (
+    !object.body ||
+    !object.version ||
+    typeof object.size !== "number" ||
+    !Number.isSafeInteger(object.size) ||
+    object.size < 1 ||
+    object.size > MAX_PRIVATE_FILE_BYTES ||
+    !object.httpMetadata?.contentType
+  )
+    throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+}
+
+async function readBoundedObjectBody(
+  object: R2ReadObject & { body: ReadableStream<Uint8Array>; size: number },
+): Promise<Uint8Array> {
+  const reader = object.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!(value instanceof Uint8Array))
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      total += value.byteLength;
+      if (total > object.size || total > MAX_PRIVATE_FILE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (total !== object.size)
+    throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false;
+  let different = 0;
+  for (let index = 0; index < left.byteLength; index += 1) {
+    different |= (left[index] ?? 0) ^ (right[index] ?? 0);
+  }
+  return different === 0;
+}
 
 function privateSuffix(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -182,17 +252,40 @@ export function createPrivateR2EvidenceStore(
       const objectKey = `clean/${input.fileVersionId}`;
       if (!CLEAN_KEY.test(objectKey))
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
-      const stored = await requireBinding().put(objectKey, input.body, {
-        httpMetadata: { contentType: input.mimeType },
-        onlyIf: { etagDoesNotMatch: "*" },
-      });
-      if (!stored?.version)
+      const configured = requireBinding();
+      let stored: Awaited<ReturnType<PrivateR2Binding["put"]>> | undefined;
+      try {
+        stored = await configured.put(objectKey, input.body, {
+          httpMetadata: { contentType: input.mimeType },
+          onlyIf: { etagDoesNotMatch: "*" },
+        });
+      } catch {
+        stored = undefined;
+      }
+      if (stored?.version) {
+        return {
+          etag: quotedEtag(stored.etag),
+          objectKey,
+          objectVersion: stored.version,
+          sizeBytes: input.body.byteLength,
+        };
+      }
+      if (!configured.get)
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      const existing = await configured.get(objectKey);
+      if (!existing) throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      assertBoundedObjectMetadata(existing);
+      const existingBody = await readBoundedObjectBody(existing);
+      if (
+        existing.httpMetadata.contentType !== input.mimeType ||
+        !bytesEqual(existingBody, input.body)
+      )
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
       return {
-        etag: quotedEtag(stored.etag),
+        etag: quotedEtag(existing.etag),
         objectKey,
-        objectVersion: stored.version,
-        sizeBytes: input.body.byteLength,
+        objectVersion: existing.version,
+        sizeBytes: existing.size,
       };
     },
     async putQuarantinedOriginal(input) {
@@ -209,15 +302,9 @@ export function createPrivateR2EvidenceStore(
       if (!configured.get)
         throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
       const object = await configured.get(objectKey);
-      if (
-        !object?.version ||
-        typeof object.size !== "number" ||
-        !object.httpMetadata?.contentType
-      )
-        throw new FileStorageError("FILE_NOT_READY");
-      const body = new Uint8Array(await object.arrayBuffer());
-      if (body.byteLength !== object.size)
-        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      if (!object) throw new FileStorageError("FILE_NOT_READY");
+      assertBoundedObjectMetadata(object);
+      const body = await readBoundedObjectBody(object);
       return {
         body,
         etag: quotedEtag(object.etag),
@@ -233,13 +320,8 @@ export function createPrivateR2EvidenceStore(
       if (!configured.get)
         throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
       const object = await configured.get(objectKey);
-      if (
-        !object?.body ||
-        !object.version ||
-        typeof object.size !== "number" ||
-        !object.httpMetadata?.contentType
-      )
-        throw new FileStorageError("FILE_NOT_READY");
+      if (!object) throw new FileStorageError("FILE_NOT_READY");
+      assertBoundedObjectMetadata(object);
       return {
         body: object.body,
         etag: quotedEtag(object.etag),
@@ -255,15 +337,9 @@ export function createPrivateR2EvidenceStore(
       if (!configured.get)
         throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
       const object = await configured.get(objectKey);
-      if (
-        !object?.version ||
-        typeof object.size !== "number" ||
-        !object.httpMetadata?.contentType
-      )
-        throw new FileStorageError("FILE_NOT_READY");
-      const body = new Uint8Array(await object.arrayBuffer());
-      if (body.byteLength !== object.size)
-        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      if (!object) throw new FileStorageError("FILE_NOT_READY");
+      assertBoundedObjectMetadata(object);
+      const body = await readBoundedObjectBody(object);
       return {
         body,
         etag: quotedEtag(object.etag),

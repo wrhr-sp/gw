@@ -2,6 +2,9 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
+import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
+import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
+import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -16,11 +19,15 @@ const baseUrl = process.env.WEB_PREVIEW_URL?.trim().replace(/\/+$/u, "");
 const bootstrapSubject = process.env.ZITADEL_PREVIEW_SUBJECT?.trim();
 const apiUrlFile = process.env.API_RUNTIME_DATABASE_URL_FILE?.trim();
 const ownerDatabaseUrl = process.env.DATABASE_URL_PREVIEW?.trim();
+const scannerAgentToken = process.env.PREVIEW_FILE_SCANNER_AGENT_TOKEN?.trim();
 if (
   !baseUrl?.startsWith("https://") ||
   !bootstrapSubject ||
   !apiUrlFile ||
-  !ownerDatabaseUrl
+  !ownerDatabaseUrl ||
+  !scannerAgentToken ||
+  scannerAgentToken.length < 32 ||
+  scannerAgentToken.length > 256
 )
   throw new Error("PREVIEW_DAILY_SALES_CONFIGURATION_INVALID");
 const sql = postgres((await readFile(apiUrlFile, "utf8")).trim(), {
@@ -150,6 +157,18 @@ async function uploadEvidence(salesId, label) {
     method: "POST",
   });
   for (let attempt = 0; attempt < 90; attempt += 1) {
+    await runFileScannerBatch({
+      agentToken: scannerAgentToken,
+      apiUrl: baseUrl,
+      batchSize: 25,
+      optimize: optimizeEvidenceImage,
+      scan: (body) =>
+        scanWithClamAv(body, {
+          host: "127.0.0.1",
+          port: 3310,
+          timeoutMs: 30_000,
+        }),
+    });
     const status = await api(`/api/files/uploads/${uploadId}`, {
       failureCode: "PREVIEW_DAILY_SALES_UPLOAD_STATUS_INVALID",
     });
@@ -376,12 +395,13 @@ try {
   if (
     viewed.response.status !== 200 ||
     viewed.response.headers.get("content-type") !== "image/png" ||
-    viewed.response.headers.get("x-content-type-options") !== "nosniff" ||
-    !viewedBody.equals(png)
+    viewed.response.headers.get("x-content-type-options") !== "nosniff"
   )
     throw new Error("PREVIEW_DAILY_SALES_EVIDENCE_VIEW_INVALID");
+  const viewedSha256 = createHash("sha256").update(viewedBody).digest("hex");
   const [readback] = await ownerSql`
     select sales.status,sales.net_amount,
+      (select encode(version.clean_sha256, 'hex') from public.hotel_file_versions version where version.company_id=sales.company_id and version.id=${correctionFile}::uuid) correction_sha256,
       (select count(*)::int from public.hotel_daily_sales_versions v where v.company_id=sales.company_id and v.sales_id=sales.id) version_count,
       (select count(*)::int from public.hotel_daily_sales_attachments a where a.company_id=sales.company_id and a.sales_id=sales.id) attachment_count,
       exists(select 1 from public.audit_events a where a.company_id=sales.company_id and a.resource_id=sales.id and a.event_code='HOTEL_DAILY_SALES_CORRECT') corrected_audit
@@ -389,6 +409,8 @@ try {
   if (
     readback?.status !== "LOCKED" ||
     Number(readback.net_amount) !== 165000 ||
+    readback.correction_sha256 !== viewedSha256 ||
+    viewedBody.equals(png) ||
     readback.version_count !== 2 ||
     readback.attachment_count !== 2 ||
     !readback.corrected_audit

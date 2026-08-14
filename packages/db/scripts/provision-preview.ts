@@ -595,6 +595,10 @@ try {
     ],
     ["0049_hotel_operational_issues", "0049_hotel_operational_issues.sql"],
     ["0050_hotel_daily_sales", "0050_hotel_daily_sales.sql"],
+    [
+      "0051_file_scanner_agent_authority",
+      "0051_file_scanner_agent_authority.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -648,6 +652,8 @@ try {
             (version !== "0049_hotel_operational_issues" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0050_hotel_daily_sales" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0051_file_scanner_agent_authority" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
@@ -2305,6 +2311,23 @@ try {
     `;
   }
 
+  const [fileScannerAgentState] = await owner<{ contracted: boolean }[]>`
+    select exists (
+      select 1 from public.schema_migrations
+      where version = '0051_file_scanner_agent_authority'
+    ) as contracted
+  `;
+  if (!fileScannerAgentState) {
+    fail("Preview file scanner-agent marker state is unavailable");
+  }
+  if (fileScannerAgentState.contracted) {
+    await owner`
+      insert into public.hotel_file_scanner_agent_capabilities (role_name)
+      values (${apiRuntimeRole})
+      on conflict (role_name) do nothing
+    `;
+  }
+
   const [facilityMasterDataState] = await owner<{ contracted: boolean }[]>`
     select exists (
       select 1 from public.schema_migrations
@@ -2662,7 +2685,11 @@ try {
       inspection_routine_revisions, inspection_routine_rounds,
       hotel_inspections, inspection_item_snapshots, inspection_item_results,
       inspection_item_result_history, hotel_file_uploads, hotel_file_versions,
-      hotel_file_links, hotel_file_finalizer_capabilities`
+      hotel_file_links, hotel_file_finalizer_capabilities${
+        fileScannerAgentState.contracted
+          ? ", hotel_file_scanner_agent_capabilities"
+          : ""
+      }`
           : ""
       }
     to ${apiRuntimeTableGrantees};
@@ -3071,6 +3098,16 @@ try {
     grant execute on function public.hotel_file_view_command_v1(
       uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
     ) to ${apiRuntimeRole};
+    ${
+      fileScannerAgentState.contracted
+        ? `grant execute on function public.hotel_file_scanner_agent_command_v1(
+      uuid, text, text, bigint, jsonb, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_file_scanner_agent_candidates_v1(
+      integer
+    ) to ${apiRuntimeRole};`
+        : ""
+    }
     grant execute on function public.hotel_file_scan_command_v1(
       uuid, text, text, bigint, jsonb, uuid
     ) to ${reconcilerRole};
@@ -3101,12 +3138,28 @@ try {
       runtime_database_capabilities, outbox_jobs, account_provisioning_attempts,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
       ${inspectionProcessState.contracted ? ", hotel_file_finalizer_capabilities" : ""}
+      ${fileScannerAgentState.contracted ? ", hotel_file_scanner_agent_capabilities" : ""}
     to ${reconcilerRole};
     grant insert on users, auth_identities, audit_events, outbox_jobs,
       hotel_staff_assignments, housekeeping_hotel_links, hotel_owner_assignments
     to ${reconcilerRole};
     grant update on account_provisioning_attempts, outbox_jobs to ${reconcilerRole};
   `);
+
+  if (contractPhase && fileScannerAgentState.contracted) {
+    await owner.unsafe(`
+      revoke execute on function public.hotel_file_scan_command_v1(
+        uuid, text, text, bigint, jsonb, uuid
+      ) from ${reconcilerRole};
+      revoke execute on function public.hotel_file_scan_candidates_v1(
+        integer
+      ) from ${reconcilerRole};
+    `);
+    await owner`
+      delete from public.hotel_file_finalizer_capabilities
+      where role_name = ${reconcilerRole}
+    `;
+  }
 
   await updateLocalCiDefinerMembership(
     migrationOwnerIdentity.role_name,
@@ -3547,6 +3600,7 @@ try {
     inspectionProcessRolloutState.contracted ? "CONTRACT" : "EXPAND";
   const apiReadiness = await probeDatabaseReadiness(apiRuntimeUrl.toString(), {
     capability: "API_RUNTIME",
+    allowLegacyFileFinalizerCapability: !contractPhase,
     requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
       ? "CONTRACT"
       : "EXPAND",
@@ -3566,6 +3620,7 @@ try {
     reconcilerUrl.toString(),
     {
       capability: "RECONCILER",
+      allowLegacyFileFinalizerCapability: !contractPhase,
       requiredFacilityMasterDataPhase: facilityMasterDataState.contracted
         ? "CONTRACT"
         : "EXPAND",

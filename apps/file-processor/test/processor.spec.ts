@@ -1,9 +1,6 @@
-import { readFileSync } from "node:fs";
 import net from "node:net";
-import path from "node:path";
 import sharp from "sharp";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { createProcessorApp } from "../src/app";
+import { afterEach, describe, expect, it } from "vitest";
 import { pingClamAv, scanWithClamAv } from "../src/clamav";
 import { optimizeEvidenceImage } from "../src/image-processor";
 
@@ -115,50 +112,5 @@ describe("file processor", () => {
     await expect(
       optimizeEvidenceImage(Buffer.from("not-an-image"), "image/jpeg"),
     ).rejects.toMatchObject({ code: "IMAGE_INTEGRITY_FAILURE" });
-  });
-
-  it("fails before scanning when processor configuration or request authentication is missing", async () => {
-    const scan = vi.fn();
-    const app = createProcessorApp({
-      optimize: vi.fn(),
-      scan,
-      sharedSecret: "processor-test-secret-32-characters",
-    });
-
-    const response = await app.fetch(
-      new Request("http://processor.local/v1/process", {
-        body: Buffer.from([1]),
-        headers: { "Content-Type": "image/jpeg" },
-        method: "POST",
-      }),
-    );
-
-    expect(response.status).toBe(401);
-    expect(scan).not.toHaveBeenCalled();
-  });
-
-  it("fails readiness closed when the scan engine is unavailable", async () => {
-    const app = createProcessorApp({
-      optimize: vi.fn(),
-      ready: vi.fn(async () => false),
-      scan: vi.fn(),
-      sharedSecret: "processor-test-secret-32-characters",
-    });
-    const response = await app.fetch(
-      new Request("http://processor.local/health/ready"),
-    );
-    expect(response.status).toBe(503);
-    await expect(response.json()).resolves.toEqual({ status: "unavailable" });
-  });
-
-  it("keeps the container artifact in the canonical CI build gate", () => {
-    const repositoryRoot = path.resolve(import.meta.dirname, "../../..");
-    const workflow = readFileSync(
-      path.join(repositoryRoot, ".github/workflows/ci.yml"),
-      "utf8",
-    );
-    expect(workflow).toContain(
-      "docker build -f apps/file-processor/Dockerfile -t werehere-file-processor:ci .",
-    );
   });
 });

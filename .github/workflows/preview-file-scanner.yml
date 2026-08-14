@@ -1,0 +1,52 @@
+name: preview-file-scanner
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-file-scanner
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: preview
+    env:
+      FILE_SCANNER_BATCH_SIZE: "25"
+      PREVIEW_API_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
+
+    steps:
+      - name: Checkout exact scanner source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install scanner dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare trusted ClamAV signatures, daemon, and EICAR self-test
+        shell: bash
+        run: bash scripts/prepare-preview-clamav.sh
+
+      - name: Scan bounded Preview quarantine batch
+        env:
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
+        run: pnpm --filter @werehere/file-processor scan:preview

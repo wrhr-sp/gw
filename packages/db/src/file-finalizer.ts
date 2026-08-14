@@ -61,7 +61,7 @@ export function createPostgresFileFinalizerRepository(
     async command(input) {
       return one(
         await sql<CommandRow[]>`
-          select * from public.hotel_file_scan_command_v1(
+          select * from public.hotel_file_scanner_agent_command_v1(
             ${input.uploadId}::uuid,
             ${input.action}::text,
             ${input.claimToken}::text,
@@ -78,7 +78,7 @@ export function createPostgresFileFinalizerRepository(
       }
       const rows = await sql<CandidateRow[]>`
         select upload_id
-          from public.hotel_file_scan_candidates_v1(${limit}::integer)
+          from public.hotel_file_scanner_agent_candidates_v1(${limit}::integer)
       `;
       if (
         rows.some(

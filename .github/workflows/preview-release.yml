@@ -14,7 +14,7 @@ permissions:
   deployments: write
 
 concurrency:
-  group: hotel-preview-release
+  group: preview-file-scanner
   cancel-in-progress: false
 
 jobs:
@@ -76,6 +76,7 @@ jobs:
           ZITADEL_PREVIEW_SUBJECT_SHA256: ${{ secrets.ZITADEL_PREVIEW_SUBJECT_SHA256 }}
           PREVIEW_BOOTSTRAP_LOGIN_ID: ${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }}
           ZITADEL_PREVIEW_PASSWORD: ${{ secrets.ZITADEL_PREVIEW_PASSWORD }}
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -91,6 +92,7 @@ jobs:
             ZITADEL_PREVIEW_SUBJECT_SHA256
             PREVIEW_BOOTSTRAP_LOGIN_ID
             ZITADEL_PREVIEW_PASSWORD
+            PREVIEW_FILE_SCANNER_AGENT_TOKEN
             ZITADEL_ISSUER
             ZITADEL_CLIENT_ID
             ZITADEL_CONSOLE_CLIENT_ID
@@ -110,6 +112,11 @@ jobs:
             done
             exit 1
           fi
+          if [[ "${#PREVIEW_FILE_SCANNER_AGENT_TOKEN}" -lt 32 || \
+                "${#PREVIEW_FILE_SCANNER_AGENT_TOKEN}" -gt 256 ]]; then
+            printf '%s\n' 'Preview scanner agent secret was invalid.' >&2
+            exit 1
+          fi
           unset DATABASE_URL
           unset DATABASE_URL_PREVIEW
           unset DATABASE_API_RUNTIME_PASSWORD_PREVIEW
@@ -120,6 +127,7 @@ jobs:
           unset ZITADEL_PREVIEW_SUBJECT_SHA256
           unset PREVIEW_BOOTSTRAP_LOGIN_ID
           unset ZITADEL_PREVIEW_PASSWORD
+          unset PREVIEW_FILE_SCANNER_AGENT_TOKEN
           node <<'NODE'
           const key = process.env.AUTH_TRANSACTION_ENCRYPTION_KEY;
           const bytes = Buffer.from(key, "base64url");
@@ -757,82 +765,50 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          inventory_file="$(mktemp)"
+          inventory_page="$(mktemp)"
+          inventory_all="$(mktemp)"
+          inventory_next="$(mktemp)"
           create_file="$(mktemp)"
-          containers_stdout_file="$(mktemp)"
-          containers_stderr_file="$(mktemp)"
-          chmod 600 "$containers_stdout_file" "$containers_stderr_file"
-          trap 'rm -f "$inventory_file" "$create_file" "$containers_stdout_file" "$containers_stderr_file"' EXIT
-          if ! pnpm --filter @werehere/api exec wrangler containers list --json \
-            > "$containers_stdout_file" 2> "$containers_stderr_file"; then
-            CONTAINERS_STDOUT_FILE="$containers_stdout_file" \
-              CONTAINERS_STDERR_FILE="$containers_stderr_file" \
-              node <<'NODE'
-          const fs = require('node:fs');
-          const readBounded = (path) => {
-            const buffer = Buffer.alloc(65536);
-            const descriptor = fs.openSync(path, 'r');
-            try {
-              const bytesRead = fs.readSync(descriptor, buffer, 0, buffer.length, 0);
-              return buffer.toString('utf8', 0, bytesRead);
-            } finally {
-              fs.closeSync(descriptor);
-            }
-          };
-          const stdout = readBounded(process.env.CONTAINERS_STDOUT_FILE);
-          const stderr = readBounded(process.env.CONTAINERS_STDERR_FILE);
-          const diagnostic = `${stdout}\n${stderr}`.toLowerCase();
-          const category = /workers paid|paid plan|upgrade[^\n]{0,80}plan|subscription|entitlement|not enabled for this account|not available[^\n]{0,80}free/u.test(diagnostic)
-            ? 'paid-entitlement'
-            : /unauthenticated|unauthorized|forbidden|permission|scope|authentication|authorization|invalid[^\n]{0,40}(?:api )?token/u.test(diagnostic)
-              ? 'authorization'
-              : /rate limit|temporar|service unavailable|internal server|timed? ?out/u.test(diagnostic)
-                ? 'provider-unavailable'
-                : 'unknown';
-          const codes = new Set();
-          let visited = 0;
-          const collectCodes = (value, depth = 0) => {
-            if (depth > 10 || visited >= 1000 || value === null) return;
-            visited += 1;
-            if (Array.isArray(value)) {
-              for (const item of value) collectCodes(item, depth + 1);
-              return;
-            }
-            if (typeof value !== 'object') return;
-            for (const [key, candidate] of Object.entries(value)) {
-              if (key === 'code' || key === 'status') {
-                const normalized = String(candidate);
-                if (/^\d{3,6}$/u.test(normalized)) codes.add(normalized);
-              }
-              collectCodes(candidate, depth + 1);
-            }
-          };
-          for (const text of [stdout, stderr]) {
-            try {
-              collectCodes(JSON.parse(text));
-            } catch {}
-          }
-          process.stderr.write(`PREVIEW_CONTAINERS_DIAGNOSTIC=${category} CODES=${[...codes].slice(0, 3).join(',') || 'none'}\n`);
-          NODE
-            exit 1
-          fi
-          if ! jq -e 'type == "array"' "$containers_stdout_file" >/dev/null; then
-            printf '%s\n' 'PREVIEW_CONTAINERS_DIAGNOSTIC=malformed-response CODES=none' >&2
-            exit 1
-          fi
-          printf '%s\n' 'PREVIEW_CONTAINERS_ACCOUNT_READY'
+          trap 'rm -f "$inventory_page" "$inventory_all" "$inventory_next" "$create_file"' EXIT
           inventory() {
-            curl --fail --silent --show-error \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets" \
-              > "$inventory_file"
+            printf '%s\n' '[]' > "$inventory_all"
+            local cursor=""
+            local encoded_cursor=""
+            local page=0
+            declare -A seen_cursors=()
+            while :; do
+              page=$((page + 1))
+              if (( page > 100 )); then
+                printf '%s\n' 'Preview R2 inventory exceeded the bounded page limit.' >&2
+                exit 1
+              fi
+              encoded_cursor="$(jq -rn --arg value "$cursor" '$value | @uri')"
+              curl --fail --silent --show-error \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets?per_page=1000${cursor:+&cursor=$encoded_cursor}" \
+                > "$inventory_page"
+              jq -e '
+                .success == true
+                and (.result | type) == "object"
+                and (.result.buckets | type) == "array"
+                and all(.result.buckets[]; (type == "object") and (.name | type) == "string" and (.name | length) > 0)
+                and ((.result_info // {}) | type) == "object"
+                and ((.result_info.cursor // null) == null or ((.result_info.cursor | type) == "string" and (.result_info.cursor | length) > 0))
+              ' "$inventory_page" >/dev/null
+              jq -s '.[0] + [.[1].result.buckets[] | {name}]' \
+                "$inventory_all" "$inventory_page" > "$inventory_next"
+              mv "$inventory_next" "$inventory_all"
+              cursor="$(jq -r '.result_info.cursor // empty' "$inventory_page")"
+              if [[ -z "$cursor" ]]; then break; fi
+              if [[ -n "${seen_cursors[$cursor]:-}" ]]; then
+                printf '%s\n' 'Preview R2 inventory repeated a cursor.' >&2
+                exit 1
+              fi
+              seen_cursors[$cursor]=1
+            done
           }
           inventory
-          count="$(jq -er --arg name "$PREVIEW_R2_BUCKET_NAME" '
-            if .success != true or (.result.buckets | type) != "array" then
-              error("R2 inventory response was invalid")
-            else [.result.buckets[] | select(.name == $name)] | length end
-          ' "$inventory_file")"
+          count="$(jq -er --arg name "$PREVIEW_R2_BUCKET_NAME" '[.[] | select(.name == $name)] | length' "$inventory_all")"
           if [[ "$count" == "0" ]]; then
             curl --fail --silent --show-error \
               -X POST \
@@ -842,66 +818,16 @@ jobs:
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets" \
               > "$create_file"
             jq -e --arg name "$PREVIEW_R2_BUCKET_NAME" '
-              .success == true and .result.name == $name
+              .success == true and (.result | type) == "object" and .result.name == $name
             ' "$create_file" >/dev/null
             inventory
-          elif [[ "$count" != "1" ]]; then
-            printf '%s\n' 'Preview R2 bucket identity was ambiguous.' >&2
+            count="$(jq -er --arg name "$PREVIEW_R2_BUCKET_NAME" '[.[] | select(.name == $name)] | length' "$inventory_all")"
+          fi
+          if [[ "$count" != "1" ]]; then
+            printf '%s\n' 'Preview R2 bucket identity was missing or ambiguous.' >&2
             exit 1
           fi
-          jq -e --arg name "$PREVIEW_R2_BUCKET_NAME" '
-            .success == true
-            and ([.result.buckets[] | select(.name == $name)] | length) == 1
-          ' "$inventory_file" >/dev/null
           printf '%s\n' 'PREVIEW_R2_BUCKET_READY'
-
-      - name: Build and push exact Preview file processor image
-        env:
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          local_tag="werehere-hotel-file-processor-preview:${GITHUB_SHA}"
-          push_output="$(mktemp)"
-          digests_file="$(mktemp)"
-          image_ref_file="$(mktemp)"
-          trap 'rm -f "$push_output" "$digests_file" "$image_ref_file"' EXIT
-          docker build \
-            --platform linux/amd64 \
-            --file apps/file-processor/Dockerfile \
-            --tag "$local_tag" \
-            .
-          if ! pnpm --filter @werehere/api exec wrangler containers push \
-            "$local_tag" \
-            --config wrangler.preview.jsonc \
-            > "$push_output" 2>&1; then
-            printf '%s\n' 'Preview file processor image push failed.' >&2
-            exit 1
-          fi
-          docker image inspect "$local_tag" --format '{{json .RepoDigests}}' \
-            > "$digests_file"
-          DIGESTS_FILE="$digests_file" \
-            IMAGE_REF_FILE="$image_ref_file" \
-            node <<'NODE'
-          const fs = require('node:fs');
-          const digests = JSON.parse(fs.readFileSync(process.env.DIGESTS_FILE, 'utf8'));
-          if (!Array.isArray(digests)) process.exit(1);
-          const matches = [...new Set(digests.filter((value) =>
-            typeof value === 'string'
-            && /^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(value)
-            && value.slice(0, value.indexOf('@')).endsWith('/werehere-hotel-file-processor-preview')
-          ))];
-          if (matches.length !== 1) process.exit(1);
-          fs.writeFileSync(process.env.IMAGE_REF_FILE, matches[0], { mode: 0o600 });
-          NODE
-          image_ref="$(<"$image_ref_file")"
-          image_digest="${image_ref##*@}"
-          printf '::add-mask::%s\n' "$image_ref"
-          printf '::add-mask::%s\n' "$image_digest"
-          printf 'PREVIEW_FILE_PROCESSOR_IMAGE=%s\n' "$image_ref" \
-            >> "$GITHUB_ENV"
-          printf '%s\n' 'PREVIEW_FILE_PROCESSOR_IMAGE_READY'
 
       - name: Render API Preview configuration
         env:
@@ -922,44 +848,23 @@ jobs:
           DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          FILE_PROCESSOR_SHARED_SECRET: ${{ secrets.FILE_PROCESSOR_SHARED_SECRET_PREVIEW }}
         shell: bash
         run: |
           set -euo pipefail
           printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
-          if [[ "${#FILE_PROCESSOR_SHARED_SECRET}" -lt 32 ]]; then
-            printf '%s\n' 'Preview file processor secret was unavailable.' >&2
-            exit 1
-          fi
-          reconciler_secrets_file="$(mktemp)"
           reconciler_deploy_output="$(mktemp)"
           chmod 600 "$reconciler_deploy_output"
-          trap 'rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"' EXIT
-          export RECONCILER_SECRETS_FILE="$reconciler_secrets_file"
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          path = Path(os.environ['RECONCILER_SECRETS_FILE'])
-          path.write_text(json.dumps({
-              'FILE_PROCESSOR_SHARED_SECRET': os.environ['FILE_PROCESSOR_SHARED_SECRET'],
-          }))
-          path.chmod(0o600)
-          PY
-          unset FILE_PROCESSOR_SHARED_SECRET
-          if ! (
-            trap 'rm -f "$reconciler_secrets_file"' EXIT
-            pnpm exec wrangler deploy \
-              --config wrangler.reconciler.preview.generated.json \
-              --secrets-file "$reconciler_secrets_file" \
-              --strict \
-              --tag "$DEPLOY_TAG" \
-              > "$reconciler_deploy_output" 2>&1
-          ); then
+          trap 'rm -f "$reconciler_deploy_output"' EXIT
+          if ! pnpm exec wrangler deploy \
+            --config wrangler.reconciler.preview.generated.json \
+            --strict \
+            --tag "$DEPLOY_TAG" \
+            > "$reconciler_deploy_output" 2>&1; then
             printf '%s\n' 'Preview Reconciler deploy failed.' >&2
             exit 1
           fi
           printf '%s\n' 'PREVIEW_RECONCILER_DEPLOYED'
-          rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"
+          rm -f "$reconciler_deploy_output"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
@@ -1028,6 +933,7 @@ jobs:
           AUTH_TRANSACTION_ENCRYPTION_KEY: ${{ secrets.AUTH_TRANSACTION_ENCRYPTION_KEY }}
           ZITADEL_SERVICE_USER_TOKEN: ${{ secrets.ZITADEL_SERVICE_USER_TOKEN }}
           ZITADEL_USER_PROVISIONER_TOKEN: ${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }}
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -1043,12 +949,14 @@ jobs:
               'AUTH_TRANSACTION_ENCRYPTION_KEY': os.environ['AUTH_TRANSACTION_ENCRYPTION_KEY'],
               'ZITADEL_SERVICE_USER_TOKEN': os.environ['ZITADEL_SERVICE_USER_TOKEN'],
               'ZITADEL_USER_PROVISIONER_TOKEN': os.environ['ZITADEL_USER_PROVISIONER_TOKEN'],
+              'FILE_SCANNER_AGENT_TOKEN': os.environ['PREVIEW_FILE_SCANNER_AGENT_TOKEN'],
           }))
           path.chmod(0o600)
           PY
           unset AUTH_TRANSACTION_ENCRYPTION_KEY
           unset ZITADEL_SERVICE_USER_TOKEN
           unset ZITADEL_USER_PROVISIONER_TOKEN
+          unset PREVIEW_FILE_SCANNER_AGENT_TOKEN
           (
             trap 'rm -f "$api_secrets_file"' EXIT
             pnpm exec wrangler deploy \
@@ -1116,7 +1024,7 @@ jobs:
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
 
-      - name: Verify deployed API and Reconciler private R2 bindings
+      - name: Verify deployed API private R2 binding
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -1124,46 +1032,42 @@ jobs:
         run: |
           set -euo pipefail
           api_settings="$(mktemp)"
-          reconciler_settings="$(mktemp)"
-          container_list="$(mktemp)"
-          container_info="$(mktemp)"
-          trap 'rm -f "$api_settings" "$reconciler_settings" "$container_list" "$container_info"' EXIT
+          trap 'rm -f "$api_settings"' EXIT
           curl --fail --silent --show-error \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-api-preview/settings" \
             > "$api_settings"
-          curl --fail --silent --show-error \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-account-reconciler-preview/settings" \
-            > "$reconciler_settings"
           node scripts/validate-cloudflare-worker-r2-binding.mjs \
             "$api_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
-          node scripts/validate-cloudflare-worker-r2-binding.mjs \
-            "$reconciler_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
-          pnpm --filter @werehere/api exec wrangler containers list --json \
-            > "$container_list"
-          container_id="$(jq -er '
-            if type != "array" then error("Container list was invalid") else
-              [.[] | select(
-                type == "object"
-                and .name == "werehere-hotel-file-processor-preview"
-                and (.id | type) == "string"
-                and (.id | test("^[0-9a-fA-F-]{32,36}$"))
-              )] as $matches
-              | if ($matches | length) == 1 then $matches[0].id
-                else error("Container identity was unavailable or ambiguous") end
-            end
-          ' "$container_list")"
-          pnpm --filter @werehere/api exec wrangler containers info "$container_id" \
-            > "$container_info"
-          node scripts/validate-cloudflare-worker-container-config.mjs \
-            "$container_list" \
-            "$container_info" \
-            "$reconciler_settings" \
-            werehere-hotel-file-processor-preview \
-            "$PREVIEW_FILE_PROCESSOR_IMAGE"
           printf '%s\n' 'PREVIEW_R2_BINDINGS_VERIFIED'
-          printf '%s\n' 'PREVIEW_CONTAINER_CONFIGURATION_VERIFIED'
+
+      - name: Verify legacy Preview Container provider resource is absent or Free-plan inert
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/containers/applications")"
+          if [[ "$status" == "200" ]]; then
+            jq -e '
+              .success == true
+              and (.errors | type) == "array" and (.errors | length) == 0
+              and (.result | type) == "array"
+              and all(.result[]; (type == "object") and (.name | type) == "string")
+              and all(.result[]; .name != "werehere-hotel-file-processor-preview")
+            ' "$response_file" >/dev/null
+            printf '%s\n' 'PREVIEW_LEGACY_CONTAINER_APPLICATION_ABSENT'
+          else
+            printf 'Preview Container retirement read-back failed with HTTP %s.\n' "$status" >&2
+            exit 1
+          fi
 
       - name: Expand Preview account identity lock ACL after API deploy
         env:
@@ -1335,14 +1239,22 @@ jobs:
           grep -qx 'PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
           grep -qx 'PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
 
+      - name: Prepare ClamAV signatures, daemon, and EICAR canary for hosted file acceptance
+        id: preview_file_scanner_runtime
+        run: |
+          set -o pipefail
+          bash scripts/prepare-preview-clamav.sh | tee /tmp/preview-clamav-self-test.log
+          grep -qx 'FILE_PROCESSOR_CLAMAV_SELF_TEST_OK' /tmp/preview-clamav-self-test.log
+
       - name: Verify hosted Preview daily sales API, DB, R2 evidence, and responsive UI before contract
         id: daily_sales_smoke
         env:
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
           ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
         run: |
           set -o pipefail
-          node scripts/smoke-daily-sales-preview.mjs | tee /tmp/preview-daily-sales-smoke.log
+          pnpm exec tsx scripts/smoke-daily-sales-preview.mjs | tee /tmp/preview-daily-sales-smoke.log
           grep -qx 'PREVIEW_DAILY_SALES_API_DB_SMOKE_OK' /tmp/preview-daily-sales-smoke.log
           grep -qx 'PREVIEW_DAILY_SALES_UI_SMOKE_OK' /tmp/preview-daily-sales-smoke.log
 
@@ -1461,7 +1373,7 @@ jobs:
           set -euo pipefail
           temp_dir="$(mktemp -d)"
           trap 'rm -rf "$temp_dir"' EXIT
-          retired_keys='["GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET","CALENDAR_CREDENTIAL_AES_KEYRING_JSON","CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON"]'
+          retired_keys='["GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET","CALENDAR_CREDENTIAL_AES_KEYRING_JSON","CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON","FILE_PROCESSOR_SHARED_SECRET"]'
           workers=(
             werehere-hotel-api-preview
             werehere-hotel-account-reconciler-preview

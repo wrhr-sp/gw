@@ -50,6 +50,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Reject high and critical dependency advisories
+        run: pnpm audit --audit-level=high
+
       - name: Install Chromium for visual regression
         run: pnpm --filter @werehere/web exec playwright install --with-deps chromium
 
@@ -77,8 +80,6 @@ jobs:
             --dry-run --config wrangler.preview.generated.json
           rm -f apps/api/wrangler.preview.generated.json
           RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000 \
-            PREVIEW_R2_BUCKET_NAME=werehere-hotel-files-preview \
-            PREVIEW_FILE_PROCESSOR_IMAGE=registry.cloudflare.com/ci/werehere-hotel-file-processor-preview@sha256:0000000000000000000000000000000000000000000000000000000000000000 \
             ZITADEL_ISSUER=https://preview.invalid \
             ZITADEL_ORGANIZATION_ID=preview-organization \
             node scripts/render-reconciler-preview-config.mjs \
@@ -89,8 +90,9 @@ jobs:
           pnpm --filter @werehere/web build:cloudflare
           pnpm --filter @werehere/web exec wrangler deploy --dry-run --config wrangler.jsonc
 
-      - name: Build file processor container
-        run: docker build -f apps/file-processor/Dockerfile -t werehere-file-processor:ci .
+      - name: Prepare trusted ClamAV signatures, daemon, and EICAR self-test
+        shell: bash
+        run: bash scripts/prepare-preview-clamav.sh
 
       - name: Visual regression
         run: pnpm run test:visual

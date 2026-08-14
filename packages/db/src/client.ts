@@ -171,6 +171,7 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "RECONCILER",
     digest: "daf7eb22db1065b5528af244eb68914bd06ae38e2d6102341e508b75d6702d15",
+    legacyScanner: true,
     name: "hotel_file_scan_command_v1",
     result: "TABLE(command_status text, result_snapshot jsonb)",
     signature:
@@ -179,9 +180,27 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   {
     capability: "RECONCILER",
     digest: "34315511feea89376fba3eafa1d4f802aa3464966a6082c354622156533f8529",
+    legacyScanner: true,
     name: "hotel_file_scan_candidates_v1",
     result: "TABLE(upload_id uuid)",
     signature: "public.hotel_file_scan_candidates_v1(integer)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "cd8de85f8c4b362fb3e8699ac53008e94f66b3d77355e098fca7c64c3eac252e",
+    name: "hotel_file_scanner_agent_command_v1",
+    scannerAgent: true,
+    result: "TABLE(command_status text, result_snapshot jsonb)",
+    signature:
+      "public.hotel_file_scanner_agent_command_v1(uuid,text,text,bigint,jsonb,uuid)",
+  },
+  {
+    capability: "API_RUNTIME",
+    digest: "c0ae8ab7770ca40826a8d143a998b65ba90a565dd227f807eec504c88b71bf2d",
+    name: "hotel_file_scanner_agent_candidates_v1",
+    scannerAgent: true,
+    result: "TABLE(upload_id uuid)",
+    signature: "public.hotel_file_scanner_agent_candidates_v1(integer)",
   },
   {
     capability: "RECONCILER",
@@ -469,6 +488,16 @@ const HOTEL_CALENDAR_EVENTS_REMOVED_SHA256 =
 const HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256 =
   "1f6e414644414d2b1418caf5244711be3080a35b854a40f3d506a118ae187aee";
 const HOTEL_INSPECTION_INTERNAL_FUNCTION_CONTRACTS = [
+  {
+    digest: "084583a3bbfc237a67aa5da499f574af7bf17eeb4a73e7679aa44e93c389e9f4",
+    language: "sql",
+    name: "file_scanner_agent_has_capability",
+    result: "boolean",
+    scannerAgent: true,
+    securityDefiner: true,
+    signature: "public.file_scanner_agent_has_capability()",
+    volatility: "s",
+  },
   {
     digest: HOTEL_OPERATIONAL_ISSUES_ACTOR_V1_PROSRC_SHA256,
     language: "sql",
@@ -1911,6 +1940,7 @@ const EXPECTED_API_RUNTIME_TABLE_PRIVILEGES = [
   "users:SELECT",
   "users:UPDATE",
   "hotel_file_finalizer_capabilities:SELECT",
+  "hotel_file_scanner_agent_capabilities:SELECT",
   "hotel_file_links:SELECT",
   "hotel_file_uploads:SELECT",
   "hotel_file_versions:SELECT",
@@ -1957,12 +1987,14 @@ const EXPECTED_RECONCILER_TABLE_PRIVILEGES = [
   "users:INSERT",
   "users:SELECT",
   "hotel_file_finalizer_capabilities:SELECT",
+  "hotel_file_scanner_agent_capabilities:SELECT",
 ] as const;
 
 const HOTEL_INSPECTION_CONTRACT_TABLES = new Set([
   "hotel_file_access_grants",
   "hotel_file_access_rate_windows",
   "hotel_file_finalizer_capabilities",
+  "hotel_file_scanner_agent_capabilities",
   "hotel_file_links",
   "hotel_file_uploads",
   "hotel_file_versions",
@@ -2393,6 +2425,7 @@ export async function probeDatabaseReadiness(
     requiredInspectionProcessPhase?: "CONTRACT" | "EXPAND";
     requiredFacilityMasterDataPhase?: "CONTRACT" | "EXPAND";
     requiredSchemaPhase?: "CONTRACT" | "EXPAND" | "EXPAND_IDENTITY_LOCK";
+    allowLegacyFileFinalizerCapability?: boolean;
     onSchemaNotReady?: (checkpoint: string) => unknown;
   } = { capability: "RECONCILER" },
 ): Promise<DatabaseReadiness> {
@@ -2494,6 +2527,7 @@ export async function probeDatabaseReadiness(
         repair_visit_trigger_definer_marker_count: number;
         hotel_operational_issues_marker_count: number;
         hotel_daily_sales_marker_count: number;
+        file_scanner_agent_authority_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2609,6 +2643,9 @@ export async function probeDatabaseReadiness(
                where version = '0050_hotel_daily_sales'
              )::integer as hotel_daily_sales_marker_count,
              count(*) filter (
+               where version = '0051_file_scanner_agent_authority'
+             )::integer as file_scanner_agent_authority_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2668,7 +2705,8 @@ export async function probeDatabaseReadiness(
         '0047_repair_direct_record_initialization',
         '0048_repair_visit_trigger_definer',
         '0049_hotel_operational_issues',
-        '0050_hotel_daily_sales'
+        '0050_hotel_daily_sales',
+        '0051_file_scanner_agent_authority'
       )
     `;
     const schemaPhase =
@@ -2700,6 +2738,12 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.hotel_daily_sales_marker_count === 1
         ? "EXPAND"
         : migrationRows[0]?.hotel_daily_sales_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
+    const fileScannerAgentAuthorityPhase =
+      migrationRows[0]?.file_scanner_agent_authority_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
@@ -2830,6 +2874,7 @@ export async function probeDatabaseReadiness(
       !repairLifecyclePhase ||
       !operationalIssuesPhase ||
       !dailySalesPhase ||
+      !fileScannerAgentAuthorityPhase ||
       !calendarReadModelPhase ||
       !scheduledReconcilerLockPhase ||
       !googleCalendarRemovalPhase ||
@@ -4656,6 +4701,10 @@ export async function probeDatabaseReadiness(
           if ("operationalIssues" in contract)
             return operationalIssuesPhase === "EXPAND";
           if ("dailySales" in contract) return dailySalesPhase === "EXPAND";
+          if ("legacyScanner" in contract)
+            return fileScannerAgentAuthorityPhase === "PRE_EXPAND";
+          if ("scannerAgent" in contract)
+            return fileScannerAgentAuthorityPhase === "EXPAND";
           if ("facilityExecution" in contract)
             return inspectionFacilityExecutionPhase !== "PRE_CONTRACT";
           if (contract.name === "hotel_inspection_checklist_v2_command")
@@ -4778,6 +4827,8 @@ export async function probeDatabaseReadiness(
           if ("operationalIssues" in contract)
             return operationalIssuesPhase === "EXPAND";
           if ("dailySales" in contract) return dailySalesPhase === "EXPAND";
+          if ("scannerAgent" in contract)
+            return fileScannerAgentAuthorityPhase === "EXPAND";
           if ("calendarReadModel" in contract)
             return calendarReadModelPhase === "CONTRACT";
           if ("facilityExecution" in contract)
@@ -4881,33 +4932,71 @@ export async function probeDatabaseReadiness(
         return schemaNotReady();
       }
 
-      const [finalizerCapability] = await sql<{ exact: boolean }[]>`
-        select not exists (
-          select 1 from public.hotel_file_finalizer_capabilities finalizer
-          left join public.runtime_database_capabilities capability
-            on capability.role_name = finalizer.role_name
-           and capability.capability = 'RECONCILER'
-          where capability.role_name is null
-        ) and not exists (
-          select 1 from public.runtime_database_capabilities capability
-          join pg_catalog.pg_roles capability_role
-            on capability_role.rolname = capability.role_name
-          where capability.capability = 'RECONCILER'
-            and capability_role.oid <> (
-              select table_record.relowner
-                from pg_catalog.pg_class table_record
-                join pg_catalog.pg_namespace table_namespace
-                  on table_namespace.oid = table_record.relnamespace
-               where table_namespace.nspname = 'public'
-                 and table_record.relname = 'schema_migrations'
-            )
-            and not exists (
+      if (fileScannerAgentAuthorityPhase === "PRE_EXPAND") {
+        const [finalizerCapability] = await sql<{ exact: boolean }[]>`
+          select not exists (
+            select 1 from public.hotel_file_finalizer_capabilities finalizer
+            left join public.runtime_database_capabilities capability
+              on capability.role_name = finalizer.role_name
+             and capability.capability = 'RECONCILER'
+            where capability.role_name is null
+          ) and not exists (
+            select 1 from public.runtime_database_capabilities capability
+            join pg_catalog.pg_roles capability_role
+              on capability_role.rolname = capability.role_name
+            where capability.capability = 'RECONCILER'
+              and capability_role.oid <> (
+                select table_record.relowner
+                  from pg_catalog.pg_class table_record
+                  join pg_catalog.pg_namespace table_namespace
+                    on table_namespace.oid = table_record.relnamespace
+                 where table_namespace.nspname = 'public'
+                   and table_record.relname = 'schema_migrations'
+              )
+              and not exists (
+                select 1 from public.hotel_file_finalizer_capabilities finalizer
+                 where finalizer.role_name = capability.role_name
+              )
+          ) as exact
+        `;
+        if (!finalizerCapability?.exact) return schemaNotReady();
+      } else {
+        const [scannerCapability] = await sql<{ exact: boolean }[]>`
+          select not exists (
+            select 1 from public.hotel_file_scanner_agent_capabilities scanner
+            left join public.runtime_database_capabilities capability
+              on capability.role_name = scanner.role_name
+             and capability.capability = 'API_RUNTIME'
+            where capability.role_name is null
+          ) and not exists (
+            select 1 from public.runtime_database_capabilities capability
+            join pg_catalog.pg_roles capability_role
+              on capability_role.rolname = capability.role_name
+            where capability.capability = 'API_RUNTIME'
+              and capability_role.oid <> (
+                select table_record.relowner
+                  from pg_catalog.pg_class table_record
+                  join pg_catalog.pg_namespace table_namespace
+                    on table_namespace.oid = table_record.relnamespace
+                 where table_namespace.nspname = 'public'
+                   and table_record.relname = 'schema_migrations'
+              )
+              and not exists (
+                select 1 from public.hotel_file_scanner_agent_capabilities scanner
+                 where scanner.role_name = capability.role_name
+              )
+          ) and (
+            ${options.allowLegacyFileFinalizerCapability === true}::boolean
+            or not exists (
               select 1 from public.hotel_file_finalizer_capabilities finalizer
-               where finalizer.role_name = capability.role_name
+              join public.runtime_database_capabilities capability
+                on capability.role_name = finalizer.role_name
+               and capability.capability = 'RECONCILER'
             )
-        ) as exact
-      `;
-      if (!finalizerCapability?.exact) return schemaNotReady();
+          ) as exact
+        `;
+        if (!scannerCapability?.exact) return schemaNotReady();
+      }
     }
     if (loginIdHistoryPhase === "CONTRACT") {
       const operationColumns = await sql<
@@ -6521,6 +6610,12 @@ export async function probeDatabaseReadiness(
                   label.split(":", 1)[0] ?? "",
                 ),
             );
+      if (fileScannerAgentAuthorityPhase === "PRE_EXPAND") {
+        roleTablePrivileges = roleTablePrivileges.filter(
+          (label) =>
+            label !== "hotel_file_scanner_agent_capabilities:SELECT",
+        );
+      }
       if (
         inspectionFacilityExecutionPhase !== "PRE_CONTRACT" &&
         role.capability === "API_RUNTIME"

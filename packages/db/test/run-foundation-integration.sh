@@ -104,6 +104,14 @@ SQL
 cleanup_api_probe_role() {
   local admin_url="$1"
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+DO $cleanup_scanner_capability$
+BEGIN
+  IF to_regclass('public.hotel_file_scanner_agent_capabilities') IS NOT NULL THEN
+    DELETE FROM public.hotel_file_scanner_agent_capabilities
+    WHERE role_name = 'gw_api_probe';
+  END IF;
+END
+$cleanup_scanner_capability$;
 DELETE FROM runtime_database_capabilities WHERE role_name = 'gw_api_probe';
 DROP OWNED BY gw_api_probe;
 DROP ROLE IF EXISTS gw_api_probe;
@@ -190,6 +198,14 @@ begin
       execute format('grant execute on function public.hotel_daily_sales_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to %I', capability_role.role_name);
       execute format('grant execute on function public.hotel_daily_sales_file_view_command_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid) to %I', capability_role.role_name);
     end if;
+    if to_regprocedure('public.hotel_file_scanner_agent_command_v1(uuid,text,text,bigint,jsonb,uuid)') is not null then
+      insert into public.hotel_file_scanner_agent_capabilities (role_name)
+      values (capability_role.role_name)
+      on conflict (role_name) do nothing;
+      execute format('grant select on public.hotel_file_scanner_agent_capabilities to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_file_scanner_agent_command_v1(uuid,text,text,bigint,jsonb,uuid) to %I', capability_role.role_name);
+      execute format('grant execute on function public.hotel_file_scanner_agent_candidates_v1(integer) to %I', capability_role.role_name);
+    end if;
     if to_regprocedure('public.hotel_calendar_capabilities_v1(uuid,text)') is not null then
       execute format('grant execute on function public.hotel_calendar_capabilities_v1(uuid,text) to %I', capability_role.role_name);
       execute format('grant execute on function public.hotel_calendar_events_read_v1(uuid,uuid,jsonb,text) to %I', capability_role.role_name);
@@ -199,6 +215,9 @@ begin
   if to_regprocedure('public.scheduled_reconciler_invocation_enter_v1()') is not null then
     for capability_role in select role_name from public.runtime_database_capabilities where capability='RECONCILER'
     loop
+      if to_regclass('public.hotel_file_scanner_agent_capabilities') is not null then
+        execute format('grant select on public.hotel_file_scanner_agent_capabilities to %I', capability_role.role_name);
+      end if;
       execute format('grant execute on function public.scheduled_reconciler_invocation_enter_v1() to %I', capability_role.role_name);
       execute format('grant execute on function public.scheduled_reconciler_invocation_exit_v1() to %I', capability_role.role_name);
       execute format('grant execute on function public.scheduled_reconciler_drain_barrier_v1() to %I', capability_role.role_name);
@@ -1483,6 +1502,8 @@ REPAIR_DIRECT_RECORD_INITIALIZATION_MIGRATION="$ROOT_DIR/packages/db/migrations/
 REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION="$ROOT_DIR/packages/db/migrations/0048_repair_visit_trigger_definer.sql"
 HOTEL_OPERATIONAL_ISSUES_MIGRATION="$ROOT_DIR/packages/db/migrations/0049_hotel_operational_issues.sql"
 HOTEL_DAILY_SALES_MIGRATION="$ROOT_DIR/packages/db/migrations/0050_hotel_daily_sales.sql"
+FILE_SCANNER_AGENT_AUTHORITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0051_file_scanner_agent_authority.sql"
+FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL="$ROOT_DIR/packages/db/test/file-scanner-agent-authority-integration.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
 HOTEL_CALENDAR_READ_MODEL_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-calendar-read-model-integration.sql"
@@ -2480,6 +2501,31 @@ if [[ "$HOTEL_DAILY_SALES_RESULT" != *"HOTEL_DAILY_SALES_INTEGRATION_OK"* ]]; th
   exit 1
 fi
 assert_daily_sales_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$FILE_SCANNER_AGENT_AUTHORITY_MIGRATION" >/dev/null
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
+FILE_SCANNER_AGENT_AUTHORITY_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL")"
+if [[ "$FILE_SCANNER_AGENT_AUTHORITY_RESULT" != *"FILE_SCANNER_AGENT_AUTHORITY_INTEGRATION_OK"* ]]; then
+  printf '%s\n' "$FILE_SCANNER_AGENT_AUTHORITY_RESULT" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" >/dev/null <<'SQL'
+do $contract_scanner_authority$
+declare capability_role record;
+begin
+  for capability_role in
+    select role_name from public.runtime_database_capabilities
+    where capability = 'RECONCILER'
+  loop
+    execute format('revoke execute on function public.hotel_file_scan_command_v1(uuid,text,text,bigint,jsonb,uuid) from %I', capability_role.role_name);
+    execute format('revoke execute on function public.hotel_file_scan_candidates_v1(integer) from %I', capability_role.role_name);
+  end loop;
+  delete from public.hotel_file_finalizer_capabilities finalizer
+  using public.runtime_database_capabilities capability
+  where capability.role_name = finalizer.role_name
+    and capability.capability = 'RECONCILER';
+end
+$contract_scanner_authority$;
+SQL
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_CALENDAR_READ_MODEL_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$SCHEDULED_RECONCILER_LOCK_MIGRATION" >/dev/null
 grant_repair_lifecycle_capabilities "$ADMIN_URL"
