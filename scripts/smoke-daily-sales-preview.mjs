@@ -129,8 +129,20 @@ async function uploadEvidence(salesId, label) {
     rawBody: png,
   });
   const etag = uploaded.response.headers.get("etag");
-  if (uploaded.response.status !== 204 || !etag)
-    throw new Error("PREVIEW_DAILY_SALES_UPLOAD_BODY_INVALID");
+  if (uploaded.response.status !== 204) {
+    const statusClass =
+      uploaded.response.status === 401
+        ? "AUTHENTICATION"
+        : uploaded.response.status === 404
+          ? "NOT_FOUND"
+          : uploaded.response.status === 409
+            ? "CONFLICT"
+            : uploaded.response.status === 422
+              ? "VALIDATION"
+              : "OTHER";
+    throw new Error(`PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_${statusClass}`);
+  }
+  if (!etag) throw new Error("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
   await api(`/api/files/uploads/${uploadId}/complete`, {
     body: { etag },
     failureCode: "PREVIEW_DAILY_SALES_UPLOAD_COMPLETE_INVALID",
