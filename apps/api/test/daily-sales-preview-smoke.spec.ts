@@ -17,6 +17,10 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("origin: baseUrl");
     expect(smoke).toContain('"sec-fetch-site": "same-origin"');
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_");
+    expect(smoke).toContain("safeUploadErrorCode");
+    expect(smoke).toContain("response.clone().json()");
+    expect(smoke).toContain('/^[A-Z_]+$/u.test(code)');
+    expect(smoke).not.toContain("await uploaded.response.text()");
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
     expect(smoke).toContain("runFileScannerBatch");
     expect(smoke).toContain("scanWithClamAv");

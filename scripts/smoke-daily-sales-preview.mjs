@@ -97,6 +97,11 @@ async function api(path, options = {}) {
   }
   return payload.data;
 }
+async function safeUploadErrorCode(response) {
+  const payload = await response.clone().json().catch(() => undefined);
+  const code = payload?.error?.code;
+  return typeof code === "string" && /^[A-Z_]+$/u.test(code) ? `_${code}` : "";
+}
 async function command(path, method, body, failureCode) {
   const data = await api(path, {
     body,
@@ -137,6 +142,7 @@ async function uploadEvidence(salesId, label) {
   });
   const etag = uploaded.response.headers.get("etag");
   if (uploaded.response.status !== 204) {
+    const safeCode = await safeUploadErrorCode(uploaded.response);
     const statusClass =
       uploaded.response.status === 401
         ? "AUTHENTICATION"
@@ -146,8 +152,20 @@ async function uploadEvidence(salesId, label) {
             ? "CONFLICT"
             : uploaded.response.status === 422
               ? "VALIDATION"
-              : "OTHER";
-    throw new Error(`PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_${statusClass}`);
+              : uploaded.response.status === 413
+                ? "TOO_LARGE"
+                : uploaded.response.status === 429
+                  ? "RATE_LIMIT"
+                  : uploaded.response.status >= 300 &&
+                      uploaded.response.status < 400
+                    ? "REDIRECT"
+                    : uploaded.response.status >= 500 &&
+                        uploaded.response.status < 600
+                      ? "SERVER"
+                      : "OTHER";
+    throw new Error(
+      `PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_${statusClass}${safeCode}`,
+    );
   }
   if (!etag) throw new Error("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
   await api(`/api/files/uploads/${uploadId}/complete`, {
