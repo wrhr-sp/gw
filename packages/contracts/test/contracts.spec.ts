@@ -943,6 +943,7 @@ describe("hotel platform contracts", () => {
       "DB_NOT_CONFIGURED",
       "SCHEMA_NOT_READY",
       "FILE_STORAGE_NOT_CONFIGURED",
+      "FILE_STORAGE_UNAVAILABLE",
       "EXTERNAL_AUTH_NOT_CONFIGURED",
       "EXTERNAL_AUTH_UNAVAILABLE",
       "ACCOUNT_DUPLICATE",
