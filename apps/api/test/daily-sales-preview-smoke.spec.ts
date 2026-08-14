@@ -29,6 +29,18 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UI_SMOKE_OK");
     expect(smoke).not.toContain("playwright/stories");
   });
+  it("reuses active references or provisions deterministic Preview-only reference rows", () => {
+    expect(smoke).toContain("Preview 일매출 canary 매출");
+    expect(smoke).toContain("Preview 일매출 canary 결제");
+    expect(smoke).toContain("insert into public.hotel_sales_categories");
+    expect(smoke).toContain("insert into public.hotel_payment_methods");
+    expect(smoke).toContain("on conflict (company_id,branch_id,name)");
+    expect(smoke).toContain("references?.categories?.find");
+    expect(smoke).toContain("references?.paymentMethods?.find");
+    expect(smoke).toContain("created_by");
+    expect(smoke).not.toMatch(/delete from public\.hotel_sales_categories/u);
+    expect(smoke).not.toMatch(/delete from public\.hotel_payment_methods/u);
+  });
   it("keeps append-only sales history and audit while cleaning only transient grants and session", () => {
     expect(smoke).not.toMatch(/delete from public\.hotel_daily_sales/u);
     expect(smoke).not.toMatch(/delete from public\.audit_events/u);
