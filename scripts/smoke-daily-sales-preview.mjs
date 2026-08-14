@@ -31,6 +31,8 @@ const ownerSql = postgres(ownerDatabaseUrl, { max: 1, prepare: false });
 const token = randomBytes(32).toString("base64url");
 const tokenHash = createHash("sha256").update(token, "utf8").digest();
 const sessionId = randomUUID();
+const canaryCategoryName = "Preview 일매출 canary 매출";
+const canaryPaymentMethodName = "Preview 일매출 canary 결제";
 const permissionCodes = [
   "HOTEL_SALES_VIEW",
   "HOTEL_SALES_MANAGE",
@@ -249,12 +251,52 @@ try {
     String(dateRow?.business_date).slice(0, 10);
   if (!/^2[01]\d\d-\d\d-\d\d$/u.test(businessDate))
     throw new Error("PREVIEW_DAILY_SALES_DATE_UNAVAILABLE");
-  const references = await api(
-    `/api/hotels/${hotelId}/daily-sales/references`,
-    { failureCode: "PREVIEW_DAILY_SALES_REFERENCES_INVALID" },
-  );
-  const categoryId = references?.categories?.[0]?.id;
-  const paymentMethodId = references?.paymentMethods?.[0]?.id;
+  let references = await api(`/api/hotels/${hotelId}/daily-sales/references`, {
+    failureCode: "PREVIEW_DAILY_SALES_REFERENCES_INVALID",
+  });
+  const activeCategoryId = references?.categories?.[0]?.id;
+  const activePaymentMethodId = references?.paymentMethods?.[0]?.id;
+  if (!activeCategoryId || !activePaymentMethodId) {
+    failureStage = "REFERENCE_FIXTURE";
+    await ownerSql.begin(async (tx) => {
+      if (!activeCategoryId) {
+        await tx`
+          insert into public.hotel_sales_categories(
+            id,company_id,branch_id,name,status,display_order,created_by
+          ) values(
+            ${randomUUID()}::uuid,${principal.company_id}::uuid,${hotelId}::uuid,
+            ${canaryCategoryName},'ACTIVE',2147483647,${principal.user_id}::uuid
+          )
+          on conflict (company_id,branch_id,name)
+          do update set status='ACTIVE'
+        `;
+      }
+      if (!activePaymentMethodId) {
+        await tx`
+          insert into public.hotel_payment_methods(
+            id,company_id,branch_id,name,status,display_order,created_by
+          ) values(
+            ${randomUUID()}::uuid,${principal.company_id}::uuid,${hotelId}::uuid,
+            ${canaryPaymentMethodName},'ACTIVE',2147483647,${principal.user_id}::uuid
+          )
+          on conflict (company_id,branch_id,name)
+          do update set status='ACTIVE'
+        `;
+      }
+    });
+    references = await api(`/api/hotels/${hotelId}/daily-sales/references`, {
+      failureCode: "PREVIEW_DAILY_SALES_REFERENCES_READBACK_INVALID",
+    });
+  }
+  const categoryId =
+    activeCategoryId ??
+    references?.categories?.find((item) => item.name === canaryCategoryName)
+      ?.id;
+  const paymentMethodId =
+    activePaymentMethodId ??
+    references?.paymentMethods?.find(
+      (item) => item.name === canaryPaymentMethodName,
+    )?.id;
   if (!categoryId || !paymentMethodId)
     throw new Error("PREVIEW_DAILY_SALES_REFERENCES_EMPTY");
   failureStage = "API_DB";
