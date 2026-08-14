@@ -13,6 +13,7 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("/files/upload-init");
     expect(smoke).toContain("READY_UNLINKED");
     expect(smoke).toContain("HOTEL_FILE_READ");
+    expect(smoke).toContain("HOTEL_FILE_UPLOAD");
     expect(smoke).toContain("/files/${correctionFile}/view");
     expect(smoke).toContain("viewedBody.equals(png)");
     expect(smoke).toContain("/confirm");
