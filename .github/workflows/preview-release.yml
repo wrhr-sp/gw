@@ -1041,7 +1041,7 @@ jobs:
             "$api_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
           printf '%s\n' 'PREVIEW_R2_BINDINGS_VERIFIED'
 
-      - name: Verify legacy Preview Container provider resource is absent or Free-plan inert
+      - name: Verify legacy Preview Container provider resource is absent or active binding retired
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -1049,7 +1049,8 @@ jobs:
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
+          active_settings_file="$(mktemp)"
+          trap 'rm -f "$response_file" "$active_settings_file"' EXIT
           status="$(curl --silent --show-error \
             --output "$response_file" \
             --write-out '%{http_code}' \
@@ -1064,6 +1065,28 @@ jobs:
               and all(.result[]; .name != "werehere-hotel-file-processor-preview")
             ' "$response_file" >/dev/null
             printf '%s\n' 'PREVIEW_LEGACY_CONTAINER_APPLICATION_ABSENT'
+          elif [[ "$status" == "403" ]]; then
+            jq -e '
+              .success == false
+              and (.errors | type) == "array" and (.errors | length) > 0
+              and all(.errors[]; (type == "object") and (.code | type) == "number")
+            ' "$response_file" >/dev/null
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-api-preview/settings" \
+              > "$active_settings_file"
+            jq -e '
+              .success == true
+              and (.result | type) == "object"
+              and (.result.bindings | type) == "array"
+              and all(.result.bindings[]; type == "object" and (.name | type) == "string")
+              and ([.result.bindings[] as $binding
+                | select(
+                    $binding.name == "FILE_PROCESSOR_CONTAINER"
+                    or ($binding.class_name? == "FileProcessorContainer")
+                  )] | length) == 0
+            ' "$active_settings_file" >/dev/null
+            printf '%s\n' 'PREVIEW_LEGACY_CONTAINER_ACTIVE_BINDING_ABSENT'
           else
             printf 'Preview Container retirement read-back failed with HTTP %s.\n' "$status" >&2
             exit 1

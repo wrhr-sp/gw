@@ -21,7 +21,6 @@ describe("Preview free file scanner wiring", () => {
       factorySource,
       reconcilerSource,
       rendererSource,
-      releaseWorkflow,
     ]) {
       expect(source).not.toContain("@cloudflare/containers");
       expect(source).not.toContain("FILE_PROCESSOR_CONTAINER");
@@ -32,6 +31,8 @@ describe("Preview free file scanner wiring", () => {
     expect(reconcilerSource).not.toContain(
       "reconcileHotelFileEvidenceFromBindings(env)",
     );
+    expect(releaseWorkflow).not.toContain("wrangler containers");
+    expect(releaseWorkflow).not.toContain("PREVIEW_FILE_PROCESSOR_IMAGE");
   });
 
   it("keeps private R2 on the API but not the scan-free Reconciler", () => {
@@ -66,9 +67,13 @@ describe("Preview free file scanner wiring", () => {
     expect(releaseWorkflow).not.toContain(
       "PREVIEW_LEGACY_CONTAINER_PROVIDER_INERT_FREE_PLAN",
     );
-    expect(releaseWorkflow).not.toContain(
-      '[[ "$status" == "401" || "$status" == "403" ]]',
+    expect(releaseWorkflow).toContain(
+      "PREVIEW_LEGACY_CONTAINER_ACTIVE_BINDING_ABSENT",
     );
+    expect(releaseWorkflow).toContain('[[ "$status" == "403" ]]');
+    expect(releaseWorkflow).toContain('$binding.name == "FILE_PROCESSOR_CONTAINER"');
+    expect(releaseWorkflow).toContain('$binding.class_name? == "FileProcessorContainer"');
+    expect(releaseWorkflow).not.toContain("containers/applications/delete");
   });
 
   it("runs one hourly GitHub-hosted batch with no paid runner or billing mutation", () => {
