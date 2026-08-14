@@ -32,6 +32,7 @@ jobs:
       ZITADEL_REDIRECT_URI: ${{ vars.ZITADEL_REDIRECT_URI }}
       ZITADEL_ORGANIZATION_ID: ${{ vars.ZITADEL_ORGANIZATION_ID }}
       PREVIEW_BOOTSTRAP_APPROVAL_REF: ${{ vars.PREVIEW_BOOTSTRAP_APPROVAL_REF }}
+      PREVIEW_R2_BUCKET_NAME: werehere-hotel-files-preview
       WEB_PREVIEW_URL: https://werehere-hotel-web-preview.wereheresp.workers.dev
       API_RUNTIME_DATABASE_URL_FILE: /tmp/werehere-preview-api-runtime-url
       RECONCILER_DATABASE_URL_FILE: /tmp/werehere-preview-reconciler-url
@@ -749,6 +750,103 @@ jobs:
             ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
           fi
 
+      - name: Ensure isolated Preview private R2 bucket
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          inventory_file="$(mktemp)"
+          create_file="$(mktemp)"
+          containers_file="$(mktemp)"
+          trap 'rm -f "$inventory_file" "$create_file" "$containers_file"' EXIT
+          pnpm --filter @werehere/api exec wrangler containers list --json \
+            > "$containers_file"
+          jq -e '.' "$containers_file" >/dev/null
+          printf '%s\n' 'PREVIEW_CONTAINERS_ACCOUNT_READY'
+          inventory() {
+            curl --fail --silent --show-error \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets" \
+              > "$inventory_file"
+          }
+          inventory
+          count="$(jq -er --arg name "$PREVIEW_R2_BUCKET_NAME" '
+            if .success != true or (.result.buckets | type) != "array" then
+              error("R2 inventory response was invalid")
+            else [.result.buckets[] | select(.name == $name)] | length end
+          ' "$inventory_file")"
+          if [[ "$count" == "0" ]]; then
+            curl --fail --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -cn --arg name "$PREVIEW_R2_BUCKET_NAME" '{name:$name}')" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/r2/buckets" \
+              > "$create_file"
+            jq -e --arg name "$PREVIEW_R2_BUCKET_NAME" '
+              .success == true and .result.name == $name
+            ' "$create_file" >/dev/null
+            inventory
+          elif [[ "$count" != "1" ]]; then
+            printf '%s\n' 'Preview R2 bucket identity was ambiguous.' >&2
+            exit 1
+          fi
+          jq -e --arg name "$PREVIEW_R2_BUCKET_NAME" '
+            .success == true
+            and ([.result.buckets[] | select(.name == $name)] | length) == 1
+          ' "$inventory_file" >/dev/null
+          printf '%s\n' 'PREVIEW_R2_BUCKET_READY'
+
+      - name: Build and push exact Preview file processor image
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_tag="werehere-hotel-file-processor-preview:${GITHUB_SHA}"
+          push_output="$(mktemp)"
+          digests_file="$(mktemp)"
+          image_ref_file="$(mktemp)"
+          trap 'rm -f "$push_output" "$digests_file" "$image_ref_file"' EXIT
+          docker build \
+            --platform linux/amd64 \
+            --file apps/file-processor/Dockerfile \
+            --tag "$local_tag" \
+            .
+          if ! pnpm --filter @werehere/api exec wrangler containers push \
+            "$local_tag" \
+            --config wrangler.preview.jsonc \
+            > "$push_output" 2>&1; then
+            printf '%s\n' 'Preview file processor image push failed.' >&2
+            exit 1
+          fi
+          docker image inspect "$local_tag" --format '{{json .RepoDigests}}' \
+            > "$digests_file"
+          DIGESTS_FILE="$digests_file" \
+            IMAGE_REF_FILE="$image_ref_file" \
+            node <<'NODE'
+          const fs = require('node:fs');
+          const digests = JSON.parse(fs.readFileSync(process.env.DIGESTS_FILE, 'utf8'));
+          if (!Array.isArray(digests)) process.exit(1);
+          const matches = [...new Set(digests.filter((value) =>
+            typeof value === 'string'
+            && /^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(value)
+            && value.slice(0, value.indexOf('@')).endsWith('/werehere-hotel-file-processor-preview')
+          ))];
+          if (matches.length !== 1) process.exit(1);
+          fs.writeFileSync(process.env.IMAGE_REF_FILE, matches[0], { mode: 0o600 });
+          NODE
+          image_ref="$(<"$image_ref_file")"
+          image_digest="${image_ref##*@}"
+          printf '::add-mask::%s\n' "$image_ref"
+          printf '::add-mask::%s\n' "$image_digest"
+          printf 'PREVIEW_FILE_PROCESSOR_IMAGE=%s\n' "$image_ref" \
+            >> "$GITHUB_ENV"
+          printf '%s\n' 'PREVIEW_FILE_PROCESSOR_IMAGE_READY'
+
       - name: Render API Preview configuration
         env:
           API_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.api_id }}
@@ -768,14 +866,44 @@ jobs:
           DEPLOY_TAG: github-${{ github.run_id }}-${{ github.run_attempt }}-reconciler
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          FILE_PROCESSOR_SHARED_SECRET: ${{ secrets.FILE_PROCESSOR_SHARED_SECRET_PREVIEW }}
         shell: bash
         run: |
           set -euo pipefail
           printf 'deploy_attempted=true\n' >> "$GITHUB_OUTPUT"
-          pnpm exec wrangler deploy \
-            --config wrangler.reconciler.preview.generated.json \
-            --strict \
-            --tag "$DEPLOY_TAG"
+          if [[ "${#FILE_PROCESSOR_SHARED_SECRET}" -lt 32 ]]; then
+            printf '%s\n' 'Preview file processor secret was unavailable.' >&2
+            exit 1
+          fi
+          reconciler_secrets_file="$(mktemp)"
+          reconciler_deploy_output="$(mktemp)"
+          chmod 600 "$reconciler_deploy_output"
+          trap 'rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"' EXIT
+          export RECONCILER_SECRETS_FILE="$reconciler_secrets_file"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path(os.environ['RECONCILER_SECRETS_FILE'])
+          path.write_text(json.dumps({
+              'FILE_PROCESSOR_SHARED_SECRET': os.environ['FILE_PROCESSOR_SHARED_SECRET'],
+          }))
+          path.chmod(0o600)
+          PY
+          unset FILE_PROCESSOR_SHARED_SECRET
+          if ! (
+            trap 'rm -f "$reconciler_secrets_file"' EXIT
+            pnpm exec wrangler deploy \
+              --config wrangler.reconciler.preview.generated.json \
+              --secrets-file "$reconciler_secrets_file" \
+              --strict \
+              --tag "$DEPLOY_TAG" \
+              > "$reconciler_deploy_output" 2>&1
+          ); then
+            printf '%s\n' 'Preview Reconciler deploy failed.' >&2
+            exit 1
+          fi
+          printf '%s\n' 'PREVIEW_RECONCILER_DEPLOYED'
+          rm -f "$reconciler_secrets_file" "$reconciler_deploy_output"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
           resolve_tagged_version() {
@@ -931,6 +1059,55 @@ jobs:
             and .[-1].versions[0].percentage == 100
             and .[-1].versions[0].version_id == $version
           ' "$deployments_file" >/dev/null
+
+      - name: Verify deployed API and Reconciler private R2 bindings
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          api_settings="$(mktemp)"
+          reconciler_settings="$(mktemp)"
+          container_list="$(mktemp)"
+          container_info="$(mktemp)"
+          trap 'rm -f "$api_settings" "$reconciler_settings" "$container_list" "$container_info"' EXIT
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-api-preview/settings" \
+            > "$api_settings"
+          curl --fail --silent --show-error \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-account-reconciler-preview/settings" \
+            > "$reconciler_settings"
+          node scripts/validate-cloudflare-worker-r2-binding.mjs \
+            "$api_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
+          node scripts/validate-cloudflare-worker-r2-binding.mjs \
+            "$reconciler_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
+          pnpm --filter @werehere/api exec wrangler containers list --json \
+            > "$container_list"
+          container_id="$(jq -er '
+            if type != "array" then error("Container list was invalid") else
+              [.[] | select(
+                type == "object"
+                and .name == "werehere-hotel-file-processor-preview"
+                and (.id | type) == "string"
+                and (.id | test("^[0-9a-fA-F-]{32,36}$"))
+              )] as $matches
+              | if ($matches | length) == 1 then $matches[0].id
+                else error("Container identity was unavailable or ambiguous") end
+            end
+          ' "$container_list")"
+          pnpm --filter @werehere/api exec wrangler containers info "$container_id" \
+            > "$container_info"
+          node scripts/validate-cloudflare-worker-container-config.mjs \
+            "$container_list" \
+            "$container_info" \
+            "$reconciler_settings" \
+            werehere-hotel-file-processor-preview \
+            "$PREVIEW_FILE_PROCESSOR_IMAGE"
+          printf '%s\n' 'PREVIEW_R2_BINDINGS_VERIFIED'
+          printf '%s\n' 'PREVIEW_CONTAINER_CONFIGURATION_VERIFIED'
 
       - name: Expand Preview account identity lock ACL after API deploy
         env:

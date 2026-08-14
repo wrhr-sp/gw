@@ -20,6 +20,9 @@ vi.mock("../src/files/factory", () => ({
   reconcileHotelFileEvidenceFromBindings: scheduledFactories.file,
   recoverExpiredHotelFileAccessGrantsFromBindings: scheduledFactories.recover,
 }));
+vi.mock("../src/file-processor-container", () => ({
+  FileProcessorContainer: class FileProcessorContainer {},
+}));
 vi.mock("../src/inspections/materializer-factory", () => ({
   reconcileInspectionMaterializationsFromBindings:
     scheduledFactories.inspection,

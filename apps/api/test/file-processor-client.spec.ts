@@ -13,7 +13,9 @@ describe("HTTP evidence file processor client", () => {
       expect(request.url).toBe("https://processor.internal/v1/process");
       expect(request.headers.get("authorization")).toBe(`Bearer ${secret}`);
       expect(request.headers.get("content-type")).toBe("image/jpeg");
-      expect(request.headers.get("content-length")).toBe(String(source.byteLength));
+      expect(request.headers.get("content-length")).toBe(
+        String(source.byteLength),
+      );
       expect(new Uint8Array(await request.arrayBuffer())).toEqual(source);
       return new Response(new Uint8Array([4, 5]).buffer, {
         status: 200,
@@ -33,7 +35,11 @@ describe("HTTP evidence file processor client", () => {
     });
 
     await expect(
-      processor.process({ body: source, declaredMime: "image/jpeg", maxDimension: 2048 }),
+      processor.process({
+        body: source,
+        declaredMime: "image/jpeg",
+        maxDimension: 2048,
+      }),
     ).resolves.toEqual({
       body: new Uint8Array([4, 5]),
       exifLocationRemoved: true,
@@ -53,7 +59,11 @@ describe("HTTP evidence file processor client", () => {
       url: "https://processor.internal",
     });
     await expect(
-      processor.process({ body: source, declaredMime: "image/jpeg", maxDimension: 2048 }),
+      processor.process({
+        body: source,
+        declaredMime: "image/jpeg",
+        maxDimension: 2048,
+      }),
     ).resolves.toEqual({ verdict: "INFECTED" });
   });
 
@@ -65,24 +75,45 @@ describe("HTTP evidence file processor client", () => {
         url: "https://processor.internal",
       }),
     ).toThrowError(FileProcessorClientError);
+    expect(() =>
+      createHttpEvidenceFileProcessor({
+        fetcher: vi.fn(),
+        sharedSecret: secret,
+        timeoutMs: 300_001,
+        url: "https://processor.internal",
+      }),
+    ).toThrowError(FileProcessorClientError);
+    expect(() =>
+      createHttpEvidenceFileProcessor({
+        fetcher: vi.fn(),
+        sharedSecret: secret,
+        timeoutMs: 240_000,
+        url: "https://processor.internal",
+      }),
+    ).not.toThrow();
     const processor = createHttpEvidenceFileProcessor({
-      fetcher: vi.fn(async () =>
-        new Response(new Uint8Array([4, 5]).buffer, {
-          status: 200,
-          headers: {
-            "content-length": "2",
-            "content-type": "image/jpeg",
-            "x-exif-location-removed": "false",
-            "x-max-dimension": "2048",
-            "x-scan-verdict": "CLEAN",
-          },
-        }),
+      fetcher: vi.fn(
+        async () =>
+          new Response(new Uint8Array([4, 5]).buffer, {
+            status: 200,
+            headers: {
+              "content-length": "2",
+              "content-type": "image/jpeg",
+              "x-exif-location-removed": "false",
+              "x-max-dimension": "2048",
+              "x-scan-verdict": "CLEAN",
+            },
+          }),
       ),
       sharedSecret: secret,
       url: "https://processor.internal",
     });
     await expect(
-      processor.process({ body: source, declaredMime: "image/jpeg", maxDimension: 2048 }),
+      processor.process({
+        body: source,
+        declaredMime: "image/jpeg",
+        maxDimension: 2048,
+      }),
     ).rejects.toMatchObject({ code: "FILE_PROCESSOR_INTEGRITY" });
   });
 });

@@ -14,6 +14,7 @@ import {
   type InspectionMaterializerBindings,
 } from "./inspections/materializer-factory";
 import { resolveDatabaseUrl } from "./database";
+export { FileProcessorContainer } from "./file-processor-container";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;

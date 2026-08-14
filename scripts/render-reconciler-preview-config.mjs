@@ -13,13 +13,53 @@ const required = (name) => {
 };
 
 const reconcilerHyperdriveId = required("RECONCILER_HYPERDRIVE_ID");
+const previewR2BucketName = required("PREVIEW_R2_BUCKET_NAME");
+const previewFileProcessorImage = required("PREVIEW_FILE_PROCESSOR_IMAGE");
+if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/u.test(previewR2BucketName)) {
+  throw new Error("PREVIEW_R2_BUCKET_NAME was invalid");
+}
+if (
+  !/^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(
+    previewFileProcessorImage,
+  )
+) {
+  throw new Error("PREVIEW_FILE_PROCESSOR_IMAGE was not digest-pinned");
+}
 const issuer = new URL(required("ZITADEL_ISSUER"));
-if (issuer.protocol !== "https:") throw new Error("ZITADEL_ISSUER must use HTTPS");
+if (issuer.protocol !== "https:")
+  throw new Error("ZITADEL_ISSUER must use HTTPS");
 
 const source = await readFile(resolve(inputPath), "utf8");
 const config = JSON.parse(source.replace(/,\s*([}\]])/gu, "$1"));
 config.hyperdrive = [
   { binding: "RECONCILER_HYPERDRIVE", id: reconcilerHyperdriveId },
+];
+config.r2_buckets = [
+  { binding: "HOTEL_FILES", bucket_name: previewR2BucketName },
+];
+config.containers = [
+  {
+    class_name: "FileProcessorContainer",
+    image: previewFileProcessorImage,
+    instance_type: "standard-1",
+    max_instances: 1,
+    name: "werehere-hotel-file-processor-preview",
+    ssh: { enabled: false },
+  },
+];
+config.durable_objects = {
+  bindings: [
+    {
+      class_name: "FileProcessorContainer",
+      name: "FILE_PROCESSOR_CONTAINER",
+    },
+  ],
+};
+config.migrations = [
+  {
+    new_sqlite_classes: ["FileProcessorContainer"],
+    tag: "preview-file-processor-v1",
+  },
 ];
 config.vars = {
   ...config.vars,

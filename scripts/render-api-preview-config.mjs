@@ -13,12 +13,20 @@ const required = (name) => {
 };
 
 const apiHyperdriveId = required("API_HYPERDRIVE_ID");
+const previewR2BucketName = required("PREVIEW_R2_BUCKET_NAME");
+if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/u.test(previewR2BucketName)) {
+  throw new Error("PREVIEW_R2_BUCKET_NAME was invalid");
+}
 const issuer = new URL(required("ZITADEL_ISSUER"));
 const redirectUri = new URL(required("ZITADEL_REDIRECT_URI"));
 const webPreviewUrl = new URL(required("WEB_PREVIEW_URL"));
 if (
-  issuer.protocol !== "https:" || issuer.username || issuer.password ||
-  issuer.pathname !== "/" || issuer.search || issuer.hash ||
+  issuer.protocol !== "https:" ||
+  issuer.username ||
+  issuer.password ||
+  issuer.pathname !== "/" ||
+  issuer.search ||
+  issuer.hash ||
   redirectUri.protocol !== "https:"
 ) {
   throw new Error("ZITADEL issuer must be a credential-free HTTPS origin");
@@ -47,13 +55,16 @@ if (
   !/^[A-Za-z0-9_-]{1,200}$/u.test(consoleClientId) ||
   consoleClientId === clientId
 ) {
-  throw new Error("ZITADEL_CONSOLE_CLIENT_ID must identify the separate built-in Console client");
+  throw new Error(
+    "ZITADEL_CONSOLE_CLIENT_ID must identify the separate built-in Console client",
+  );
 }
 
 const source = await readFile(resolve(inputPath), "utf8");
 const config = JSON.parse(source.replace(/,\s*([}\]])/gu, "$1"));
-config.hyperdrive = [
-  { binding: "API_HYPERDRIVE", id: apiHyperdriveId },
+config.hyperdrive = [{ binding: "API_HYPERDRIVE", id: apiHyperdriveId }];
+config.r2_buckets = [
+  { binding: "HOTEL_FILES", bucket_name: previewR2BucketName },
 ];
 config.vars = {
   ...config.vars,
