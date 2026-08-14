@@ -45,7 +45,11 @@ export function createHttpEvidenceFileProcessor(input: {
   }
   const processUrl = endpoint(input.url);
   const timeoutMs = input.timeoutMs ?? 60_000;
-  if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) {
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs < 1_000 ||
+    timeoutMs > 300_000
+  ) {
     throw new FileProcessorClientError("FILE_PROCESSOR_NOT_CONFIGURED");
   }
   const fetcher = input.fetcher ?? fetch;
@@ -97,7 +101,9 @@ export function createHttpEvidenceFileProcessor(input: {
       }
       const contentLength = Number(response.headers.get("content-length"));
       const mimeType = response.headers.get("content-type")?.split(";", 1)[0];
-      const processedMaxDimension = Number(response.headers.get("x-max-dimension"));
+      const processedMaxDimension = Number(
+        response.headers.get("x-max-dimension"),
+      );
       if (
         response.headers.get("x-scan-verdict") !== "CLEAN" ||
         response.headers.get("x-exif-location-removed") !== "true" ||

@@ -13,7 +13,8 @@ function sharedSecret(value: string | undefined) {
 
 export class FileProcessorContainer extends Container<FileProcessorContainerEnvironment> {
   defaultPort = 8080;
-  pingEndpoint = "/health/ready";
+  enableInternet = false;
+  pingEndpoint = "localhost/health/ready";
   sleepAfter = "10m";
   envVars: Record<string, string>;
 

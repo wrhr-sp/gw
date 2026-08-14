@@ -839,11 +839,15 @@ jobs:
           }))
           path.chmod(0o600)
           PY
-          pnpm exec wrangler deploy \
-            --config wrangler.reconciler.preview.generated.json \
-            --secrets-file "$reconciler_secrets_file" \
-            --strict \
-            --tag "$DEPLOY_TAG"
+          unset FILE_PROCESSOR_SHARED_SECRET
+          (
+            trap 'rm -f "$reconciler_secrets_file"' EXIT
+            pnpm exec wrangler deploy \
+              --config wrangler.reconciler.preview.generated.json \
+              --secrets-file "$reconciler_secrets_file" \
+              --strict \
+              --tag "$DEPLOY_TAG"
+          )
           rm -f "$reconciler_secrets_file"
           deployments_file="$(mktemp)"
           trap 'rm -f "$deployments_file"' EXIT
@@ -1010,7 +1014,9 @@ jobs:
           set -euo pipefail
           api_settings="$(mktemp)"
           reconciler_settings="$(mktemp)"
-          trap 'rm -f "$api_settings" "$reconciler_settings"' EXIT
+          container_list="$(mktemp)"
+          container_info="$(mktemp)"
+          trap 'rm -f "$api_settings" "$reconciler_settings" "$container_list" "$container_info"' EXIT
           curl --fail --silent --show-error \
             -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/werehere-hotel-api-preview/settings" \
@@ -1023,7 +1029,29 @@ jobs:
             "$api_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
           node scripts/validate-cloudflare-worker-r2-binding.mjs \
             "$reconciler_settings" HOTEL_FILES "$PREVIEW_R2_BUCKET_NAME"
+          pnpm --filter @werehere/api exec wrangler containers list --json \
+            > "$container_list"
+          container_id="$(jq -er '
+            if type != "array" then error("Container list was invalid") else
+              [.[] | select(
+                type == "object"
+                and .name == "werehere-hotel-file-processor-preview"
+                and (.id | type) == "string"
+                and (.id | test("^[0-9a-fA-F-]{32,36}$"))
+              )] as $matches
+              | if ($matches | length) == 1 then $matches[0].id
+                else error("Container identity was unavailable or ambiguous") end
+            end
+          ' "$container_list")"
+          pnpm --filter @werehere/api exec wrangler containers info "$container_id" \
+            > "$container_info"
+          node scripts/validate-cloudflare-worker-container-config.mjs \
+            "$container_list" \
+            "$container_info" \
+            "$reconciler_settings" \
+            werehere-hotel-file-processor-preview
           printf '%s\n' 'PREVIEW_R2_BINDINGS_VERIFIED'
+          printf '%s\n' 'PREVIEW_CONTAINER_CONFIGURATION_VERIFIED'
 
       - name: Expand Preview account identity lock ACL after API deploy
         env:

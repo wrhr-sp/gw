@@ -90,6 +90,10 @@ describe("Preview account provisioning wiring", () => {
     expect(reconcilerDeploy).toContain("RECONCILER_SECRETS_FILE");
     expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET_PREVIEW");
     expect(reconcilerDeploy).toContain("FILE_PROCESSOR_SHARED_SECRET");
+    expect(reconcilerDeploy).toContain("unset FILE_PROCESSOR_SHARED_SECRET");
+    expect(
+      reconcilerDeploy.indexOf("unset FILE_PROCESSOR_SHARED_SECRET"),
+    ).toBeLessThan(reconcilerDeploy.indexOf("pnpm exec wrangler deploy"));
     expect(reconcilerDeploy).not.toContain("AUTH_TRANSACTION_ENCRYPTION_KEY");
     expect(reconcilerDeploy).not.toContain("ZITADEL_SERVICE_USER_TOKEN");
     expect(reconcilerDeploy).toContain("--strict");
@@ -603,6 +607,11 @@ describe("Preview account provisioning wiring", () => {
     expect(workflow).toContain("PREVIEW_R2_BUCKET_READY");
     expect(workflow).toContain("validate-cloudflare-worker-r2-binding.mjs");
     expect(workflow).toContain("PREVIEW_R2_BINDINGS_VERIFIED");
+    expect(workflow).toContain(
+      "validate-cloudflare-worker-container-config.mjs",
+    );
+    expect(workflow).toContain("wrangler containers info");
+    expect(workflow).toContain("PREVIEW_CONTAINER_CONFIGURATION_VERIFIED");
     expect(workflow).toContain("wrangler.reconciler.preview.generated.json");
     expect(workflow).toContain("werehere-hotel-account-reconciler-preview");
   });
