@@ -38,6 +38,7 @@ const permissionCodes = [
   "HOTEL_SALES_MANAGE",
   "HOTEL_SALES_CONFIRM",
   "HOTEL_SALES_CORRECT",
+  "HOTEL_FILE_UPLOAD",
   "HOTEL_FILE_READ",
 ];
 let createdGrantIds = [];
