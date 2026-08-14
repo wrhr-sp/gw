@@ -62,6 +62,10 @@ describe("Preview account provisioning wiring", () => {
     expect(jobEnvironment).not.toContain("CLOUDFLARE_ACCOUNT_ID");
     const r2Provision = workflow.slice(
       workflow.indexOf("Ensure isolated Preview private R2 bucket"),
+      workflow.indexOf("Build and push exact Preview file processor image"),
+    );
+    const imagePush = workflow.slice(
+      workflow.indexOf("Build and push exact Preview file processor image"),
       workflow.indexOf("Render API Preview configuration"),
     );
     const r2ReadBack = workflow.slice(
@@ -70,7 +74,7 @@ describe("Preview account provisioning wiring", () => {
       ),
       workflow.indexOf("Expand Preview account identity lock ACL"),
     );
-    for (const step of [r2Provision, r2ReadBack]) {
+    for (const step of [r2Provision, imagePush, r2ReadBack]) {
       expect(step).toContain(
         "CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
       );
@@ -602,8 +606,15 @@ describe("Preview account provisioning wiring", () => {
     );
     expect(reconcilerRenderer).toContain('instance_type: "standard-1"');
     expect(reconcilerRenderer).toContain("max_instances: 1");
+    expect(reconcilerRenderer).toContain("image: previewFileProcessorImage");
+    expect(reconcilerRenderer).not.toContain(
+      'image: "../file-processor/Dockerfile"',
+    );
     expect(reconcilerRenderer).not.toContain("API_HYPERDRIVE");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_NAME");
+    expect(workflow).toContain("PREVIEW_FILE_PROCESSOR_IMAGE_READY");
+    expect(workflow).toContain("docker image inspect");
+    expect(workflow).toContain("{{json .RepoDigests}}");
     expect(workflow).toContain("PREVIEW_R2_BUCKET_READY");
     expect(workflow).toContain("validate-cloudflare-worker-r2-binding.mjs");
     expect(workflow).toContain("PREVIEW_R2_BINDINGS_VERIFIED");
@@ -651,6 +662,9 @@ describe("Preview account provisioning wiring", () => {
     expect(ciWorkflow).toContain("wrangler.reconciler.preview.generated.json");
     expect(ciWorkflow).toContain(
       "RECONCILER_HYPERDRIVE_ID=00000000000000000000000000000000",
+    );
+    expect(ciWorkflow).toContain(
+      "PREVIEW_FILE_PROCESSOR_IMAGE=registry.cloudflare.com/ci/",
     );
     expect(ciWorkflow).toContain(
       "--dry-run --config wrangler.reconciler.preview.generated.json",

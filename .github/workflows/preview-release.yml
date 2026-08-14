@@ -799,6 +799,50 @@ jobs:
           ' "$inventory_file" >/dev/null
           printf '%s\n' 'PREVIEW_R2_BUCKET_READY'
 
+      - name: Build and push exact Preview file processor image
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          local_tag="werehere-hotel-file-processor-preview:${GITHUB_SHA}"
+          push_output="$(mktemp)"
+          digests_file="$(mktemp)"
+          image_ref_file="$(mktemp)"
+          trap 'rm -f "$push_output" "$digests_file" "$image_ref_file"' EXIT
+          docker build \
+            --platform linux/amd64 \
+            --file apps/file-processor/Dockerfile \
+            --tag "$local_tag" \
+            .
+          if ! pnpm --filter @werehere/api exec wrangler containers push \
+            "$local_tag" \
+            --config wrangler.preview.jsonc \
+            > "$push_output" 2>&1; then
+            printf '%s\n' 'Preview file processor image push failed.' >&2
+            exit 1
+          fi
+          docker image inspect "$local_tag" --format '{{json .RepoDigests}}' \
+            > "$digests_file"
+          DIGESTS_FILE="$digests_file" \
+            IMAGE_REF_FILE="$image_ref_file" \
+            node <<'NODE'
+          const fs = require('node:fs');
+          const digests = JSON.parse(fs.readFileSync(process.env.DIGESTS_FILE, 'utf8'));
+          if (!Array.isArray(digests)) process.exit(1);
+          const matches = [...new Set(digests.filter((value) =>
+            typeof value === 'string'
+            && /^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(value)
+            && value.slice(0, value.indexOf('@')).endsWith('/werehere-hotel-file-processor-preview')
+          ))];
+          if (matches.length !== 1) process.exit(1);
+          fs.writeFileSync(process.env.IMAGE_REF_FILE, matches[0], { mode: 0o600 });
+          NODE
+          printf 'PREVIEW_FILE_PROCESSOR_IMAGE=%s\n' "$(<"$image_ref_file")" \
+            >> "$GITHUB_ENV"
+          printf '%s\n' 'PREVIEW_FILE_PROCESSOR_IMAGE_READY'
+
       - name: Render API Preview configuration
         env:
           API_HYPERDRIVE_ID: ${{ steps.hyperdrive.outputs.api_id }}
@@ -1049,7 +1093,8 @@ jobs:
             "$container_list" \
             "$container_info" \
             "$reconciler_settings" \
-            werehere-hotel-file-processor-preview
+            werehere-hotel-file-processor-preview \
+            "$PREVIEW_FILE_PROCESSOR_IMAGE"
           printf '%s\n' 'PREVIEW_R2_BINDINGS_VERIFIED'
           printf '%s\n' 'PREVIEW_CONTAINER_CONFIGURATION_VERIFIED'
 

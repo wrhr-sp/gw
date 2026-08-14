@@ -61,8 +61,15 @@ describe("Preview private file processor Container wiring", () => {
       "ssh: { enabled: false }",
       'new_sqlite_classes: ["FileProcessorContainer"]',
       '{ binding: "HOTEL_FILES", bucket_name: previewR2BucketName }',
+      "image: previewFileProcessorImage",
     ])
       expect(rendererSource).toContain(contract);
+    expect(rendererSource).toContain(
+      "PREVIEW_FILE_PROCESSOR_IMAGE was not digest-pinned",
+    );
+    expect(rendererSource).not.toContain(
+      'image: "../file-processor/Dockerfile"',
+    );
     expect(workflowSource).toContain("PREVIEW_CONTAINERS_ACCOUNT_READY");
     expect(workflowSource).toContain("FILE_PROCESSOR_SHARED_SECRET_PREVIEW");
     expect(workflowSource).not.toContain("FILE_PROCESSOR_URL:");

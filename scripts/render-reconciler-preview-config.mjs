@@ -14,8 +14,16 @@ const required = (name) => {
 
 const reconcilerHyperdriveId = required("RECONCILER_HYPERDRIVE_ID");
 const previewR2BucketName = required("PREVIEW_R2_BUCKET_NAME");
+const previewFileProcessorImage = required("PREVIEW_FILE_PROCESSOR_IMAGE");
 if (!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/u.test(previewR2BucketName)) {
   throw new Error("PREVIEW_R2_BUCKET_NAME was invalid");
+}
+if (
+  !/^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(
+    previewFileProcessorImage,
+  )
+) {
+  throw new Error("PREVIEW_FILE_PROCESSOR_IMAGE was not digest-pinned");
 }
 const issuer = new URL(required("ZITADEL_ISSUER"));
 if (issuer.protocol !== "https:")
@@ -32,8 +40,7 @@ config.r2_buckets = [
 config.containers = [
   {
     class_name: "FileProcessorContainer",
-    image: "../file-processor/Dockerfile",
-    image_build_context: "../..",
+    image: previewFileProcessorImage,
     instance_type: "standard-1",
     max_instances: 1,
     name: "werehere-hotel-file-processor-preview",

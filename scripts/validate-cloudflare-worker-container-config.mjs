@@ -20,12 +20,17 @@ export function validateWorkerContainerConfiguration(
   application,
   workerSettings,
   expectedApplicationName,
+  expectedImage,
 ) {
   if (
     !Array.isArray(applications) ||
     typeof expectedApplicationName !== "string" ||
     !/^[a-z0-9][a-z0-9-]{2,62}$/u.test(expectedApplicationName) ||
     !isPlainObject(application) ||
+    typeof expectedImage !== "string" ||
+    !/^[a-z0-9.-]+\/[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$/u.test(
+      expectedImage,
+    ) ||
     !isPlainObject(workerSettings) ||
     workerSettings.success !== true ||
     !isPlainObject(workerSettings.result) ||
@@ -45,8 +50,7 @@ export function validateWorkerContainerConfiguration(
   if (
     typeof summary.id !== "string" ||
     !/^[0-9a-f-]{32,36}$/iu.test(summary.id) ||
-    typeof summary.image !== "string" ||
-    summary.image.length < 1 ||
+    summary.image !== expectedImage ||
     !Number.isSafeInteger(summary.version) ||
     summary.version < 1 ||
     application.id !== summary.id ||
@@ -54,7 +58,7 @@ export function validateWorkerContainerConfiguration(
     application.version !== summary.version ||
     application.max_instances !== 1 ||
     !isPlainObject(application.configuration) ||
-    application.configuration.image !== summary.image ||
+    application.configuration.image !== expectedImage ||
     application.configuration.instance_type !== "standard-1" ||
     !isPlainObject(application.configuration.wrangler_ssh) ||
     application.configuration.wrangler_ssh.enabled !== false ||
@@ -79,18 +83,30 @@ export function validateWorkerContainerConfiguration(
   if (
     bindings.length !== 1 ||
     bindings[0].type !== "durable_object_namespace" ||
-    bindings[0].class_name !== "FileProcessorContainer"
+    bindings[0].class_name !== "FileProcessorContainer" ||
+    bindings[0].namespace_id !== application.durable_objects.namespace_id
   ) {
     throw new Error("Container Durable Object binding identity was invalid");
   }
 }
 
 async function main() {
-  const [listPath, infoPath, settingsPath, expectedApplicationName] =
-    process.argv.slice(2);
-  if (!listPath || !infoPath || !settingsPath || !expectedApplicationName) {
+  const [
+    listPath,
+    infoPath,
+    settingsPath,
+    expectedApplicationName,
+    expectedImage,
+  ] = process.argv.slice(2);
+  if (
+    !listPath ||
+    !infoPath ||
+    !settingsPath ||
+    !expectedApplicationName ||
+    !expectedImage
+  ) {
     throw new Error(
-      "Usage: validate-cloudflare-worker-container-config.mjs <list.json> <info.json> <settings.json> <application-name>",
+      "Usage: validate-cloudflare-worker-container-config.mjs <list.json> <info.json> <settings.json> <application-name> <expected-image>",
     );
   }
   const [applications, application, workerSettings] = await Promise.all(
@@ -103,6 +119,7 @@ async function main() {
     application,
     workerSettings,
     expectedApplicationName,
+    expectedImage,
   );
   process.stdout.write("WORKER_CONTAINER_CONFIGURATION_VALID\n");
 }
