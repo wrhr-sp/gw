@@ -1,0 +1,69 @@
+name: hotel-preview-r2-inventory
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hotel-preview-r2-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: 10.24.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22.22.1
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Inspect existing Cloudflare R2 bucket inventory
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          inventory_file="$(mktemp)"
+          trap 'rm -f "$inventory_file"' EXIT
+          pnpm --filter @werehere/api exec wrangler r2 bucket list --json > "$inventory_file"
+          node - "$inventory_file" <<'NODE'
+          const fs = require("node:fs");
+          const value = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+          const buckets = Array.isArray(value)
+            ? value
+            : Array.isArray(value?.buckets)
+              ? value.buckets
+              : [];
+          const candidates = buckets.filter(
+            (bucket) =>
+              typeof bucket?.name === "string" &&
+              /(?:preview.*(?:hotel|evidence|file)|(?:hotel|evidence|file).*preview)/iu.test(
+                bucket.name,
+              ),
+          );
+          const marker =
+            buckets.length === 0
+              ? "PREVIEW_R2_INVENTORY_NO_BUCKETS"
+              : candidates.length === 0
+                ? "PREVIEW_R2_INVENTORY_NO_PREVIEW_CANDIDATE"
+                : candidates.length === 1
+                  ? "PREVIEW_R2_INVENTORY_ONE_PREVIEW_CANDIDATE"
+                  : "PREVIEW_R2_INVENTORY_AMBIGUOUS_PREVIEW_CANDIDATES";
+          console.log(marker);
+          NODE
