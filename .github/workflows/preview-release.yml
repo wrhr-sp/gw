@@ -759,11 +759,34 @@ jobs:
           set -euo pipefail
           inventory_file="$(mktemp)"
           create_file="$(mktemp)"
-          containers_file="$(mktemp)"
-          trap 'rm -f "$inventory_file" "$create_file" "$containers_file"' EXIT
-          pnpm --filter @werehere/api exec wrangler containers list --json \
-            > "$containers_file"
-          jq -e '.' "$containers_file" >/dev/null
+          containers_stdout_file="$(mktemp)"
+          containers_stderr_file="$(mktemp)"
+          chmod 600 "$containers_stdout_file" "$containers_stderr_file"
+          trap 'rm -f "$inventory_file" "$create_file" "$containers_stdout_file" "$containers_stderr_file"' EXIT
+          if ! pnpm --filter @werehere/api exec wrangler containers list --json \
+            > "$containers_stdout_file" 2> "$containers_stderr_file"; then
+            CONTAINERS_STDOUT_FILE="$containers_stdout_file" \
+              CONTAINERS_STDERR_FILE="$containers_stderr_file" \
+              node <<'NODE'
+          const fs = require('node:fs');
+          const readBounded = (path) => fs.readFileSync(path, 'utf8').slice(0, 65536);
+          const diagnostic = `${readBounded(process.env.CONTAINERS_STDOUT_FILE)}\n${readBounded(process.env.CONTAINERS_STDERR_FILE)}`.toLowerCase();
+          const category = /workers paid|paid plan|upgrade[^\n]{0,80}plan|subscription|entitlement|not enabled for this account|not available[^\n]{0,80}free/u.test(diagnostic)
+            ? 'paid-entitlement'
+            : /unauthenticated|unauthorized|forbidden|permission|scope|authentication|authorization|invalid[^\n]{0,40}(?:api )?token/u.test(diagnostic)
+              ? 'authorization'
+              : /rate limit|temporar|service unavailable|internal server|timed? ?out/u.test(diagnostic)
+                ? 'provider-unavailable'
+                : 'unknown';
+          const codes = [...new Set([...diagnostic.matchAll(/(?:["']?(?:code|status)["']?\s*[:=]\s*)(\d{3,6})/gu)].map((match) => match[1]))].slice(0, 3);
+          process.stderr.write(`PREVIEW_CONTAINERS_DIAGNOSTIC=${category} CODES=${codes.join(',') || 'none'}\n`);
+          NODE
+            exit 1
+          fi
+          if ! jq -e 'type == "array"' "$containers_stdout_file" >/dev/null; then
+            printf '%s\n' 'PREVIEW_CONTAINERS_DIAGNOSTIC=malformed-response CODES=none' >&2
+            exit 1
+          fi
           printf '%s\n' 'PREVIEW_CONTAINERS_ACCOUNT_READY'
           inventory() {
             curl --fail --silent --show-error \

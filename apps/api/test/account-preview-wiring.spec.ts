@@ -83,6 +83,18 @@ describe("Preview account provisioning wiring", () => {
       );
       expect(step.slice(step.indexOf("        run: |"))).not.toContain("${{");
     }
+    expect(r2Provision).toContain("containers_stdout_file");
+    expect(r2Provision).toContain("containers_stderr_file");
+    expect(r2Provision).toContain(
+      'chmod 600 "$containers_stdout_file" "$containers_stderr_file"',
+    );
+    expect(r2Provision).toContain("PREVIEW_CONTAINERS_DIAGNOSTIC=");
+    expect(r2Provision).toContain("paid-entitlement");
+    expect(r2Provision).toContain("authorization");
+    expect(r2Provision).toContain("provider-unavailable");
+    expect(r2Provision).toContain("unknown");
+    expect(r2Provision).not.toContain('cat "$containers_stdout_file"');
+    expect(r2Provision).not.toContain('cat "$containers_stderr_file"');
     const reconcilerDeploy = workflow.slice(
       workflow.indexOf("Deploy private account reconciler Worker"),
       workflow.indexOf("Deploy private API Worker"),
