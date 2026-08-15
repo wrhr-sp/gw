@@ -13,10 +13,10 @@ const clean = new Uint8Array([0xff, 0xd8, 0xff, 9]);
 function claimResponse() {
   return new Response(source, {
     headers: {
-      "content-length": String(source.byteLength),
       "content-type": "image/jpeg",
       "x-scanner-claim-token": claimToken,
       "x-scanner-generation": "2",
+      "x-scanner-source-length": String(source.byteLength),
       "x-scanner-source-sha256": sourceSha256,
       "x-scanner-upload-id": uploadId,
     },
@@ -45,6 +45,18 @@ function input(fetcher: (request: Request) => Promise<Response>) {
 }
 
 describe("Preview free file scanner batch", () => {
+  it("rejects a transport length that disagrees with the scanner source length", async () => {
+    const fetcher = vi.fn(async () => {
+      const response = claimResponse();
+      response.headers.set("content-length", String(source.byteLength + 1));
+      return response;
+    });
+
+    await expect(runFileScannerBatch(input(fetcher))).rejects.toMatchObject({
+      code: "SCANNER_BATCH_INTEGRITY",
+    });
+  });
+
   it("claims, scans, optimizes, completes, and stops at an empty queue", async () => {
     const requests: Request[] = [];
     const fetcher = vi.fn(async (request: Request) => {
