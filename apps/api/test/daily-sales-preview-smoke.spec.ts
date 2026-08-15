@@ -23,6 +23,8 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).not.toContain("await uploaded.response.text()");
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
     expect(smoke).toContain("runFileScannerBatch");
+    expect(smoke).toContain("FileScannerBatchError");
+    expect(smoke).toContain("PREVIEW_DAILY_SALES_${error.code}");
     expect(smoke).toContain("scanWithClamAv");
     expect(smoke).toContain("optimizeEvidenceImage");
     expect(smoke).toContain("PREVIEW_FILE_SCANNER_AGENT_TOKEN");
