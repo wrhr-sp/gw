@@ -12,6 +12,9 @@ describe("daily sales Preview smoke", () => {
   it("uses the hosted API, private R2 quarantine, scanner read-back and canonical PostgreSQL", () => {
     expect(smoke).toContain("/files/upload-init");
     expect(smoke).toContain("READY_UNLINKED");
+    expect(smoke).toContain(
+      "/api/files/uploads/${uploadId}?hotelId=${encodeURIComponent(hotelId)}",
+    );
     expect(smoke).toContain("HOTEL_FILE_READ");
     expect(smoke).toContain("HOTEL_FILE_UPLOAD");
     expect(smoke).toContain("origin: baseUrl");

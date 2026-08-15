@@ -190,9 +190,12 @@ async function uploadEvidence(salesId, label) {
           timeoutMs: 30_000,
         }),
     });
-    const status = await api(`/api/files/uploads/${uploadId}`, {
-      failureCode: "PREVIEW_DAILY_SALES_UPLOAD_STATUS_INVALID",
-    });
+    const status = await api(
+      `/api/files/uploads/${uploadId}?hotelId=${encodeURIComponent(hotelId)}`,
+      {
+        failureCode: "PREVIEW_DAILY_SALES_UPLOAD_STATUS_INVALID",
+      },
+    );
     if (
       ["READY_UNLINKED", "LINKED"].includes(status?.upload?.status) &&
       status.upload.fileVersionId
