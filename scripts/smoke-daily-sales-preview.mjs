@@ -2,7 +2,10 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
-import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
+import {
+  FileScannerBatchError,
+  runFileScannerBatch,
+} from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
 
@@ -498,10 +501,12 @@ try {
   console.log("PREVIEW_DAILY_SALES_UI_SMOKE_OK");
 } catch (error) {
   const code =
-    error instanceof Error &&
-    /^PREVIEW_DAILY_SALES_[A-Z_]+$/u.test(error.message)
-      ? error.message
-      : `PREVIEW_DAILY_SALES_FAILED_${failureStage}`;
+    error instanceof FileScannerBatchError
+      ? `PREVIEW_DAILY_SALES_${error.code}`
+      : error instanceof Error &&
+          /^PREVIEW_DAILY_SALES_[A-Z_]+$/u.test(error.message)
+        ? error.message
+        : `PREVIEW_DAILY_SALES_FAILED_${failureStage}`;
   console.error(code);
   process.exitCode = 1;
 } finally {
