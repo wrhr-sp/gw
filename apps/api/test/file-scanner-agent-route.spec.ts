@@ -80,6 +80,9 @@ describe("Preview file scanner agent routes", () => {
     expect(response.headers.get("x-scanner-upload-id")).toBe(uploadId);
     expect(response.headers.get("x-scanner-claim-token")).toBe(claimToken);
     expect(response.headers.get("x-scanner-generation")).toBe("2");
+    expect(response.headers.get("x-scanner-source-length")).toBe(
+      String(body.byteLength),
+    );
     expect(response.headers.get("x-scanner-source-sha256")).toBe(sourceSha256);
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(body);
   });

@@ -134,7 +134,12 @@ export async function runFileScannerBatch(input: {
       await response.body?.cancel();
       throw new FileScannerBatchError("SCANNER_BATCH_API_UNAVAILABLE");
     }
-    const contentLength = Number(response.headers.get("content-length"));
+    const contentLength = Number(
+      response.headers.get("x-scanner-source-length"),
+    );
+    const transportLengthHeader = response.headers.get("content-length");
+    const transportLength =
+      transportLengthHeader === null ? null : Number(transportLengthHeader);
     const declaredMime = response.headers.get("content-type")?.split(";", 1)[0];
     const uploadId = response.headers.get("x-scanner-upload-id") ?? "";
     const claimToken = response.headers.get("x-scanner-claim-token") ?? "";
@@ -144,6 +149,9 @@ export async function runFileScannerBatch(input: {
       !Number.isSafeInteger(contentLength) ||
       contentLength < 1 ||
       contentLength > MAX_FILE_SIZE ||
+      (transportLength !== null &&
+        (!Number.isSafeInteger(transportLength) ||
+          transportLength !== contentLength)) ||
       !declaredMime ||
       !SOURCE_MIME.has(declaredMime) ||
       !UUID.test(uploadId) ||

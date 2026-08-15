@@ -1086,6 +1086,7 @@ export function createApp(options: CreateAppOptions = {}) {
           "X-Content-Type-Options": "nosniff",
           "X-Scanner-Claim-Token": claim.claimToken,
           "X-Scanner-Generation": String(claim.generation),
+          "X-Scanner-Source-Length": String(claim.body.byteLength),
           "X-Scanner-Source-Sha256": claim.sourceSha256,
           "X-Scanner-Upload-Id": claim.uploadId,
         },
