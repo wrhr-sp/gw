@@ -108,6 +108,11 @@ import {
   operationalIssueRoutes,
   operationalIssueSeveritySchema,
   operationalIssueStatusSchema,
+  createHotelInquiryRequestSchema,
+  hotelInquiryMessageRequestSchema,
+  hotelInquiryOwnerResponseSchema,
+  hotelInquiryRoutes,
+  hotelInquiryTransitionRequestSchema,
   createDailySalesDraftRequestSchema,
   updateDailySalesDraftRequestSchema,
   confirmDailySalesRequestSchema,
@@ -120,6 +125,18 @@ import {
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("defines strict owner-inquiry public, private, state, and route contracts", () => {
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const inquiryId = "1a500000-0000-4000-8000-000000000001";
+    expect(createHotelInquiryRequestSchema.safeParse({ inquiryId, categoryCode:"SALES_SETTLEMENT", title:"정산 문의", body:"7월 정산자료 확인을 요청합니다." }).success).toBe(true);
+    expect(hotelInquiryMessageRequestSchema.safeParse({ version:1, body:"내부 검토", visibility:"INTERNAL" }).success).toBe(true);
+    expect(hotelInquiryTransitionRequestSchema.safeParse({ version:2, action:"REQUEST_SUPPLEMENT", reason:"추가 설명이 필요합니다." }).success).toBe(true);
+    const publicInquiry={ id:inquiryId, hotelId, categoryCode:"SALES_SETTLEMENT", categoryName:"매출·정산", title:"정산 문의", status:"ANSWERED", version:3, assignee:{displayName:"담당자"}, messages:[{id:"1a510000-0000-4000-8000-000000000001",body:"공개 답변",actor:{displayName:"담당자"},createdAt:"2026-08-15T00:00:00.000Z",visibility:"PUBLIC",attachments:[]}], answeredAt:"2026-08-15T00:00:00.000Z", closedAt:null, reopenUntil:null, createdAt:"2026-08-14T00:00:00.000Z", updatedAt:"2026-08-15T00:00:00.000Z" };
+    expect(hotelInquiryOwnerResponseSchema.safeParse({ok:true,data:{inquiry:publicInquiry},error:null}).success).toBe(true);
+    expect(hotelInquiryOwnerResponseSchema.safeParse({ok:true,data:{inquiry:{...publicInquiry,internalNotes:[]}},error:null}).success).toBe(false);
+    expect(hotelInquiryRoutes.detail(hotelId,inquiryId)).toBe(`/api/hotels/${hotelId}/inquiries/${inquiryId}`);
+  });
+
   it("defines strict daily-sales money, lock, correction, owner, and route contracts", () => {
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const salesId = "da500000-0000-4000-8000-000000000001";

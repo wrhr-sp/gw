@@ -109,6 +109,14 @@ export {
   type OperationalIssueRepositoryResult,
 } from "./operational-issues";
 export {
+  createPostgresInquiryRepository,
+  reconcileExpiredInquiries,
+  type InquiryCommandInput,
+  type InquiryReadInput,
+  type InquiryRepository,
+  type InquiryRepositoryResult,
+} from "./inquiries";
+export {
   createPostgresDailySalesRepository,
   type DailySalesCommandInput,
   type DailySalesReadInput,

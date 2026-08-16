@@ -13,6 +13,7 @@ import {
   type InspectionMaterializerBindings,
 } from "./inspections/materializer-factory";
 import { resolveDatabaseUrl } from "./database";
+import { reconcileExpiredInquiriesFromBindings } from "./inquiries/factory";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
@@ -52,6 +53,7 @@ async function runScheduled(
       reconcileAccountProviderJobsFromBindings(env),
       recoverExpiredHotelFileAccessGrantsFromBindings(env),
       reconcileInspectionMaterializationsFromBindings(env),
+      reconcileExpiredInquiriesFromBindings(env),
     ]),
   );
 }

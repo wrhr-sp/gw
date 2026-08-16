@@ -599,6 +599,7 @@ try {
       "0051_file_scanner_agent_authority",
       "0051_file_scanner_agent_authority.sql",
     ],
+    ["0052_hotel_owner_inquiries", "0052_hotel_owner_inquiries.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -654,6 +655,8 @@ try {
             (version !== "0050_hotel_daily_sales" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0051_file_scanner_agent_authority" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0052_hotel_owner_inquiries" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
@@ -2370,6 +2373,7 @@ try {
       hotel_calendar_read_model_marker_count: number;
       hotel_daily_sales_marker_count: number;
       hotel_operational_issues_marker_count: number;
+      hotel_owner_inquiries_marker_count: number;
       hotel_repair_lifecycle_marker_count: number;
     }[]
   >`
@@ -2384,13 +2388,17 @@ try {
     )::integer as hotel_operational_issues_marker_count,
     count(*) filter (
       where version = '0050_hotel_daily_sales'
-    )::integer as hotel_daily_sales_marker_count
+    )::integer as hotel_daily_sales_marker_count,
+    count(*) filter (
+      where version = '0052_hotel_owner_inquiries'
+    )::integer as hotel_owner_inquiries_marker_count
     from public.schema_migrations
   `;
   if (
     !repairLifecycleState ||
     repairLifecycleState.hotel_calendar_read_model_marker_count !== 1 ||
-    ![0, 1].includes(repairLifecycleState.hotel_daily_sales_marker_count)
+    ![0, 1].includes(repairLifecycleState.hotel_daily_sales_marker_count) ||
+    ![0, 1].includes(repairLifecycleState.hotel_owner_inquiries_marker_count)
   ) {
     fail("Preview repair or Calendar lifecycle marker state is unavailable");
   }
@@ -2921,6 +2929,20 @@ try {
              'hotel_issue_capabilities_v1',
              'hotel_issue_read_v1',
              'hotel_issue_command_v1',
+             'hotel_inquiry_idempotency_begin_v1',
+             'inquiry_history_append_only',
+             'hotel_inquiry_snapshot_v1',
+             'hotel_inquiry_owner_can_read_v1',
+             'hotel_inquiry_rls_company_guard_v1',
+             'hotel_inquiry_seed_categories_v1',
+             'hotel_inquiry_settings_snapshot_v1',
+             'hotel_inquiry_capabilities_v1',
+             'hotel_inquiry_read_v1',
+             'hotel_inquiry_command_v1',
+             'hotel_inquiry_file_scope_v1',
+             'hotel_inquiry_file_command_v1',
+             'hotel_inquiry_file_view_v1',
+             'hotel_inquiry_auto_close_v1',
              'hotel_daily_sales_capabilities_v1',
              'hotel_daily_sales_read_v1',
              'hotel_daily_sales_command_v1',
@@ -2987,6 +3009,29 @@ try {
     grant execute on function public.hotel_issue_command_v1(
       uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};`
+        : ""
+    }
+    ${
+      repairLifecycleState.hotel_owner_inquiries_marker_count === 1
+        ? `grant execute on function public.hotel_inquiry_capabilities_v1(
+      uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_read_v1(
+      uuid, uuid, uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_file_scope_v1(
+      uuid, uuid, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_file_command_v1(
+      uuid, uuid, uuid, text, integer, jsonb, text, uuid, text, text, text, text, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_file_view_v1(
+      uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_inquiry_auto_close_v1(integer) to ${reconcilerRole};`
         : ""
     }
     ${

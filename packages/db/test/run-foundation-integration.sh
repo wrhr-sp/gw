@@ -212,17 +212,17 @@ begin
       execute format('grant execute on function public.hotel_calendar_visit_options_read_v1(uuid,uuid,text) to %I', capability_role.role_name);
     end if;
   end loop;
-  if to_regprocedure('public.scheduled_reconciler_invocation_enter_v1()') is not null then
-    for capability_role in select role_name from public.runtime_database_capabilities where capability='RECONCILER'
-    loop
-      if to_regclass('public.hotel_file_scanner_agent_capabilities') is not null then
-        execute format('grant select on public.hotel_file_scanner_agent_capabilities to %I', capability_role.role_name);
-      end if;
+  for capability_role in select role_name from public.runtime_database_capabilities where capability='RECONCILER'
+  loop
+    if to_regclass('public.hotel_file_scanner_agent_capabilities') is not null then
+      execute format('grant select on public.hotel_file_scanner_agent_capabilities to %I', capability_role.role_name);
+    end if;
+    if to_regprocedure('public.scheduled_reconciler_invocation_enter_v1()') is not null then
       execute format('grant execute on function public.scheduled_reconciler_invocation_enter_v1() to %I', capability_role.role_name);
       execute format('grant execute on function public.scheduled_reconciler_invocation_exit_v1() to %I', capability_role.role_name);
       execute format('grant execute on function public.scheduled_reconciler_drain_barrier_v1() to %I', capability_role.role_name);
-    end loop;
-  end if;
+    end if;
+  end loop;
 end
 $grant_repair_lifecycle$;
 SQL
@@ -677,6 +677,113 @@ alter table public.hotel_daily_sales
 SQL
   assert_schema_ready "$probe_url"
   printf 'HOTEL_DAILY_SALES_READINESS_DAMAGE_OK\n'
+}
+
+assert_owner_inquiries_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local history_definition
+  local settings_definition
+  assert_schema_ready "$probe_url"
+  history_definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_functiondef('public.inquiry_history_append_only()'::regprocedure)")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "create or replace function public.inquiry_history_append_only() returns trigger language plpgsql set search_path=pg_catalog as \$f\$ begin return old; end \$f\$" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "$history_definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  settings_definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_functiondef('public.hotel_inquiry_settings_snapshot_v1(uuid,uuid)'::regprocedure)")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    "create or replace function public.hotel_inquiry_settings_snapshot_v1(p_company_id uuid,p_branch_id uuid) returns jsonb language sql stable set search_path=pg_catalog as \$f\$ select '{}'::jsonb \$f\$" >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "$settings_definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant execute on function public.inquiry_history_append_only() to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke execute on function public.inquiry_history_append_only() from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant execute on function public.hotel_inquiry_settings_snapshot_v1(uuid,uuid) to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke execute on function public.hotel_inquiry_settings_snapshot_v1(uuid,uuid) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter table public.hotel_inquiries no force row level security' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter table public.hotel_inquiries force row level security' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant update on public.hotel_inquiries to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke update on public.hotel_inquiries from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant select on public.hotel_inquiries to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke select on public.hotel_inquiries from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant select(title) on public.hotel_inquiries to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke select(title) on public.hotel_inquiries from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop policy hotel_inquiries_company_isolation on public.hotel_inquiries;
+create policy hotel_inquiries_company_isolation on public.hotel_inquiries
+  using (public.hotel_inquiry_rls_company_guard_v1(company_id) or true)
+  with check (public.hotel_inquiry_rls_company_guard_v1(company_id) or true);
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop policy hotel_inquiries_company_isolation on public.hotel_inquiries;
+create policy hotel_inquiries_company_isolation on public.hotel_inquiries
+  using (public.hotel_inquiry_rls_company_guard_v1(company_id))
+  with check (public.hotel_inquiry_rls_company_guard_v1(company_id));
+SQL
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant execute on function public.hotel_inquiry_snapshot_v1(uuid,uuid,uuid,boolean) to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke execute on function public.hotel_inquiry_snapshot_v1(uuid,uuid,uuid,boolean) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter function public.hotel_inquiry_auto_close_v1(integer) set search_path=public' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter function public.hotel_inquiry_auto_close_v1(integer) set search_path=pg_catalog' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant execute on function public.hotel_inquiry_auto_close_v1(integer) to gw_runtime_probe with grant option' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke grant option for execute on function public.hotel_inquiry_auto_close_v1(integer) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'grant execute on function public.hotel_inquiry_idempotency_begin_v1(uuid,uuid,text,text,text,text) to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'revoke execute on function public.hotel_inquiry_idempotency_begin_v1(uuid,uuid,text,text,text,text) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter table public.hotel_inquiry_status_history disable trigger inquiry_status_append_only' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'alter table public.hotel_inquiry_status_history enable trigger inquiry_status_append_only' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'drop trigger hotel_inquiry_seed_categories_after_company on public.companies' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c \
+    'create trigger hotel_inquiry_seed_categories_after_company after insert on public.companies for each row execute function public.hotel_inquiry_seed_categories_v1()' >/dev/null
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_OWNER_INQUIRIES_READINESS_DAMAGE_OK\n'
 }
 
 assert_checklist_expand_readiness_damage() {
@@ -1503,6 +1610,7 @@ REPAIR_VISIT_TRIGGER_DEFINER_MIGRATION="$ROOT_DIR/packages/db/migrations/0048_re
 HOTEL_OPERATIONAL_ISSUES_MIGRATION="$ROOT_DIR/packages/db/migrations/0049_hotel_operational_issues.sql"
 HOTEL_DAILY_SALES_MIGRATION="$ROOT_DIR/packages/db/migrations/0050_hotel_daily_sales.sql"
 FILE_SCANNER_AGENT_AUTHORITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0051_file_scanner_agent_authority.sql"
+HOTEL_OWNER_INQUIRIES_MIGRATION="$ROOT_DIR/packages/db/migrations/0052_hotel_owner_inquiries.sql"
 FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL="$ROOT_DIR/packages/db/test/file-scanner-agent-authority-integration.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
@@ -1511,6 +1619,7 @@ HOTEL_REPAIR_LIFECYCLE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-lifecyc
 HOTEL_REPAIR_PRIVATE_EVIDENCE_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-repair-private-evidence-integration.sql"
 HOTEL_OPERATIONAL_ISSUES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-operational-issues-integration.sql"
 HOTEL_DAILY_SALES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-daily-sales-integration.sql"
+HOTEL_OWNER_INQUIRIES_TEST_SQL="$ROOT_DIR/packages/db/test/hotel-owner-inquiries-integration.sql"
 ACCOUNT_PROVIDER_EXACT_DISPATCH_CONTRACT_MIGRATION="$ROOT_DIR/packages/db/migrations/0012_account_provider_exact_dispatch_contract.sql"
 NEON_DEFINER_CONTRACT_HARDENING_MIGRATION="$ROOT_DIR/packages/db/migrations/0015_neon_definer_contract_hardening.sql"
 FALLBACK_REMOVAL_MIGRATION="$ROOT_DIR/packages/db/migrations/0008_remove_legacy_company_id_fallback.sql"
@@ -2526,6 +2635,14 @@ begin
 end
 $contract_scanner_authority$;
 SQL
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_MIGRATION" >/dev/null
+HOTEL_OWNER_INQUIRIES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_TEST_SQL")"
+if [[ "$HOTEL_OWNER_INQUIRIES_RESULT" != *"HOTEL_OWNER_INQUIRIES_INTEGRATION_OK"* ]]; then
+  printf '%s\n' "$HOTEL_OWNER_INQUIRIES_RESULT" >&2
+  exit 1
+fi
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
+assert_owner_inquiries_readiness_damage "$ADMIN_URL" "$PROBE_URL"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_CALENDAR_READ_MODEL_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$SCHEDULED_RECONCILER_LOCK_MIGRATION" >/dev/null
 grant_repair_lifecycle_capabilities "$ADMIN_URL"

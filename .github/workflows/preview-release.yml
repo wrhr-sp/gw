@@ -1281,6 +1281,18 @@ jobs:
           grep -qx 'PREVIEW_DAILY_SALES_API_DB_SMOKE_OK' /tmp/preview-daily-sales-smoke.log
           grep -qx 'PREVIEW_DAILY_SALES_UI_SMOKE_OK' /tmp/preview-daily-sales-smoke.log
 
+      - name: Verify hosted Preview owner inquiry API, DB, attachments, notifications, and responsive UI before contract
+        id: owner_inquiry_smoke
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -o pipefail
+          pnpm exec tsx scripts/smoke-inquiries-preview.mjs | tee /tmp/preview-owner-inquiry-smoke.log
+          grep -qx 'PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK' /tmp/preview-owner-inquiry-smoke.log
+          grep -qx 'PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK' /tmp/preview-owner-inquiry-smoke.log
+
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
         env:
@@ -1307,6 +1319,29 @@ jobs:
           printf 'disposition_started=true\n' >> "$GITHUB_OUTPUT"
           node scripts/decommission-google-calendar-preview.mjs | tee "$output_file"
           grep -Eq '^PREVIEW_GOOGLE_PROVIDER_DISPOSITION_OK calendars=[0-9]+ credentials=[0-9]+$' "$output_file"
+
+      - name: Verify exact active Workers after owner inquiry smoke and before contract
+        id: owner_inquiry_exact_active_before_contract
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          EXPECTED_RECONCILER_VERSION: ${{ steps.deploy_reconciler.outputs.deployed_version }}
+          EXPECTED_API_VERSION: ${{ steps.deploy_api.outputs.deployed_version }}
+          EXPECTED_WEB_VERSION: ${{ steps.deploy_web.outputs.deployed_version }}
+        run: |
+          set -euo pipefail
+          verify_active() {
+            local worker_name="$1" expected_version="$2" deployments_file
+            deployments_file="$(mktemp)"
+            trap 'rm -f "$deployments_file"' RETURN
+            pnpm --filter @werehere/api exec wrangler deployments list --name "$worker_name" --json > "$deployments_file"
+            jq -e --arg version "$expected_version" 'type == "array" and length > 0 and (.[-1].versions | type) == "array" and (.[-1].versions | length) == 1 and .[-1].versions[0].percentage == 100 and .[-1].versions[0].version_id == $version' "$deployments_file" >/dev/null
+            rm -f "$deployments_file"
+            trap - RETURN
+          }
+          verify_active werehere-hotel-account-reconciler-preview "$EXPECTED_RECONCILER_VERSION"
+          verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
+          verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
       - name: Contract Neon Preview tenant authority
         id: contract_database
@@ -1352,6 +1387,20 @@ jobs:
         run: |
           node scripts/smoke-cloudflare-preview.mjs
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
+
+      - name: Verify hosted Preview owner inquiry API, DB, R2, scanner, projections, and UI after contract
+        id: owner_inquiry_post_contract_smoke
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          OWNER_INQUIRY_SMOKE_PHASE: POST_CONTRACT
+          PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -o pipefail
+          pnpm exec tsx scripts/smoke-inquiries-preview.mjs | tee /tmp/preview-owner-inquiry-post-contract-smoke.log
+          grep -qx 'PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
+          grep -qx 'PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
+          grep -qx 'PREVIEW_OWNER_INQUIRY_POST_CONTRACT_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
 
       - name: Verify hosted Preview own Calendar mutation after contract
         env:

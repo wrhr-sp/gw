@@ -46,10 +46,50 @@ const HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256 =
   "fc32af3cf8312e2c640b95cc88c118b2aa524478670d4eed98eb9691550f6bbf";
 const HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256 =
   "ab305e42dbcc0b626072f2dc3ad9dc1eb55f466a34e7b447d2afc121a36f3eb6";
+const HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256 =
+  "6f585e79e861ac0321ec3fa73a2324a4134778fd70a24bf5b15eb79b77074ae8";
+const HOTEL_INQUIRY_IDEMPOTENCY_BEGIN_V1_PROSRC_SHA256 =
+  "35c6cd970e390f2d5523e8ea8abd7cbc8301a28959d14bb8bb0f814a90f02076";
+const HOTEL_INQUIRY_CATALOG_SHA256 =
+  "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a";
+const HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256 = {
+  inquiry_history_append_only:
+    "a455cc5237313e3539bc69c1cefd9eba1409d4c23464c58b198f89ad9d5d008b",
+  hotel_inquiry_owner_can_read_v1:
+    "ee9b1b801fdc81b26ae759e1e01740378a70626eb71d445b44646570cd09b550",
+  hotel_inquiry_rls_company_guard_v1:
+    "be6a261297fb096044e76cd61b95ecb9d4a3c702122fef369d12d28d90ea77e0",
+  hotel_inquiry_seed_categories_v1:
+    "01ae2551babaa9345c60c9cbff24a86a47a018b37e01384b16cef7f53501ab85",
+  hotel_inquiry_settings_snapshot_v1:
+    "41a1c4ec282cb976c0f220628fdbfc2cd6893ceb555a0ab8139baea49e1b0463",
+  hotel_inquiry_snapshot_v1:
+    "d3bb511be7f3017316044b89722dcf140b3c7f66d4d5b8b19e77a07941e7360e",
+} as const;
+const HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256 = {
+  hotel_inquiry_actor_v1:
+    "36e7e286269b077d573689db2571d6f81f97bdb484b01d6151569917dfc87ec6",
+  hotel_inquiry_auto_close_v1:
+    "fe0e1d9c47c2f1bd354780b282a7dca77b2ededa81b61e6d7932b6fdffab8168",
+  hotel_inquiry_capabilities_v1:
+    "44d16317609e9b5ac2637575752c1bc7db798c5439ee4439ef5fe3c98f397cf7",
+  hotel_inquiry_command_v1:
+    "a24db54f65a88e140eedf54e82073cd8aa24f59dfaa1b727cba2491d576421b1",
+  hotel_inquiry_file_command_v1:
+    "e41ddc0b881918a59585c597f7c7a33e3b091b130fbc990315008659822e7fe7",
+  hotel_inquiry_file_scope_v1:
+    "51f38fc3a1f5b9840d8101faba155cea3694bf6bfb52af5a0a54ca183c12e048",
+  hotel_inquiry_file_view_v1:
+    "cbe729826d03eb9593e642e20a166a02ccb5c3e36db55e61a7d95f725bf821a6",
+  hotel_inquiry_read_v1:
+    "c27155077a8948b14f1b3e7243456025d1b741c662c741455d3cc3ce9bebf3e0",
+} as const;
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
 const HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256 =
   "508c9daf9cc33001a0f2d47bd8e033748468671aba5c7b7ed313ee8e2043edd4";
+const HOTEL_REPAIR_OWNER_INQUIRIES_CATALOG_SHA256 =
+  "8d7f6cfc1243fa286acc21211690c30d5e18f57b8e8eb8b52a07004d0b4f8b61";
 const HOTEL_DAILY_SALES_ACTOR_V1_PROSRC_SHA256 =
   "93de58bcd56ba3eecd6ed5482183eacfa39e901a33e7b67972dec3a63f5c5701";
 const HOTEL_DAILY_SALES_SNAPSHOT_V1_PROSRC_SHA256 =
@@ -187,7 +227,7 @@ const HOTEL_INSPECTION_COMMAND_CONTRACTS = [
   },
   {
     capability: "API_RUNTIME",
-    digest: "cd8de85f8c4b362fb3e8699ac53008e94f66b3d77355e098fca7c64c3eac252e",
+    digest: "f18dae64cff247a9306b73249138847592333ee4e6c60859f1810226d81c2198",
     name: "hotel_file_scanner_agent_command_v1",
     scannerAgent: true,
     result: "TABLE(command_status text, result_snapshot jsonb)",
@@ -2527,12 +2567,20 @@ export async function probeDatabaseReadiness(
         repair_visit_trigger_definer_marker_count: number;
         hotel_operational_issues_marker_count: number;
         hotel_daily_sales_marker_count: number;
+        hotel_owner_inquiries_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
         scheduled_reconciler_lock_marker_count: number;
         login_id_history_contract_marker_count: number;
+        inquiry_capabilities_execute: boolean;
+        inquiry_read_execute: boolean;
+        inquiry_command_execute: boolean;
+        inquiry_file_scope_execute: boolean;
+        inquiry_file_command_execute: boolean;
+        inquiry_file_view_execute: boolean;
+        inquiry_auto_close_execute: boolean;
       }[]
     >`
       select count(*) filter (
@@ -2646,6 +2694,9 @@ export async function probeDatabaseReadiness(
                where version = '0051_file_scanner_agent_authority'
              )::integer as file_scanner_agent_authority_marker_count,
              count(*) filter (
+               where version = '0052_hotel_owner_inquiries'
+             )::integer as hotel_owner_inquiries_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2656,7 +2707,14 @@ export async function probeDatabaseReadiness(
              )::integer as google_calendar_removal_marker_count,
              count(*) filter (
                where version = '0046_scheduled_reconciler_invocation_lock'
-             )::integer as scheduled_reconciler_lock_marker_count
+             )::integer as scheduled_reconciler_lock_marker_count,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_capabilities_v1(uuid,text)'),'EXECUTE'),false) as inquiry_capabilities_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_read_v1(uuid,uuid,uuid,jsonb,text)'),'EXECUTE'),false) as inquiry_read_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'),'EXECUTE'),false) as inquiry_command_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_file_scope_v1(uuid,uuid,text)'),'EXECUTE'),false) as inquiry_file_scope_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)'),'EXECUTE'),false) as inquiry_file_command_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_file_view_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)'),'EXECUTE'),false) as inquiry_file_view_execute,
+             coalesce(pg_catalog.has_function_privilege(current_user,pg_catalog.to_regprocedure('public.hotel_inquiry_auto_close_v1(integer)'),'EXECUTE'),false) as inquiry_auto_close_execute
              from public.schema_migrations
       where version in (
         '0001_platform_foundation',
@@ -2706,7 +2764,8 @@ export async function probeDatabaseReadiness(
         '0048_repair_visit_trigger_definer',
         '0049_hotel_operational_issues',
         '0050_hotel_daily_sales',
-        '0051_file_scanner_agent_authority'
+        '0051_file_scanner_agent_authority',
+        '0052_hotel_owner_inquiries'
       )
     `;
     const schemaPhase =
@@ -2744,6 +2803,12 @@ export async function probeDatabaseReadiness(
       migrationRows[0]?.file_scanner_agent_authority_marker_count === 1
         ? "EXPAND"
         : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
+    const ownerInquiriesPhase =
+      migrationRows[0]?.hotel_owner_inquiries_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_owner_inquiries_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
@@ -2870,10 +2935,29 @@ export async function probeDatabaseReadiness(
                 .hotel_inspection_facility_execution_contract_marker_count === 0
             ? "PRE_CONTRACT"
             : null;
+    const inquiryAuthorityValid =
+      ownerInquiriesPhase !== "EXPAND" ||
+      (options.capability === "API_RUNTIME"
+        ? migrationRows[0]?.inquiry_capabilities_execute === true &&
+          migrationRows[0].inquiry_read_execute === true &&
+          migrationRows[0].inquiry_command_execute === true &&
+          migrationRows[0].inquiry_file_scope_execute === true &&
+          migrationRows[0].inquiry_file_command_execute === true &&
+          migrationRows[0].inquiry_file_view_execute === true &&
+          migrationRows[0].inquiry_auto_close_execute === false
+        : migrationRows[0]?.inquiry_capabilities_execute === false &&
+          migrationRows[0].inquiry_read_execute === false &&
+          migrationRows[0].inquiry_command_execute === false &&
+          migrationRows[0].inquiry_file_scope_execute === false &&
+          migrationRows[0].inquiry_file_command_execute === false &&
+          migrationRows[0].inquiry_file_view_execute === false &&
+          migrationRows[0].inquiry_auto_close_execute === true);
     if (
+      !inquiryAuthorityValid ||
       !repairLifecyclePhase ||
       !operationalIssuesPhase ||
       !dailySalesPhase ||
+      !ownerInquiriesPhase ||
       !fileScannerAgentAuthorityPhase ||
       !calendarReadModelPhase ||
       !scheduledReconcilerLockPhase ||
@@ -2883,6 +2967,310 @@ export async function probeDatabaseReadiness(
         scheduledReconcilerLockPhase !== "EXPAND")
     )
       return schemaNotReady();
+    if (ownerInquiriesPhase === "EXPAND") {
+      const inquiryTableNames = [
+        "hotel_inquiry_assignments",
+        "hotel_inquiry_categories",
+        "hotel_inquiry_contacts",
+        "hotel_inquiry_message_attachments",
+        "hotel_inquiry_messages",
+        "hotel_inquiry_notifications",
+        "hotel_inquiry_routes",
+        "hotel_inquiry_status_history",
+        "hotel_inquiries",
+      ] as const;
+      const [inquiryFoundation] = await sql<
+        {
+          catalog_shape: string;
+          column_acl_count: number;
+          force_rls_count: number;
+          table_acl_count: number;
+          owner_safe_count: number;
+          policy_count: number;
+          policy_safe_count: number;
+          rls_count: number;
+          table_count: number;
+        }[]
+      >`
+        select count(*)::integer as table_count,
+               count(*) filter (where table_record.relrowsecurity)::integer as rls_count,
+               count(*) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
+               count(*) filter (where table_record.relowner=migration_table.relowner)::integer as owner_safe_count,
+               (select count(*)::integer from pg_catalog.pg_policies policy
+                 where policy.schemaname='public' and policy.tablename=any(${inquiryTableNames as unknown as string[]})) as policy_count,
+               (select count(*)::integer from pg_catalog.pg_policies policy
+                 where policy.schemaname='public' and policy.tablename=any(${inquiryTableNames as unknown as string[]})
+                   and policy.cmd='ALL' and policy.roles=array['public']::name[]
+                   and policy.qual=policy.with_check
+                   and pg_catalog.regexp_replace(policy.qual,'\\s','','g')
+                     ~ '^\\(?((public\\.)?hotel_inquiry_rls_company_guard_v1\\(company_id\\))\\)?$') as policy_safe_count,
+               (select count(*)::integer from pg_catalog.pg_class protected_table
+                 join pg_catalog.pg_namespace protected_namespace on protected_namespace.oid=protected_table.relnamespace
+                 cross join lateral pg_catalog.aclexplode(coalesce(protected_table.relacl,pg_catalog.acldefault('r'::"char",protected_table.relowner))) acl
+                where protected_namespace.nspname='public' and protected_table.relname=any(${inquiryTableNames as unknown as string[]})
+                  and acl.grantee<>protected_table.relowner) as table_acl_count,
+               (select count(*)::integer from pg_catalog.pg_class protected_table
+                 join pg_catalog.pg_namespace protected_namespace on protected_namespace.oid=protected_table.relnamespace
+                 join pg_catalog.pg_attribute protected_column on protected_column.attrelid=protected_table.oid and protected_column.attnum>0 and not protected_column.attisdropped
+                 cross join lateral pg_catalog.aclexplode(protected_column.attacl) acl
+                where protected_namespace.nspname='public' and protected_table.relname=any(${inquiryTableNames as unknown as string[]})
+                  and acl.grantee<>protected_table.relowner) as column_acl_count,
+               (select pg_catalog.string_agg(catalog_record.line,E'\\n' order by catalog_record.line)
+                  from(
+                    select 'COLUMN|'||table_record.relname||'|'||attribute_record.attnum::text||'|'||attribute_record.attname||'|'||pg_catalog.format_type(attribute_record.atttypid,attribute_record.atttypmod)||'|'||attribute_record.attnotnull::text||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid,true),'') as line
+                      from pg_catalog.pg_class table_record
+                      join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+                      join pg_catalog.pg_attribute attribute_record on attribute_record.attrelid=table_record.oid and attribute_record.attnum>0 and not attribute_record.attisdropped
+                      left join pg_catalog.pg_attrdef default_record on default_record.adrelid=table_record.oid and default_record.adnum=attribute_record.attnum
+                     where table_namespace.nspname='public' and table_record.relname=any(${inquiryTableNames as unknown as string[]})
+                    union all
+                    select 'CONSTRAINT|'||table_record.relname||'|'||constraint_record.contype::text||'|'||constraint_record.conname||'|'||constraint_record.convalidated::text||'|'||pg_catalog.pg_get_constraintdef(constraint_record.oid,true)
+                      from pg_catalog.pg_constraint constraint_record
+                      join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid
+                      join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+                     where table_namespace.nspname='public' and table_record.relname=any(${inquiryTableNames as unknown as string[]})
+                    union all
+                    select 'INDEX|'||index_record.tablename||'|'||index_record.indexname||'|'||index_record.indexdef
+                      from pg_catalog.pg_indexes index_record
+                     where index_record.schemaname='public' and index_record.tablename=any(${inquiryTableNames as unknown as string[]})
+                    union all
+                    select 'TRIGGER|'||table_record.relname||'|'||trigger_record.tgname||'|'||trigger_record.tgenabled::text||'|'||pg_catalog.pg_get_triggerdef(trigger_record.oid,true)
+                      from pg_catalog.pg_trigger trigger_record
+                      join pg_catalog.pg_class table_record on table_record.oid=trigger_record.tgrelid
+                      join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+                     where table_namespace.nspname='public' and not trigger_record.tgisinternal
+                       and(table_record.relname=any(${inquiryTableNames as unknown as string[]})or trigger_record.tgname='hotel_inquiry_seed_categories_after_company')
+                  )catalog_record) as catalog_shape
+          from pg_catalog.pg_class table_record
+          join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+          join pg_catalog.pg_class migration_table on migration_table.relname='schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+         where table_namespace.nspname='public' and migration_namespace.nspname='public'
+           and table_record.relkind in('r','p') and table_record.relname=any(${inquiryTableNames as unknown as string[]})
+      `;
+      const inquiryCatalogDigest = inquiryFoundation?.catalog_shape
+        ? await sourceSha256(inquiryFoundation.catalog_shape)
+        : null;
+      if (
+        inquiryFoundation?.table_count !== inquiryTableNames.length ||
+        inquiryFoundation.rls_count !== inquiryTableNames.length ||
+        inquiryFoundation.force_rls_count !== inquiryTableNames.length ||
+        inquiryFoundation.owner_safe_count !== inquiryTableNames.length ||
+        inquiryFoundation.policy_count !== inquiryTableNames.length ||
+        inquiryFoundation.policy_safe_count !== inquiryTableNames.length ||
+        inquiryFoundation.table_acl_count !== 0 ||
+        inquiryFoundation.column_acl_count !== 0 ||
+        inquiryCatalogDigest !== HOTEL_INQUIRY_CATALOG_SHA256
+      )
+        return schemaNotReady();
+
+      const [inquiryIdempotencyHelper] = await sql<
+        {
+          acl_safe: boolean;
+          identity_arguments: string;
+          metadata_safe: boolean;
+          owner_safe: boolean;
+          result_signature: string;
+          source: string;
+        }[]
+      >`
+        select not helper.prosecdef and helper_language.lanname='plpgsql'
+                 and helper.provolatile='v'::"char" and helper.proparallel='u'::"char"
+                 and not helper.proleakproof and helper.proconfig=array['search_path=pg_catalog']::text[] as metadata_safe,
+               helper.proowner=migration_table.relowner as owner_safe,
+               pg_catalog.pg_get_function_identity_arguments(helper.oid) as identity_arguments,
+               pg_catalog.pg_get_function_result(helper.oid) as result_signature,
+               helper.prosrc as source,
+               not exists(
+                 select 1 from pg_catalog.aclexplode(coalesce(helper.proacl,pg_catalog.acldefault('f',helper.proowner))) acl
+                  where acl.privilege_type='EXECUTE' and acl.grantee<>helper.proowner
+               ) as acl_safe
+          from pg_catalog.pg_proc helper
+          join pg_catalog.pg_namespace helper_namespace on helper_namespace.oid=helper.pronamespace
+          join pg_catalog.pg_language helper_language on helper_language.oid=helper.prolang
+          join pg_catalog.pg_class migration_table on migration_table.relname='schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+         where helper_namespace.nspname='public' and migration_namespace.nspname='public'
+           and helper.oid=pg_catalog.to_regprocedure('public.hotel_inquiry_idempotency_begin_v1(uuid,uuid,text,text,text,text)')
+      `;
+      if (
+        !inquiryIdempotencyHelper?.metadata_safe ||
+        !inquiryIdempotencyHelper.owner_safe ||
+        !inquiryIdempotencyHelper.acl_safe ||
+        inquiryIdempotencyHelper.identity_arguments !==
+          "p_company_id uuid, p_actor_user_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text" ||
+        inquiryIdempotencyHelper.result_signature !==
+          "TABLE(command_status text, result_snapshot jsonb)" ||
+        (await sourceSha256(inquiryIdempotencyHelper.source)) !==
+          HOTEL_INQUIRY_IDEMPOTENCY_BEGIN_V1_PROSRC_SHA256
+      )
+        return schemaNotReady();
+
+      const inquiryPrivateHelpers = await sql<
+        {
+          acl_safe: boolean;
+          identity_arguments: string;
+          metadata_safe: boolean;
+          name: keyof typeof HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256;
+          owner_safe: boolean;
+          result_signature: string;
+          source: string;
+        }[]
+      >`
+        select helper.proname as name,
+               helper.prosrc as source,
+               pg_catalog.pg_get_function_identity_arguments(helper.oid) as identity_arguments,
+               pg_catalog.pg_get_function_result(helper.oid) as result_signature,
+               helper.prosecdef=(helper.proname='hotel_inquiry_seed_categories_v1')
+                 and helper_language.lanname=case when helper.proname in('hotel_inquiry_seed_categories_v1','inquiry_history_append_only')then'plpgsql'else'sql'end
+                 and helper.provolatile=case when helper.proname in('hotel_inquiry_seed_categories_v1','inquiry_history_append_only')then'v'::"char"else's'::"char"end
+                 and helper.proparallel='u'::"char" and not helper.proleakproof
+                 and helper.proconfig=array['search_path=pg_catalog']::text[] as metadata_safe,
+               helper.proowner=migration_table.relowner as owner_safe,
+               not exists(
+                 select 1 from pg_catalog.aclexplode(coalesce(helper.proacl,pg_catalog.acldefault('f',helper.proowner))) acl
+                  where acl.privilege_type='EXECUTE' and acl.grantee<>helper.proowner
+               ) as acl_safe
+          from pg_catalog.pg_proc helper
+          join pg_catalog.pg_namespace helper_namespace on helper_namespace.oid=helper.pronamespace
+          join pg_catalog.pg_language helper_language on helper_language.oid=helper.prolang
+          join pg_catalog.pg_class migration_table on migration_table.relname='schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+         where helper_namespace.nspname='public' and migration_namespace.nspname='public'
+           and helper.proname=any(${Object.keys(HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256)})
+      `;
+      const expectedPrivateHelperIdentity: Record<string, string> = {
+        inquiry_history_append_only: "",
+        hotel_inquiry_owner_can_read_v1:
+          "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_actor_user_id uuid",
+        hotel_inquiry_rls_company_guard_v1: "p_company_id uuid",
+        hotel_inquiry_seed_categories_v1: "",
+        hotel_inquiry_settings_snapshot_v1:
+          "p_company_id uuid, p_branch_id uuid",
+        hotel_inquiry_snapshot_v1:
+          "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_internal boolean",
+      };
+      const expectedPrivateHelperResult: Record<string, string> = {
+        inquiry_history_append_only: "trigger",
+        hotel_inquiry_owner_can_read_v1: "boolean",
+        hotel_inquiry_rls_company_guard_v1: "boolean",
+        hotel_inquiry_seed_categories_v1: "trigger",
+        hotel_inquiry_settings_snapshot_v1: "jsonb",
+        hotel_inquiry_snapshot_v1: "jsonb",
+      };
+      if (
+        inquiryPrivateHelpers.length !== Object.keys(HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256).length ||
+        inquiryPrivateHelpers.some(
+          (helper) =>
+            !helper.metadata_safe || !helper.owner_safe || !helper.acl_safe ||
+            helper.identity_arguments !== expectedPrivateHelperIdentity[helper.name] ||
+            helper.result_signature !== expectedPrivateHelperResult[helper.name],
+        ) ||
+        (
+          await Promise.all(
+            inquiryPrivateHelpers.map(async (helper) => [
+              helper.name,
+              await sourceSha256(helper.source),
+            ] as const),
+          )
+        ).some(
+          ([name, digest]) => digest !== HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256[name],
+        )
+      )
+        return schemaNotReady();
+
+      const inquiryAuthorities = await sql<
+        {
+          execute_acl_safe: boolean;
+          grantable_execute_count: number;
+          identity_arguments: string;
+          metadata_safe: boolean;
+          name: keyof typeof HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256;
+          owner_safe: boolean;
+          public_execute: boolean;
+          result_signature: string;
+          source: string;
+        }[]
+      >`
+        select procedure_record.proname as name,
+               procedure_record.prosrc as source,
+               pg_catalog.pg_get_function_identity_arguments(procedure_record.oid) as identity_arguments,
+               pg_catalog.pg_get_function_result(procedure_record.oid) as result_signature,
+               procedure_record.prosecdef
+                 and procedure_language.lanname=case when procedure_record.proname='hotel_inquiry_actor_v1'then'sql'else'plpgsql'end
+                 and procedure_record.provolatile=case when procedure_record.proname='hotel_inquiry_actor_v1'then's'::"char"else'v'::"char"end
+                 and procedure_record.proparallel='u' and not procedure_record.proleakproof
+                 and procedure_record.proconfig=array['search_path=pg_catalog']::text[] as metadata_safe,
+               procedure_record.proowner=migration_table.relowner as owner_safe,
+               not exists(
+                 select 1 from pg_catalog.aclexplode(coalesce(procedure_record.proacl,pg_catalog.acldefault('f',procedure_record.proowner))) actual_acl
+                  where actual_acl.privilege_type='EXECUTE' and actual_acl.grantee<>procedure_record.proowner
+                    and(actual_acl.is_grantable or not exists(
+                      select 1 from public.runtime_database_capabilities capability
+                      join pg_catalog.pg_roles capability_role on capability_role.rolname=capability.role_name
+                     where capability.capability=case when procedure_record.proname='hotel_inquiry_actor_v1'then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
+                       and capability_role.oid=actual_acl.grantee and capability_role.oid<>procedure_record.proowner))
+               ) and not exists(
+                 select 1 from public.runtime_database_capabilities capability
+                 join pg_catalog.pg_roles capability_role on capability_role.rolname=capability.role_name
+                where capability.capability=case when procedure_record.proname='hotel_inquiry_actor_v1'then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
+                  and capability_role.oid<>procedure_record.proowner and not exists(
+                    select 1 from pg_catalog.aclexplode(coalesce(procedure_record.proacl,pg_catalog.acldefault('f',procedure_record.proowner))) actual_acl
+                     where actual_acl.privilege_type='EXECUTE' and actual_acl.grantee=capability_role.oid and not actual_acl.is_grantable)
+               ) as execute_acl_safe,
+               exists(select 1 from pg_catalog.aclexplode(coalesce(procedure_record.proacl,pg_catalog.acldefault('f',procedure_record.proowner))) acl where acl.privilege_type='EXECUTE'and acl.grantee=0::oid) as public_execute,
+               (select count(*)::integer from pg_catalog.aclexplode(coalesce(procedure_record.proacl,pg_catalog.acldefault('f',procedure_record.proowner))) acl where acl.privilege_type='EXECUTE'and acl.grantee<>procedure_record.proowner and acl.is_grantable) as grantable_execute_count
+          from pg_catalog.pg_proc procedure_record
+          join pg_catalog.pg_namespace procedure_namespace on procedure_namespace.oid=procedure_record.pronamespace
+          join pg_catalog.pg_language procedure_language on procedure_language.oid=procedure_record.prolang
+          join pg_catalog.pg_class migration_table on migration_table.relname='schema_migrations'
+          join pg_catalog.pg_namespace migration_namespace on migration_namespace.oid=migration_table.relnamespace
+         where procedure_namespace.nspname='public' and migration_namespace.nspname='public'
+           and procedure_record.proname=any(${Object.keys(HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256)})
+      `;
+      const expectedAuthorityIdentity: Record<string, string> = {
+        hotel_inquiry_actor_v1: "p_company_id uuid, p_branch_id uuid, p_session_token text, p_permission_code text",
+        hotel_inquiry_auto_close_v1: "p_limit integer",
+        hotel_inquiry_capabilities_v1: "p_company_id uuid, p_session_token text",
+        hotel_inquiry_command_v1: "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_trace_id uuid, p_audit_event_id uuid",
+        hotel_inquiry_file_command_v1: "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_audit_event_id uuid, p_trace_id uuid",
+        hotel_inquiry_file_scope_v1: "p_company_id uuid, p_upload_id uuid, p_session_token text",
+        hotel_inquiry_file_view_v1: "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_file_version_id uuid, p_action text, p_session_token text, p_grant_id uuid, p_completion_token text, p_audit_event_id uuid, p_alert_audit_event_id uuid, p_trace_id uuid",
+        hotel_inquiry_read_v1: "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_query jsonb, p_session_token text",
+      };
+      const expectedAuthorityResult: Record<string, string> = {
+        hotel_inquiry_actor_v1: "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
+        hotel_inquiry_auto_close_v1: "TABLE(closed_count integer)",
+        hotel_inquiry_file_scope_v1: "TABLE(branch_id uuid)",
+      };
+      if (
+        inquiryAuthorities.length !== Object.keys(HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256).length ||
+        inquiryAuthorities.some(
+          (authority) =>
+            !authority.metadata_safe ||
+            !authority.owner_safe ||
+            !authority.execute_acl_safe ||
+            authority.public_execute ||
+            authority.grantable_execute_count !== 0 ||
+            authority.identity_arguments !== expectedAuthorityIdentity[authority.name] ||
+            authority.result_signature !==
+              (expectedAuthorityResult[authority.name] ??
+                "TABLE(command_status text, result_snapshot jsonb)") ||
+            authority.source === undefined,
+        ) ||
+        (
+          await Promise.all(
+            inquiryAuthorities.map(async (authority) => [
+              authority.name,
+              await sourceSha256(authority.source),
+            ] as const),
+          )
+        ).some(
+          ([name, digest]) => digest !== HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256[name],
+        )
+      )
+        return schemaNotReady();
+    }
     if (googleCalendarProjectionPhase === "REMOVED") {
       const [calendarRemovalResidue] = await sql<
         {
@@ -3061,9 +3449,11 @@ export async function probeDatabaseReadiness(
         repairFoundation.permission_count !== 9 ||
         repairFoundation.direct_acl_count !== 0 ||
         repairFoundation.catalog_digest !==
-          (dailySalesPhase === "EXPAND"
-            ? HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256
-            : HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)
+          (ownerInquiriesPhase === "EXPAND"
+            ? HOTEL_REPAIR_OWNER_INQUIRIES_CATALOG_SHA256
+            : dailySalesPhase === "EXPAND"
+              ? HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256
+              : HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)
       )
         return schemaNotReady();
     }
@@ -4660,8 +5050,10 @@ export async function probeDatabaseReadiness(
         )), 'hex') as digest
       `;
       const expectedFileAccessSchema =
-        dailySalesPhase === "EXPAND"
-          ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
+        ownerInquiriesPhase === "EXPAND"
+          ? HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256
+          : dailySalesPhase === "EXPAND"
+            ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
           : repairLifecyclePhase === "CONTRACT"
             ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
             : HOTEL_FILE_ACCESS_SCHEMA_SHA256;

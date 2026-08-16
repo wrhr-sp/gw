@@ -103,6 +103,20 @@ import {
   operationalIssueListQuerySchema,
   operationalIssueListResponseSchema,
   operationalIssueOwnerResponseSchema,
+  createHotelInquiryRequestSchema,
+  hotelInquiryAssignRequestSchema,
+  hotelInquiryCapabilitiesResponseSchema,
+  hotelInquiryCategoryCodeSchema,
+  hotelInquiryContactResponseSchema,
+  hotelInquiryInternalResponseSchema,
+  hotelInquiryListQuerySchema,
+  hotelInquiryListResponseSchema,
+  hotelInquiryMessageRequestSchema,
+  hotelInquiryOwnerResponseSchema,
+  hotelInquirySettingsResponseSchema,
+  hotelInquiryTransitionRequestSchema,
+  updateHotelInquiryContactRequestSchema,
+  updateHotelInquiryRouteRequestSchema,
   ownerTransferRequestSchema,
   passwordPolicySchema,
   initialPasswordRequestSchema,
@@ -181,6 +195,8 @@ import {
   OperationalIssueServiceError,
   type OperationalIssueService,
 } from "./issues/service";
+import { createInquiryServiceFromBindings } from "./inquiries/factory";
+import { InquiryServiceError, type InquiryService } from "./inquiries/service";
 import {
   createDailySalesServiceFromBindings,
   type DailySalesBindings,
@@ -231,6 +247,7 @@ type CreateAppOptions = {
   fileScannerAgentToken?: string;
   inspectionService?: InspectionService;
   operationalIssueService?: OperationalIssueService;
+  inquiryService?: InquiryService;
   dailySalesService?: DailySalesService;
   repairService?: RepairService;
   roomService?: RoomService;
@@ -460,6 +477,10 @@ export function createApp(options: CreateAppOptions = {}) {
     );
   }
 
+  function getInquiryService(bindings: Bindings | undefined) {
+    return options.inquiryService ?? createInquiryServiceFromBindings(bindings);
+  }
+
   function getDailySalesService(bindings: Bindings | undefined) {
     return (
       options.dailySalesService ?? createDailySalesServiceFromBindings(bindings)
@@ -590,6 +611,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.operationalIssueService) await service.close?.();
+    }
+  }
+
+  async function withInquiryService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: InquiryService) => Promise<T>,
+  ): Promise<T> {
+    const service = getInquiryService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.inquiryService) await service.close?.();
     }
   }
 
@@ -741,6 +774,7 @@ export function createApp(options: CreateAppOptions = {}) {
       error instanceof InspectionServiceError ||
       error instanceof CalendarServiceError ||
       error instanceof OperationalIssueServiceError ||
+      error instanceof InquiryServiceError ||
       error instanceof DailySalesServiceError ||
       error instanceof RepairServiceError ||
       error instanceof FacilityServiceError ||
@@ -4759,6 +4793,8 @@ export function createApp(options: CreateAppOptions = {}) {
     },
   );
 
+  hotelApp.get("/api/hotels/:hotelId/inquiries/:inquiryId/files/:fileVersionId/view",async context=>{context.header("Cache-Control","private, no-store");let service:HotelFileService|undefined;try{const principal=await requestPrincipal(context);if(!principal)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);if(context.req.header("sec-fetch-site")!=="same-origin")return context.json(errorResponse("FORBIDDEN","파일을 볼 수 없습니다.",false),403);const hotelId=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId")),inquiryId=z.uuid().safeParse(context.req.param("inquiryId")),fileVersionId=z.uuid().safeParse(context.req.param("fileVersionId"));if(!hotelId.success||!inquiryId.success||!fileVersionId.success)return mutationFailure(context,"NOT_FOUND");service=getHotelFileService(context.env);const view=await service.inquiryView(roomMutationPrincipal(context,principal),hotelId.data,inquiryId.data,fileVersionId.data);return new Response(view.body,{status:200,headers:{"Cache-Control":"private, no-store","Content-Disposition":inlineContentDisposition(view.displayName),"Content-Length":String(view.sizeBytes),"Content-Type":view.mimeType,"X-Content-Type-Options":"nosniff"}});}catch(error){if(service&&!options.hotelFileService)await service.close?.().catch(()=>undefined);if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}});
+
   hotelApp.post("/api/hotels/:hotelId/files/upload-init", async (context) => {
     context.header("Cache-Control", "no-store");
     try {
@@ -6137,6 +6173,63 @@ export function createApp(options: CreateAppOptions = {}) {
     "/api/hotels/:hotelId/daily-sales/:salesId/corrections",
     (context) => dailySalesAction(context, "correct"),
   );
+
+  function inquiryResponse(inquiry: unknown) {
+    const internal = hotelInquiryInternalResponseSchema.safeParse({ ok:true, data:{inquiry}, error:null });
+    if (internal.success) return internal.data;
+    return hotelInquiryOwnerResponseSchema.parse({ ok:true, data:{inquiry}, error:null });
+  }
+
+  hotelApp.get("/api/inquiries/capabilities", async context => {
+    context.header("Cache-Control","private, no-store");
+    try { const p=await requestPrincipal(context); if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);
+      const data=await withInquiryService(context.env,s=>s.capabilities(roomMutationPrincipal(context,p)));
+      return context.json(hotelInquiryCapabilitiesResponseSchema.parse({ok:true,data,error:null}));
+    } catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.get("/api/hotels/:hotelId/inquiry-contact", async context => {
+    context.header("Cache-Control","private, no-store");
+    try { const p=await requestPrincipal(context); if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);const h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));if(!h.success)return mutationFailure(context,"NOT_FOUND");
+      const data=await withInquiryService(context.env,s=>s.contact(roomMutationPrincipal(context,p),h.data));return context.json(hotelInquiryContactResponseSchema.parse({ok:true,data,error:null}));
+    } catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.get("/api/hotels/:hotelId/inquiry-settings", async context => {
+    context.header("Cache-Control","private, no-store");
+    try {const p=await requestPrincipal(context),h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);if(!h.success)return mutationFailure(context,"NOT_FOUND");const data=await withInquiryService(context.env,s=>s.settings(roomMutationPrincipal(context,p),h.data));return context.json(hotelInquirySettingsResponseSchema.parse({ok:true,data,error:null}));}catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.put("/api/hotels/:hotelId/inquiry-settings/contact", async context => {
+    context.header("Cache-Control","no-store");
+    try {const p=await requestPrincipal(context),h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId")),key=idempotencyKey(context),body=updateHotelInquiryContactRequestSchema.safeParse(await context.req.json().catch(()=>undefined));if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);if(!h.success)return mutationFailure(context,"NOT_FOUND");if(!key||!body.success)return validationFailure(context,body.success?[{field:"idempotencyKey",message:"Idempotency-Key 헤더가 필요합니다."}]:zodFieldErrors(body.error.issues));const data=await withInquiryService(context.env,s=>s.updateContact(roomMutationPrincipal(context,p),h.data,body.data,key));return context.json(hotelInquiryContactResponseSchema.parse({ok:true,data,error:null}));}catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.put("/api/hotels/:hotelId/inquiry-settings/routes/:categoryCode", async context => {
+    context.header("Cache-Control","no-store");
+    try {const p=await requestPrincipal(context),h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId")),category=hotelInquiryCategoryCodeSchema.safeParse(context.req.param("categoryCode")),key=idempotencyKey(context),body=updateHotelInquiryRouteRequestSchema.safeParse(await context.req.json().catch(()=>undefined));if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);if(!h.success||!category.success)return mutationFailure(context,"NOT_FOUND");if(!key||!body.success)return validationFailure(context,body.success?[{field:"idempotencyKey",message:"Idempotency-Key 헤더가 필요합니다."}]:zodFieldErrors(body.error.issues));const data=await withInquiryService(context.env,s=>s.updateRoute(roomMutationPrincipal(context,p),h.data,category.data,body.data,key));return context.json(hotelInquirySettingsResponseSchema.parse({ok:true,data,error:null}));}catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.get("/api/hotels/:hotelId/inquiries", async context => {
+    context.header("Cache-Control","private, no-store");
+    try { const p=await requestPrincipal(context); if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);const h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));const q=hotelInquiryListQuerySchema.safeParse(context.req.query());if(!h.success)return mutationFailure(context,"NOT_FOUND");if(!q.success)return validationFailure(context,zodFieldErrors(q.error.issues));
+      const data=await withInquiryService(context.env,s=>s.list(roomMutationPrincipal(context,p),h.data,q.data));return context.json(hotelInquiryListResponseSchema.parse({ok:true,data,error:null}));
+    } catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.post("/api/hotels/:hotelId/inquiries", async context => {
+    context.header("Cache-Control","no-store");
+    try { const p=await requestPrincipal(context);if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);const h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId"));const key=idempotencyKey(context);const body=createHotelInquiryRequestSchema.safeParse(await context.req.json().catch(()=>undefined));if(!h.success)return mutationFailure(context,"NOT_FOUND");if(!key)return validationFailure(context,[{field:"idempotencyKey",message:"Idempotency-Key 헤더가 필요합니다."}]);if(!body.success)return validationFailure(context,zodFieldErrors(body.error.issues));
+      const inquiry=await withInquiryService(context.env,s=>s.create(roomMutationPrincipal(context,p),h.data,body.data,key));return context.json(inquiryResponse(inquiry),201);
+    } catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  hotelApp.get("/api/hotels/:hotelId/inquiries/:inquiryId", async context => {
+    context.header("Cache-Control","private, no-store");
+    try { const p=await requestPrincipal(context);if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);const h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId")),i=z.uuid().safeParse(context.req.param("inquiryId"));if(!h.success||!i.success)return mutationFailure(context,"NOT_FOUND");const inquiry=await withInquiryService(context.env,s=>s.get(roomMutationPrincipal(context,p),h.data,i.data));return context.json(inquiryResponse(inquiry));
+    } catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  });
+  async function inquiryMutation(context:Context<{Bindings:Bindings}>,kind:"MESSAGE"|"ASSIGN"|"TRANSITION"){
+    context.header("Cache-Control","no-store");
+    try {const p=await requestPrincipal(context);if(!p)return context.json(errorResponse("AUTHENTICATION_REQUIRED","로그인이 필요합니다.",false),401);const h=HOTEL_ID_SCHEMA.safeParse(context.req.param("hotelId")),i=z.uuid().safeParse(context.req.param("inquiryId")),key=idempotencyKey(context),raw=await context.req.json().catch(()=>undefined);const body=kind==="ASSIGN"?hotelInquiryAssignRequestSchema.safeParse(raw):kind==="TRANSITION"?hotelInquiryTransitionRequestSchema.safeParse(raw):hotelInquiryMessageRequestSchema.safeParse(raw);if(!h.success||!i.success)return mutationFailure(context,"NOT_FOUND");if(!key)return validationFailure(context,[{field:"idempotencyKey",message:"Idempotency-Key 헤더가 필요합니다."}]);if(!body.success)return validationFailure(context,zodFieldErrors(body.error.issues));const inquiry=await withInquiryService(context.env,s=>kind==="ASSIGN"?s.assign(roomMutationPrincipal(context,p),h.data,i.data,body.data,key):kind==="TRANSITION"?s.transition(roomMutationPrincipal(context,p),h.data,i.data,body.data,key):s.message(roomMutationPrincipal(context,p),h.data,i.data,body.data,key));return context.json(inquiryResponse(inquiry));
+    }catch(error){if(error instanceof AuthServiceError)return authFailure(context,error);return hotelFailure(context,error);}
+  }
+  hotelApp.post("/api/hotels/:hotelId/inquiries/:inquiryId/messages",c=>inquiryMutation(c,"MESSAGE"));
+  hotelApp.post("/api/hotels/:hotelId/inquiries/:inquiryId/assign",c=>inquiryMutation(c,"ASSIGN"));
+  hotelApp.post("/api/hotels/:hotelId/inquiries/:inquiryId/transitions",c=>inquiryMutation(c,"TRANSITION"));
 
   hotelApp.get("/api/hotels/:hotelId", async (context) => {
     context.header("Cache-Control", "private, no-store");

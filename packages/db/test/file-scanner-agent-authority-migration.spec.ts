@@ -20,6 +20,7 @@ describe("file scanner-agent authority migration", () => {
       "public.hotel_file_scanner_agent_command_v1",
       "public.hotel_file_scanner_agent_candidates_v1",
       "'phase', 'terminal'",
+      "'quarantineobjectkey', v_upload.quarantine_object_key",
       "'completionverdict'",
       "claim_token_hash = v_token_hash",
       "claim_generation = p_generation",

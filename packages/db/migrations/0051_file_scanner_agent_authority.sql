@@ -94,6 +94,7 @@ begin
           else 'SOURCE_INTEGRITY'
         end,
         'generation', (v_job).claim_generation,
+        'quarantineObjectKey', v_upload.quarantine_object_key,
         'sourceSha256', pg_catalog.encode((v_job).scanner_sha256, 'hex'),
         'cleanSha256', case when (v_job).clean_sha256 is null then null
           else pg_catalog.encode((v_job).clean_sha256, 'hex') end,

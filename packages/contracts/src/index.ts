@@ -60,6 +60,10 @@ export const hotelErrorCodeSchema = z.enum([
   "ISSUE_ASSIGNEE_INVALID",
   "ISSUE_STATE_INVALID",
   "ISSUE_TERMINAL_LOCKED",
+  "INQUIRY_ASSIGNEE_INVALID",
+  "INQUIRY_STATE_INVALID",
+  "INQUIRY_REOPEN_EXPIRED",
+  "INQUIRY_TERMINAL_LOCKED",
   "HOTEL_SALES_DUPLICATE_DATE",
   "HOTEL_SALES_TOTAL_MISMATCH",
   "HOTEL_SALES_EVIDENCE_REQUIRED",
@@ -2718,6 +2722,12 @@ export const hotelFileUploadInitRequestSchema = z
           salesId: z.uuid(),
         })
         .strict(),
+      z
+        .object({
+          type: z.literal("OWNER_INQUIRY_ATTACHMENT"),
+          inquiryId: z.uuid(),
+        })
+        .strict(),
     ]),
     fileName: safeEvidenceFileNameSchema,
     sizeBytes: z
@@ -2881,6 +2891,8 @@ export const hotelFileRoutes = {
     `/api/hotels/${encodeURIComponent(hotelId)}/repairs/${encodeURIComponent(repairId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   dailySalesView: (hotelId: string, salesId: string, fileVersionId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/daily-sales/${encodeURIComponent(salesId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
+  inquiryView: (hotelId: string, inquiryId: string, fileVersionId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inquiries/${encodeURIComponent(inquiryId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
   uploadInit: (hotelId: string) =>
     `/api/hotels/${encodeURIComponent(hotelId)}/files/upload-init` as const,
   uploadBody: (uploadId: string) =>
@@ -3629,6 +3641,42 @@ export const operationalIssueRoutes = {
   internalNotes: (hotelId: string, issueId: string) =>
     `${operationalIssueBasePath(hotelId)}/${encodeURIComponent(issueId)}/internal-notes` as const,
 } as const;
+
+export const hotelInquiryStatusSchema = z.enum([
+  "RECEIVED", "ASSIGNED", "ANSWERING", "ANSWERED", "SUPPLEMENT_REQUESTED", "CLOSED",
+]);
+export const hotelInquiryCategoryCodeSchema = z.enum([
+  "CONTRACT_POLICY", "SALES_SETTLEMENT", "ROOM_FACILITY", "INSPECTION_ISSUE", "ACCOUNT_PERMISSION", "OTHER",
+]);
+const inquiryTextSchema = z.string().trim().min(2).max(4000);
+export const createHotelInquiryRequestSchema = z.object({ inquiryId:z.uuid(), categoryCode:hotelInquiryCategoryCodeSchema, title:z.string().trim().min(2).max(160), body:inquiryTextSchema }).strict();
+export const hotelInquiryMessageRequestSchema = z.object({ version:z.number().int().positive(), body:inquiryTextSchema, visibility:z.enum(["PUBLIC","INTERNAL"]), attachmentFileVersionIds:z.array(z.uuid()).max(10).default([]) }).strict();
+export const hotelInquiryAssignRequestSchema = z.object({ version:z.number().int().positive(), assigneeUserId:z.uuid(), reason:z.string().trim().min(2).max(500) }).strict();
+export const hotelInquiryTransitionRequestSchema = z.object({ version:z.number().int().positive(), action:z.enum(["START_ANSWER","MARK_ANSWERED","REQUEST_SUPPLEMENT","CLOSE","REOPEN"]), reason:z.string().trim().min(2).max(500) }).strict();
+export const hotelInquiryListQuerySchema = z.object({ page:z.coerce.number().int().min(1).default(1), pageSize:z.coerce.number().int().min(1).max(100).default(20), status:hotelInquiryStatusSchema.optional(), categoryCode:hotelInquiryCategoryCodeSchema.optional() }).strict();
+const inquiryPublicActorSchema=z.object({displayName:z.string().trim().min(1).max(100)}).strict();
+const inquiryInternalActorSchema=inquiryPublicActorSchema.extend({userId:z.uuid()}).strict();
+const inquiryAttachmentSchema=z.object({fileVersionId:z.uuid(),displayName:z.string().trim().min(1).max(180)}).strict();
+const inquiryPublicMessageSchema=z.object({id:z.uuid(),body:inquiryTextSchema,actor:inquiryPublicActorSchema,createdAt:z.iso.datetime(),visibility:z.literal("PUBLIC"),attachments:z.array(inquiryAttachmentSchema).max(10)}).strict();
+const inquiryInternalMessageSchema=z.object({id:z.uuid(),body:inquiryTextSchema,actor:inquiryInternalActorSchema,createdAt:z.iso.datetime(),visibility:z.enum(["PUBLIC","INTERNAL"]),attachments:z.array(inquiryAttachmentSchema).max(10)}).strict();
+const hotelInquiryPublicSchema=z.object({id:z.uuid(),hotelId:z.uuid(),categoryCode:hotelInquiryCategoryCodeSchema,categoryName:z.string().trim().min(1).max(100),title:z.string().trim().min(2).max(160),status:hotelInquiryStatusSchema,version:z.number().int().positive(),assignee:inquiryPublicActorSchema.nullable(),messages:z.array(inquiryPublicMessageSchema).max(1000),answeredAt:z.iso.datetime().nullable(),closedAt:z.iso.datetime().nullable(),reopenUntil:z.iso.datetime().nullable(),createdAt:z.iso.datetime(),updatedAt:z.iso.datetime()}).strict();
+export type HotelInquiryPublic=z.infer<typeof hotelInquiryPublicSchema>;
+const hotelInquiryInternalSchema=hotelInquiryPublicSchema.extend({assignee:inquiryInternalActorSchema.nullable(),messages:z.array(inquiryInternalMessageSchema).max(1000),statusHistory:z.array(z.object({id:z.uuid(),action:z.string().min(1).max(50),fromStatus:hotelInquiryStatusSchema.nullable(),toStatus:hotelInquiryStatusSchema,reason:z.string().min(2).max(500),actor:z.union([inquiryInternalActorSchema,inquiryPublicActorSchema]),createdAt:z.iso.datetime(),version:z.number().int().positive()}).strict()).max(1000)}).strict();
+export type HotelInquiry=z.infer<typeof hotelInquiryInternalSchema>;
+export const hotelInquiryOwnerResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiry:hotelInquiryPublicSchema}).strict(),error:z.null()}).strict();
+export const hotelInquiryInternalResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiry:hotelInquiryInternalSchema}).strict(),error:z.null()}).strict();
+export const hotelInquiryNotificationSchema=z.object({id:z.uuid(),inquiryId:z.uuid(),title:z.string().trim().min(2).max(160),eventCode:z.string().trim().min(1).max(100),createdAt:z.iso.datetime(),readAt:z.iso.datetime().nullable()}).strict();
+export type HotelInquiryNotification=z.infer<typeof hotelInquiryNotificationSchema>;
+export const hotelInquiryListResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiries:z.array(hotelInquiryPublicSchema).max(100),notifications:z.array(hotelInquiryNotificationSchema).max(100),pagination:z.object({page:z.number().int().positive(),pageSize:z.number().int().positive(),total:z.number().int().nonnegative()}).strict()}).strict(),error:z.null()}).strict();
+export const hotelInquiryCapabilitiesResponseSchema=z.object({ok:z.literal(true),data:z.object({hotels:z.array(z.object({hotelId:z.uuid(),hotelName:z.string().trim().min(1).max(200),ownerView:z.boolean(),canRead:z.boolean(),canCreate:z.boolean(),canReply:z.boolean(),canAssign:z.boolean(),canManageSettings:z.boolean()}).strict()).max(1000)}).strict(),error:z.null()}).strict();
+export type HotelInquiryCapability=z.infer<typeof hotelInquiryCapabilitiesResponseSchema>["data"]["hotels"][number];
+export const hotelInquiryContactSchema=z.object({phone:z.string().trim().min(3).max(50),email:z.email(),operatingHours:z.string().trim().min(2).max(500),version:z.number().int().positive()}).strict();
+export const hotelInquiryContactResponseSchema=z.object({ok:z.literal(true),data:z.object({contact:hotelInquiryContactSchema}).strict(),error:z.null()}).strict();
+export const updateHotelInquiryContactRequestSchema=hotelInquiryContactSchema.omit({version:true}).extend({version:z.number().int().nonnegative()}).strict();
+export const updateHotelInquiryRouteRequestSchema=z.object({version:z.number().int().nonnegative(),groupId:z.uuid().nullable(),active:z.boolean()}).strict();
+export const hotelInquirySettingsResponseSchema=z.object({ok:z.literal(true),data:z.object({contact:hotelInquiryContactSchema.nullable(),routes:z.array(z.object({categoryCode:hotelInquiryCategoryCodeSchema,categoryName:z.string().trim().min(1).max(100),groupId:z.uuid().nullable(),groupName:z.string().trim().min(1).max(100).nullable(),active:z.boolean(),version:z.number().int().nonnegative()}).strict()).max(100),groups:z.array(z.object({id:z.uuid(),name:z.string().trim().min(1).max(100)}).strict()).max(1000)}).strict(),error:z.null()}).strict();
+const inquiryBasePath=(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiries` as const;
+export const hotelInquiryRoutes={capabilities:"/api/inquiries/capabilities" as const,contact:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-contact` as const,settings:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings` as const,settingsContact:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/contact` as const,settingsRoute:(hotelId:string,categoryCode:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/routes/${encodeURIComponent(categoryCode)}` as const,list:inquiryBasePath,create:inquiryBasePath,detail:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}` as const,messages:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/messages` as const,assign:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/assign` as const,transitions:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/transitions` as const} as const;
 
 export const dailySalesStatusSchema = z.enum(["DRAFT", "LOCKED"]);
 export type DailySalesStatus = z.infer<typeof dailySalesStatusSchema>;

@@ -2,6 +2,7 @@ import type {
   AccountPermission,
   AuthenticatedPrincipal,
   DailySalesCapability,
+  HotelInquiryCapability,
   OperationalIssueCapability,
 } from "@werehere/contracts";
 import {
@@ -9,6 +10,7 @@ import {
   Building2,
   CalendarDays,
   CircleAlert,
+  MessageCircleQuestion,
   LayoutDashboard,
   Users,
 } from "lucide-react";
@@ -34,6 +36,7 @@ type HotelShellProps = {
   calendarHref?: string | undefined;
   dailySalesCapabilities?: DailySalesCapability[];
   issueCapabilities?: OperationalIssueCapability[];
+  inquiryCapabilities?: HotelInquiryCapability[];
   currentPath: string;
   hotelName?: string;
   principal: AuthenticatedPrincipal;
@@ -47,6 +50,7 @@ export function HotelShell({
   dailySalesCapabilities = [],
   hotelName = "호텔 미선택",
   issueCapabilities = [],
+  inquiryCapabilities = [],
   principal,
 }: HotelShellProps) {
   const navigation = [...baseNavigation];
@@ -71,6 +75,13 @@ export function HotelShell({
       href: `/hotels/${issueHotel.hotelId}/issues`,
       icon: <CircleAlert />,
       label: "운영이슈",
+    });
+  const inquiryHotel = inquiryCapabilities.find((capability) => capability.canRead);
+  if (inquiryHotel)
+    navigation.push({
+      href: `/hotels/${inquiryHotel.hotelId}/inquiries`,
+      icon: <MessageCircleQuestion />,
+      label: "소유주 문의",
     });
   if (accountPermissions.includes("USER_READ"))
     navigation.push({
