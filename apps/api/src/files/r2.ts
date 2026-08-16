@@ -8,6 +8,7 @@ import type { InspectionRepository } from "@werehere/db";
 import { sha256 } from "../auth/crypto";
 
 export interface PrivateR2Binding {
+  delete?(key: string): Promise<void>;
   get?(key: string): Promise<{
     arrayBuffer(): Promise<ArrayBuffer>;
     body?: ReadableStream<Uint8Array>;
@@ -133,12 +134,21 @@ function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
   return different === 0;
 }
 
-function privateSuffix(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32));
+function base64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
     .replaceAll("+", "-")
     .replaceAll("/", "_")
     .replace(/=+$/u, "");
+}
+
+function privateSuffix(): string {
+  return base64Url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+export async function derivePrivateQuarantineSuffix(
+  value: unknown,
+): Promise<string> {
+  return base64Url(await sha256(JSON.stringify(value)));
 }
 
 function quotedEtag(etag: string | undefined): string {
@@ -148,6 +158,7 @@ function quotedEtag(etag: string | undefined): string {
 }
 
 export interface PrivateR2EvidenceStore {
+  deleteQuarantinedOriginal?(objectKey: string): Promise<void>;
   headReservedOriginal(objectKey: string): Promise<{
     etag: string;
     mimeType: string;
@@ -197,7 +208,7 @@ export interface PrivateR2EvidenceStore {
     objectVersion: string;
     sizeBytes: number;
   }>;
-  reserveQuarantineKey(uploadId: string): string;
+  reserveQuarantineKey(uploadId: string, suffix?: string): string;
 }
 
 export function createPrivateR2EvidenceStore(
@@ -207,10 +218,10 @@ export function createPrivateR2EvidenceStore(
     if (!binding) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
     return binding;
   }
-  function reserveQuarantineKey(uploadId: string): string {
-    if (!UUID.test(uploadId))
+  function reserveQuarantineKey(uploadId: string, suffix = privateSuffix()): string {
+    if (!UUID.test(uploadId) || !/^[A-Za-z0-9_-]{43}$/u.test(suffix))
       throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
-    return `quarantine/${uploadId}/${privateSuffix()}`;
+    return `quarantine/${uploadId}/${suffix}`;
   }
   async function putReservedOriginal(input: {
     body: Uint8Array | ArrayBuffer | ReadableStream;
@@ -250,10 +261,28 @@ export function createPrivateR2EvidenceStore(
     }
     let stored: Awaited<ReturnType<PrivateR2Binding["put"]>>;
     try {
-      stored = await requireBinding().put(input.objectKey, body, {
+      const configured = requireBinding();
+      stored = await configured.put(input.objectKey, body, {
         httpMetadata: { contentType: input.mimeType },
         onlyIf: { etagDoesNotMatch: "*" },
       });
+      if (!stored) {
+        await fixedReadable?.cancel().catch(() => undefined);
+        await pipe?.catch(() => undefined);
+        if (!configured.head)
+          throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+        const existing = await configured.head(input.objectKey);
+        if (
+          !existing ||
+          existing.size !== input.contentLength ||
+          existing.httpMetadata?.contentType !== input.mimeType
+        )
+          throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+        return {
+          etag: quotedEtag(existing.etag),
+          objectKey: input.objectKey,
+        };
+      }
       await pipe;
     } catch (error) {
       await fixedReadable?.cancel().catch(() => undefined);
@@ -267,6 +296,18 @@ export function createPrivateR2EvidenceStore(
     };
   }
   return {
+    async deleteQuarantinedOriginal(objectKey) {
+      if (!PRIVATE_KEY.test(objectKey))
+        throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      const configured = requireBinding();
+      if (!configured.delete)
+        throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      try {
+        await configured.delete(objectKey);
+      } catch {
+        throw new FileStorageError("FILE_STORAGE_UNAVAILABLE", 503, true);
+      }
+    },
     async headReservedOriginal(objectKey) {
       if (!PRIVATE_KEY.test(objectKey))
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
@@ -477,6 +518,17 @@ async function hexHash(value: unknown): Promise<string> {
   );
 }
 
+export async function deriveFileIdempotentUuid(
+  value: unknown,
+): Promise<string> {
+  const hash = await hexHash(value),
+    chars = hash.slice(0, 32).split("");
+  chars[12] = "5";
+  chars[16] = ((Number.parseInt(chars[16] ?? "0", 16) & 0x3) | 0x8).toString(16);
+  const hex = chars.join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export interface HotelFileService {
   close?(): Promise<void>;
   authorizeAndPut(
@@ -508,7 +560,7 @@ export interface HotelFileService {
     hotelId: string,
     inspectionId: string,
     fileVersionId: string,
-    parentType?: "DAILY_SALES" | "INSPECTION" | "REPAIR",
+    parentType?: "DAILY_SALES" | "INQUIRY" | "INSPECTION" | "REPAIR",
   ): Promise<{
     body: ReadableStream<Uint8Array>;
     displayName: string;
@@ -520,6 +572,18 @@ export interface HotelFileService {
     principal: FilePrincipal,
     hotelId: string,
     repairId: string,
+    fileVersionId: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>;
+    displayName: string;
+    etag: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
+  inquiryView(
+    principal: FilePrincipal,
+    hotelId: string,
+    inquiryId: string,
     fileVersionId: string,
   ): Promise<{
     body: ReadableStream<Uint8Array>;
@@ -549,7 +613,14 @@ export function createHotelFileService(
   async function canonicalScope(
     principal: FilePrincipal,
     uploadId: string,
-  ): Promise<string> {
+  ): Promise<{ hotelId: string; inquiry: boolean }> {
+    const inquiryHotelId = await repository.inquiryFileUploadScope?.({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+      uploadId,
+    });
+    if (inquiryHotelId) return { hotelId: inquiryHotelId, inquiry: true };
     if (!repository.fileUploadScope)
       throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
     const hotelId = await repository.fileUploadScope({
@@ -559,24 +630,33 @@ export function createHotelFileService(
       uploadId,
     });
     if (!hotelId) throw new FileStorageError("RESOURCE_NOT_FOUND");
-    return hotelId;
+    return { hotelId, inquiry: false };
   }
   async function authorize(
     principal: FilePrincipal,
     uploadId: string,
-  ): Promise<{ hotelId: string; upload: AuthorizedUpload }> {
-    const hotelId = await canonicalScope(principal, uploadId);
-    const result = await repository.fileQuery({
-      action: "UPLOAD_AUTHORIZE",
-      companyId: principal.companyId,
-      hotelId,
-      sessionId: principal.sessionId,
-      sessionToken: principal.sessionToken,
-      uploadId,
-    });
+  ): Promise<{ hotelId: string; inquiry: boolean; upload: AuthorizedUpload }> {
+    const { hotelId, inquiry } = await canonicalScope(principal, uploadId);
+    const query = inquiry ? repository.inquiryFileCommand : undefined;
+    const result = query
+      ? await query({
+          action: "UPLOAD_AUTHORIZE", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+          expectedVersion: 0, hotelId, httpMethod: "POST", idempotencyKey: "read-only",
+          idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
+          resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+          traceId: crypto.randomUUID(), value: {},
+        })
+      : await repository.fileQuery({
+          action: "UPLOAD_AUTHORIZE",
+          companyId: principal.companyId,
+          hotelId,
+          sessionId: principal.sessionId,
+          sessionToken: principal.sessionToken,
+          uploadId,
+        });
     if (result.status !== "OK")
       throw new FileStorageError("RESOURCE_NOT_FOUND");
-    return { hotelId, upload: authorized(result.payload) };
+    return { hotelId, inquiry, upload: authorized(result.payload) };
   }
   async function mutate(
     principal: FilePrincipal,
@@ -586,6 +666,7 @@ export function createHotelFileService(
     value: unknown,
     path: string,
     idempotencyKey: string,
+    inquiry = false,
   ) {
     const repairInit =
       action === "UPLOAD_INIT" &&
@@ -600,7 +681,10 @@ export function createHotelFileService(
             }
           ).repairFileUploadInit
         : undefined;
-    const command = repairInit ?? repository.fileCommand;
+    const command = inquiry
+      ? repository.inquiryFileCommand
+      : repairInit ?? repository.fileCommand;
+    if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
     const result = await command({
       action,
       auditEventId: crypto.randomUUID(),
@@ -630,7 +714,7 @@ export function createHotelFileService(
   async function viewCommand(
     principal: FilePrincipal,
     hotelId: string,
-    parentType: "DAILY_SALES" | "INSPECTION" | "REPAIR",
+    parentType: "DAILY_SALES" | "INQUIRY" | "INSPECTION" | "REPAIR",
     parentId: string,
     fileVersionId: string,
     action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED",
@@ -651,6 +735,11 @@ export function createHotelFileService(
       sessionToken: principal.sessionToken,
       traceId,
     };
+    if (parentType === "INQUIRY") {
+      const command = repository.inquiryFileViewCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      return command({ ...shared, inquiryId: parentId });
+    }
     if (parentType === "REPAIR") {
       const command = repository.repairFileViewCommand;
       if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
@@ -682,7 +771,7 @@ export function createHotelFileService(
       return { etag: result.etag };
     },
     async complete(principal, uploadId, value, idempotencyKey) {
-      const { hotelId, upload } = await authorize(principal, uploadId);
+      const { hotelId, inquiry, upload } = await authorize(principal, uploadId);
       const objectState = await store.headReservedOriginal(
         upload.quarantineObjectKey,
       );
@@ -700,15 +789,32 @@ export function createHotelFileService(
         {
           ...objectState,
           reservationFingerprint: upload.reservationFingerprint,
-          scanJobId: crypto.randomUUID(),
+          scanJobId: await deriveFileIdempotentUuid({
+            companyId: principal.companyId,
+            idempotencyKey,
+            operation: "UPLOAD_COMPLETE",
+            sessionId: principal.sessionId,
+            uploadId,
+          }),
         },
         hotelFileRoutes.uploadComplete(uploadId),
         idempotencyKey,
+        inquiry,
       );
     },
     async init(principal, hotelId, value, idempotencyKey) {
-      const uploadId = crypto.randomUUID();
-      const quarantineObjectKey = store.reserveQuarantineKey(uploadId);
+      const idempotentContext = {
+          companyId: principal.companyId,
+          hotelId,
+          idempotencyKey,
+          operation: "UPLOAD_INIT",
+          sessionId: principal.sessionId,
+        },
+        uploadId = await deriveFileIdempotentUuid(idempotentContext),
+        quarantineObjectKey = store.reserveQuarantineKey(
+          uploadId,
+          await derivePrivateQuarantineSuffix(idempotentContext),
+        );
       const reservationFingerprint = await hexHash({
         companyId: principal.companyId,
         hotelId,
@@ -717,28 +823,25 @@ export function createHotelFileService(
         sizeBytes: value.sizeBytes,
         uploadId,
       });
+      const parent = value.parent as {
+        type: string;
+        inspectionId?: string;
+        itemSnapshotId?: string;
+        repairCaseId?: string;
+        repairVisitId?: string;
+        salesId?: string;
+        inquiryId?: string;
+      };
       const parentPayload =
-        value.parent.type === "INSPECTION_ITEM_EVIDENCE"
-          ? {
-              parentType: value.parent.type,
-              inspectionId: value.parent.inspectionId,
-              itemSnapshotId: value.parent.itemSnapshotId,
-            }
-          : value.parent.type === "REPAIR_CASE_EVIDENCE"
-            ? {
-                parentType: value.parent.type,
-                repairCaseId: value.parent.repairCaseId,
-              }
-            : value.parent.type === "REPAIR_VISIT_COMPLETION_EVIDENCE"
-              ? {
-                  parentType: value.parent.type,
-                  repairCaseId: value.parent.repairCaseId,
-                  repairVisitId: value.parent.repairVisitId,
-                }
-              : {
-                  parentType: value.parent.type,
-                  dailySalesId: value.parent.salesId,
-                };
+        parent.type === "INSPECTION_ITEM_EVIDENCE"
+          ? { parentType: parent.type, inspectionId: parent.inspectionId, itemSnapshotId: parent.itemSnapshotId }
+          : parent.type === "REPAIR_CASE_EVIDENCE"
+            ? { parentType: parent.type, repairCaseId: parent.repairCaseId }
+            : parent.type === "REPAIR_VISIT_COMPLETION_EVIDENCE"
+              ? { parentType: parent.type, repairCaseId: parent.repairCaseId, repairVisitId: parent.repairVisitId }
+              : parent.type === "OWNER_INQUIRY_ATTACHMENT"
+                ? { parentType: parent.type, parent: { type: parent.type, inquiryId: parent.inquiryId } }
+                : { parentType: parent.type, dailySalesId: parent.salesId };
       const payload = await mutate(
         principal,
         hotelId,
@@ -754,6 +857,7 @@ export function createHotelFileService(
         },
         hotelFileRoutes.uploadInit(hotelId),
         idempotencyKey,
+        parent.type === "OWNER_INQUIRY_ATTACHMENT",
       );
       const upload = object(payload);
       return {
@@ -767,14 +871,19 @@ export function createHotelFileService(
       };
     },
     async status(principal, hotelId, uploadId) {
-      const result = await repository.fileQuery({
-        action: "STATUS",
-        companyId: principal.companyId,
-        hotelId,
-        sessionId: principal.sessionId,
-        sessionToken: principal.sessionToken,
-        uploadId,
-      });
+      const scope = await canonicalScope(principal, uploadId);
+      const result = scope.inquiry && repository.inquiryFileCommand
+        ? await repository.inquiryFileCommand({
+            action: "STATUS", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+            expectedVersion: 0, hotelId: scope.hotelId, httpMethod: "POST", idempotencyKey: "read-only",
+            idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
+            resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+            traceId: crypto.randomUUID(), value: {},
+          })
+        : await repository.fileQuery({
+            action: "STATUS", companyId: principal.companyId, hotelId,
+            sessionId: principal.sessionId, sessionToken: principal.sessionToken, uploadId,
+          });
       if (result.status !== "OK")
         throw new FileStorageError("RESOURCE_NOT_FOUND");
       return result.payload;
@@ -901,6 +1010,9 @@ export function createHotelFileService(
     },
     async repairView(principal, hotelId, repairId, fileVersionId) {
       return this.view(principal, hotelId, repairId, fileVersionId, "REPAIR");
+    },
+    async inquiryView(principal, hotelId, inquiryId, fileVersionId) {
+      return this.view(principal, hotelId, inquiryId, fileVersionId, "INQUIRY");
     },
     async dailySalesView(principal, hotelId, salesId, fileVersionId) {
       return this.view(

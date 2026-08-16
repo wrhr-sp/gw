@@ -71,6 +71,16 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-owner-inquiry.lifecycle": {
+    audience: ["호텔 소유주와 문의 담당 권한이 있는 사내 임직원"],
+    cautions: ["내부메모는 호텔 소유주에게 공개되지 않습니다.","답변완료 후 7일 동안 보완요청이 없으면 자동으로 종료됩니다.","종료된 문의는 30일 이내에만 재개할 수 있습니다."],
+    featureKey: "hotel-owner-inquiry.lifecycle",
+    permissions: ["호텔 소유주는 현재 연결된 자기 호텔 문의만 조회·작성할 수 있습니다.","사내 임직원은 호텔배정과 문의별 조회·답변·담당 권한을 요청마다 확인합니다."],
+    steps: ["문의처와 운영시간을 확인합니다.","문의유형, 제목과 내용을 입력해 접수합니다.","담당자는 공개답변과 내부메모를 구분해 기록합니다.","소유주는 답변을 확인하고 보완요청하거나 종료합니다.","종료 뒤 추가 확인이 필요하면 30일 이내에 재개합니다."],
+    summary: "호텔 소유주 문의를 접수하고 담당 배정, 공개답변, 보완요청과 종료까지 관리합니다.",
+    title: "호텔 소유주 문의",
+    version: "1.0",
+  },
   "hotel-daily-sales.ledger": {
     audience: ["일매출 조회권한과 현재 호텔배정 또는 소유주 연결이 있는 사용자"],
     cautions: [

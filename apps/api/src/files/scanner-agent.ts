@@ -3,6 +3,8 @@ import type { PrivateR2EvidenceStore } from "./r2";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
+const QUARANTINE_KEY =
+  /^quarantine\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/[A-Za-z0-9_-]{43}$/u;
 const CLAIM_TOKEN = /^[A-Za-z0-9_-]{43}$/u;
 const CLEAN_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -31,6 +33,7 @@ type TerminalClaim = {
   detectedMime: string | null;
   generation: number;
   phase: "TERMINAL";
+  quarantineObjectKey: string;
   snapshot: unknown;
   sourceSha256: string;
 };
@@ -131,6 +134,8 @@ function parseClaim(value: unknown): Claim {
       ) ||
       typeof claim.sourceSha256 !== "string" ||
       !/^[a-f0-9]{64}$/u.test(claim.sourceSha256) ||
+      typeof claim.quarantineObjectKey !== "string" ||
+      !QUARANTINE_KEY.test(claim.quarantineObjectKey) ||
       (claim.cleanSha256 !== null &&
         (typeof claim.cleanSha256 !== "string" ||
           !/^[a-f0-9]{64}$/u.test(claim.cleanSha256))) ||
@@ -232,6 +237,12 @@ export function createFileScannerAgentService(input: {
     throw new FileScannerAgentError("SCANNER_AGENT_NOT_CONFIGURED");
   }
 
+  async function deleteQuarantinedOriginal(objectKey: string) {
+    if (!input.store.deleteQuarantinedOriginal)
+      throw new FileScannerAgentError("SCANNER_AGENT_NOT_CONFIGURED");
+    await input.store.deleteQuarantinedOriginal(objectKey);
+  }
+
   async function command(
     uploadId: string,
     action: "CLAIM" | "FAIL" | "PROMOTE_COMPLETE" | "REJECT" | "SCAN_CLEAN",
@@ -286,12 +297,14 @@ export function createFileScannerAgentService(input: {
     claimToken: string,
     generation: number,
     sourceSha256: string,
+    quarantineObjectKey: string,
   ): Promise<never> {
     const rejected = await command(uploadId, "REJECT", claimToken, generation, {
       failureCode: "SOURCE_INTEGRITY",
       sourceSha256,
     });
     accepted(rejected.status, ["REJECTED"]);
+    await deleteQuarantinedOriginal(quarantineObjectKey);
     throw new FileScannerAgentError("SCANNER_AGENT_SOURCE_INTEGRITY");
   }
 
@@ -299,10 +312,14 @@ export function createFileScannerAgentService(input: {
     completion: FileScannerAgentCompletion,
     claim: TerminalClaim,
   ) {
-    if (claim.sourceSha256 !== completion.sourceSha256) {
+    if (
+      claim.sourceSha256 !== completion.sourceSha256 ||
+      !claim.quarantineObjectKey.startsWith(`quarantine/${completion.uploadId}/`)
+    ) {
       throw new FileScannerAgentError("SCANNER_AGENT_INTEGRITY");
     }
     if (claim.completionVerdict === "SOURCE_INTEGRITY") {
+      await deleteQuarantinedOriginal(claim.quarantineObjectKey);
       throw new FileScannerAgentError("SCANNER_AGENT_SOURCE_INTEGRITY");
     }
     if (claim.completionVerdict !== completion.verdict) {
@@ -318,6 +335,7 @@ export function createFileScannerAgentService(input: {
     } else if (claim.cleanSha256 !== null || claim.detectedMime !== null) {
       throw new FileScannerAgentError("SCANNER_AGENT_INTEGRITY");
     }
+    await deleteQuarantinedOriginal(claim.quarantineObjectKey);
     return claim.snapshot;
   }
 
@@ -367,6 +385,7 @@ export function createFileScannerAgentService(input: {
             claimToken,
             claim.generation,
             await sha256(source.body),
+            claim.quarantineObjectKey,
           );
         }
         return {
@@ -437,6 +456,7 @@ export function createFileScannerAgentService(input: {
           completion.claimToken,
           completion.generation,
           completion.sourceSha256,
+          claim.quarantineObjectKey,
         );
       }
       if (completion.verdict === "FAILED") {
@@ -451,6 +471,8 @@ export function createFileScannerAgentService(input: {
           },
         );
         accepted(failed.status, ["RETRY_SCHEDULED", "SCAN_FAILED"]);
+        if (failed.status === "SCAN_FAILED")
+          await deleteQuarantinedOriginal(claim.quarantineObjectKey);
         return failed.payload;
       }
       if (completion.verdict === "INFECTED") {
@@ -465,6 +487,7 @@ export function createFileScannerAgentService(input: {
           },
         );
         accepted(rejected.status, ["REJECTED"]);
+        await deleteQuarantinedOriginal(claim.quarantineObjectKey);
         return rejected.payload;
       }
       if (
@@ -537,6 +560,7 @@ export function createFileScannerAgentService(input: {
         },
       );
       accepted(promoted.status, ["COMPLETED", "REPLAYED"]);
+      await deleteQuarantinedOriginal(claim.quarantineObjectKey);
       return promoted.payload;
     },
   };

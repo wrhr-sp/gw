@@ -12,6 +12,19 @@ afterEach(() => {
 });
 
 describe("private R2 upload stream", () => {
+  it("deletes only a canonical quarantined object", async () => {
+    const remove = vi.fn(async () => undefined);
+    const store = createPrivateR2EvidenceStore({ delete: remove, put: vi.fn() });
+    const key = `quarantine/10000000-0000-4000-8000-000000000001/${"a".repeat(43)}`;
+
+    await store.deleteQuarantinedOriginal!(key);
+
+    expect(remove).toHaveBeenCalledWith(key);
+    await expect(
+      store.deleteQuarantinedOriginal!("clean/not-allowed"),
+    ).rejects.toMatchObject({ code: "FILE_INTEGRITY_MISMATCH" });
+  });
+
   it("re-establishes the declared length before a service-bound stream reaches R2", async () => {
     const declaredLengths: number[] = [];
     class TestFixedLengthStream {

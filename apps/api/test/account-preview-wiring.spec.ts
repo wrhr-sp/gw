@@ -760,7 +760,7 @@ describe("Preview account provisioning wiring", () => {
       workflow.match(
         /pnpm --filter @werehere\/api exec wrangler deployments list/gu,
       ),
-    ).toHaveLength(10);
+    ).toHaveLength(11);
     expect(workflow).not.toContain("pnpm exec wrangler deployments list");
   });
 

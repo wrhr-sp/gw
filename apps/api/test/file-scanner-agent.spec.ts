@@ -25,7 +25,7 @@ function claimSnapshot(generation = 1) {
     jobId: "33333333-3333-4333-8333-333333333333",
     mimeType: source.mimeType,
     phase: "SCANNING",
-    quarantineObjectKey: `quarantine/${uploadId}/private-token`,
+    quarantineObjectKey: `quarantine/${uploadId}/${"Q".repeat(43)}`,
     sizeBytes: source.sizeBytes,
     sourceEtag: source.etag,
     sourceObjectVersion: source.objectVersion,
@@ -39,6 +39,7 @@ function fixture(command = vi.fn()) {
     listCandidates: vi.fn(async () => [uploadId]),
   } satisfies FileFinalizerRepository;
   const store = {
+    deleteQuarantinedOriginal: vi.fn(async () => undefined),
     putCleanVersion: vi.fn(async (input: { fileVersionId: string }) => ({
       etag: '"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"',
       objectKey: `clean/${input.fileVersionId}`,
@@ -83,7 +84,7 @@ describe("file scanner agent service", () => {
     });
     expect(claimed?.claimToken).toMatch(/^[A-Za-z0-9_-]{43}$/u);
     expect(store.readQuarantinedOriginal).toHaveBeenCalledWith(
-      `quarantine/${uploadId}/private-token`,
+      `quarantine/${uploadId}/${"Q".repeat(43)}`,
     );
   });
 
@@ -125,6 +126,9 @@ describe("file scanner agent service", () => {
       fileVersionId: expectedClaimCleanVersionId(1),
       mimeType: "image/jpeg",
     });
+    expect(store.deleteQuarantinedOriginal).toHaveBeenCalledWith(
+      `quarantine/${uploadId}/${"Q".repeat(43)}`,
+    );
     expect(command.mock.calls.map(([input]) => input.action)).toEqual([
       "CLAIM",
       "SCAN_CLEAN",
@@ -135,7 +139,7 @@ describe("file scanner agent service", () => {
     });
   });
 
-  it("returns the durable terminal receipt without repeating R2 mutation", async () => {
+  it("replays the durable terminal receipt and idempotently retries quarantine deletion", async () => {
     const command = vi.fn(async () => ({
       payload: {
         cleanSha256: expectedSha(cleanBody),
@@ -143,6 +147,7 @@ describe("file scanner agent service", () => {
         detectedMime: "image/jpeg",
         generation: 1,
         phase: "TERMINAL",
+        quarantineObjectKey: `quarantine/${uploadId}/${"Q".repeat(43)}`,
         snapshot: { status: "READY_UNLINKED" },
         sourceSha256: expectedSha(sourceBody),
       },
@@ -169,6 +174,47 @@ describe("file scanner agent service", () => {
     );
     expect(store.readQuarantinedOriginal).not.toHaveBeenCalled();
     expect(store.putCleanVersion).not.toHaveBeenCalled();
+    expect(store.deleteQuarantinedOriginal).toHaveBeenCalledWith(
+      `quarantine/${uploadId}/${"Q".repeat(43)}`,
+    );
+  });
+
+  it("recovers a terminal DB commit after the first quarantine delete fails", async () => {
+    const command = vi.fn(async () => ({
+      payload: {
+        cleanSha256: expectedSha(cleanBody),
+        completionVerdict: "CLEAN",
+        detectedMime: "image/jpeg",
+        generation: 1,
+        phase: "TERMINAL",
+        quarantineObjectKey: `quarantine/${uploadId}/${"Q".repeat(43)}`,
+        snapshot: { status: "READY_UNLINKED" },
+        sourceSha256: expectedSha(sourceBody),
+      },
+      status: "REPLAYED",
+    }));
+    const { repository, store } = fixture(command);
+    vi.mocked(store.deleteQuarantinedOriginal!).mockRejectedValueOnce(
+      new Error("transient R2"),
+    );
+    const service = createFileScannerAgentService({ repository, store });
+    const completion = {
+      body: cleanBody,
+      claimToken: "T".repeat(43),
+      exifLocationRemoved: true as const,
+      generation: 1,
+      maxDimension: 2048,
+      mimeType: "image/jpeg" as const,
+      sourceSha256: expectedSha(sourceBody),
+      uploadId,
+      verdict: "CLEAN" as const,
+    };
+
+    await expect(service.complete(completion)).rejects.toThrow("transient R2");
+    await expect(service.complete(completion)).resolves.toEqual({
+      status: "READY_UNLINKED",
+    });
+    expect(store.deleteQuarantinedOriginal).toHaveBeenCalledTimes(2);
   });
 
   it("replays an exact retry-scheduled failed completion without a new claim", async () => {
@@ -204,6 +250,82 @@ describe("file scanner agent service", () => {
     );
     expect(store.readQuarantinedOriginal).not.toHaveBeenCalled();
     expect(store.putCleanVersion).not.toHaveBeenCalled();
+    expect(store.deleteQuarantinedOriginal).not.toHaveBeenCalled();
+  });
+
+  it("deletes the quarantined source when scan-engine retries are exhausted", async () => {
+    const command = vi.fn(async ({ action }: { action: string }) =>
+      action === "CLAIM"
+        ? { payload: claimSnapshot(), status: "CLAIMED" }
+        : { payload: { status: "SCAN_FAILED" }, status: "SCAN_FAILED" },
+    );
+    const { repository, store } = fixture(command);
+    const service = createFileScannerAgentService({ repository, store });
+
+    await expect(
+      service.complete({
+        claimToken: "F".repeat(43),
+        generation: 1,
+        sourceSha256: expectedSha(sourceBody),
+        uploadId,
+        verdict: "FAILED",
+      }),
+    ).resolves.toEqual({ status: "SCAN_FAILED" });
+    expect(store.deleteQuarantinedOriginal).toHaveBeenCalledWith(
+      `quarantine/${uploadId}/${"Q".repeat(43)}`,
+    );
+    expect(command.mock.calls.map(([input]) => input.action)).toEqual([
+      "CLAIM",
+      "FAIL",
+    ]);
+  });
+
+  it("recovers a SCAN_FAILED terminal commit after the first quarantine delete fails", async () => {
+    const key = `quarantine/${uploadId}/${"Q".repeat(43)}`;
+    const command = vi
+      .fn()
+      .mockResolvedValueOnce({ payload: claimSnapshot(), status: "CLAIMED" })
+      .mockResolvedValueOnce({
+        payload: { status: "SCAN_FAILED" },
+        status: "SCAN_FAILED",
+      })
+      .mockResolvedValueOnce({
+        payload: {
+          cleanSha256: null,
+          completionVerdict: "FAILED",
+          detectedMime: null,
+          generation: 1,
+          phase: "TERMINAL",
+          quarantineObjectKey: key,
+          snapshot: { status: "SCAN_FAILED" },
+          sourceSha256: expectedSha(sourceBody),
+        },
+        status: "REPLAYED",
+      });
+    const { repository, store } = fixture(command);
+    vi.mocked(store.deleteQuarantinedOriginal!).mockRejectedValueOnce(
+      new Error("transient R2"),
+    );
+    const service = createFileScannerAgentService({ repository, store });
+    const completion = {
+      claimToken: "F".repeat(43),
+      generation: 1,
+      sourceSha256: expectedSha(sourceBody),
+      uploadId,
+      verdict: "FAILED" as const,
+    };
+
+    await expect(service.complete(completion)).rejects.toThrow("transient R2");
+    await expect(service.complete(completion)).resolves.toEqual({
+      status: "SCAN_FAILED",
+    });
+    expect(store.deleteQuarantinedOriginal).toHaveBeenNthCalledWith(1, key);
+    expect(store.deleteQuarantinedOriginal).toHaveBeenNthCalledWith(2, key);
+    expect(command.mock.calls.map(([input]) => input.action)).toEqual([
+      "CLAIM",
+      "FAIL",
+      "CLAIM",
+    ]);
   });
 
   it("records an infected result without writing a clean object", async () => {
@@ -227,6 +349,9 @@ describe("file scanner agent service", () => {
       }),
     ).resolves.toEqual({ status: "REJECTED" });
     expect(store.putCleanVersion).not.toHaveBeenCalled();
+    expect(store.deleteQuarantinedOriginal).toHaveBeenCalledWith(
+      `quarantine/${uploadId}/${"Q".repeat(43)}`,
+    );
     expect(command.mock.calls.map(([input]) => input.action)).toEqual([
       "CLAIM",
       "REJECT",
