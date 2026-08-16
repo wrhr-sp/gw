@@ -2572,6 +2572,7 @@ export async function probeDatabaseReadiness(
         hotel_daily_sales_marker_count: number;
         hotel_owner_inquiries_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
+        file_scanner_agent_authority_correction_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2700,6 +2701,9 @@ export async function probeDatabaseReadiness(
                where version = '0052_hotel_owner_inquiries'
              )::integer as hotel_owner_inquiries_marker_count,
              count(*) filter (
+               where version = '0053_file_scanner_agent_authority_correction'
+             )::integer as file_scanner_agent_authority_correction_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2768,7 +2772,8 @@ export async function probeDatabaseReadiness(
         '0049_hotel_operational_issues',
         '0050_hotel_daily_sales',
         '0051_file_scanner_agent_authority',
-        '0052_hotel_owner_inquiries'
+        '0052_hotel_owner_inquiries',
+        '0053_file_scanner_agent_authority_correction'
       )
     `;
     const schemaPhase =
@@ -2803,9 +2808,11 @@ export async function probeDatabaseReadiness(
           ? "PRE_EXPAND"
           : null;
     const fileScannerAgentAuthorityPhase =
-      migrationRows[0]?.file_scanner_agent_authority_marker_count === 1
+      migrationRows[0]?.file_scanner_agent_authority_marker_count === 1 &&
+      migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 1
         ? "EXPAND"
-        : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0
+        : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0 &&
+            migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const ownerInquiriesPhase =
