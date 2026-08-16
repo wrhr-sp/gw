@@ -1611,6 +1611,7 @@ HOTEL_OPERATIONAL_ISSUES_MIGRATION="$ROOT_DIR/packages/db/migrations/0049_hotel_
 HOTEL_DAILY_SALES_MIGRATION="$ROOT_DIR/packages/db/migrations/0050_hotel_daily_sales.sql"
 FILE_SCANNER_AGENT_AUTHORITY_MIGRATION="$ROOT_DIR/packages/db/migrations/0051_file_scanner_agent_authority.sql"
 HOTEL_OWNER_INQUIRIES_MIGRATION="$ROOT_DIR/packages/db/migrations/0052_hotel_owner_inquiries.sql"
+FILE_SCANNER_AGENT_AUTHORITY_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0053_file_scanner_agent_authority_correction.sql"
 FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL="$ROOT_DIR/packages/db/test/file-scanner-agent-authority-integration.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
@@ -2636,6 +2637,7 @@ end
 $contract_scanner_authority$;
 SQL
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$FILE_SCANNER_AGENT_AUTHORITY_CORRECTION_MIGRATION" >/dev/null
 HOTEL_OWNER_INQUIRIES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_TEST_SQL")"
 if [[ "$HOTEL_OWNER_INQUIRIES_RESULT" != *"HOTEL_OWNER_INQUIRIES_INTEGRATION_OK"* ]]; then
   printf '%s\n' "$HOTEL_OWNER_INQUIRIES_RESULT" >&2

@@ -600,6 +600,10 @@ try {
       "0051_file_scanner_agent_authority.sql",
     ],
     ["0052_hotel_owner_inquiries", "0052_hotel_owner_inquiries.sql"],
+    [
+      "0053_file_scanner_agent_authority_correction",
+      "0053_file_scanner_agent_authority_correction.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -657,6 +661,8 @@ try {
             (version !== "0051_file_scanner_agent_authority" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0052_hotel_owner_inquiries" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0053_file_scanner_agent_authority_correction" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
