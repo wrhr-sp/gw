@@ -758,11 +758,17 @@ describe("account administration readiness contract", () => {
       "0033_hotel_file_upload_scope",
       "hotel_file_upload_scope_v1",
       "dce219c3bb0458e3ff1150cdee934ebbf2227de50f5930e7499e5a7e022015c0",
+      "HOTEL_FILE_UPLOAD_SCOPE_CORRECTED_V1_PROSRC_SHA256",
+      "78167a71bce0dda2c5237ec7de686f28f588c3ed9be4b4a1c7f2435501b68f65",
+      "fileUploadPollingScopeCorrectionPhase",
       "public.hotel_file_upload_scope_v1(uuid,uuid,text)",
     ]) {
       expect(source).toContain(contract);
     }
     expect(provisionSource).toContain("0033_hotel_file_upload_scope.sql");
+    expect(provisionSource).toContain(
+      "0054_file_upload_polling_scope_correction.sql",
+    );
     expect(provisionSource).toContain(
       "grant execute on function public.hotel_file_upload_scope_v1(",
     );
