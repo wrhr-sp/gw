@@ -50,8 +50,10 @@ const HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256 =
   "6f585e79e861ac0321ec3fa73a2324a4134778fd70a24bf5b15eb79b77074ae8";
 const HOTEL_INQUIRY_IDEMPOTENCY_BEGIN_V1_PROSRC_SHA256 =
   "35c6cd970e390f2d5523e8ea8abd7cbc8301a28959d14bb8bb0f814a90f02076";
-const HOTEL_INQUIRY_CATALOG_SHA256 =
-  "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a";
+const HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR = new Map([
+  ["17", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"],
+  ["18", "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a"],
+]);
 const HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256 = {
   inquiry_history_append_only:
     "a455cc5237313e3539bc69c1cefd9eba1409d4c23464c58b198f89ad9d5d008b",
@@ -2989,10 +2991,12 @@ export async function probeDatabaseReadiness(
           policy_count: number;
           policy_safe_count: number;
           rls_count: number;
+          server_version_num: number;
           table_count: number;
         }[]
       >`
         select count(*)::integer as table_count,
+               pg_catalog.current_setting('server_version_num')::integer as server_version_num,
                count(*) filter (where table_record.relrowsecurity)::integer as rls_count,
                count(*) filter (where table_record.relforcerowsecurity)::integer as force_rls_count,
                count(*) filter (where table_record.relowner=migration_table.relowner)::integer as owner_safe_count,
@@ -3051,6 +3055,11 @@ export async function probeDatabaseReadiness(
       const inquiryCatalogDigest = inquiryFoundation?.catalog_shape
         ? await sourceSha256(inquiryFoundation.catalog_shape)
         : null;
+      const inquiryCatalogExpectedDigest = inquiryFoundation
+        ? HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR.get(
+            Math.trunc(inquiryFoundation.server_version_num / 10_000).toString(),
+          )
+        : undefined;
       if (
         inquiryFoundation?.table_count !== inquiryTableNames.length ||
         inquiryFoundation.rls_count !== inquiryTableNames.length ||
@@ -3060,7 +3069,8 @@ export async function probeDatabaseReadiness(
         inquiryFoundation.policy_safe_count !== inquiryTableNames.length ||
         inquiryFoundation.table_acl_count !== 0 ||
         inquiryFoundation.column_acl_count !== 0 ||
-        inquiryCatalogDigest !== HOTEL_INQUIRY_CATALOG_SHA256
+        !inquiryCatalogExpectedDigest ||
+        inquiryCatalogDigest !== inquiryCatalogExpectedDigest
       )
         return schemaNotReady();
 

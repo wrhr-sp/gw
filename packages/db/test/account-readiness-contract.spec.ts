@@ -939,6 +939,21 @@ describe("account administration readiness contract", () => {
     expect(provisionSource).not.toContain("readinessStack");
   });
 
+  it("binds the inquiry catalog to exact PostgreSQL-major renderings", () => {
+    for (const contract of [
+      "HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR",
+      '["17", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"]',
+      '["18", "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a"]',
+      "pg_catalog.current_setting('server_version_num')::integer as server_version_num",
+      "Math.trunc(inquiryFoundation.server_version_num / 10_000).toString()",
+      "!inquiryCatalogExpectedDigest",
+      "inquiryCatalogDigest !== inquiryCatalogExpectedDigest",
+    ]) {
+      expect(source).toContain(contract);
+    }
+    expect(source).not.toContain("inquiryCatalogDigest !== HOTEL_INQUIRY_CATALOG_SHA256");
+  });
+
   it("binds readiness and Preview ACL closure to inspection review v1", () => {
     for (const contract of [
       "0035_hotel_inspection_review_and_file_view",
