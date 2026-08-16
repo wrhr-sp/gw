@@ -40,6 +40,7 @@ function sessionCredential() {
 const internalCredential = sessionCredential();
 let ownerACredential;
 let ownerBCredential;
+let ownerBFixture;
 const canaryPhase = process.env.OWNER_INQUIRY_SMOKE_PHASE ?? "PRE_CONTRACT";
 const releaseAttempt = [
   process.env.GITHUB_SHA,
@@ -49,12 +50,15 @@ const releaseAttempt = [
   .filter(Boolean)
   .join(":");
 const canarySeed = `${releaseAttempt || process.env.OWNER_INQUIRY_CANARY_SEED || randomUUID()}:${canaryPhase}`;
-function stableUuid(label) {
-  const bytes = createHash("sha256").update(`${canarySeed}:${label}`, "utf8").digest().subarray(0, 16);
+function uuidFromSeed(seed, label) {
+  const bytes = createHash("sha256").update(`${seed}:${label}`, "utf8").digest().subarray(0, 16);
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+function stableUuid(label) {
+  return uuidFromSeed(canarySeed, label);
 }
 const internalPermissionCodes = [
   "HOTEL_INQUIRY_READ",
@@ -416,16 +420,16 @@ try {
   `;
   hotelId = scope?.branch_id;
   if (!hotelId) throw new Error("PREVIEW_OWNER_INQUIRY_HOTEL_UNAVAILABLE");
-  const ownerCandidates = await ownerSql`
+  const loadOwnerCandidates = () => ownerSql`
     with target_owner as(
-      select assignment.user_id,identity.provider_subject,0 as priority
+      select distinct on(assignment.user_id) assignment.user_id,identity.provider_subject,0 as priority
         from public.hotel_owner_assignments assignment
         join public.users owner_user on owner_user.company_id=assignment.company_id and owner_user.id=assignment.user_id and owner_user.user_type='HOTEL_OWNER' and owner_user.status='ACTIVE'
         join public.auth_identities identity on identity.company_id=assignment.company_id and identity.user_id=assignment.user_id and identity.provider='ZITADEL'
        where assignment.company_id=${principal.company_id}::uuid and assignment.branch_id=${hotelId}::uuid
          and assignment.terminated_at is null and assignment.start_date<=statement_timestamp()::date
          and(assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
-       order by assignment.created_at limit 1
+       order by assignment.user_id,assignment.created_at
     ), other_owner as(
       select distinct on(assignment.user_id) assignment.user_id,identity.provider_subject,1 as priority
         from public.hotel_owner_assignments assignment
@@ -434,9 +438,50 @@ try {
        where assignment.company_id=${principal.company_id}::uuid and assignment.branch_id<>${hotelId}::uuid
          and assignment.terminated_at is null and assignment.start_date<=statement_timestamp()::date
          and(assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
+         and not exists(select 1 from target_owner target where target.user_id=assignment.user_id)
        order by assignment.user_id,assignment.created_at
-    ) select user_id,provider_subject from(select*from target_owner union all select*from other_owner)candidates order by priority,user_id limit 2
+    ) select user_id,provider_subject,priority from(select*from target_owner union all select*from other_owner)candidates order by priority,user_id limit 2
   `;
+  let ownerCandidates = await loadOwnerCandidates();
+  if (ownerCandidates[0]?.priority !== 0)
+    throw new Error("PREVIEW_OWNER_INQUIRY_TARGET_OWNER_REQUIRED");
+  if (ownerCandidates.length < 2) {
+    const ownerFixtureSeed = `preview-inquiry-owner:${principal.company_id}:${hotelId}`;
+    ownerBFixture = {
+      identityId: uuidFromSeed(ownerFixtureSeed, "identity"),
+      providerSubject: `preview-inquiry-owner-${createHash("sha256").update(ownerFixtureSeed).digest("hex").slice(0, 24)}`,
+      userId: uuidFromSeed(ownerFixtureSeed, "user"),
+    };
+    await ownerSql.begin(async (tx) => {
+      await tx`
+        insert into public.users(id,company_id,user_type,display_name)
+        values(${ownerBFixture.userId}::uuid,${principal.company_id}::uuid,'HOTEL_OWNER','Preview 문의 격리 검증자')
+        on conflict(id)do nothing
+      `;
+      await tx`
+        insert into public.auth_identities(id,company_id,user_id,provider,provider_subject)
+        values(${ownerBFixture.identityId}::uuid,${principal.company_id}::uuid,${ownerBFixture.userId}::uuid,'ZITADEL',${ownerBFixture.providerSubject})
+        on conflict(id)do nothing
+      `;
+    });
+    const [ownerFixtureReadback] = await ownerSql`
+      select owner_user.user_type,owner_user.status,identity.provider,identity.provider_subject
+        from public.users owner_user
+        join public.auth_identities identity on identity.company_id=owner_user.company_id and identity.user_id=owner_user.id and identity.id=${ownerBFixture.identityId}::uuid
+       where owner_user.company_id=${principal.company_id}::uuid and owner_user.id=${ownerBFixture.userId}::uuid
+    `;
+    if (ownerFixtureReadback?.user_type !== "HOTEL_OWNER" || ownerFixtureReadback?.status !== "ACTIVE" ||
+        ownerFixtureReadback?.provider !== "ZITADEL" || ownerFixtureReadback?.provider_subject !== ownerBFixture.providerSubject)
+      throw new Error("PREVIEW_OWNER_INQUIRY_OWNER_FIXTURE_INVALID");
+    ownerCandidates = [
+      ownerCandidates[0],
+      {
+        priority: 0,
+        provider_subject: ownerBFixture.providerSubject,
+        user_id: ownerBFixture.userId,
+      },
+    ];
+  }
   if (ownerCandidates.length !== 2) throw new Error("PREVIEW_OWNER_INQUIRY_TWO_OWNERS_REQUIRED");
   ownerACredential = sessionCredential();
   ownerBCredential = sessionCredential();
