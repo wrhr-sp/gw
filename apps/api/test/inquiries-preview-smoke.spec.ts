@@ -21,6 +21,13 @@ describe("hosted Preview owner-inquiry smoke", () => {
     ).not.toThrow();
     expect(source).toContain("auth_create_session_v2");
     expect(source).toContain("ownerCandidates.length !== 2");
+    expect(source).toContain("ownerCandidates.length < 2");
+    expect(source).toContain("insert into public.users");
+    expect(source).toContain("insert into public.auth_identities");
+    expect(source).not.toContain("insert into public.hotel_owner_assignments");
+    expect(source).toContain("ownerFixtureSeed");
+    expect(source).toContain("on conflict(id)do nothing");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_FIXTURE_INVALID");
     expect(source).toContain("ownerACredential.token");
     expect(source).toContain("ownerBCredential.token");
     for (const boundary of [
