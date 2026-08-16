@@ -604,6 +604,10 @@ try {
       "0053_file_scanner_agent_authority_correction",
       "0053_file_scanner_agent_authority_correction.sql",
     ],
+    [
+      "0054_file_upload_polling_scope_correction",
+      "0054_file_upload_polling_scope_correction.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -663,6 +667,8 @@ try {
             (version !== "0052_hotel_owner_inquiries" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0053_file_scanner_agent_authority_correction" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0054_file_upload_polling_scope_correction" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 

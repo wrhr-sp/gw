@@ -113,6 +113,8 @@ const HOTEL_DAILY_SALES_HISTORY_APPEND_ONLY_PROSRC_SHA256 =
   "a9590d523dc891996f9aefaf658a09923ac632a8076097898f4f337627a0c031";
 const HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256 =
   "a37cbfb523026e3323277e04e8c14503d1832015e95cd2c065425310922c50aa";
+const HOTEL_FILE_UPLOAD_SCOPE_CORRECTED_V1_PROSRC_SHA256 =
+  "78167a71bce0dda2c5237ec7de686f28f588c3ed9be4b4a1c7f2435501b68f65";
 const HOTEL_OPERATIONAL_ISSUES_CAPABILITIES_V1_PROSRC_SHA256 =
   "080cddf4c3ebd51ed6e9a92087468e35d7032ece25d0d330f745b02e8cd4748f";
 const HOTEL_OPERATIONAL_ISSUES_ACTOR_V1_PROSRC_SHA256 =
@@ -2573,6 +2575,7 @@ export async function probeDatabaseReadiness(
         hotel_owner_inquiries_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
         file_scanner_agent_authority_correction_marker_count: number;
+        file_upload_polling_scope_correction_marker_count: number;
         hotel_calendar_read_model_marker_count: number;
         google_calendar_projection_marker_count: number;
         google_calendar_removal_marker_count: number;
@@ -2704,6 +2707,9 @@ export async function probeDatabaseReadiness(
                where version = '0053_file_scanner_agent_authority_correction'
              )::integer as file_scanner_agent_authority_correction_marker_count,
              count(*) filter (
+               where version = '0054_file_upload_polling_scope_correction'
+             )::integer as file_upload_polling_scope_correction_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2773,7 +2779,8 @@ export async function probeDatabaseReadiness(
         '0050_hotel_daily_sales',
         '0051_file_scanner_agent_authority',
         '0052_hotel_owner_inquiries',
-        '0053_file_scanner_agent_authority_correction'
+        '0053_file_scanner_agent_authority_correction',
+        '0054_file_upload_polling_scope_correction'
       )
     `;
     const schemaPhase =
@@ -2807,12 +2814,20 @@ export async function probeDatabaseReadiness(
         : migrationRows[0]?.hotel_daily_sales_marker_count === 0
           ? "PRE_EXPAND"
           : null;
+    const fileUploadPollingScopeCorrectionPhase =
+      migrationRows[0]?.file_upload_polling_scope_correction_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.file_upload_polling_scope_correction_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
     const fileScannerAgentAuthorityPhase =
       migrationRows[0]?.file_scanner_agent_authority_marker_count === 1 &&
-      migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 1
+      migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 1 &&
+      fileUploadPollingScopeCorrectionPhase === "EXPAND"
         ? "EXPAND"
         : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0 &&
-            migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 0
+            migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 0 &&
+            fileUploadPollingScopeCorrectionPhase === "PRE_EXPAND"
           ? "PRE_EXPAND"
           : null;
     const ownerInquiriesPhase =
@@ -5125,9 +5140,12 @@ export async function probeDatabaseReadiness(
         });
       for (const contract of activeInspectionCommandContracts) {
         const expectedDigest =
-          contract.name === "hotel_repair_file_upload_init_v1" &&
-          dailySalesPhase === "EXPAND"
-            ? HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256
+          contract.name === "hotel_file_upload_scope_v1" &&
+          fileUploadPollingScopeCorrectionPhase === "EXPAND"
+            ? HOTEL_FILE_UPLOAD_SCOPE_CORRECTED_V1_PROSRC_SHA256
+            : contract.name === "hotel_repair_file_upload_init_v1" &&
+                dailySalesPhase === "EXPAND"
+              ? HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256
             : contract.name === "hotel_calendar_events_read_v1"
               ? googleCalendarProjectionPhase === "REMOVED"
                 ? HOTEL_CALENDAR_EVENTS_REMOVED_SHA256
