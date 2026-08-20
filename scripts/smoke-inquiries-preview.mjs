@@ -651,14 +651,14 @@ try {
   if (ownerBView.response.status !== 404) throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_FILE_LEAK");
   const viewedBody = Buffer.from(await view.response.arrayBuffer());
   const expectedOptimized = await optimizeEvidenceImage(png, "image/png");
-  if (!view.response.ok || !viewedBody.equals(Buffer.from(expectedOptimized.body)) ||
-      view.response.headers.get("content-type") !== expectedOptimized.mimeType ||
-      view.response.headers.get("cache-control") !== "private, no-store" ||
-      view.response.headers.get("x-content-type-options") !== "nosniff" ||
-      view.response.headers.get("content-disposition") !== expectedContentDisposition("Preview 문의 첨부.png") ||
-      /[\r\n]/u.test(view.response.headers.get("content-disposition") ?? "") ||
-      Number(view.response.headers.get("content-length")) !== viewedBody.byteLength)
-    throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_INVALID");
+  if (!view.response.ok) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_STATUS_INVALID");
+  if (!viewedBody.equals(Buffer.from(expectedOptimized.body))) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_BODY_INVALID");
+  if (view.response.headers.get("content-type") !== expectedOptimized.mimeType) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_MIME_INVALID");
+  if (view.response.headers.get("cache-control") !== "private, no-store") throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_CACHE_INVALID");
+  if (view.response.headers.get("x-content-type-options") !== "nosniff") throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_NOSNIFF_INVALID");
+  if (view.response.headers.get("content-disposition") !== expectedContentDisposition("Preview 문의 첨부.png")) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_DISPOSITION_INVALID");
+  if (/[\r\n]/u.test(view.response.headers.get("content-disposition") ?? "")) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_DISPOSITION_CRLF");
+  if (Number(view.response.headers.get("content-length")) !== viewedBody.byteLength) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_LENGTH_INVALID");
 
   const [databaseReadback] = await ownerSql`
     select inquiry.status,
