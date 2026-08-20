@@ -49,6 +49,16 @@ describe("hosted Preview owner-inquiry smoke", () => {
       "ownerBUpload.response.status !== 404 || ownerBUpload.payload?.data",
     );
     expect(source).toContain("ownerBView.response.status !== 404");
+    for (const boundary of [
+      "FILE_VIEW_STATUS_INVALID",
+      "FILE_VIEW_BODY_INVALID",
+      "FILE_VIEW_MIME_INVALID",
+      "FILE_VIEW_CACHE_INVALID",
+      "FILE_VIEW_NOSNIFF_INVALID",
+      "FILE_VIEW_DISPOSITION_INVALID",
+      "FILE_VIEW_DISPOSITION_CRLF",
+      "FILE_VIEW_LENGTH_INVALID",
+    ]) expect(source).toContain(boundary);
     expect(source).toContain("insert into public.permission_grants");
     for (const permission of [
       "HOTEL_OWNER_INQUIRY_READ",
