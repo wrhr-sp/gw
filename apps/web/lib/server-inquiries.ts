@@ -25,6 +25,11 @@ async function request(path: string) {
   }
 }
 
+async function requestCriticalList(path: string) {
+  const response = await request(path);
+  return response.status >= 500 ? request(path) : response;
+}
+
 function detail(value: unknown) {
   const internal = hotelInquiryInternalResponseSchema.safeParse(value);
   if (internal.success) return internal.data.data.inquiry;
@@ -43,15 +48,17 @@ export async function fetchInquiryCapabilities() {
 }
 
 export async function fetchInquiries(hotelId: string, preferredInquiryId?: string) {
-  const [listResponse, contactResponse, assignmentResponse, capResponse] =
-    await Promise.all([
-      request(`${hotelInquiryRoutes.list(hotelId)}?page=1&pageSize=100`),
-      request(hotelInquiryRoutes.contact(hotelId)),
-      request(hotelRoutes.assignments(hotelId)),
-      request(hotelInquiryRoutes.capabilities),
-    ]);
+  const listResponse = await requestCriticalList(
+    `${hotelInquiryRoutes.list(hotelId)}?page=1&pageSize=100`,
+  );
+  if (listResponse.status === 401) redirect("/login");
+  const [contactResponse, assignmentResponse, capResponse] = await Promise.all([
+    request(hotelInquiryRoutes.contact(hotelId)),
+    request(hotelRoutes.assignments(hotelId)),
+    request(hotelInquiryRoutes.capabilities),
+  ]);
   if (
-    [listResponse, contactResponse, assignmentResponse, capResponse].some(
+    [contactResponse, assignmentResponse, capResponse].some(
       (response) => response.status === 401,
     )
   )
