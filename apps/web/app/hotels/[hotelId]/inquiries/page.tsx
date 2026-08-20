@@ -18,6 +18,7 @@ export default async function InquiryPage({
     return (
       <section
         role="alert"
+        data-error-stage={result.stage}
         className="rounded-panel border border-border bg-surface p-6"
       >
         <h1 className="text-lg font-semibold">

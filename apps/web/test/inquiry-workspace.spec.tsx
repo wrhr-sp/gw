@@ -227,6 +227,9 @@ describe("inquiry workspace", () => {
       "utf8",
     );
     expect(pageSource).toContain("fetchInquiries(hotelId, inquiryId)");
+    expect(pageSource).toContain("data-error-stage={result.stage}");
+    for (const stage of ["LIST_REQUEST", "LIST_PARSE", "SETTINGS", "DETAIL_REQUEST", "DETAIL_RESPONSE"])
+      expect(serverSource).toContain(`stage: "${stage}" as const`);
     expect(serverSource).toContain("list.data.data.inquiries.find(");
     expect(serverSource).toContain(
       "(inquiry) => inquiry.id === preferredInquiryId",

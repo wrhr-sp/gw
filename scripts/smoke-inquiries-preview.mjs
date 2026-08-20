@@ -253,6 +253,9 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
     timeout: 30_000,
   }).catch(() => undefined);
   if (!(await page.locator("[data-inquiry-workspace]").count())) {
+    const errorStage = await page.locator("section[role=\"alert\"][data-error-stage]").first().getAttribute("data-error-stage");
+    if (["LIST_REQUEST", "LIST_PARSE", "SETTINGS", "DETAIL_REQUEST", "DETAIL_RESPONSE"].includes(errorStage))
+      throw new Error(`PREVIEW_OWNER_INQUIRY_UI_SERVER_${errorStage}_${suffix}`);
     const safeErrors = new Map([
       ["문의 응답을 안전하게 확인하지 못했습니다.", "LIST_OR_CAPABILITIES"],
       ["문의 설정을 안전하게 확인하지 못했습니다.", "SETTINGS"],
