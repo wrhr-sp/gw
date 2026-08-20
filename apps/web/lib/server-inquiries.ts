@@ -42,7 +42,7 @@ export async function fetchInquiryCapabilities() {
   return parsed.success ? parsed.data.data.hotels : [];
 }
 
-export async function fetchInquiries(hotelId: string) {
+export async function fetchInquiries(hotelId: string, preferredInquiryId?: string) {
   const [listResponse, contactResponse, assignmentResponse, capResponse] =
     await Promise.all([
       request(`${hotelInquiryRoutes.list(hotelId)}?page=1&pageSize=100`),
@@ -104,9 +104,13 @@ export async function fetchInquiries(hotelId: string) {
     settings = parsed.data.data;
   }
   let selected = null;
-  if (list.data.data.inquiries[0]) {
+  const selectedListItem =
+    list.data.data.inquiries.find(
+      (inquiry) => inquiry.id === preferredInquiryId,
+    ) ?? list.data.data.inquiries[0];
+  if (selectedListItem) {
     const response = await request(
-      hotelInquiryRoutes.detail(hotelId, list.data.data.inquiries[0].id),
+      hotelInquiryRoutes.detail(hotelId, selectedListItem.id),
     );
     if (!response.ok)
       return {

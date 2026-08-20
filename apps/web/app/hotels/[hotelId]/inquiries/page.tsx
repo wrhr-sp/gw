@@ -4,11 +4,14 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 export default async function InquiryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hotelId: string }>;
+  searchParams: Promise<{ inquiryId?: string }>;
 }) {
   const { hotelId } = await params,
-    result = await fetchInquiries(hotelId);
+    { inquiryId } = await searchParams,
+    result = await fetchInquiries(hotelId, inquiryId);
   if (!result.ok && ["FORBIDDEN", "RESOURCE_NOT_FOUND"].includes(result.code))
     notFound();
   if (!result.ok)
