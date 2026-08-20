@@ -32,10 +32,10 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("ownerFixtureSeed");
     expect(source).toContain("on conflict(id)do nothing");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_FIXTURE_INVALID");
-    expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_ACTOR_NOT_READY");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_CAPABILITIES_INVALID");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_CAPABILITY_NOT_READY");
-    expect(source).toContain("public.hotel_inquiry_actor_v1");
+    expect(source).toContain('failureStage = "OWNER_CAPABILITIES"');
+    expect(source).not.toContain("public.hotel_inquiry_actor_v1");
     expect(source).toContain("ownerACredential.token");
     expect(source).toContain("ownerBCredential.token");
     for (const boundary of [
