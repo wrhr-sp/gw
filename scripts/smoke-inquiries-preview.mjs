@@ -675,16 +675,20 @@ try {
   if (process.env.OWNER_INQUIRY_SMOKE_PHASE === "POST_CONTRACT")
     console.log("PREVIEW_OWNER_INQUIRY_POST_CONTRACT_SMOKE_OK");
 } catch (error) {
-  let code =
+  const code =
     error instanceof Error && /^PREVIEW_OWNER_INQUIRY_[A-Z0-9_]+$/u.test(error.message)
       ? error.message
       : `PREVIEW_OWNER_INQUIRY_FAILED_${failureStage}`;
+  console.error(code);
   try {
     await terminalizeFailedCanary();
-  } catch {
-    code = "PREVIEW_OWNER_INQUIRY_CLEANUP_TERMINALIZATION_FAILED";
+  } catch (cleanupError) {
+    const cleanupCode =
+      cleanupError instanceof Error && /^PREVIEW_OWNER_INQUIRY_CLEANUP_[A-Z0-9_]+$/u.test(cleanupError.message)
+        ? cleanupError.message
+        : "PREVIEW_OWNER_INQUIRY_CLEANUP_TERMINALIZATION_FAILED";
+    console.error(cleanupCode);
   }
-  console.error(code);
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close().catch(() => undefined);
