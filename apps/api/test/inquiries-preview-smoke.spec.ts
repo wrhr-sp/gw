@@ -48,6 +48,7 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain(
       "ownerBUpload.response.status !== 404 || ownerBUpload.payload?.data",
     );
+    expect(source).toContain("ownerBView.response.status !== 404");
     expect(source).toContain("insert into public.permission_grants");
     for (const permission of [
       "HOTEL_OWNER_INQUIRY_READ",

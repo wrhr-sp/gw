@@ -648,7 +648,7 @@ try {
   const ownerBView = await request(`/api/hotels/${hotelId}/inquiries/${inquiryId}/files/${fileVersionId}/view`, {
     headers: { "sec-fetch-site": "same-origin" }, raw: true, sessionToken: ownerBCredential.token,
   });
-  if (ownerBView.response.status !== 403) throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_FILE_LEAK");
+  if (ownerBView.response.status !== 404) throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_FILE_LEAK");
   const viewedBody = Buffer.from(await view.response.arrayBuffer());
   const expectedOptimized = await optimizeEvidenceImage(png, "image/png");
   if (!view.response.ok || !viewedBody.equals(Buffer.from(expectedOptimized.body)) ||
