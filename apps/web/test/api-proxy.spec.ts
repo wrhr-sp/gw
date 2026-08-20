@@ -107,6 +107,69 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
   });
 
+  it("proxies only exact owner-inquiry paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const uppercaseHotelId = "A0000000-0000-4000-8000-00000000000A";
+    const inquiryId = "91000000-0000-4000-8000-000000000001";
+    const fileVersionId = "92000000-0000-4000-8000-000000000001";
+    const approved = [
+      [GET, "GET", ["inquiries", "capabilities"]],
+      [GET, "GET", ["hotels", hotelId, "inquiry-contact"]],
+      [GET, "GET", ["hotels", hotelId, "inquiry-settings"]],
+      [PUT, "PUT", ["hotels", hotelId, "inquiry-settings", "contact"]],
+      [PUT, "PUT", ["hotels", hotelId, "inquiry-settings", "routes", "OTHER"]],
+      [
+        PUT,
+        "PUT",
+        ["hotels", uppercaseHotelId, "inquiry-settings", "routes", "OTHER"],
+      ],
+      [GET, "GET", ["hotels", hotelId, "inquiries"]],
+      [POST, "POST", ["hotels", hotelId, "inquiries"]],
+      [GET, "GET", ["hotels", hotelId, "inquiries", inquiryId]],
+      [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "messages"]],
+      [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "assign"]],
+      [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "transitions"]],
+      [
+        GET,
+        "GET",
+        ["hotels", hotelId, "inquiries", inquiryId, "files", fileVersionId, "view"],
+      ],
+    ] as const;
+    for (const [handler, method, path] of approved) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, { method }),
+        { params: Promise.resolve({ path: [...path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+
+    for (const path of [
+      ["hotels", hotelId, "inquiry-settings", "routes", "UNKNOWN"],
+      ["hotels", hotelId, "inquiry-settings", "routes", "other"],
+      ["hotels", hotelId, "inquiries", "not-a-uuid"],
+      ["hotels", hotelId, "inquiries", inquiryId, "messages", "extra"],
+      ["hotels", hotelId, "inquiries", inquiryId, "files", "not-a-uuid", "view"],
+    ]) {
+      const rejected = await GET(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(rejected.status).toBe(404);
+    }
+    const wrongMethod = await PATCH(
+      new Request(`https://hotel.example.test/api/hotels/${hotelId}/inquiries`, {
+        method: "PATCH",
+      }),
+      { params: Promise.resolve({ path: ["hotels", hotelId, "inquiries"] }) },
+    );
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("allow")).toBe("GET, POST");
+    expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
+  });
+
   it("streams only the approved upload body with its exact length", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const uploadId = "10000000-0000-4000-8000-000000000001";
@@ -306,18 +369,20 @@ describe("same-origin API runtime proxy", () => {
 
   it("returns the shared hotel error contract when the hotel API origin is missing", async () => {
     delete process.env.HOTEL_API_ORIGIN;
-    const response = await GET(
-      new Request("https://hotel.example.test/api/hotels"),
-      { params: Promise.resolve({ path: ["hotels"] }) },
-    );
-    expect(response.status).toBe(503);
-    const body = hotelErrorResponseSchema.parse(await response.json());
-    expect(body.error).toMatchObject({
-      code: "DB_NOT_CONFIGURED",
-      fieldErrors: [],
-      retryAfterSeconds: null,
-      retryable: false,
-    });
+    for (const path of [["hotels"], ["inquiries", "capabilities"]]) {
+      const response = await GET(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(response.status).toBe(503);
+      const body = hotelErrorResponseSchema.parse(await response.json());
+      expect(body.error).toMatchObject({
+        code: "DB_NOT_CONFIGURED",
+        fieldErrors: [],
+        retryAfterSeconds: null,
+        retryable: false,
+      });
+    }
   });
 
   it("forwards query and cookies and preserves redirect response headers", async () => {
