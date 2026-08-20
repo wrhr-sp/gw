@@ -5,6 +5,17 @@ const source = readFileSync(
   join(process.cwd(), "migrations/0052_hotel_owner_inquiries.sql"),
   "utf8",
 );
+const listProjectionCorrection = readFileSync(
+  join(
+    process.cwd(),
+    "migrations/0055_hotel_inquiry_list_projection_correction.sql",
+  ),
+  "utf8",
+);
+const previewProvision = readFileSync(
+  join(process.cwd(), "scripts/provision-preview.ts"),
+  "utf8",
+);
 describe("hotel owner inquiry migration", () => {
   it("defines tenant tables, FORCE RLS, append-only history, and dedicated commands", () => {
     for (const name of [
@@ -25,6 +36,20 @@ describe("hotel owner inquiry migration", () => {
     expect(source).toContain("(p_internal or m.visibility='PUBLIC')");
     expect(source).not.toContain(
       "a.user_type='HOUSEKEEPING' and p_permission_code",
+    );
+  });
+  it("keeps internal-only inquiry fields out of list projections", () => {
+    expect(listProjectionCorrection).toContain(
+      "hotel_inquiry_snapshot_v1(p_company_id,p_branch_id,x.id,false)",
+    );
+    expect(listProjectionCorrection).not.toContain(
+      "hotel_inquiry_snapshot_v1(p_company_id,p_branch_id,x.id,internal)",
+    );
+    expect(listProjectionCorrection).toContain(
+      "0055_hotel_inquiry_list_projection_correction",
+    );
+    expect(previewProvision).toContain(
+      '"0055_hotel_inquiry_list_projection_correction.sql"',
     );
   });
   it("implements seven-day auto close, thirty-day reopen, fencing, and least privilege", () => {

@@ -85,7 +85,7 @@ const HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256 = {
   hotel_inquiry_file_view_v1:
     "cbe729826d03eb9593e642e20a166a02ccb5c3e36db55e61a7d95f725bf821a6",
   hotel_inquiry_read_v1:
-    "c27155077a8948b14f1b3e7243456025d1b741c662c741455d3cc3ce9bebf3e0",
+    "d0075107834763ce0c9b55dc11646ae3e337e15e7227331052febe6a1066ff5e",
 } as const;
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
@@ -2573,6 +2573,7 @@ export async function probeDatabaseReadiness(
         hotel_operational_issues_marker_count: number;
         hotel_daily_sales_marker_count: number;
         hotel_owner_inquiries_marker_count: number;
+        hotel_inquiry_list_projection_correction_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
         file_scanner_agent_authority_correction_marker_count: number;
         file_upload_polling_scope_correction_marker_count: number;
@@ -2710,6 +2711,9 @@ export async function probeDatabaseReadiness(
                where version = '0054_file_upload_polling_scope_correction'
              )::integer as file_upload_polling_scope_correction_marker_count,
              count(*) filter (
+               where version = '0055_hotel_inquiry_list_projection_correction'
+             )::integer as hotel_inquiry_list_projection_correction_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2780,7 +2784,8 @@ export async function probeDatabaseReadiness(
         '0051_file_scanner_agent_authority',
         '0052_hotel_owner_inquiries',
         '0053_file_scanner_agent_authority_correction',
-        '0054_file_upload_polling_scope_correction'
+        '0054_file_upload_polling_scope_correction',
+        '0055_hotel_inquiry_list_projection_correction'
       )
     `;
     const schemaPhase =
@@ -2831,9 +2836,11 @@ export async function probeDatabaseReadiness(
           ? "PRE_EXPAND"
           : null;
     const ownerInquiriesPhase =
-      migrationRows[0]?.hotel_owner_inquiries_marker_count === 1
+      migrationRows[0]?.hotel_owner_inquiries_marker_count === 1 &&
+      migrationRows[0]?.hotel_inquiry_list_projection_correction_marker_count === 1
         ? "EXPAND"
-        : migrationRows[0]?.hotel_owner_inquiries_marker_count === 0
+        : migrationRows[0]?.hotel_owner_inquiries_marker_count === 0 &&
+            migrationRows[0]?.hotel_inquiry_list_projection_correction_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
