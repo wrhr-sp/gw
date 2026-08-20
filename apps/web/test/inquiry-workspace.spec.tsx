@@ -228,6 +228,9 @@ describe("inquiry workspace", () => {
     );
     expect(pageSource).toContain("fetchInquiries(hotelId, inquiryId)");
     expect(pageSource).toContain("data-error-stage={result.stage}");
+    expect(pageSource).toContain("data-error-code={result.code}");
+    expect(pageSource).toContain('data-error-status={"status" in result ? result.status : 502}');
+    expect(serverSource).toContain("status: listResponse.status");
     expect(serverSource).toContain("async function requestCriticalList(path: string)");
     expect(serverSource).toContain("response.status >= 500 ? request(path) : response");
     expect(serverSource).toContain("const listResponse = await requestCriticalList(");

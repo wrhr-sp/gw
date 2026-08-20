@@ -92,7 +92,9 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SERVER_${code}_${suffix}");
-    expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SERVER_${errorStage}_${suffix}");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SERVER_${errorStage}_${safeStatus}_${safeErrorCode}_${suffix}");
+    expect(source).toContain('errorCode : "INVALID_CODE"');
+    expect(source).toContain('errorStatus : "INVALID_STATUS"');
     expect(source).toContain('layoutFailed ? "LAYOUT" : "INQUIRY_ROUTE"');
     for (const boundary of [
       "LIST_OR_CAPABILITIES",

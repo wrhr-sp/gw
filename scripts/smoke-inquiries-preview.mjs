@@ -254,8 +254,14 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
   }).catch(() => undefined);
   if (!(await page.locator("[data-inquiry-workspace]").count())) {
     const errorStage = await page.locator("section[role=\"alert\"][data-error-stage]").first().getAttribute("data-error-stage");
-    if (["LIST_REQUEST", "LIST_PARSE", "SETTINGS", "DETAIL_REQUEST", "DETAIL_RESPONSE"].includes(errorStage))
-      throw new Error(`PREVIEW_OWNER_INQUIRY_UI_SERVER_${errorStage}_${suffix}`);
+    if (["LIST_REQUEST", "LIST_PARSE", "SETTINGS", "DETAIL_REQUEST", "DETAIL_RESPONSE"].includes(errorStage)) {
+      const errorElement = page.locator("section[role=\"alert\"][data-error-stage]").first();
+      const errorCode = await errorElement.getAttribute("data-error-code");
+      const errorStatus = await errorElement.getAttribute("data-error-status");
+      const safeErrorCode = /^[A-Z][A-Z0-9_]{0,63}$/u.test(errorCode ?? "") ? errorCode : "INVALID_CODE";
+      const safeStatus = /^(?:4\d\d|5\d\d)$/u.test(errorStatus ?? "") ? errorStatus : "INVALID_STATUS";
+      throw new Error(`PREVIEW_OWNER_INQUIRY_UI_SERVER_${errorStage}_${safeStatus}_${safeErrorCode}_${suffix}`);
+    }
     const safeErrors = new Map([
       ["문의 응답을 안전하게 확인하지 못했습니다.", "LIST_OR_CAPABILITIES"],
       ["문의 설정을 안전하게 확인하지 못했습니다.", "SETTINGS"],
