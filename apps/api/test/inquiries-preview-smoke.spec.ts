@@ -81,6 +81,12 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("./lib/inquiry-smoke-recovery.mjs");
     expect(source).toContain("terminalizeFailedCanary");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_CLEANUP_TERMINALIZATION_FAILED");
+    expect(source).toContain("console.error(code)");
+    expect(source).toContain("console.error(cleanupCode)");
+    expect(source.indexOf("console.error(code)")).toBeLessThan(
+      source.indexOf("await terminalizeFailedCanary()"),
+    );
+    expect(source).toContain("/^PREVIEW_OWNER_INQUIRY_CLEANUP_[A-Z0-9_]+$/u");
     expect(source).toContain("upload.status not in('LINKED','EXPIRED','REJECTED','SCAN_FAILED')");
     expect(source).toContain('getByRole("link", { name: "Preview 문의 첨부.png" })');
     expect(source).toContain("verifyUi({ width: 390, height: 844 }");
