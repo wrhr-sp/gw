@@ -91,6 +91,13 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("response.status !== 403");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SERVER_${code}_${suffix}");
+    for (const boundary of [
+      "LIST_OR_CAPABILITIES",
+      "SETTINGS",
+      "DETAIL_REQUEST",
+      "DETAIL_RESPONSE",
+    ]) expect(source).toContain(boundary);
     expect(source).toContain("new AxeBuilder({ page })");
     expect(source).toContain(
       "violation.id.toUpperCase().replace(/[^A-Z0-9]+/gu",

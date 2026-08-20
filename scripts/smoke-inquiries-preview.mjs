@@ -248,6 +248,21 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
   });
   if (!response?.ok() || new URL(page.url()).pathname === "/login")
     throw new Error(`PREVIEW_OWNER_INQUIRY_UI_DOCUMENT_${suffix}`);
+  await page.locator('[data-inquiry-workspace], section[role="alert"]').first().waitFor({
+    state: "visible",
+    timeout: 30_000,
+  }).catch(() => undefined);
+  if (!(await page.locator("[data-inquiry-workspace]").count())) {
+    const safeErrors = new Map([
+      ["문의 응답을 안전하게 확인하지 못했습니다.", "LIST_OR_CAPABILITIES"],
+      ["문의 설정을 안전하게 확인하지 못했습니다.", "SETTINGS"],
+      ["문의 상세를 불러오지 못했습니다.", "DETAIL_REQUEST"],
+      ["문의 상세 응답을 확인하지 못했습니다.", "DETAIL_RESPONSE"],
+    ]);
+    for (const [message, code] of safeErrors)
+      if (await page.getByText(message, { exact: true }).isVisible().catch(() => false))
+        throw new Error(`PREVIEW_OWNER_INQUIRY_UI_SERVER_${code}_${suffix}`);
+  }
   await requireVisible(page.locator("[data-inquiry-workspace]"), `PREVIEW_OWNER_INQUIRY_UI_WORKSPACE_${suffix}`);
   await requireVisible(page.getByRole("heading", { name: "호텔 소유주 문의" }), `PREVIEW_OWNER_INQUIRY_UI_HEADING_${suffix}`);
   await requireVisible(page.getByText(title).first(), `PREVIEW_OWNER_INQUIRY_UI_TITLE_${suffix}`);
