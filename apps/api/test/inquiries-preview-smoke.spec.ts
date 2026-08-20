@@ -57,8 +57,11 @@ describe("hosted Preview owner-inquiry smoke", () => {
       "FILE_VIEW_NOSNIFF_INVALID",
       "FILE_VIEW_DISPOSITION_INVALID",
       "FILE_VIEW_DISPOSITION_CRLF",
-      "FILE_VIEW_LENGTH_INVALID",
     ]) expect(source).toContain(boundary);
+    expect(source).toContain("FILE_VIEW_LENGTH_INVALID");
+    expect(source).toContain(
+      "contentLength !== null && Number(contentLength) !== viewedBody.byteLength",
+    );
     expect(source).toContain("insert into public.permission_grants");
     for (const permission of [
       "HOTEL_OWNER_INQUIRY_READ",
