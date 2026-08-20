@@ -273,6 +273,11 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
 
 async function terminalizeFailedCanary() {
   if (!inquiryId || !hotelId || !principal || !ownerACredential) return;
+  const [createdInquiry] = await ownerSql`
+    select exists(select 1 from public.hotel_inquiries
+      where company_id=${principal.company_id}::uuid and branch_id=${hotelId}::uuid and id=${inquiryId}::uuid) as present
+  `;
+  if (!createdInquiry?.present) return;
 
   if (canaryUploadId && canaryUploadUrl && !canaryUploadEtag) {
     const replay = await request(canaryUploadUrl, {
@@ -524,6 +529,20 @@ try {
     }
     return inserted;
   });
+
+  const ownerActor = await sql.begin(async (tx) => {
+    await tx`select set_config('app.company_id',${principal.company_id},true),set_config('app.session_id',${ownerACredential.sessionId},true)`;
+    return tx`select user_id,user_type from public.hotel_inquiry_actor_v1(${principal.company_id}::uuid,${hotelId}::uuid,${ownerACredential.token},'HOTEL_OWNER_INQUIRY_CREATE')`;
+  });
+  if (ownerActor.length !== 1 || ownerActor[0]?.user_id !== ownerAPrincipal.user_id || ownerActor[0]?.user_type !== "HOTEL_OWNER")
+    throw new Error("PREVIEW_OWNER_INQUIRY_OWNER_ACTOR_NOT_READY");
+  const capabilities = await api("/api/inquiries/capabilities", {
+    failureCode: "PREVIEW_OWNER_INQUIRY_CAPABILITIES_INVALID",
+    sessionToken: ownerACredential.token,
+  });
+  const targetCapability = capabilities?.hotels?.find((candidate) => candidate.hotelId === hotelId);
+  if (!targetCapability?.ownerView || !targetCapability.canCreate)
+    throw new Error("PREVIEW_OWNER_INQUIRY_OWNER_CAPABILITY_NOT_READY");
 
   failureStage = "API_DB";
   inquiryId = stableUuid("inquiry");

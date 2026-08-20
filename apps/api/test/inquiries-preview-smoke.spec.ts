@@ -32,6 +32,10 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("ownerFixtureSeed");
     expect(source).toContain("on conflict(id)do nothing");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_FIXTURE_INVALID");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_ACTOR_NOT_READY");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_CAPABILITIES_INVALID");
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_OWNER_CAPABILITY_NOT_READY");
+    expect(source).toContain("public.hotel_inquiry_actor_v1");
     expect(source).toContain("ownerACredential.token");
     expect(source).toContain("ownerBCredential.token");
     for (const boundary of [
@@ -80,6 +84,7 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("completeUploadWithReplay");
     expect(source).toContain("./lib/inquiry-smoke-recovery.mjs");
     expect(source).toContain("terminalizeFailedCanary");
+    expect(source).toContain("if (!createdInquiry?.present) return");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_CLEANUP_TERMINALIZATION_FAILED");
     expect(source).toContain("console.error(code)");
     expect(source).toContain("console.error(cleanupCode)");
