@@ -262,6 +262,24 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
     for (const [message, code] of safeErrors)
       if (await page.getByText(message, { exact: true }).isVisible().catch(() => false))
         throw new Error(`PREVIEW_OWNER_INQUIRY_UI_SERVER_${code}_${suffix}`);
+    if (
+      await page
+        .getByRole("heading", { name: "호텔 화면을 불러오지 못했습니다" })
+        .isVisible()
+        .catch(() => false)
+    ) {
+      await page.goto(`${baseUrl}/hotels`, {
+        timeout: 120_000,
+        waitUntil: "domcontentloaded",
+      });
+      const layoutFailed = await page
+        .getByRole("heading", { name: "호텔 화면을 불러오지 못했습니다" })
+        .isVisible()
+        .catch(() => false);
+      throw new Error(
+        `PREVIEW_OWNER_INQUIRY_UI_GLOBAL_${layoutFailed ? "LAYOUT" : "INQUIRY_ROUTE"}_${suffix}`,
+      );
+    }
   }
   await requireVisible(page.locator("[data-inquiry-workspace]"), `PREVIEW_OWNER_INQUIRY_UI_WORKSPACE_${suffix}`);
   await requireVisible(page.getByRole("heading", { name: "호텔 소유주 문의" }), `PREVIEW_OWNER_INQUIRY_UI_HEADING_${suffix}`);
