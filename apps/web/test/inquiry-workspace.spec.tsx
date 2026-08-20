@@ -205,6 +205,18 @@ describe("inquiry workspace", () => {
       "`${hotelFileRoutes.uploadStatus(init.data.data.upload.id)}?hotelId=${encodeURIComponent(hotelId)}`",
     );
   });
+  it("uses a role-compatible live status element when inquiry contact is absent", () => {
+    const source = readFileSync(
+      new URL("../components/inquiries/inquiry-workspace.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(source).toContain(
+      '<div\n          className="rounded-panel border border-warning/40 bg-warning/5 p-4 text-sm"\n          role="status"',
+    );
+    expect(source).not.toContain(
+      '<aside\n          className="rounded-panel border border-warning/40 bg-warning/5 p-4 text-sm"\n          role="status"',
+    );
+  });
   it("links create field errors, focuses the first invalid field, and preserves pending action identity", () => {
     const source = readFileSync(
       new URL("../components/inquiries/inquiry-workspace.tsx", import.meta.url),

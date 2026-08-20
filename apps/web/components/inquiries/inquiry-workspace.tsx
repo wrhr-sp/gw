@@ -534,13 +534,13 @@ export function InquiryWorkspace({
           <p className="text-sm text-muted">{contact.operatingHours}</p>
         </div>
       ) : (
-        <aside
+        <div
           className="rounded-panel border border-warning/40 bg-warning/5 p-4 text-sm"
           role="status"
         >
           문의처가 아직 설정되지 않았습니다. 사내 설정 담당자가 문의처를
           등록하면 소유주에게 표시됩니다.
-        </aside>
+        </div>
       )}
       {initialNotifications.length > 0 && (
        <section
