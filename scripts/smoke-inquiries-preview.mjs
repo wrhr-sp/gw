@@ -577,7 +577,7 @@ try {
     body: { parent: { type: "OWNER_INQUIRY_ATTACHMENT", inquiryId }, fileName: "blocked.png", mimeType: "image/png", sizeBytes: png.length },
     idempotencyKey: randomUUID(), method: "POST", sessionToken: ownerBCredential.token,
   });
-  if (ownerBUpload.response.status !== 403 || ownerBUpload.payload?.data) throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_UPLOAD_LEAK");
+  if (ownerBUpload.response.status !== 404 || ownerBUpload.payload?.data) throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_UPLOAD_LEAK");
   inquiry = await inquiryCommand(
     `/api/hotels/${hotelId}/inquiries/${inquiryId}/assign`,
     { version: inquiry.version, assigneeUserId: principal.user_id, reason: "Preview canary 담당 지정" },

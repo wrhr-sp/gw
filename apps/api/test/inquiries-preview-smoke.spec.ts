@@ -45,6 +45,9 @@ describe("hosted Preview owner-inquiry smoke", () => {
       "CROSS_OWNER_UPLOAD_LEAK",
       "CROSS_OWNER_FILE_LEAK",
     ]) expect(source).toContain(boundary);
+    expect(source).toContain(
+      "ownerBUpload.response.status !== 404 || ownerBUpload.payload?.data",
+    );
     expect(source).toContain("insert into public.permission_grants");
     for (const permission of [
       "HOTEL_OWNER_INQUIRY_READ",
