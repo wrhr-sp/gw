@@ -62,6 +62,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
     );
     return {
       ok: false as const,
+      stage: "LIST_REQUEST" as const,
       code: error.success ? error.data.error.code : "INTERNAL_ERROR",
       error: error.success
         ? error.data.error.message
@@ -83,6 +84,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
   if (!list.success || !caps.success)
     return {
       ok: false as const,
+      stage: "LIST_PARSE" as const,
       code: "INTERNAL_ERROR" as const,
       error: "문의 응답을 안전하게 확인하지 못했습니다.",
     };
@@ -98,6 +100,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
     if (!response.ok || !parsed.success)
       return {
         ok: false as const,
+        stage: "SETTINGS" as const,
         code: "INTERNAL_ERROR" as const,
         error: "문의 설정을 안전하게 확인하지 못했습니다.",
       };
@@ -115,6 +118,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
     if (!response.ok)
       return {
         ok: false as const,
+        stage: "DETAIL_REQUEST" as const,
         code: "INTERNAL_ERROR" as const,
         error: "문의 상세를 불러오지 못했습니다.",
       };
@@ -122,6 +126,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
     if (!selected)
       return {
         ok: false as const,
+        stage: "DETAIL_RESPONSE" as const,
         code: "INTERNAL_ERROR" as const,
         error: "문의 상세 응답을 확인하지 못했습니다.",
       };
