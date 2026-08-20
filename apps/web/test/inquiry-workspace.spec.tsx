@@ -217,6 +217,21 @@ describe("inquiry workspace", () => {
       '<aside\n          className="rounded-panel border border-warning/40 bg-warning/5 p-4 text-sm"\n          role="status"',
     );
   });
+  it("selects only an inquiry id present in the authorized server list", () => {
+    const pageSource = readFileSync(
+      new URL("../app/hotels/[hotelId]/inquiries/page.tsx", import.meta.url),
+      "utf8",
+    );
+    const serverSource = readFileSync(
+      new URL("../lib/server-inquiries.ts", import.meta.url),
+      "utf8",
+    );
+    expect(pageSource).toContain("fetchInquiries(hotelId, inquiryId)");
+    expect(serverSource).toContain("list.data.data.inquiries.find(");
+    expect(serverSource).toContain(
+      "(inquiry) => inquiry.id === preferredInquiryId",
+    );
+  });
   it("links create field errors, focuses the first invalid field, and preserves pending action identity", () => {
     const source = readFileSync(
       new URL("../components/inquiries/inquiry-workspace.tsx", import.meta.url),
