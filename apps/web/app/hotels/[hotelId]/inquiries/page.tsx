@@ -18,7 +18,9 @@ export default async function InquiryPage({
     return (
       <section
         role="alert"
+        data-error-code={result.code}
         data-error-stage={result.stage}
+        data-error-status={"status" in result ? result.status : 502}
         className="rounded-panel border border-border bg-surface p-6"
       >
         <h1 className="text-lg font-semibold">

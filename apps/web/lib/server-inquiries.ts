@@ -70,6 +70,7 @@ export async function fetchInquiries(hotelId: string, preferredInquiryId?: strin
     return {
       ok: false as const,
       stage: "LIST_REQUEST" as const,
+      status: listResponse.status,
       code: error.success ? error.data.error.code : "INTERNAL_ERROR",
       error: error.success
         ? error.data.error.message
