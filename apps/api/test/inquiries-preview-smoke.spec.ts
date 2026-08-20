@@ -92,6 +92,9 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK");
     expect(source).toContain("PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK");
     expect(source).toContain("new AxeBuilder({ page })");
+    expect(source).toContain(
+      "violation.id.toUpperCase().replace(/[^A-Z0-9]+/gu",
+    );
     expect(source).toContain('optimizeEvidenceImage(png, "image/png")');
     expect(source).toContain('headers.get("cache-control") !== "private, no-store"');
     expect(source).toContain('headers.get("x-content-type-options") !== "nosniff"');

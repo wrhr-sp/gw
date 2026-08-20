@@ -266,8 +266,14 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
   if (attachmentStatus !== 200) throw new Error(`PREVIEW_OWNER_INQUIRY_UI_ATTACHMENT_REQUEST_${suffix}`);
   if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth))
     throw new Error(`PREVIEW_OWNER_INQUIRY_UI_OVERFLOW_${suffix}`);
-  if ((await new AxeBuilder({ page }).include("[data-inquiry-workspace]").analyze()).violations.length)
-    throw new Error(`PREVIEW_OWNER_INQUIRY_UI_AXE_${suffix}`);
+  const axeResult = await new AxeBuilder({ page }).include("[data-inquiry-workspace]").analyze();
+  if (axeResult.violations.length) {
+    const ruleIds = axeResult.violations
+      .map((violation) => violation.id.toUpperCase().replace(/[^A-Z0-9]+/gu, "_"))
+      .sort()
+      .join("_");
+    throw new Error(`PREVIEW_OWNER_INQUIRY_UI_AXE_${suffix}_${ruleIds}`);
+  }
   await context.close();
 }
 
