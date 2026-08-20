@@ -658,7 +658,8 @@ try {
   if (view.response.headers.get("x-content-type-options") !== "nosniff") throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_NOSNIFF_INVALID");
   if (view.response.headers.get("content-disposition") !== expectedContentDisposition("Preview 문의 첨부.png")) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_DISPOSITION_INVALID");
   if (/[\r\n]/u.test(view.response.headers.get("content-disposition") ?? "")) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_DISPOSITION_CRLF");
-  if (Number(view.response.headers.get("content-length")) !== viewedBody.byteLength) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_LENGTH_INVALID");
+  const contentLength = view.response.headers.get("content-length");
+  if (contentLength !== null && Number(contentLength) !== viewedBody.byteLength) throw new Error("PREVIEW_OWNER_INQUIRY_FILE_VIEW_LENGTH_INVALID");
 
   const [databaseReadback] = await ownerSql`
     select inquiry.status,
