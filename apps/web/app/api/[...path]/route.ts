@@ -12,6 +12,10 @@ const CLEAR_OAUTH_BROWSER_COOKIE =
   "__Host-hotel_oauth_browser=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax";
 const UUID_PATH_PATTERN =
   "[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const CASE_EXPLICIT_UUID_PATH_PATTERN =
+  "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}";
+const INQUIRY_CATEGORY_PATH_PATTERN =
+  "(?:CONTRACT_POLICY|SALES_SETTLEMENT|ROOM_FACILITY|INSPECTION_ISSUE|ACCOUNT_PERMISSION|OTHER)";
 
 type RouteContext = {
   params: Promise<{ path: string[] }>;
@@ -32,6 +36,7 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["calendar", new Set(["GET"])],
   ["calendar/capabilities", new Set(["GET"])],
   ["issues/capabilities", new Set(["GET"])],
+  ["inquiries/capabilities", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -81,6 +86,49 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   if (new RegExp(`^hotels/${UUID_PATH_PATTERN}/issues$`, "iu").test(apiPath)) {
     return new Set(["GET", "POST"]);
   }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/(?:inquiry-contact|inquiry-settings)$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
+  if (
+    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inquiry-settings/contact$`, "iu").test(
+      apiPath,
+    )
+  )
+    return new Set(["PUT"]);
+  if (
+    new RegExp(
+      `^hotels/${CASE_EXPLICIT_UUID_PATH_PATTERN}/inquiry-settings/routes/${INQUIRY_CATEGORY_PATH_PATTERN}$`,
+      "u",
+    ).test(apiPath)
+  )
+    return new Set(["PUT"]);
+  if (new RegExp(`^hotels/${UUID_PATH_PATTERN}/inquiries$`, "iu").test(apiPath))
+    return new Set(["GET", "POST"]);
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inquiries/${UUID_PATH_PATTERN}$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inquiries/${UUID_PATH_PATTERN}/(?:messages|assign|transitions)$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inquiries/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
 
   if (
     new RegExp(
@@ -480,6 +528,7 @@ async function proxy(
     hotelRequest ||
     accountRequest ||
     calendarRequest ||
+    apiPath === "inquiries/capabilities" ||
     apiPath === "health/ready";
   const exchangeFailureHeaders =
     apiPath === "auth/password/exchange"
