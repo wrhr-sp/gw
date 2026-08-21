@@ -5,7 +5,10 @@ import { chromium } from "@playwright/test";
 import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
-import { completeUploadWithReplay } from "./lib/inquiry-smoke-recovery.mjs";
+import {
+  completeUploadWithReplay,
+  queryHotelScopeWithRetry,
+} from "./lib/inquiry-smoke-recovery.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -665,19 +668,22 @@ try {
   createdSessionHashes.push(internalCredential.tokenHash);
 
   failureStage = "HOTEL_SCOPE";
-  const [scope] = await ownerSql`
-    select assignment.branch_id
-      from public.hotel_staff_assignments assignment
-      join public.branches branch on branch.company_id=assignment.company_id and branch.id=assignment.branch_id
-      join public.hotel_profiles hotel on hotel.company_id=assignment.company_id and hotel.branch_id=assignment.branch_id
-     where assignment.company_id=${principal.company_id}::uuid
-       and assignment.user_id=${principal.user_id}::uuid
-       and assignment.terminated_at is null
-       and assignment.start_date<=statement_timestamp()::date
-       and (assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
-       and branch.branch_type='HOTEL' and branch.status='ACTIVE' and hotel.hotel_status='ACTIVE'
-     order by assignment.created_at,assignment.id limit 1
-  `;
+  const [scope] = await queryHotelScopeWithRetry({
+    query: () => ownerSql`
+      select assignment.branch_id
+        from public.hotel_staff_assignments assignment
+        join public.branches branch on branch.company_id=assignment.company_id and branch.id=assignment.branch_id
+        join public.hotel_profiles hotel on hotel.company_id=assignment.company_id and hotel.branch_id=assignment.branch_id
+       where assignment.company_id=${principal.company_id}::uuid
+         and assignment.user_id=${principal.user_id}::uuid
+         and assignment.terminated_at is null
+         and assignment.start_date<=statement_timestamp()::date
+         and (assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
+         and branch.branch_type='HOTEL' and branch.status='ACTIVE' and hotel.hotel_status='ACTIVE'
+       order by assignment.created_at,assignment.id limit 1
+    `,
+    sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+  });
   hotelId = scope?.branch_id;
   if (!hotelId) throw new Error("PREVIEW_OWNER_INQUIRY_HOTEL_UNAVAILABLE");
   const loadOwnerCandidates = () => ownerSql`
