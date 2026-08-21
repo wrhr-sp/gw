@@ -6,6 +6,33 @@ const ADVANCED = new Set([
 ]);
 const TERMINAL = new Set(["EXPIRED", "REJECTED", "SCAN_FAILED"]);
 
+export function isRetryableTransportError(error) {
+  return (
+    error instanceof TypeError ||
+    (typeof DOMException !== "undefined" &&
+      error instanceof DOMException &&
+      ["AbortError", "TimeoutError"].includes(error.name))
+  );
+}
+
+export async function loadCapabilitiesWithTransportRetry({ load, sleep }) {
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      return await load();
+    } catch (error) {
+      if (!isRetryableTransportError(error)) throw error;
+      if (attempt === 5)
+        throw new Error(
+          "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_TRANSPORT_UNAVAILABLE",
+        );
+      await sleep(attempt * 1_000);
+    }
+  }
+  throw new Error(
+    "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_TRANSPORT_UNAVAILABLE",
+  );
+}
+
 export async function completeUploadWithReplay({
   attempts = 10,
   complete,

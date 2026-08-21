@@ -23,7 +23,9 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain(
       "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
     );
-    expect(source).toContain("scopeCapabilities?.hotels?.find");
+    expect(source).toContain("loadCapabilitiesWithTransportRetry");
+    expect(source).toContain("Array.isArray(scopeCapabilities?.hotels)");
+    expect(source).toContain("scopeCapabilities.hotels.find");
     expect(source).toContain("ownerCandidates.length !== 2");
     expect(source).toContain('ensureOwnerFixture("target", true)');
     expect(source).toContain('ensureOwnerFixture("isolated", true)');

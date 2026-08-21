@@ -5,7 +5,10 @@ import { chromium } from "@playwright/test";
 import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
-import { completeUploadWithReplay } from "./lib/inquiry-smoke-recovery.mjs";
+import {
+  completeUploadWithReplay,
+  loadCapabilitiesWithTransportRetry,
+} from "./lib/inquiry-smoke-recovery.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -665,10 +668,18 @@ try {
   createdSessionHashes.push(internalCredential.tokenHash);
 
   failureStage = "HOTEL_SCOPE";
-  const scopeCapabilities = await api("/api/inquiries/capabilities", {
-    failureCode: "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
+  const scopeCapabilities = await loadCapabilitiesWithTransportRetry({
+    load: () =>
+      api("/api/inquiries/capabilities", {
+        failureCode: "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
+      }),
+    sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
   });
-  const scope = scopeCapabilities?.hotels?.find(
+  if (!Array.isArray(scopeCapabilities?.hotels))
+    throw new Error(
+      "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_RESPONSE_INVALID",
+    );
+  const scope = scopeCapabilities.hotels.find(
     (candidate) =>
       candidate?.ownerView === false &&
       typeof candidate.hotelId === "string" &&
