@@ -897,13 +897,7 @@ try {
       sessionToken: ownerBCredential.token,
     },
   );
-  if (
-    !ownerBList.response.ok ||
-    ownerBList.payload?.ok !== true ||
-    ownerBList.payload?.data?.inquiries?.some(
-      (candidate) => candidate.id === inquiryId,
-    )
-  )
+  if (ownerBList.response.status !== 403 || ownerBList.payload?.data)
     throw new Error("PREVIEW_OWNER_INQUIRY_CROSS_OWNER_LIST_LEAK");
   const ownerBTransition = await request(
     `/api/hotels/${hotelId}/inquiries/${inquiryId}/transitions`,
