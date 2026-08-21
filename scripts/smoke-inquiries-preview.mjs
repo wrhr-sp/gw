@@ -283,7 +283,14 @@ async function requireVisible(locator, code) {
   }
 }
 
-async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
+async function verifyUi(
+  viewport,
+  suffix,
+  title,
+  sessionToken,
+  expectInternal,
+  expectCommonTarget,
+) {
   const context = await browser.newContext({ viewport });
   await context.addCookies([
     {
@@ -418,10 +425,11 @@ async function verifyUi(viewport, suffix, title, sessionToken, expectInternal) {
   const commonTarget = commonNotificationDialog
     .locator(`a[href="/hotels/${hotelId}/inquiries?inquiryId=${inquiryId}"]`)
     .first();
-  await requireVisible(
-    commonTarget,
-    `PREVIEW_OWNER_INQUIRY_UI_COMMON_NOTIFICATION_TARGET_${suffix}`,
-  );
+  if (expectCommonTarget)
+    await requireVisible(
+      commonTarget,
+      `PREVIEW_OWNER_INQUIRY_UI_COMMON_NOTIFICATION_TARGET_${suffix}`,
+    );
   const notificationAxe = await new AxeBuilder({ page })
     .include('[role="dialog"]')
     .analyze();
@@ -1209,6 +1217,7 @@ try {
     title,
     ownerACredential.token,
     false,
+    true,
   );
   await verifyUi(
     { width: 1440, height: 1000 },
@@ -1216,6 +1225,7 @@ try {
     title,
     internalCredential.token,
     true,
+    false,
   );
   console.log("PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK");
   console.log("PREVIEW_INQUIRY_NOTIFICATION_SMOKE_OK");

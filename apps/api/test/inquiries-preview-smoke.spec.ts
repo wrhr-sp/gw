@@ -97,6 +97,14 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain("ownerBCredential.token");
     expect(source).toContain("ownerBList.response.status !== 403");
     expect(source).toContain("ownerBList.payload?.data");
+    expect(source).toContain("expectCommonTarget");
+    expect(source).toContain("if (expectCommonTarget)");
+    expect(source).toContain(
+      '"MOBILE_OWNER",\n    title,\n    ownerACredential.token,\n    false,\n    true',
+    );
+    expect(source).toContain(
+      '"DESKTOP_INTERNAL",\n    title,\n    internalCredential.token,\n    true,\n    false',
+    );
     expect(source).toContain(
       "PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID",
     );
