@@ -779,11 +779,7 @@ try {
   const ownerA =
     discoveredOwners.find((candidate) => candidate.priority === 0) ??
     (await ensureOwnerFixture("target", true));
-  const ownerB =
-    discoveredOwners.find(
-      (candidate) =>
-        candidate.priority === 0 && candidate.user_id !== ownerA.user_id,
-    ) ?? (await ensureOwnerFixture("isolated", true));
+  const ownerB = await ensureOwnerFixture("isolated", false);
   const ownerCandidates = [ownerA, ownerB];
   if (ownerCandidates.length !== 2)
     throw new Error("PREVIEW_OWNER_INQUIRY_TWO_OWNERS_REQUIRED");
@@ -853,12 +849,12 @@ try {
     failureCode: "PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID",
     sessionToken: ownerBCredential.token,
   });
-  if (
-    !ownerBCapabilities?.hotels?.some(
-      (candidate) => candidate.hotelId === hotelId && candidate.ownerView,
-    )
-  )
+  if (!Array.isArray(ownerBCapabilities?.hotels))
     throw new Error("PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID");
+  if (
+    ownerBCapabilities.hotels.some((candidate) => candidate.hotelId === hotelId)
+  )
+    throw new Error("PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_LEAK");
 
   failureStage = "API_DB";
   inquiryId = stableUuid("inquiry");

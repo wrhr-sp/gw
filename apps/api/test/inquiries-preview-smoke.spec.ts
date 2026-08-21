@@ -69,7 +69,15 @@ describe("hosted Preview owner-inquiry smoke", () => {
     );
     expect(source).toContain("ownerCandidates.length !== 2");
     expect(source).toContain('ensureOwnerFixture("target", true)');
-    expect(source).toContain('ensureOwnerFixture("isolated", true)');
+    expect(source).toContain(
+      'const ownerB = await ensureOwnerFixture("isolated", false)',
+    );
+    expect(source).not.toContain("candidate.user_id !== ownerA.user_id");
+    expect(source).toContain("Array.isArray(ownerBCapabilities?.hotels)");
+    expect(source).toContain(
+      "PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID",
+    );
+    expect(source).toContain("PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_LEAK");
     expect(source).toContain("insert into public.users");
     expect(source).toContain("insert into public.auth_identities");
     expect(source).toContain("if (assignToTarget)");
@@ -87,9 +95,6 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).not.toContain("public.hotel_inquiry_actor_v1");
     expect(source).toContain("ownerACredential.token");
     expect(source).toContain("ownerBCredential.token");
-    expect(source).toContain(
-      "candidate.priority === 0 && candidate.user_id !== ownerA.user_id",
-    );
     expect(source).toContain(
       "PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID",
     );
