@@ -21,7 +21,9 @@ describe("hosted Preview owner-inquiry smoke", () => {
     ).not.toThrow();
     expect(source).toContain("auth_create_session_v2");
     expect(source).toContain("hotel_inquiry_capabilities_v1");
+    expect(source).toContain("set_config('app.company_id'");
     expect(source).toContain("set_config('app.session_id'");
+    expect(source).toContain("set_config('TimeZone','Asia/Seoul',true)");
     expect(source).toContain('scopeResult?.command_status !== "OK"');
     expect(source).toContain(
       "Array.isArray(scopeResult?.result_snapshot?.hotels)",

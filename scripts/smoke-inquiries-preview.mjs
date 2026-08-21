@@ -666,7 +666,7 @@ try {
 
   failureStage = "HOTEL_SCOPE";
   const [scopeResult] = await sql.begin(async (tx) => {
-    await tx`select set_config('app.session_id',${internalCredential.sessionId}::text,true)`;
+    await tx`select set_config('app.company_id',${principal.company_id},true),set_config('app.session_id',${internalCredential.sessionId},true),set_config('TimeZone','Asia/Seoul',true)`;
     return tx`
       select * from public.hotel_inquiry_capabilities_v1(
         ${principal.company_id}::uuid,
