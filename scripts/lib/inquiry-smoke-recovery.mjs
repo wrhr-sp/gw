@@ -6,6 +6,23 @@ const ADVANCED = new Set([
 ]);
 const TERMINAL = new Set(["EXPIRED", "REJECTED", "SCAN_FAILED"]);
 
+export function classifyInquirySmokeFailure(error, failureStage) {
+  if (
+    error instanceof Error &&
+    /^PREVIEW_OWNER_INQUIRY_[A-Z0-9_]+$/u.test(error.message)
+  )
+    return error.message;
+  const code =
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof error.code === "string"
+      ? error.code
+      : "";
+  const sqlState = /^[0-9A-Z]{5}$/u.test(code) ? `_SQLSTATE_${code}` : "";
+  return `PREVIEW_OWNER_INQUIRY_FAILED_${failureStage}${sqlState}`;
+}
+
 export async function completeUploadWithReplay({
   attempts = 10,
   complete,
