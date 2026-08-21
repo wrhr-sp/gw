@@ -5,10 +5,7 @@ import { chromium } from "@playwright/test";
 import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
-import {
-  completeUploadWithReplay,
-  loadCapabilitiesWithTransportRetry,
-} from "./lib/inquiry-smoke-recovery.mjs";
+import { completeUploadWithReplay } from "./lib/inquiry-smoke-recovery.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -668,17 +665,23 @@ try {
   createdSessionHashes.push(internalCredential.tokenHash);
 
   failureStage = "HOTEL_SCOPE";
-  const scopeCapabilities = await loadCapabilitiesWithTransportRetry({
-    load: () =>
-      api("/api/inquiries/capabilities", {
-        failureCode: "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
-      }),
-    sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+  const [scopeResult] = await sql.begin(async (tx) => {
+    await tx`select set_config('app.session_id',${internalCredential.sessionId}::text,true)`;
+    return tx`
+      select * from public.hotel_inquiry_capabilities_v1(
+        ${principal.company_id}::uuid,
+        ${internalCredential.token}
+      )
+    `;
   });
-  if (!Array.isArray(scopeCapabilities?.hotels))
+  if (
+    scopeResult?.command_status !== "OK" ||
+    !Array.isArray(scopeResult?.result_snapshot?.hotels)
+  )
     throw new Error(
       "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_RESPONSE_INVALID",
     );
+  const scopeCapabilities = scopeResult.result_snapshot;
   const scope = scopeCapabilities.hotels.find(
     (candidate) =>
       candidate?.ownerView === false &&

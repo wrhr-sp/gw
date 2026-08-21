@@ -20,11 +20,12 @@ describe("hosted Preview owner-inquiry smoke", () => {
       execFileSync(process.execPath, ["--check", smokePath], { stdio: "pipe" }),
     ).not.toThrow();
     expect(source).toContain("auth_create_session_v2");
+    expect(source).toContain("hotel_inquiry_capabilities_v1");
+    expect(source).toContain("set_config('app.session_id'");
+    expect(source).toContain('scopeResult?.command_status !== "OK"');
     expect(source).toContain(
-      "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
+      "Array.isArray(scopeResult?.result_snapshot?.hotels)",
     );
-    expect(source).toContain("loadCapabilitiesWithTransportRetry");
-    expect(source).toContain("Array.isArray(scopeCapabilities?.hotels)");
     expect(source).toContain("scopeCapabilities.hotels.find");
     expect(source).toContain("ownerCandidates.length !== 2");
     expect(source).toContain('ensureOwnerFixture("target", true)');
