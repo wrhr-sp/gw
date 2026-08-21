@@ -5,7 +5,10 @@ import { chromium } from "@playwright/test";
 import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
-import { completeUploadWithReplay } from "./lib/inquiry-smoke-recovery.mjs";
+import {
+  classifyInquirySmokeFailure,
+  completeUploadWithReplay,
+} from "./lib/inquiry-smoke-recovery.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -692,6 +695,7 @@ try {
   );
   hotelId = scope?.hotelId;
   if (!hotelId) throw new Error("PREVIEW_OWNER_INQUIRY_HOTEL_UNAVAILABLE");
+  failureStage = "OWNER_DISCOVERY";
   const loadOwnerCandidates = () => ownerSql`
     with target_owner as(
       select distinct on(assignment.user_id) assignment.user_id,identity.provider_subject,0 as priority
@@ -715,6 +719,7 @@ try {
     ) select user_id,provider_subject,priority from(select*from target_owner union all select*from other_owner)candidates order by priority,user_id limit 2
   `;
   const ensureOwnerFixture = async (label, assignToTarget) => {
+    failureStage = "OWNER_FIXTURE";
     const ownerFixtureSeed = `preview-inquiry-owner:${principal.company_id}:${hotelId}:${label}`;
     const fixture = {
       assignmentId: uuidFromSeed(ownerFixtureSeed, "assignment"),
@@ -782,6 +787,7 @@ try {
   const ownerCandidates = [ownerA, ownerB];
   if (ownerCandidates.length !== 2)
     throw new Error("PREVIEW_OWNER_INQUIRY_TWO_OWNERS_REQUIRED");
+  failureStage = "OWNER_SESSION";
   ownerACredential = sessionCredential();
   ownerBCredential = sessionCredential();
   const ownerPrincipals = [];
@@ -1226,12 +1232,7 @@ try {
   if (process.env.OWNER_INQUIRY_SMOKE_PHASE === "POST_CONTRACT")
     console.log("PREVIEW_OWNER_INQUIRY_POST_CONTRACT_SMOKE_OK");
 } catch (error) {
-  const code =
-    error instanceof Error &&
-    /^PREVIEW_OWNER_INQUIRY_[A-Z0-9_]+$/u.test(error.message)
-      ? error.message
-      : `PREVIEW_OWNER_INQUIRY_FAILED_${failureStage}`;
-  console.error(code);
+  console.error(classifyInquirySmokeFailure(error, failureStage));
   try {
     await terminalizeFailedCanary();
   } catch (cleanupError) {

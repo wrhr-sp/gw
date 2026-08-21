@@ -29,6 +29,44 @@ describe("hosted Preview owner-inquiry smoke", () => {
       "Array.isArray(scopeResult?.result_snapshot?.hotels)",
     );
     expect(source).toContain("scopeCapabilities.hotels.find");
+    const hotelSelected = source.indexOf("hotelId = scope?.hotelId");
+    const discoveryStage = source.indexOf('failureStage = "OWNER_DISCOVERY"');
+    const discoveryCall = source.indexOf(
+      "const discoveredOwners = await loadOwnerCandidates()",
+    );
+    expect(hotelSelected).toBeGreaterThan(-1);
+    expect(discoveryStage).toBeGreaterThan(-1);
+    expect(discoveryCall).toBeGreaterThan(-1);
+    expect(hotelSelected).toBeLessThan(discoveryStage);
+    expect(discoveryStage).toBeLessThan(discoveryCall);
+
+    const fixtureFunction = source.indexOf("const ensureOwnerFixture = async");
+    const fixtureStage = source.indexOf('failureStage = "OWNER_FIXTURE"');
+    const fixtureMutation = source.indexOf(
+      "await ownerSql.begin(async (tx)",
+      fixtureFunction,
+    );
+    expect(fixtureFunction).toBeGreaterThan(-1);
+    expect(fixtureStage).toBeGreaterThan(-1);
+    expect(fixtureMutation).toBeGreaterThan(-1);
+    expect(fixtureFunction).toBeLessThan(fixtureStage);
+    expect(fixtureStage).toBeLessThan(fixtureMutation);
+
+    const candidatesReady = source.indexOf(
+      "const ownerCandidates = [ownerA, ownerB]",
+    );
+    const sessionStage = source.indexOf('failureStage = "OWNER_SESSION"');
+    const sessionCredentials = source.indexOf(
+      "ownerACredential = sessionCredential()",
+    );
+    expect(candidatesReady).toBeGreaterThan(-1);
+    expect(sessionStage).toBeGreaterThan(-1);
+    expect(sessionCredentials).toBeGreaterThan(-1);
+    expect(candidatesReady).toBeLessThan(sessionStage);
+    expect(sessionStage).toBeLessThan(sessionCredentials);
+    expect(source).toContain(
+      "classifyInquirySmokeFailure(error, failureStage)",
+    );
     expect(source).toContain("ownerCandidates.length !== 2");
     expect(source).toContain('ensureOwnerFixture("target", true)');
     expect(source).toContain('ensureOwnerFixture("isolated", true)');
@@ -154,9 +192,11 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).toContain(
       "PREVIEW_OWNER_INQUIRY_CLEANUP_TERMINALIZATION_FAILED",
     );
-    expect(source).toContain("console.error(code)");
+    const classifiedFailureLog =
+      "console.error(classifyInquirySmokeFailure(error, failureStage))";
+    expect(source).toContain(classifiedFailureLog);
     expect(source).toContain("console.error(cleanupCode)");
-    expect(source.indexOf("console.error(code)")).toBeLessThan(
+    expect(source.indexOf(classifiedFailureLog)).toBeLessThan(
       source.indexOf("await terminalizeFailedCanary()"),
     );
     expect(source).toContain("/^PREVIEW_OWNER_INQUIRY_CLEANUP_[A-Z0-9_]+$/u");
