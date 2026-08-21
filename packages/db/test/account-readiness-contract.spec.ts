@@ -948,11 +948,11 @@ describe("account administration readiness contract", () => {
   it("binds the inquiry catalog to exact PostgreSQL-major renderings", () => {
     for (const contract of [
       "HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR",
-      '["16", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"]',
-      '["17", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"]',
-      '["18", "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a"]',
+      '["16", "7973a3d671ef2d8a1793185c29481560f36a9d447ccb2ed87cd40fb38d0702e6"]',
+      '["17", "7973a3d671ef2d8a1793185c29481560f36a9d447ccb2ed87cd40fb38d0702e6"]',
+      '["18", "66988ea599c8f3ac252814b4d1e754e1896b2114d348aeed057dde8a36235c7c"]',
       "pg_catalog.current_setting('server_version_num')::integer as server_version_num",
-      "Math.trunc(inquiryFoundation.server_version_num / 10_000).toString()",
+      "inquiryFoundation.server_version_num / 10_000",
       "!inquiryCatalogExpectedDigest",
       "inquiryCatalogDigest !== inquiryCatalogExpectedDigest",
     ]) {

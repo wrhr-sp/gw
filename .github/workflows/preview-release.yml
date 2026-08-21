@@ -1261,6 +1261,7 @@ jobs:
           node scripts/smoke-operational-issues-preview.mjs | tee /tmp/preview-operational-issues-smoke.log
           grep -qx 'PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
           grep -qx 'PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
 
       - name: Prepare ClamAV signatures, daemon, and EICAR canary for hosted file acceptance
         id: preview_file_scanner_runtime
@@ -1292,6 +1293,9 @@ jobs:
           pnpm exec tsx scripts/smoke-inquiries-preview.mjs | tee /tmp/preview-owner-inquiry-smoke.log
           grep -qx 'PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK' /tmp/preview-owner-inquiry-smoke.log
           grep -qx 'PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK' /tmp/preview-owner-inquiry-smoke.log
+          grep -qx 'PREVIEW_INQUIRY_NOTIFICATION_SMOKE_OK' /tmp/preview-owner-inquiry-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
+          printf 'PREVIEW_COMMON_NOTIFICATIONS_SMOKE_OK\n'
 
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
@@ -1388,6 +1392,18 @@ jobs:
           node scripts/smoke-cloudflare-preview.mjs
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
 
+      - name: Verify hosted Preview operational issues API, DB, notifications, and responsive UI after contract
+        id: operational_issues_post_contract_smoke
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -o pipefail
+          node scripts/smoke-operational-issues-preview.mjs | tee /tmp/preview-operational-issues-post-contract-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log
+
       - name: Verify hosted Preview owner inquiry API, DB, R2, scanner, projections, and UI after contract
         id: owner_inquiry_post_contract_smoke
         env:
@@ -1400,6 +1416,9 @@ jobs:
           pnpm exec tsx scripts/smoke-inquiries-preview.mjs | tee /tmp/preview-owner-inquiry-post-contract-smoke.log
           grep -qx 'PREVIEW_OWNER_INQUIRY_API_DB_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
           grep -qx 'PREVIEW_OWNER_INQUIRY_UI_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
+          grep -qx 'PREVIEW_INQUIRY_NOTIFICATION_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
+          grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log
+          printf 'PREVIEW_COMMON_NOTIFICATIONS_POST_CONTRACT_SMOKE_OK\n'
           grep -qx 'PREVIEW_OWNER_INQUIRY_POST_CONTRACT_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
 
       - name: Verify hosted Preview own Calendar mutation after contract

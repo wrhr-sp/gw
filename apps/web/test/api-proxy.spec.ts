@@ -107,6 +107,93 @@ describe("same-origin API runtime proxy", () => {
     expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
   });
 
+  it("proxies only exact common notification paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const notificationId = "44444444-4444-4444-8444-444444444444";
+    const list = await GET(
+      new Request("https://hotel.example.test/api/notifications?limit=20"),
+      { params: Promise.resolve({ path: ["notifications"] }) },
+    );
+    const read = await POST(
+      new Request(
+        `https://hotel.example.test/api/notifications/${notificationId}/read`,
+        {
+          method: "POST",
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["notifications", notificationId, "read"],
+        }),
+      },
+    );
+    expect(list.status).toBe(200);
+    expect(read.status).toBe(200);
+    const wrongMethod = await GET(
+      new Request(
+        `https://hotel.example.test/api/notifications/${notificationId}/read`,
+      ),
+      {
+        params: Promise.resolve({
+          path: ["notifications", notificationId, "read"],
+        }),
+      },
+    );
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("allow")).toBe("POST");
+    for (const path of [
+      ["notifications", "not-a-uuid", "read"],
+      ["notifications", notificationId, "read", "extra"],
+      ["notification"],
+    ]) {
+      const rejected = await GET(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(rejected.status).toBe(404);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(2);
+
+    delete process.env.HOTEL_API_ORIGIN;
+    const unconfigured = await GET(
+      new Request("https://hotel.example.test/api/notifications?limit=20"),
+      { params: Promise.resolve({ path: ["notifications"] }) },
+    );
+    expect(unconfigured.status).toBe(503);
+    expect(
+      hotelErrorResponseSchema.parse(await unconfigured.json()),
+    ).toMatchObject({
+      error: { code: "DB_NOT_CONFIGURED" },
+    });
+
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn<typeof fetch>()
+        .mockRejectedValue(new Error("notification transport")),
+    );
+    const unavailable = await POST(
+      new Request(
+        `https://hotel.example.test/api/notifications/${notificationId}/read`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["notifications", notificationId, "read"],
+        }),
+      },
+    );
+    expect(unavailable.status).toBe(503);
+    expect(
+      hotelErrorResponseSchema.parse(await unavailable.json()),
+    ).toMatchObject({
+      error: { code: "INTERNAL_ERROR" },
+    });
+  });
+
   it("proxies only exact owner-inquiry paths and methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
@@ -131,16 +218,30 @@ describe("same-origin API runtime proxy", () => {
       [GET, "GET", ["hotels", hotelId, "inquiries", inquiryId]],
       [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "messages"]],
       [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "assign"]],
-      [POST, "POST", ["hotels", hotelId, "inquiries", inquiryId, "transitions"]],
+      [
+        POST,
+        "POST",
+        ["hotels", hotelId, "inquiries", inquiryId, "transitions"],
+      ],
       [
         GET,
         "GET",
-        ["hotels", hotelId, "inquiries", inquiryId, "files", fileVersionId, "view"],
+        [
+          "hotels",
+          hotelId,
+          "inquiries",
+          inquiryId,
+          "files",
+          fileVersionId,
+          "view",
+        ],
       ],
     ] as const;
     for (const [handler, method, path] of approved) {
       const response = await handler(
-        new Request(`https://hotel.example.test/api/${path.join("/")}`, { method }),
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, {
+          method,
+        }),
         { params: Promise.resolve({ path: [...path] }) },
       );
       expect(response.status).toBe(200);
@@ -151,7 +252,15 @@ describe("same-origin API runtime proxy", () => {
       ["hotels", hotelId, "inquiry-settings", "routes", "other"],
       ["hotels", hotelId, "inquiries", "not-a-uuid"],
       ["hotels", hotelId, "inquiries", inquiryId, "messages", "extra"],
-      ["hotels", hotelId, "inquiries", inquiryId, "files", "not-a-uuid", "view"],
+      [
+        "hotels",
+        hotelId,
+        "inquiries",
+        inquiryId,
+        "files",
+        "not-a-uuid",
+        "view",
+      ],
     ]) {
       const rejected = await GET(
         new Request(`https://hotel.example.test/api/${path.join("/")}`),
@@ -160,9 +269,12 @@ describe("same-origin API runtime proxy", () => {
       expect(rejected.status).toBe(404);
     }
     const wrongMethod = await PATCH(
-      new Request(`https://hotel.example.test/api/hotels/${hotelId}/inquiries`, {
-        method: "PATCH",
-      }),
+      new Request(
+        `https://hotel.example.test/api/hotels/${hotelId}/inquiries`,
+        {
+          method: "PATCH",
+        },
+      ),
       { params: Promise.resolve({ path: ["hotels", hotelId, "inquiries"] }) },
     );
     expect(wrongMethod.status).toBe(405);

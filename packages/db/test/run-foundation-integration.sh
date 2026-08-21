@@ -640,6 +640,38 @@ assert_operational_issue_readiness_damage() {
   local probe_url="$2"
   assert_schema_ready "$probe_url"
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_issue_notification_outbox rename column read_at to read_at_damaged' \
+    >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter table public.hotel_issue_notification_outbox rename column read_at_damaged to read_at' \
+    >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'grant select(read_at) on public.hotel_issue_notification_outbox to gw_runtime_probe' \
+    >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'revoke select(read_at) on public.hotel_issue_notification_outbox from gw_runtime_probe' \
+    >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter index public.hotel_issue_notification_outbox_recipient_unread_idx rename to hotel_issue_notification_recipient_unread_damaged_idx' \
+    >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter index public.hotel_issue_notification_recipient_unread_damaged_idx rename to hotel_issue_notification_outbox_recipient_unread_idx' \
+    >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter index public.hotel_inquiry_notifications_recipient_unread_idx rename to hotel_inquiry_notifications_recipient_unread_damaged_idx' \
+    >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
+    -c 'alter index public.hotel_inquiry_notifications_recipient_unread_damaged_idx rename to hotel_inquiry_notifications_recipient_unread_idx' \
+    >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" \
     -c 'grant select on public.hotel_issue_internal_notes to gw_runtime_probe' \
     >/dev/null
   assert_schema_not_ready "$probe_url"
@@ -1614,6 +1646,9 @@ HOTEL_OWNER_INQUIRIES_MIGRATION="$ROOT_DIR/packages/db/migrations/0052_hotel_own
 FILE_SCANNER_AGENT_AUTHORITY_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0053_file_scanner_agent_authority_correction.sql"
 FILE_UPLOAD_POLLING_SCOPE_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0054_file_upload_polling_scope_correction.sql"
 HOTEL_INQUIRY_LIST_PROJECTION_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0055_hotel_inquiry_list_projection_correction.sql"
+COMMON_IN_APP_NOTIFICATIONS_MIGRATION="$ROOT_DIR/packages/db/migrations/0056_common_in_app_notifications.sql"
+COMMON_IN_APP_NOTIFICATION_INDEXES_MIGRATION="$ROOT_DIR/packages/db/migrations/0057_common_in_app_notification_indexes.sql"
+COMMON_IN_APP_NOTIFICATIONS_TEST_SQL="$ROOT_DIR/packages/db/test/common-notifications-integration.sql"
 FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL="$ROOT_DIR/packages/db/test/file-scanner-agent-authority-integration.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
 GOOGLE_CALENDAR_DECOMMISSION_SCRIPT="$ROOT_DIR/scripts/decommission-google-calendar-preview.mjs"
@@ -2642,9 +2677,16 @@ psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_MIGRATION"
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$FILE_SCANNER_AGENT_AUTHORITY_CORRECTION_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$FILE_UPLOAD_POLLING_SCOPE_CORRECTION_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INQUIRY_LIST_PROJECTION_CORRECTION_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$COMMON_IN_APP_NOTIFICATIONS_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$COMMON_IN_APP_NOTIFICATION_INDEXES_MIGRATION" >/dev/null
 HOTEL_OWNER_INQUIRIES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_TEST_SQL")"
 if [[ "$HOTEL_OWNER_INQUIRIES_RESULT" != *"HOTEL_OWNER_INQUIRIES_INTEGRATION_OK"* ]]; then
   printf '%s\n' "$HOTEL_OWNER_INQUIRIES_RESULT" >&2
+  exit 1
+fi
+COMMON_IN_APP_NOTIFICATIONS_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$COMMON_IN_APP_NOTIFICATIONS_TEST_SQL")"
+if [[ "$COMMON_IN_APP_NOTIFICATIONS_RESULT" != *"COMMON_IN_APP_NOTIFICATIONS_INTEGRATION_OK"* ]]; then
+  printf '%s\n' "$COMMON_IN_APP_NOTIFICATIONS_RESULT" >&2
   exit 1
 fi
 grant_repair_lifecycle_capabilities "$ADMIN_URL"

@@ -37,6 +37,7 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["calendar/capabilities", new Set(["GET"])],
   ["issues/capabilities", new Set(["GET"])],
   ["inquiries/capabilities", new Set(["GET"])],
+  ["notifications", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -51,6 +52,10 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   ) {
     return new Set(["POST"]);
   }
+  if (
+    new RegExp(`^notifications/${UUID_PATH_PATTERN}/read$`, "iu").test(apiPath)
+  )
+    return new Set(["POST"]);
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/daily-sales$`, "iu").test(apiPath)
   )
@@ -94,9 +99,10 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
   )
     return new Set(["GET"]);
   if (
-    new RegExp(`^hotels/${UUID_PATH_PATTERN}/inquiry-settings/contact$`, "iu").test(
-      apiPath,
-    )
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/inquiry-settings/contact$`,
+      "iu",
+    ).test(apiPath)
   )
     return new Set(["PUT"]);
   if (
@@ -524,10 +530,14 @@ async function proxy(
     apiPath === "account/initial-password";
   const calendarRequest =
     apiPath === "calendar" || apiPath === "calendar/capabilities";
+  const notificationRequest =
+    apiPath === "notifications" ||
+    new RegExp(`^notifications/${UUID_PATH_PATTERN}/read$`, "iu").test(apiPath);
   const databaseRequest =
     hotelRequest ||
     accountRequest ||
     calendarRequest ||
+    notificationRequest ||
     apiPath === "inquiries/capabilities" ||
     apiPath === "health/ready";
   const exchangeFailureHeaders =

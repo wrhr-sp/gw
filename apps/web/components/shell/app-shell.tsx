@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { NotificationCenter } from "../notifications/notification-center";
 
 export type AppShellNavigationItem = {
   href: string;
@@ -86,7 +87,12 @@ export function AppShell({
             <p className="truncate text-xs font-medium text-muted">현재 호텔</p>
             <p className="truncate text-sm font-semibold text-text">{hotelName}</p>
           </div>
-          <p className="truncate text-sm font-medium text-muted">{userDisplayName}</p>
+          <div className="flex items-center gap-2">
+            <NotificationCenter />
+            <p className="max-w-32 truncate text-sm font-medium text-muted sm:max-w-56">
+              {userDisplayName}
+            </p>
+          </div>
         </header>
 
         <main

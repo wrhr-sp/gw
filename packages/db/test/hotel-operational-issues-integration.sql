@@ -169,6 +169,10 @@ begin
    where company_id=v_company and issue_id=v_issue and channel='IN_APP'
      and delivery_status='PENDING' and push_status='NOT_REQUESTED';
   if v_count<3 then raise exception 'emergency in-app outbox recipients missing: %',v_count; end if;
+  if not exists(
+    select 1 from public.hotel_issue_notification_outbox
+     where company_id=v_company and issue_id=v_issue and recipient_user_id=v_internal and channel='IN_APP'
+  ) then raise exception 'emergency internal recipient missing'; end if;
 
   select * into v_result from public.hotel_issue_command_v1(
     v_company,v_hotel,v_issue,'ASSIGN',1,

@@ -40,7 +40,10 @@ export async function fetchOperationalIssueCapabilities() {
   return parsed.success ? parsed.data.data.hotels : [];
 }
 
-export async function fetchOperationalIssues(hotelId: string) {
+export async function fetchOperationalIssues(
+  hotelId: string,
+  selectedIssueId?: string,
+) {
   const [listResponse, assignmentResponse, capabilities] = await Promise.all([
     request(`${operationalIssueRoutes.list(hotelId)}?page=1&pageSize=100`),
     request(hotelRoutes.assignments(hotelId)),
@@ -88,17 +91,29 @@ export async function fetchOperationalIssues(hotelId: string) {
     : [];
 
   const issues = list.data.data.issues;
+  const issueToSelectId = selectedIssueId ?? issues[0]?.id;
   let selectedIssue = null;
-  if (issues[0]) {
+  if (issueToSelectId) {
     const detailResponse = await request(
-      operationalIssueRoutes.detail(hotelId, issues[0].id),
+      operationalIssueRoutes.detail(hotelId, issueToSelectId),
     );
-    if (!detailResponse.ok)
+    if (!detailResponse.ok) {
+      const error = hotelErrorResponseSchema.safeParse(
+        await detailResponse.json().catch(() => undefined),
+      );
       return {
         ok: false as const,
-        code: "INTERNAL_ERROR" as const,
-        error: "운영이슈 상세를 불러오지 못했습니다.",
+        code:
+          detailResponse.status === 404
+            ? ("RESOURCE_NOT_FOUND" as const)
+            : error.success
+              ? error.data.error.code
+              : "INTERNAL_ERROR",
+        error: error.success
+          ? error.data.error.message
+          : "운영이슈 상세를 불러오지 못했습니다.",
       };
+    }
     selectedIssue = parseDetail(
       await detailResponse.json().catch(() => undefined),
     );

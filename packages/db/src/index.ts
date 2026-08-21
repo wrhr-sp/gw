@@ -117,6 +117,13 @@ export {
   type InquiryRepositoryResult,
 } from "./inquiries";
 export {
+  createPostgresNotificationRepository,
+  type NotificationCommandInput,
+  type NotificationReadInput,
+  type NotificationRepository,
+  type NotificationRepositoryResult,
+} from "./notifications";
+export {
   createPostgresDailySalesRepository,
   type DailySalesCommandInput,
   type DailySalesReadInput,
