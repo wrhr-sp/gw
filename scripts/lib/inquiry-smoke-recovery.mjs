@@ -6,6 +6,35 @@ const ADVANCED = new Set([
 ]);
 const TERMINAL = new Set(["EXPIRED", "REJECTED", "SCAN_FAILED"]);
 
+export function safePostgresCode(error) {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "UNKNOWN";
+  return /^[0-9A-Z]{5}$/u.test(code) ? code : "UNKNOWN";
+}
+
+export function isRetryablePostgresCode(code) {
+  return (
+    /^(?:08|40|53)/u.test(code) ||
+    ["55P03", "57P01", "57P02", "57P03"].includes(code)
+  );
+}
+
+export async function queryHotelScopeWithRetry({ query, sleep }) {
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      return await query();
+    } catch (error) {
+      const safeCode = safePostgresCode(error);
+      if (!isRetryablePostgresCode(safeCode) || attempt === 5)
+        throw new Error(`PREVIEW_OWNER_INQUIRY_HOTEL_SCOPE_PG_${safeCode}`);
+      await sleep(attempt * 1_000);
+    }
+  }
+  throw new Error("PREVIEW_OWNER_INQUIRY_HOTEL_SCOPE_PG_UNKNOWN");
+}
+
 export async function completeUploadWithReplay({
   attempts = 10,
   complete,
