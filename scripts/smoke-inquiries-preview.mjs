@@ -5,10 +5,7 @@ import { chromium } from "@playwright/test";
 import { runFileScannerBatch } from "../apps/file-processor/src/batch.ts";
 import { scanWithClamAv } from "../apps/file-processor/src/clamav.ts";
 import { optimizeEvidenceImage } from "../apps/file-processor/src/image-processor.ts";
-import {
-  completeUploadWithReplay,
-  queryHotelScopeWithRetry,
-} from "./lib/inquiry-smoke-recovery.mjs";
+import { completeUploadWithReplay } from "./lib/inquiry-smoke-recovery.mjs";
 
 const requireFromDb = createRequire(
   new URL("../packages/db/package.json", import.meta.url),
@@ -668,23 +665,18 @@ try {
   createdSessionHashes.push(internalCredential.tokenHash);
 
   failureStage = "HOTEL_SCOPE";
-  const [scope] = await queryHotelScopeWithRetry({
-    query: () => ownerSql`
-      select assignment.branch_id
-        from public.hotel_staff_assignments assignment
-        join public.branches branch on branch.company_id=assignment.company_id and branch.id=assignment.branch_id
-        join public.hotel_profiles hotel on hotel.company_id=assignment.company_id and hotel.branch_id=assignment.branch_id
-       where assignment.company_id=${principal.company_id}::uuid
-         and assignment.user_id=${principal.user_id}::uuid
-         and assignment.terminated_at is null
-         and assignment.start_date<=statement_timestamp()::date
-         and (assignment.end_date is null or assignment.end_date>=statement_timestamp()::date)
-         and branch.branch_type='HOTEL' and branch.status='ACTIVE' and hotel.hotel_status='ACTIVE'
-       order by assignment.created_at,assignment.id limit 1
-    `,
-    sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+  const scopeCapabilities = await api("/api/inquiries/capabilities", {
+    failureCode: "PREVIEW_OWNER_INQUIRY_SCOPE_CAPABILITIES_INVALID",
   });
-  hotelId = scope?.branch_id;
+  const scope = scopeCapabilities?.hotels?.find(
+    (candidate) =>
+      candidate?.ownerView === false &&
+      typeof candidate.hotelId === "string" &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(
+        candidate.hotelId,
+      ),
+  );
+  hotelId = scope?.hotelId;
   if (!hotelId) throw new Error("PREVIEW_OWNER_INQUIRY_HOTEL_UNAVAILABLE");
   const loadOwnerCandidates = () => ownerSql`
     with target_owner as(
