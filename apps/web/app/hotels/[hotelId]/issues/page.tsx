@@ -6,11 +6,15 @@ export const dynamic = "force-dynamic";
 
 export default async function OperationalIssuesPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hotelId: string }>;
+  searchParams: Promise<{ issueId?: string | string[] }>;
 }) {
   const { hotelId } = await params;
-  const result = await fetchOperationalIssues(hotelId);
+  const requested = (await searchParams).issueId;
+  const requestedIssueId = typeof requested === "string" ? requested : undefined;
+  const result = await fetchOperationalIssues(hotelId, requestedIssueId);
   if (
     !result.ok &&
     ["FORBIDDEN", "RESOURCE_NOT_FOUND"].includes(result.code)

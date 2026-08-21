@@ -1,4 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Building2, Home } from "lucide-react";
 import { describe, expect, it } from "vitest";
 import { AppShell } from "../components/shell/app-shell";
@@ -6,7 +7,8 @@ import { AppShell } from "../components/shell/app-shell";
 describe("hotel operations app shell", () => {
   it("renders desktop and mobile navigation from explicit authorized items", () => {
     const html = renderToStaticMarkup(
-      <AppShell
+      <QueryClientProvider client={new QueryClient()}>
+        <AppShell
         currentPath="/hotels"
         hotelName="서울호텔"
         navigation={[
@@ -16,7 +18,8 @@ describe("hotel operations app shell", () => {
         userDisplayName="관리자"
       >
         <div>업무 내용</div>
-      </AppShell>,
+        </AppShell>
+      </QueryClientProvider>,
     );
     expect(html).toContain("서울호텔");
     expect(html).toContain("관리자");

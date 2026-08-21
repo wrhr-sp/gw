@@ -40,17 +40,33 @@ const permissionCodes = [
 ];
 const apiUuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+function uuidFromSeed(seed, suffix) {
+  const bytes = createHash("sha256")
+    .update(`${seed}:${suffix}`, "utf8")
+    .digest()
+    .subarray(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = bytes.toString("hex");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 let browser;
 let sessionCreated = false;
 let grantsCreated = false;
-let createdIssue = null;
+let isolationCredential = null;
+let isolationFixture = null;
+let isolationSessionCreated = false;
+let isolationScopeCreated = false;
+
 let hotelId = null;
 let failureStage = "SESSION";
 
 async function request(path, options = {}) {
   const headers = {
     accept: "application/json",
-    cookie: `__Host-hotel_session=${token}`,
+    cookie: `__Host-hotel_session=${options.sessionToken ?? token}`,
   };
   if (options.body !== undefined) headers["content-type"] = "application/json";
   if (options.idempotencyKey)
@@ -91,7 +107,7 @@ async function command(path, body, failureCode) {
   const issue = data?.issue;
   if (!issue?.id || typeof issue.version !== "number")
     throw new Error(`${failureCode}_RESPONSE_INVALID`);
-  createdIssue = issue;
+
   return issue;
 }
 
@@ -166,6 +182,70 @@ try {
   });
   grantsCreated = true;
 
+  failureStage = "ISOLATION_SCOPE";
+  const isolationSeed = `preview-operational-issue-isolation:${principal.company_id}:${hotelId}`;
+  isolationFixture = {
+    assignmentId: uuidFromSeed(isolationSeed, "assignment"),
+    grantId: uuidFromSeed(isolationSeed, "grant"),
+    identityId: uuidFromSeed(isolationSeed, "identity"),
+    providerSubject: `preview-operational-issue-isolation-${createHash("sha256").update(isolationSeed).digest("hex").slice(0, 24)}`,
+    userId: uuidFromSeed(isolationSeed, "user"),
+  };
+  isolationCredential = {
+    sessionId: randomUUID(),
+    token: randomBytes(32).toString("base64url"),
+  };
+  isolationCredential.tokenHash = createHash("sha256")
+    .update(isolationCredential.token, "utf8")
+    .digest();
+  await ownerSql.begin(async (transaction) => {
+    await transaction`
+      insert into public.users(id,company_id,user_type,display_name)
+      values(${isolationFixture.userId}::uuid,${principal.company_id}::uuid,'INTERNAL_STAFF','Preview 운영이슈 격리 검증자')
+      on conflict(id) do nothing
+    `;
+    await transaction`
+      insert into public.auth_identities(id,company_id,user_id,provider,provider_subject)
+      values(${isolationFixture.identityId}::uuid,${principal.company_id}::uuid,${isolationFixture.userId}::uuid,'ZITADEL',${isolationFixture.providerSubject})
+      on conflict(id) do nothing
+    `;
+    await transaction`
+      insert into public.hotel_staff_assignments(
+        id,company_id,branch_id,user_id,assignment_type,start_date,reason,created_by
+      ) values(
+        ${isolationFixture.assignmentId}::uuid,${principal.company_id}::uuid,
+        ${hotelId}::uuid,${isolationFixture.userId}::uuid,'PRIMARY',
+        statement_timestamp()::date,'Preview 운영이슈 recipient 격리',${principal.user_id}::uuid
+      ) on conflict(id) do nothing
+    `;
+    await transaction`
+      insert into public.permission_grants(
+        id,company_id,branch_id,subject_type,subject_id,permission_code,
+        effect,valid_from,granted_by,reason
+      ) values(
+        ${isolationFixture.grantId}::uuid,${principal.company_id}::uuid,
+        ${hotelId}::uuid,'USER',${isolationFixture.userId}::uuid,'HOTEL_ISSUE_READ',
+        'ALLOW',statement_timestamp()-interval '1 minute',${principal.user_id}::uuid,
+        'Preview 운영이슈 recipient 격리 권한'
+      ) on conflict(id) do nothing
+    `;
+  });
+  isolationScopeCreated = true;
+  const isolationSessions = await sql`
+    select * from public.auth_create_session_v2(
+      ${isolationCredential.sessionId}::uuid,${isolationCredential.tokenHash},
+      ${isolationFixture.providerSubject},28800,86400,statement_timestamp(),
+      ${randomUUID()}::uuid
+    )
+  `;
+  if (
+    isolationSessions.length !== 1 ||
+    isolationSessions[0]?.result_status !== "CREATED" ||
+    isolationSessions[0]?.user_id !== isolationFixture.userId
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_ISOLATION_SESSION_FAILED");
+  isolationSessionCreated = true;
+
   failureStage = "API_DB";
   const issueId = randomUUID();
   const title = `Preview 운영이슈 canary ${randomUUID()}`;
@@ -175,7 +255,7 @@ try {
       description: "Hosted Preview API·DB·UI 저장과 재조회 검증",
       issueId,
       roomId: null,
-      severity: "MINOR",
+      severity: "EMERGENCY",
       title,
     },
     "PREVIEW_OPERATIONAL_ISSUES_CREATE_INVALID",
@@ -282,12 +362,64 @@ try {
     !databaseReadback.close_audited
   )
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_DATABASE_READBACK_INVALID");
+  const commonNotificationsBefore = await api("/api/notifications?limit=100", {
+    failureCode: "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_LIST_INVALID",
+  });
+  const issueNotification = commonNotificationsBefore?.notifications?.find(
+    (notification) =>
+      notification.source === "OPERATIONAL_ISSUE" &&
+      notification.href === `/hotels/${hotelId}/issues?issueId=${issueId}` &&
+      notification.readAt === null,
+  );
+  if (
+    !issueNotification ||
+    commonNotificationsBefore.unreadCount < 1 ||
+    typeof issueNotification.version !== "number"
+  )
+    throw new Error(
+      "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_PROJECTION_INVALID",
+    );
+  const unreadBefore = commonNotificationsBefore.unreadCount;
+  const isolationCapabilities = await request("/api/issues/capabilities", {
+    sessionToken: isolationCredential.token,
+  });
+  if (
+    !isolationCapabilities.response.ok ||
+    isolationCapabilities.payload?.ok !== true ||
+    !isolationCapabilities.payload?.data?.hotels?.some(
+      (hotel) => hotel.hotelId === hotelId,
+    )
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_ISOLATION_CAPABILITY_INVALID");
+  const isolationNotifications = await request("/api/notifications?limit=100", {
+    sessionToken: isolationCredential.token,
+  });
+  if (
+    !isolationNotifications.response.ok ||
+    isolationNotifications.payload?.ok !== true ||
+    isolationNotifications.payload?.data?.notifications?.some(
+      (notification) => notification.id === issueNotification.id,
+    )
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_ISOLATION_LEAK");
+  const isolationRead = await request(
+    `/api/notifications/${issueNotification.id}/read`,
+    {
+      body: { version: issueNotification.version },
+      idempotencyKey: randomUUID(),
+      method: "POST",
+      sessionToken: isolationCredential.token,
+    },
+  );
+  if (isolationRead.response.status !== 404 || isolationRead.payload?.data)
+    throw new Error(
+      "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_ISOLATION_READ_LEAK",
+    );
   console.log("PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK");
 
   failureStage = "UI";
   const uiCapabilities = await api("/api/issues/capabilities", {
-    failureCode:
-      "PREVIEW_OPERATIONAL_ISSUES_UI_CAPABILITIES_PREFLIGHT_INVALID",
+    failureCode: "PREVIEW_OPERATIONAL_ISSUES_UI_CAPABILITIES_PREFLIGHT_INVALID",
   });
   if (!uiCapabilities?.hotels?.some((hotel) => hotel.hotelId === hotelId))
     throw new Error(
@@ -317,18 +449,19 @@ try {
     },
   ]);
   const page = await context.newPage();
-  const documentResponse = await page.goto(`${baseUrl}/hotels/${hotelId}/issues`, {
-    timeout: 120_000,
-    waitUntil: "domcontentloaded",
-  });
+  const documentResponse = await page.goto(
+    `${baseUrl}/hotels/${hotelId}/issues`,
+    {
+      timeout: 120_000,
+      waitUntil: "domcontentloaded",
+    },
+  );
   if (!documentResponse)
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID");
   if (new URL(page.url()).pathname === "/login")
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_LOGIN_REDIRECTED");
   if (new URL(page.url()).pathname === "/account/initial-password")
-    throw new Error(
-      "PREVIEW_OPERATIONAL_ISSUES_UI_PASSWORD_CHANGE_REDIRECTED",
-    );
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_PASSWORD_CHANGE_REDIRECTED");
   if (documentResponse.status() === 404)
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_UI_ROUTE_NOT_FOUND");
   if (!documentResponse.ok())
@@ -354,6 +487,35 @@ try {
       .then(() => "PREVIEW_OPERATIONAL_ISSUES_UI_DATA_LOAD_FAILED"),
   ]).catch(() => "PREVIEW_OPERATIONAL_ISSUES_UI_WORKSPACE_MISSING");
   if (uiOutcome !== "WORKSPACE") throw new Error(uiOutcome);
+  const notificationTrigger = page.getByRole("button", {
+    name: /알림 .*목록 열기|새 알림 없음, 목록 열기/u,
+  });
+  await requireVisible(
+    notificationTrigger,
+    "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_TRIGGER_MISSING",
+  );
+  await notificationTrigger.click();
+  const notificationDialog = page.locator('[role="dialog"]');
+  await requireVisible(
+    notificationDialog,
+    "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_DIALOG_MISSING",
+  );
+  const issueNotificationButton = notificationDialog
+    .getByRole("button", { name: issueNotification.title, exact: true })
+    .first();
+  await requireVisible(
+    issueNotificationButton,
+    "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_ITEM_MISSING",
+  );
+  await Promise.all([
+    page.waitForURL(
+      (url) =>
+        url.pathname === `/hotels/${hotelId}/issues` &&
+        url.searchParams.get("issueId") === issueId,
+      { timeout: 30_000 },
+    ),
+    issueNotificationButton.click(),
+  ]);
   const issueHeading = page.locator("#issue-title");
   await requireVisible(
     issueHeading,
@@ -389,7 +551,61 @@ try {
   )
     throw new Error("PREVIEW_OPERATIONAL_ISSUES_AXE_FAILED");
   await context.close();
+  const commonNotificationsAfter = await api("/api/notifications?limit=100", {
+    failureCode: "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_READBACK_INVALID",
+  });
+  const readNotification = commonNotificationsAfter?.notifications?.find(
+    (notification) => notification.id === issueNotification.id,
+  );
+  if (
+    !readNotification?.readAt ||
+    readNotification.version !== issueNotification.version + 1 ||
+    commonNotificationsAfter.unreadCount !== unreadBefore - 1
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_READBACK_INVALID");
+  const replayKey = randomUUID();
+  const firstReplay = await api(
+    `/api/notifications/${readNotification.id}/read`,
+    {
+      body: { version: readNotification.version },
+      failureCode: "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_REPLAY_INVALID",
+      idempotencyKey: replayKey,
+      method: "POST",
+    },
+  );
+  const secondReplay = await api(
+    `/api/notifications/${readNotification.id}/read`,
+    {
+      body: { version: readNotification.version },
+      failureCode: "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_REPLAY_INVALID",
+      idempotencyKey: replayKey,
+      method: "POST",
+    },
+  );
+  if (
+    firstReplay?.notification?.id !== readNotification.id ||
+    firstReplay.notification.version !== readNotification.version ||
+    secondReplay?.notification?.version !== firstReplay.notification.version ||
+    secondReplay.notification.readAt !== firstReplay.notification.readAt
+  )
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_REPLAY_INVALID");
+  const [notificationReadback] = await ownerSql`
+    select notification.read_at,
+      exists(
+        select 1 from public.audit_events audit
+         where audit.company_id=notification.company_id
+           and audit.resource_id=notification.id
+           and audit.event_code='NOTIFICATION_READ'
+           and audit.actor_user_id=${principal.user_id}::uuid
+      ) as read_audited
+      from public.hotel_issue_notification_outbox notification
+     where notification.company_id=${principal.company_id}::uuid
+       and notification.id=${readNotification.id}::uuid
+  `;
+  if (!notificationReadback?.read_at || !notificationReadback.read_audited)
+    throw new Error("PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_DATABASE_INVALID");
   console.log("PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK");
+  console.log("PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK");
 } catch (error) {
   const code =
     error instanceof Error &&
@@ -400,6 +616,30 @@ try {
   process.exitCode = 1;
 } finally {
   if (browser) await browser.close().catch(() => undefined);
+  if (isolationSessionCreated && isolationCredential) {
+    await sql`
+      select * from public.auth_revoke_session_v2(
+        ${isolationCredential.tokenHash},'Preview 운영이슈 isolation cleanup',
+        ${randomUUID()}::uuid
+      )
+    `.catch(() => {
+      console.error(
+        "PREVIEW_OPERATIONAL_ISSUES_CLEANUP_ISOLATION_SESSION_FAILED",
+      );
+      process.exitCode = 1;
+    });
+  }
+  if (isolationScopeCreated && isolationFixture) {
+    await ownerSql`
+      delete from public.permission_grants
+       where id=${isolationFixture.grantId}::uuid
+    `.catch(() => {
+      console.error(
+        "PREVIEW_OPERATIONAL_ISSUES_CLEANUP_ISOLATION_SCOPE_FAILED",
+      );
+      process.exitCode = 1;
+    });
+  }
   if (grantsCreated) {
     await ownerSql`
       delete from public.permission_grants

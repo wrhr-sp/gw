@@ -612,6 +612,14 @@ try {
       "0055_hotel_inquiry_list_projection_correction",
       "0055_hotel_inquiry_list_projection_correction.sql",
     ],
+    [
+      "0056_common_in_app_notifications",
+      "0056_common_in_app_notifications.sql",
+    ],
+    [
+      "0057_common_in_app_notification_indexes",
+      "0057_common_in_app_notification_indexes.sql",
+    ],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -675,6 +683,10 @@ try {
             (version !== "0054_file_upload_polling_scope_correction" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0055_hotel_inquiry_list_projection_correction" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0056_common_in_app_notifications" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0057_common_in_app_notification_indexes" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
@@ -880,9 +892,22 @@ try {
       `
       : [{ applied: false }];
     if (applied[0]?.applied) continue;
-    await owner.unsafe(
-      await readFile(resolve(migrationDirectory, fileName), "utf8"),
+    const migrationSql = await readFile(
+      resolve(migrationDirectory, fileName),
+      "utf8",
     );
+    if (version === "0057_common_in_app_notification_indexes") {
+      const statements = migrationSql
+        .split("\n")
+        .filter((line) => !line.trimStart().startsWith("--"))
+        .join("\n")
+        .split(";")
+        .map((statement) => statement.trim())
+        .filter(Boolean);
+      for (const statement of statements) await owner.unsafe(statement);
+    } else {
+      await owner.unsafe(migrationSql);
+    }
   }
   if (contractPhase) {
     const [repairCaseFunctionDigest] = await owner<
@@ -2961,6 +2986,9 @@ try {
              'hotel_inquiry_file_command_v1',
              'hotel_inquiry_file_view_v1',
              'hotel_inquiry_auto_close_v1',
+             'hotel_notification_actor_v1',
+             'hotel_notification_read_v1',
+             'hotel_notification_command_v1',
              'hotel_daily_sales_capabilities_v1',
              'hotel_daily_sales_read_v1',
              'hotel_daily_sales_command_v1',
@@ -3048,6 +3076,12 @@ try {
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inquiry_file_view_v1(
       uuid, uuid, uuid, uuid, text, text, uuid, text, uuid, uuid, uuid
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_notification_read_v1(
+      uuid, jsonb, text
+    ) to ${apiRuntimeRole};
+    grant execute on function public.hotel_notification_command_v1(
+      uuid, uuid, text, integer, text, uuid, text, text, text, text, uuid, uuid
     ) to ${apiRuntimeRole};
     grant execute on function public.hotel_inquiry_auto_close_v1(integer) to ${reconcilerRole};`
         : ""

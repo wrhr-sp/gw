@@ -3667,6 +3667,14 @@ export const hotelInquiryOwnerResponseSchema=z.object({ok:z.literal(true),data:z
 export const hotelInquiryInternalResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiry:hotelInquiryInternalSchema}).strict(),error:z.null()}).strict();
 export const hotelInquiryNotificationSchema=z.object({id:z.uuid(),inquiryId:z.uuid(),title:z.string().trim().min(2).max(160),eventCode:z.string().trim().min(1).max(100),createdAt:z.iso.datetime(),readAt:z.iso.datetime().nullable()}).strict();
 export type HotelInquiryNotification=z.infer<typeof hotelInquiryNotificationSchema>;
+export const hotelNotificationSourceSchema=z.enum(["INQUIRY","OPERATIONAL_ISSUE"]);
+export const hotelNotificationSchema=z.object({id:z.uuid(),source:hotelNotificationSourceSchema,hotelId:z.uuid(),title:z.string().trim().min(2).max(240),eventCode:z.string().trim().min(1).max(100),href:z.string().regex(/^\/hotels\/[0-9a-f-]{36}\/(?:inquiries|issues)(?:\?[A-Za-z]+Id=[0-9a-f-]{36})?$/u),createdAt:z.iso.datetime(),readAt:z.iso.datetime().nullable(),version:z.number().int().min(0).max(1)}).strict();
+export type HotelNotification=z.infer<typeof hotelNotificationSchema>;
+export const hotelNotificationListQuerySchema=z.object({limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
+export const hotelNotificationListResponseSchema=z.object({ok:z.literal(true),data:z.object({notifications:z.array(hotelNotificationSchema).max(100),unreadCount:z.number().int().nonnegative()}).strict(),error:z.null()}).strict();
+export const markHotelNotificationReadRequestSchema=z.object({version:z.number().int().min(0).max(1)}).strict();
+export const hotelNotificationResponseSchema=z.object({ok:z.literal(true),data:z.object({notification:hotelNotificationSchema}).strict(),error:z.null()}).strict();
+export const hotelNotificationRoutes={list:"/api/notifications",markRead:(notificationId:string)=>`/api/notifications/${notificationId}/read`} as const;
 export const hotelInquiryListResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiries:z.array(hotelInquiryPublicSchema).max(100),notifications:z.array(hotelInquiryNotificationSchema).max(100),pagination:z.object({page:z.number().int().positive(),pageSize:z.number().int().positive(),total:z.number().int().nonnegative()}).strict()}).strict(),error:z.null()}).strict();
 export const hotelInquiryCapabilitiesResponseSchema=z.object({ok:z.literal(true),data:z.object({hotels:z.array(z.object({hotelId:z.uuid(),hotelName:z.string().trim().min(1).max(200),ownerView:z.boolean(),canRead:z.boolean(),canCreate:z.boolean(),canReply:z.boolean(),canAssign:z.boolean(),canManageSettings:z.boolean()}).strict()).max(1000)}).strict(),error:z.null()}).strict();
 export type HotelInquiryCapability=z.infer<typeof hotelInquiryCapabilitiesResponseSchema>["data"]["hotels"][number];

@@ -115,6 +115,10 @@ import {
   hotelInquiryOwnerResponseSchema,
   hotelInquirySettingsResponseSchema,
   hotelInquiryTransitionRequestSchema,
+  hotelNotificationListQuerySchema,
+  hotelNotificationListResponseSchema,
+  hotelNotificationResponseSchema,
+  markHotelNotificationReadRequestSchema,
   updateHotelInquiryContactRequestSchema,
   updateHotelInquiryRouteRequestSchema,
   ownerTransferRequestSchema,
@@ -197,6 +201,11 @@ import {
 } from "./issues/service";
 import { createInquiryServiceFromBindings } from "./inquiries/factory";
 import { InquiryServiceError, type InquiryService } from "./inquiries/service";
+import { createNotificationServiceFromBindings } from "./notifications/factory";
+import {
+  NotificationServiceError,
+  type NotificationService,
+} from "./notifications/service";
 import {
   createDailySalesServiceFromBindings,
   type DailySalesBindings,
@@ -248,6 +257,7 @@ type CreateAppOptions = {
   inspectionService?: InspectionService;
   operationalIssueService?: OperationalIssueService;
   inquiryService?: InquiryService;
+  notificationService?: NotificationService;
   dailySalesService?: DailySalesService;
   repairService?: RepairService;
   roomService?: RoomService;
@@ -481,6 +491,12 @@ export function createApp(options: CreateAppOptions = {}) {
     return options.inquiryService ?? createInquiryServiceFromBindings(bindings);
   }
 
+  function getNotificationService(bindings: Bindings | undefined) {
+    return (
+      options.notificationService ?? createNotificationServiceFromBindings(bindings)
+    );
+  }
+
   function getDailySalesService(bindings: Bindings | undefined) {
     return (
       options.dailySalesService ?? createDailySalesServiceFromBindings(bindings)
@@ -623,6 +639,18 @@ export function createApp(options: CreateAppOptions = {}) {
       return await operation(service);
     } finally {
       if (!options.inquiryService) await service.close?.();
+    }
+  }
+
+  async function withNotificationService<T>(
+    bindings: Bindings | undefined,
+    operation: (service: NotificationService) => Promise<T>,
+  ): Promise<T> {
+    const service = getNotificationService(bindings);
+    try {
+      return await operation(service);
+    } finally {
+      if (!options.notificationService) await service.close?.();
     }
   }
 
@@ -775,6 +803,7 @@ export function createApp(options: CreateAppOptions = {}) {
       error instanceof CalendarServiceError ||
       error instanceof OperationalIssueServiceError ||
       error instanceof InquiryServiceError ||
+      error instanceof NotificationServiceError ||
       error instanceof DailySalesServiceError ||
       error instanceof RepairServiceError ||
       error instanceof FacilityServiceError ||
@@ -6173,6 +6202,72 @@ export function createApp(options: CreateAppOptions = {}) {
     "/api/hotels/:hotelId/daily-sales/:salesId/corrections",
     (context) => dailySalesAction(context, "correct"),
   );
+
+  hotelApp.get("/api/notifications", async context => {
+    context.header("Cache-Control", "private, no-store");
+    try {
+      const p = await requestPrincipal(context);
+      if (!p)
+        return context.json(
+          errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false),
+          401,
+        );
+      const query = hotelNotificationListQuerySchema.safeParse(context.req.query());
+      if (!query.success)
+        return validationFailure(context, zodFieldErrors(query.error.issues));
+      const data = await withNotificationService(context.env, (service) =>
+        service.list(roomMutationPrincipal(context, p), query.data),
+      );
+      return context.json(
+        hotelNotificationListResponseSchema.parse({ ok: true, data, error: null }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
+  hotelApp.post("/api/notifications/:notificationId/read", async context => {
+    context.header("Cache-Control", "no-store");
+    try {
+      const p = await requestPrincipal(context);
+      if (!p)
+        return context.json(
+          errorResponse("AUTHENTICATION_REQUIRED", "로그인이 필요합니다.", false),
+          401,
+        );
+      const notificationId = z.uuid().safeParse(context.req.param("notificationId"));
+      const key = idempotencyKey(context);
+      const body = markHotelNotificationReadRequestSchema.safeParse(
+        await context.req.json().catch(() => undefined),
+      );
+      if (!notificationId.success) return mutationFailure(context, "NOT_FOUND");
+      if (!key || !body.success)
+        return validationFailure(
+          context,
+          body.success
+            ? [{ field: "idempotencyKey", message: "Idempotency-Key 헤더가 필요합니다." }]
+            : zodFieldErrors(body.error.issues),
+        );
+      const notification = await withNotificationService(context.env, (service) =>
+        service.markRead(
+          roomMutationPrincipal(context, p),
+          notificationId.data,
+          body.data,
+          key,
+        ),
+      );
+      return context.json(
+        hotelNotificationResponseSchema.parse({
+          ok: true,
+          data: { notification },
+          error: null,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof AuthServiceError) return authFailure(context, error);
+      return hotelFailure(context, error);
+    }
+  });
 
   function inquiryResponse(inquiry: unknown) {
     const internal = hotelInquiryInternalResponseSchema.safeParse({ ok:true, data:{inquiry}, error:null });

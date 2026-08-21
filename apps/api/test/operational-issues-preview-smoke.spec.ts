@@ -46,13 +46,39 @@ describe("hosted Preview operational-issues smoke", () => {
     expect(source).toContain("audit.event_code='HOTEL_ISSUE_CLOSE'");
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_API_DB_SMOKE_OK");
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK");
+    expect(source).toContain('notification.source === "OPERATIONAL_ISSUE"');
+    expect(source).toContain('url.searchParams.get("issueId") === issueId');
+    expect(source).toContain("notification.read_at");
+    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK");
+    expect(source).toContain(
+      "firstReplay.notification.version !== readNotification.version ||",
+    );
+    expect(source).toContain(
+      "PREVIEW_OPERATIONAL_ISSUES_ISOLATION_CAPABILITY_INVALID",
+    );
+    expect(source).toContain(
+      "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_ISOLATION_LEAK",
+    );
+    expect(source).toContain(
+      "PREVIEW_OPERATIONAL_ISSUES_NOTIFICATION_ISOLATION_READ_LEAK",
+    );
+    expect(source).not.toContain(
+      "delete from public.hotel_staff_assignments where id=${isolationFixture.assignmentId}",
+    );
+    expect(source).toContain("delete from public.permission_grants");
+    expect(source).toContain("where id=${isolationFixture.grantId}::uuid");
+    expect(source).toContain("insert into public.hotel_staff_assignments");
     expect(source).toContain("new AxeBuilder({ page })");
     expect(source).toContain("viewport: { width: 390, height: 844 }");
     expect(source).toContain("delete from public.permission_grants");
     expect(source).toContain("auth_revoke_session_v2");
     expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_FAILED_");
-    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_GRANTS_FAILED");
-    expect(source).toContain("PREVIEW_OPERATIONAL_ISSUES_CLEANUP_SESSION_FAILED");
+    expect(source).toContain(
+      "PREVIEW_OPERATIONAL_ISSUES_CLEANUP_GRANTS_FAILED",
+    );
+    expect(source).toContain(
+      "PREVIEW_OPERATIONAL_ISSUES_CLEANUP_SESSION_FAILED",
+    );
     for (const marker of [
       "PREVIEW_OPERATIONAL_ISSUES_UI_DOCUMENT_INVALID",
       "PREVIEW_OPERATIONAL_ISSUES_UI_LOGIN_REDIRECTED",
@@ -89,9 +115,18 @@ describe("hosted Preview operational-issues smoke", () => {
     );
   });
 
-  it("is a mandatory pre-contract Preview release gate", () => {
+  it("is a mandatory pre- and post-contract Preview release gate", () => {
     expect(workflow).toContain(
       "Verify hosted Preview operational issues API, DB, and responsive UI before contract",
+    );
+    expect(workflow).toContain(
+      "Verify hosted Preview operational issues API, DB, notifications, and responsive UI after contract",
+    );
+    expect(workflow).toContain(
+      "node scripts/smoke-operational-issues-preview.mjs | tee /tmp/preview-operational-issues-post-contract-smoke.log",
+    );
+    expect(workflow).toContain(
+      "grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log",
     );
     expect(workflow).toContain(
       "node scripts/smoke-operational-issues-preview.mjs | tee /tmp/preview-operational-issues-smoke.log",
@@ -101,6 +136,12 @@ describe("hosted Preview operational-issues smoke", () => {
     );
     expect(workflow).toContain(
       "grep -qx 'PREVIEW_OPERATIONAL_ISSUES_UI_SMOKE_OK' /tmp/preview-operational-issues-smoke.log",
+    );
+    expect(workflow).toContain(
+      "grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-smoke.log",
+    );
+    expect(workflow).toContain(
+      "printf 'PREVIEW_COMMON_NOTIFICATIONS_SMOKE_OK\\n'",
     );
     expect(
       workflow.indexOf("Verify hosted Preview operational issues"),

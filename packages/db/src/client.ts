@@ -51,9 +51,9 @@ const HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256 =
 const HOTEL_INQUIRY_IDEMPOTENCY_BEGIN_V1_PROSRC_SHA256 =
   "35c6cd970e390f2d5523e8ea8abd7cbc8301a28959d14bb8bb0f814a90f02076";
 const HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR = new Map([
-  ["16", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"],
-  ["17", "506ab1375c665594f10ff20a26280a49e91b9ae04edd97bb18201ae7702e3c9f"],
-  ["18", "89d9dc15164947bbb8c177f855d2fdf49ee2f9febdec5eef90adaf1e2ed21b3a"],
+  ["16", "7973a3d671ef2d8a1793185c29481560f36a9d447ccb2ed87cd40fb38d0702e6"],
+  ["17", "7973a3d671ef2d8a1793185c29481560f36a9d447ccb2ed87cd40fb38d0702e6"],
+  ["18", "66988ea599c8f3ac252814b4d1e754e1896b2114d348aeed057dde8a36235c7c"],
 ]);
 const HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256 = {
   inquiry_history_append_only:
@@ -86,6 +86,12 @@ const HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256 = {
     "cbe729826d03eb9593e642e20a166a02ccb5c3e36db55e61a7d95f725bf821a6",
   hotel_inquiry_read_v1:
     "d0075107834763ce0c9b55dc11646ae3e337e15e7227331052febe6a1066ff5e",
+  hotel_notification_actor_v1:
+    "3df8a5127fb088f44479831651ae25e1a390be2dbb250f54910ef53a19fa394a",
+  hotel_notification_command_v1:
+    "5a723b13aef9ebe8856db0d50014292bddf5f2f5c5029ad488650d6e1835f50c",
+  hotel_notification_read_v1:
+    "c2b2caa6b2970c399296fc695608c687546db20e5ecd710fa0e7dc49be3b1cec",
 } as const;
 const HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256 =
   "f748b13dbef62126efdbbb892f0b8b04d6735f1352e7185d967861416286fa35";
@@ -2574,6 +2580,8 @@ export async function probeDatabaseReadiness(
         hotel_daily_sales_marker_count: number;
         hotel_owner_inquiries_marker_count: number;
         hotel_inquiry_list_projection_correction_marker_count: number;
+        common_in_app_notifications_marker_count: number;
+        common_in_app_notification_indexes_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
         file_scanner_agent_authority_correction_marker_count: number;
         file_upload_polling_scope_correction_marker_count: number;
@@ -2714,6 +2722,12 @@ export async function probeDatabaseReadiness(
                where version = '0055_hotel_inquiry_list_projection_correction'
              )::integer as hotel_inquiry_list_projection_correction_marker_count,
              count(*) filter (
+               where version = '0056_common_in_app_notifications'
+             )::integer as common_in_app_notifications_marker_count,
+             count(*) filter (
+               where version = '0057_common_in_app_notification_indexes'
+             )::integer as common_in_app_notification_indexes_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2785,7 +2799,9 @@ export async function probeDatabaseReadiness(
         '0052_hotel_owner_inquiries',
         '0053_file_scanner_agent_authority_correction',
         '0054_file_upload_polling_scope_correction',
-        '0055_hotel_inquiry_list_projection_correction'
+        '0055_hotel_inquiry_list_projection_correction',
+        '0056_common_in_app_notifications',
+        '0057_common_in_app_notification_indexes'
       )
     `;
     const schemaPhase =
@@ -2822,25 +2838,41 @@ export async function probeDatabaseReadiness(
     const fileUploadPollingScopeCorrectionPhase =
       migrationRows[0]?.file_upload_polling_scope_correction_marker_count === 1
         ? "EXPAND"
-        : migrationRows[0]?.file_upload_polling_scope_correction_marker_count === 0
+        : migrationRows[0]
+              ?.file_upload_polling_scope_correction_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const fileScannerAgentAuthorityPhase =
       migrationRows[0]?.file_scanner_agent_authority_marker_count === 1 &&
-      migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 1 &&
+      migrationRows[0]?.file_scanner_agent_authority_correction_marker_count ===
+        1 &&
       fileUploadPollingScopeCorrectionPhase === "EXPAND"
         ? "EXPAND"
         : migrationRows[0]?.file_scanner_agent_authority_marker_count === 0 &&
-            migrationRows[0]?.file_scanner_agent_authority_correction_marker_count === 0 &&
+            migrationRows[0]
+              ?.file_scanner_agent_authority_correction_marker_count === 0 &&
             fileUploadPollingScopeCorrectionPhase === "PRE_EXPAND"
+          ? "PRE_EXPAND"
+          : null;
+    const commonNotificationsPhase =
+      migrationRows[0]?.common_in_app_notifications_marker_count === 1 &&
+      migrationRows[0]?.common_in_app_notification_indexes_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.common_in_app_notifications_marker_count === 0 &&
+            migrationRows[0]
+              ?.common_in_app_notification_indexes_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const ownerInquiriesPhase =
       migrationRows[0]?.hotel_owner_inquiries_marker_count === 1 &&
-      migrationRows[0]?.hotel_inquiry_list_projection_correction_marker_count === 1
+      migrationRows[0]
+        ?.hotel_inquiry_list_projection_correction_marker_count === 1 &&
+      migrationRows[0]?.common_in_app_notifications_marker_count === 1
         ? "EXPAND"
         : migrationRows[0]?.hotel_owner_inquiries_marker_count === 0 &&
-            migrationRows[0]?.hotel_inquiry_list_projection_correction_marker_count === 0
+            migrationRows[0]
+              ?.hotel_inquiry_list_projection_correction_marker_count === 0 &&
+            migrationRows[0]?.common_in_app_notifications_marker_count === 0
           ? "PRE_EXPAND"
           : null;
     const calendarReadModelPhase =
@@ -2988,6 +3020,7 @@ export async function probeDatabaseReadiness(
       !inquiryAuthorityValid ||
       !repairLifecyclePhase ||
       !operationalIssuesPhase ||
+      !commonNotificationsPhase ||
       !dailySalesPhase ||
       !ownerInquiriesPhase ||
       !fileScannerAgentAuthorityPhase ||
@@ -3016,6 +3049,7 @@ export async function probeDatabaseReadiness(
           catalog_shape: string;
           column_acl_count: number;
           force_rls_count: number;
+          inquiry_notification_index_ready_count: number;
           table_acl_count: number;
           owner_safe_count: number;
           policy_count: number;
@@ -3049,6 +3083,23 @@ export async function probeDatabaseReadiness(
                  cross join lateral pg_catalog.aclexplode(protected_column.attacl) acl
                 where protected_namespace.nspname='public' and protected_table.relname=any(${inquiryTableNames as unknown as string[]})
                   and acl.grantee<>protected_table.relowner) as column_acl_count,
+               (select count(*)::integer
+                  from pg_catalog.pg_index index_record
+                  join pg_catalog.pg_class index_table on index_table.oid=index_record.indexrelid
+                  join pg_catalog.pg_class source_table on source_table.oid=index_record.indrelid
+                  join pg_catalog.pg_namespace source_namespace on source_namespace.oid=source_table.relnamespace
+                 where source_namespace.nspname='public'
+                   and source_table.relname='hotel_inquiry_notifications'
+                   and index_record.indisvalid and index_record.indisready
+                   and (
+                     (index_table.relname='hotel_inquiry_notifications_recipient_recent_idx'
+                       and pg_catalog.regexp_replace(pg_catalog.pg_get_indexdef(index_table.oid),'\\s','','g') like '%(company_id,recipient_user_id,created_atDESC,id)%'
+                       and index_record.indpred is null)
+                     or
+                     (index_table.relname='hotel_inquiry_notifications_recipient_unread_idx'
+                       and pg_catalog.regexp_replace(pg_catalog.pg_get_indexdef(index_table.oid),'\\s','','g') like '%(company_id,recipient_user_id)%'
+                       and pg_catalog.regexp_replace(pg_catalog.pg_get_expr(index_record.indpred,index_record.indrelid),'[\\s()]','','g')='read_atISNULL')
+                   )) as inquiry_notification_index_ready_count,
                (select pg_catalog.string_agg(catalog_record.line,E'\\n' order by catalog_record.line)
                   from(
                     select 'COLUMN|'||table_record.relname||'|'||attribute_record.attnum::text||'|'||attribute_record.attname||'|'||pg_catalog.format_type(attribute_record.atttypid,attribute_record.atttypmod)||'|'||attribute_record.attnotnull::text||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid,true),'') as line
@@ -3087,7 +3138,9 @@ export async function probeDatabaseReadiness(
         : null;
       const inquiryCatalogExpectedDigest = inquiryFoundation
         ? HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR.get(
-            Math.trunc(inquiryFoundation.server_version_num / 10_000).toString(),
+            Math.trunc(
+              inquiryFoundation.server_version_num / 10_000,
+            ).toString(),
           )
         : undefined;
       if (
@@ -3099,6 +3152,8 @@ export async function probeDatabaseReadiness(
         inquiryFoundation.policy_safe_count !== inquiryTableNames.length ||
         inquiryFoundation.table_acl_count !== 0 ||
         inquiryFoundation.column_acl_count !== 0 ||
+        (commonNotificationsPhase === "EXPAND" &&
+          inquiryFoundation.inquiry_notification_index_ready_count !== 2) ||
         !inquiryCatalogExpectedDigest ||
         inquiryCatalogDigest !== inquiryCatalogExpectedDigest
       )
@@ -3199,22 +3254,28 @@ export async function probeDatabaseReadiness(
         hotel_inquiry_snapshot_v1: "jsonb",
       };
       if (
-        inquiryPrivateHelpers.length !== Object.keys(HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256).length ||
+        inquiryPrivateHelpers.length !==
+          Object.keys(HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256).length ||
         inquiryPrivateHelpers.some(
           (helper) =>
-            !helper.metadata_safe || !helper.owner_safe || !helper.acl_safe ||
-            helper.identity_arguments !== expectedPrivateHelperIdentity[helper.name] ||
-            helper.result_signature !== expectedPrivateHelperResult[helper.name],
+            !helper.metadata_safe ||
+            !helper.owner_safe ||
+            !helper.acl_safe ||
+            helper.identity_arguments !==
+              expectedPrivateHelperIdentity[helper.name] ||
+            helper.result_signature !==
+              expectedPrivateHelperResult[helper.name],
         ) ||
         (
           await Promise.all(
-            inquiryPrivateHelpers.map(async (helper) => [
-              helper.name,
-              await sourceSha256(helper.source),
-            ] as const),
+            inquiryPrivateHelpers.map(
+              async (helper) =>
+                [helper.name, await sourceSha256(helper.source)] as const,
+            ),
           )
         ).some(
-          ([name, digest]) => digest !== HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256[name],
+          ([name, digest]) =>
+            digest !== HOTEL_INQUIRY_PRIVATE_HELPER_PROSRC_SHA256[name],
         )
       )
         return schemaNotReady();
@@ -3237,8 +3298,8 @@ export async function probeDatabaseReadiness(
                pg_catalog.pg_get_function_identity_arguments(procedure_record.oid) as identity_arguments,
                pg_catalog.pg_get_function_result(procedure_record.oid) as result_signature,
                procedure_record.prosecdef
-                 and procedure_language.lanname=case when procedure_record.proname='hotel_inquiry_actor_v1'then'sql'else'plpgsql'end
-                 and procedure_record.provolatile=case when procedure_record.proname='hotel_inquiry_actor_v1'then's'::"char"else'v'::"char"end
+                 and procedure_language.lanname=case when procedure_record.proname in('hotel_inquiry_actor_v1','hotel_notification_actor_v1')then'sql'else'plpgsql'end
+                 and procedure_record.provolatile=case when procedure_record.proname in('hotel_inquiry_actor_v1','hotel_notification_actor_v1')then's'::"char"else'v'::"char"end
                  and procedure_record.proparallel='u' and not procedure_record.proleakproof
                  and procedure_record.proconfig=array['search_path=pg_catalog']::text[] as metadata_safe,
                procedure_record.proowner=migration_table.relowner as owner_safe,
@@ -3248,12 +3309,12 @@ export async function probeDatabaseReadiness(
                     and(actual_acl.is_grantable or not exists(
                       select 1 from public.runtime_database_capabilities capability
                       join pg_catalog.pg_roles capability_role on capability_role.rolname=capability.role_name
-                     where capability.capability=case when procedure_record.proname='hotel_inquiry_actor_v1'then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
+                     where capability.capability=case when procedure_record.proname in('hotel_inquiry_actor_v1','hotel_notification_actor_v1')then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
                        and capability_role.oid=actual_acl.grantee and capability_role.oid<>procedure_record.proowner))
                ) and not exists(
                  select 1 from public.runtime_database_capabilities capability
                  join pg_catalog.pg_roles capability_role on capability_role.rolname=capability.role_name
-                where capability.capability=case when procedure_record.proname='hotel_inquiry_actor_v1'then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
+                where capability.capability=case when procedure_record.proname in('hotel_inquiry_actor_v1','hotel_notification_actor_v1')then null when procedure_record.proname='hotel_inquiry_auto_close_v1'then'RECONCILER'else'API_RUNTIME'end
                   and capability_role.oid<>procedure_record.proowner and not exists(
                     select 1 from pg_catalog.aclexplode(coalesce(procedure_record.proacl,pg_catalog.acldefault('f',procedure_record.proowner))) actual_acl
                      where actual_acl.privilege_type='EXECUTE' and actual_acl.grantee=capability_role.oid and not actual_acl.is_grantable)
@@ -3269,22 +3330,38 @@ export async function probeDatabaseReadiness(
            and procedure_record.proname=any(${Object.keys(HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256)})
       `;
       const expectedAuthorityIdentity: Record<string, string> = {
-        hotel_inquiry_actor_v1: "p_company_id uuid, p_branch_id uuid, p_session_token text, p_permission_code text",
+        hotel_inquiry_actor_v1:
+          "p_company_id uuid, p_branch_id uuid, p_session_token text, p_permission_code text",
         hotel_inquiry_auto_close_v1: "p_limit integer",
-        hotel_inquiry_capabilities_v1: "p_company_id uuid, p_session_token text",
-        hotel_inquiry_command_v1: "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_trace_id uuid, p_audit_event_id uuid",
-        hotel_inquiry_file_command_v1: "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_audit_event_id uuid, p_trace_id uuid",
-        hotel_inquiry_file_scope_v1: "p_company_id uuid, p_upload_id uuid, p_session_token text",
-        hotel_inquiry_file_view_v1: "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_file_version_id uuid, p_action text, p_session_token text, p_grant_id uuid, p_completion_token text, p_audit_event_id uuid, p_alert_audit_event_id uuid, p_trace_id uuid",
-        hotel_inquiry_read_v1: "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_query jsonb, p_session_token text",
+        hotel_inquiry_capabilities_v1:
+          "p_company_id uuid, p_session_token text",
+        hotel_inquiry_command_v1:
+          "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_trace_id uuid, p_audit_event_id uuid",
+        hotel_inquiry_file_command_v1:
+          "p_company_id uuid, p_branch_id uuid, p_resource_id uuid, p_action text, p_expected_version integer, p_value jsonb, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_audit_event_id uuid, p_trace_id uuid",
+        hotel_inquiry_file_scope_v1:
+          "p_company_id uuid, p_upload_id uuid, p_session_token text",
+        hotel_inquiry_file_view_v1:
+          "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_file_version_id uuid, p_action text, p_session_token text, p_grant_id uuid, p_completion_token text, p_audit_event_id uuid, p_alert_audit_event_id uuid, p_trace_id uuid",
+        hotel_inquiry_read_v1:
+          "p_company_id uuid, p_branch_id uuid, p_inquiry_id uuid, p_query jsonb, p_session_token text",
+        hotel_notification_actor_v1: "p_company_id uuid, p_session_token text",
+        hotel_notification_command_v1:
+          "p_company_id uuid, p_notification_id uuid, p_action text, p_expected_version integer, p_session_token text, p_idempotency_record_id uuid, p_idempotency_key text, p_http_method text, p_operation_path text, p_request_hash text, p_audit_event_id uuid, p_trace_id uuid",
+        hotel_notification_read_v1:
+          "p_company_id uuid, p_query jsonb, p_session_token text",
       };
       const expectedAuthorityResult: Record<string, string> = {
-        hotel_inquiry_actor_v1: "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
+        hotel_inquiry_actor_v1:
+          "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
+        hotel_notification_actor_v1:
+          "TABLE(session_id uuid, user_id uuid, user_type text, display_name text)",
         hotel_inquiry_auto_close_v1: "TABLE(closed_count integer)",
         hotel_inquiry_file_scope_v1: "TABLE(branch_id uuid)",
       };
       if (
-        inquiryAuthorities.length !== Object.keys(HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256).length ||
+        inquiryAuthorities.length !==
+          Object.keys(HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256).length ||
         inquiryAuthorities.some(
           (authority) =>
             !authority.metadata_safe ||
@@ -3292,7 +3369,8 @@ export async function probeDatabaseReadiness(
             !authority.execute_acl_safe ||
             authority.public_execute ||
             authority.grantable_execute_count !== 0 ||
-            authority.identity_arguments !== expectedAuthorityIdentity[authority.name] ||
+            authority.identity_arguments !==
+              expectedAuthorityIdentity[authority.name] ||
             authority.result_signature !==
               (expectedAuthorityResult[authority.name] ??
                 "TABLE(command_status text, result_snapshot jsonb)") ||
@@ -3300,13 +3378,14 @@ export async function probeDatabaseReadiness(
         ) ||
         (
           await Promise.all(
-            inquiryAuthorities.map(async (authority) => [
-              authority.name,
-              await sourceSha256(authority.source),
-            ] as const),
+            inquiryAuthorities.map(
+              async (authority) =>
+                [authority.name, await sourceSha256(authority.source)] as const,
+            ),
           )
         ).some(
-          ([name, digest]) => digest !== HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256[name],
+          ([name, digest]) =>
+            digest !== HOTEL_INQUIRY_AUTHORITY_PROSRC_SHA256[name],
         )
       )
         return schemaNotReady();
@@ -3694,6 +3773,9 @@ export async function probeDatabaseReadiness(
           direct_acl_count: number;
           force_rls_count: number;
           function_count: number;
+          notification_column_acl_count: number;
+          notification_index_shape_count: number;
+          notification_read_at_shape_count: number;
           permission_count: number;
           rls_count: number;
           table_count: number;
@@ -3719,7 +3801,43 @@ export async function probeDatabaseReadiness(
            where privilege.table_schema='public'
              and privilege.table_name = any(${operationalIssueTableNames as unknown as string[]})
              and privilege.grantee <> current_user
-             and privilege.privilege_type in ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE')) as direct_acl_count
+             and privilege.privilege_type in ('SELECT','INSERT','UPDATE','DELETE','TRUNCATE')) as direct_acl_count,
+          (select count(*)::integer
+             from pg_catalog.pg_attribute column_record
+             join pg_catalog.pg_class notification_table on notification_table.oid=column_record.attrelid
+             join pg_catalog.pg_namespace notification_namespace on notification_namespace.oid=notification_table.relnamespace
+             left join pg_catalog.pg_attrdef default_record on default_record.adrelid=notification_table.oid and default_record.adnum=column_record.attnum
+            where notification_namespace.nspname='public'
+              and notification_table.relname='hotel_issue_notification_outbox'
+              and column_record.attname='read_at'
+              and column_record.attnum=12
+              and not column_record.attisdropped
+              and pg_catalog.format_type(column_record.atttypid,column_record.atttypmod)='timestamp with time zone'
+              and not column_record.attnotnull
+              and default_record.oid is null) as notification_read_at_shape_count,
+          (select count(*)::integer
+             from pg_catalog.pg_index index_record
+             join pg_catalog.pg_class index_table on index_table.oid=index_record.indexrelid
+             join pg_catalog.pg_class source_table on source_table.oid=index_record.indrelid
+             join pg_catalog.pg_namespace source_namespace on source_namespace.oid=source_table.relnamespace
+            where source_namespace.nspname='public'
+              and source_table.relname='hotel_issue_notification_outbox'
+              and index_record.indisvalid and index_record.indisready
+              and (
+                (index_table.relname='hotel_issue_notification_outbox_recipient_recent_idx'
+                  and pg_catalog.regexp_replace(pg_catalog.pg_get_indexdef(index_table.oid),'\\s','','g') like '%(company_id,recipient_user_id,created_atDESC,id)%'
+                  and pg_catalog.regexp_replace(pg_catalog.pg_get_expr(index_record.indpred,index_record.indrelid),'[\\s()]','','g')='channel=''IN_APP''::text')
+                or
+                (index_table.relname='hotel_issue_notification_outbox_recipient_unread_idx'
+                  and pg_catalog.regexp_replace(pg_catalog.pg_get_indexdef(index_table.oid),'\\s','','g') like '%(company_id,recipient_user_id)%'
+                  and pg_catalog.regexp_replace(pg_catalog.pg_get_expr(index_record.indpred,index_record.indrelid),'[\\s()]','','g')='channel=''IN_APP''::textANDread_atISNULL')
+              )) as notification_index_shape_count,
+          (select count(*)::integer from information_schema.column_privileges privilege
+            where privilege.table_schema='public'
+              and privilege.table_name='hotel_issue_notification_outbox'
+              and privilege.column_name='read_at'
+              and privilege.grantee<>current_user
+              and privilege.privilege_type in ('SELECT','INSERT','UPDATE','REFERENCES')) as notification_column_acl_count
         from pg_catalog.pg_class table_record
         join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
         where table_namespace.nspname='public'
@@ -3734,7 +3852,11 @@ export async function probeDatabaseReadiness(
           operationalIssueTableNames.length ||
         operationalIssueFoundation.function_count !== 5 ||
         operationalIssueFoundation.permission_count !== 6 ||
-        operationalIssueFoundation.direct_acl_count !== 0
+        operationalIssueFoundation.direct_acl_count !== 0 ||
+        (commonNotificationsPhase === "EXPAND" &&
+          (operationalIssueFoundation.notification_read_at_shape_count !== 1 ||
+            operationalIssueFoundation.notification_index_shape_count !== 2 ||
+            operationalIssueFoundation.notification_column_acl_count !== 0))
       )
         return schemaNotReady();
     }
@@ -5094,9 +5216,9 @@ export async function probeDatabaseReadiness(
           ? HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256
           : dailySalesPhase === "EXPAND"
             ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
-          : repairLifecyclePhase === "CONTRACT"
-            ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
-            : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
+            : repairLifecyclePhase === "CONTRACT"
+              ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
+              : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
       if (fileAccessSchema?.digest !== expectedFileAccessSchema) {
         return schemaNotReady();
       }
@@ -5153,13 +5275,13 @@ export async function probeDatabaseReadiness(
             : contract.name === "hotel_repair_file_upload_init_v1" &&
                 dailySalesPhase === "EXPAND"
               ? HOTEL_DAILY_SALES_FILE_UPLOAD_INIT_V1_PROSRC_SHA256
-            : contract.name === "hotel_calendar_events_read_v1"
-              ? googleCalendarProjectionPhase === "REMOVED"
-                ? HOTEL_CALENDAR_EVENTS_REMOVED_SHA256
-                : googleCalendarProjectionPhase === "PROVIDER_PRESENT"
-                  ? HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256
-                  : contract.digest
-              : contract.digest;
+              : contract.name === "hotel_calendar_events_read_v1"
+                ? googleCalendarProjectionPhase === "REMOVED"
+                  ? HOTEL_CALENDAR_EVENTS_REMOVED_SHA256
+                  : googleCalendarProjectionPhase === "PROVIDER_PRESENT"
+                    ? HOTEL_CALENDAR_EVENTS_PROVIDER_SHA256
+                    : contract.digest
+                : contract.digest;
         const [command] = await sql<
           {
             executable: boolean;
@@ -7047,8 +7169,7 @@ export async function probeDatabaseReadiness(
             );
       if (fileScannerAgentAuthorityPhase === "PRE_EXPAND") {
         roleTablePrivileges = roleTablePrivileges.filter(
-          (label) =>
-            label !== "hotel_file_scanner_agent_capabilities:SELECT",
+          (label) => label !== "hotel_file_scanner_agent_capabilities:SELECT",
         );
       }
       if (
