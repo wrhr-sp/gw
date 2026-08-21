@@ -95,6 +95,8 @@ describe("hosted Preview owner-inquiry smoke", () => {
     expect(source).not.toContain("public.hotel_inquiry_actor_v1");
     expect(source).toContain("ownerACredential.token");
     expect(source).toContain("ownerBCredential.token");
+    expect(source).toContain("ownerBList.response.status !== 403");
+    expect(source).toContain("ownerBList.payload?.data");
     expect(source).toContain(
       "PREVIEW_OWNER_INQUIRY_ISOLATION_CAPABILITY_INVALID",
     );
