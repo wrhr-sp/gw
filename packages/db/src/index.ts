@@ -60,6 +60,7 @@ export {
   type InspectionCommandInput,
   type InspectionCommandResult,
   type InspectionRepository,
+  type KnowledgeFileCommandInput,
 } from "./inspections";
 export {
   createPostgresFacilityRepository,
@@ -123,6 +124,15 @@ export {
   type NotificationRepository,
   type NotificationRepositoryResult,
 } from "./notifications";
+export {
+  createPostgresKnowledgeRepository,
+  reconcileDueKnowledge,
+  type KnowledgeCommandInput,
+  type KnowledgeFeedbackInput,
+  type KnowledgeRepository,
+  type KnowledgeRepositoryResult,
+  type KnowledgeReviewerCandidatesInput,
+} from "./knowledge";
 export {
   createPostgresDailySalesRepository,
   type DailySalesCommandInput,

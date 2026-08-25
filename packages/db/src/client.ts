@@ -48,6 +48,14 @@ const HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256 =
   "ab305e42dbcc0b626072f2dc3ad9dc1eb55f466a34e7b447d2afc121a36f3eb6";
 const HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256 =
   "6f585e79e861ac0321ec3fa73a2324a4134778fd70a24bf5b15eb79b77074ae8";
+const HOTEL_KNOWLEDGE_ATTACHMENTS_FILE_ACCESS_SCHEMA_SHA256 =
+  "a7c8f987e7095ca0dfb77d669c78a1e2803abb0c7538f00f7caf61a62b1b07cc";
+const HOTEL_KNOWLEDGE_CORE_EXPAND_PROSRC_SHA256 =
+  "7d830fbe7d574e24a81f9a3273c03b9a6de505adee3e5e3d7b48d4f034d9eff5";
+const HOTEL_KNOWLEDGE_CORE_CONTRACT_PROSRC_SHA256 =
+  "9ba32d30995142d9533d7a4c6e558eab7c693bd140284ea82068ee914f1ec6ae";
+const HOTEL_KNOWLEDGE_ATTACHMENTS_PROSRC_SHA256 =
+  "3d9da1f5f7744c850259ab8b68a543a4fc0698e4f0aea959e0afb1c0813f8ee2";
 const HOTEL_INQUIRY_IDEMPOTENCY_BEGIN_V1_PROSRC_SHA256 =
   "35c6cd970e390f2d5523e8ea8abd7cbc8301a28959d14bb8bb0f814a90f02076";
 const HOTEL_INQUIRY_CATALOG_SHA256_BY_POSTGRES_MAJOR = new Map([
@@ -99,6 +107,16 @@ const HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256 =
   "508c9daf9cc33001a0f2d47bd8e033748468671aba5c7b7ed313ee8e2043edd4";
 const HOTEL_REPAIR_OWNER_INQUIRIES_CATALOG_SHA256 =
   "8d7f6cfc1243fa286acc21211690c30d5e18f57b8e8eb8b52a07004d0b4f8b61";
+const HOTEL_KNOWLEDGE_CORE_EXPAND_CATALOG_SHA256 =
+  "21902440bb16ba8a8b5948bb7e518f4643fefc9517cd88e8d1c4e132458845f8";
+const HOTEL_KNOWLEDGE_CORE_CONTRACT_CATALOG_SHA256 =
+  "c0f2c583f8a9fd9ed5dda976f984dd7402ba3705d02a899830e178012e4073fd";
+const HOTEL_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256 =
+  "fffb11fe1167db3e50bf6eee24e473286f48d4d697e5bbb2cdd953d53c2bd566";
+const HOTEL_KNOWLEDGE_ATTACHMENTS_PRE_EXPAND_PARENT_CATALOG_SHA256 =
+  "2544a2c617b47bb824d3b4d0fc09e3c5a199250f4e40bc662e726b7eb880fd3d";
+const HOTEL_REPAIR_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256 =
+  "fbe77c5c93ec61c21f1f60402f859fd024da980f2fc5ae8cde380d63186e3302";
 const HOTEL_DAILY_SALES_ACTOR_V1_PROSRC_SHA256 =
   "93de58bcd56ba3eecd6ed5482183eacfa39e901a33e7b67972dec3a63f5c5701";
 const HOTEL_DAILY_SALES_SNAPSHOT_V1_PROSRC_SHA256 =
@@ -2582,6 +2600,8 @@ export async function probeDatabaseReadiness(
         hotel_inquiry_list_projection_correction_marker_count: number;
         common_in_app_notifications_marker_count: number;
         common_in_app_notification_indexes_marker_count: number;
+        hotel_knowledge_bank_marker_count: number;
+        hotel_knowledge_attachments_marker_count: number;
         file_scanner_agent_authority_marker_count: number;
         file_scanner_agent_authority_correction_marker_count: number;
         file_upload_polling_scope_correction_marker_count: number;
@@ -2728,6 +2748,12 @@ export async function probeDatabaseReadiness(
                where version = '0057_common_in_app_notification_indexes'
              )::integer as common_in_app_notification_indexes_marker_count,
              count(*) filter (
+               where version = '0058_hotel_knowledge_bank'
+             )::integer as hotel_knowledge_bank_marker_count,
+             count(*) filter (
+               where version = '0059_hotel_knowledge_attachments'
+             )::integer as hotel_knowledge_attachments_marker_count,
+             count(*) filter (
                where version = '0043_hotel_calendar_read_model'
              )::integer as hotel_calendar_read_model_marker_count,
              count(*) filter (
@@ -2801,7 +2827,9 @@ export async function probeDatabaseReadiness(
         '0054_file_upload_polling_scope_correction',
         '0055_hotel_inquiry_list_projection_correction',
         '0056_common_in_app_notifications',
-        '0057_common_in_app_notification_indexes'
+        '0057_common_in_app_notification_indexes',
+        '0058_hotel_knowledge_bank',
+        '0059_hotel_knowledge_attachments'
       )
     `;
     const schemaPhase =
@@ -2863,6 +2891,20 @@ export async function probeDatabaseReadiness(
               ?.common_in_app_notification_indexes_marker_count === 0
           ? "PRE_EXPAND"
           : null;
+    const knowledgePhase =
+      migrationRows[0]?.hotel_knowledge_bank_marker_count === 1
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_knowledge_bank_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
+    const knowledgeAttachmentsPhase =
+      migrationRows[0]?.hotel_knowledge_attachments_marker_count === 1 &&
+      knowledgePhase === "EXPAND"
+        ? "EXPAND"
+        : migrationRows[0]?.hotel_knowledge_attachments_marker_count === 0
+          ? "PRE_EXPAND"
+          : null;
+
     const ownerInquiriesPhase =
       migrationRows[0]?.hotel_owner_inquiries_marker_count === 1 &&
       migrationRows[0]
@@ -3021,6 +3063,8 @@ export async function probeDatabaseReadiness(
       !repairLifecyclePhase ||
       !operationalIssuesPhase ||
       !commonNotificationsPhase ||
+      !knowledgePhase ||
+      !knowledgeAttachmentsPhase ||
       !dailySalesPhase ||
       !ownerInquiriesPhase ||
       !fileScannerAgentAuthorityPhase ||
@@ -3032,6 +3076,485 @@ export async function probeDatabaseReadiness(
         scheduledReconcilerLockPhase !== "EXPAND")
     )
       return schemaNotReady();
+    if (knowledgePhase === "PRE_EXPAND") {
+      const [prematureKnowledgeCore] = await sql<
+        {
+          extension_count: number;
+          function_count: number;
+          index_count: number;
+          permission_count: number;
+          table_count: number;
+          trigger_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer from pg_catalog.pg_class object_record
+            join pg_catalog.pg_namespace object_namespace on object_namespace.oid=object_record.relnamespace
+           where object_namespace.nspname='public' and object_record.relname in(
+             'hotel_knowledge_entries','hotel_knowledge_feedback','hotel_knowledge_links','hotel_knowledge_versions'
+           )) as table_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+           where function_namespace.nspname='public' and function_record.proname like 'hotel_knowledge_%_v1') as function_count,
+          (select count(*)::integer from pg_catalog.pg_class index_record
+            join pg_catalog.pg_namespace index_namespace on index_namespace.oid=index_record.relnamespace
+           where index_namespace.nspname='public' and index_record.relkind='i'
+             and index_record.relname like 'hotel_knowledge_%') as index_count,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid
+            join pg_catalog.pg_namespace trigger_namespace on trigger_namespace.oid=trigger_table.relnamespace
+           where trigger_namespace.nspname='public' and not trigger_record.tgisinternal
+             and trigger_record.tgname like 'hotel_knowledge_%') as trigger_count,
+          (select count(*)::integer from public.permissions permission
+           where permission.code in(
+             'KNOWLEDGE_READ','KNOWLEDGE_CREATE','KNOWLEDGE_REVIEW','KNOWLEDGE_PUBLISH',
+             'KNOWLEDGE_HIGH_RISK_PUBLISH','KNOWLEDGE_ARCHIVE'
+           )) as permission_count,
+          (select count(*)::integer from pg_catalog.pg_extension where extname='pg_trgm') as extension_count
+      `;
+      if (
+        prematureKnowledgeCore?.table_count !== 0 ||
+        prematureKnowledgeCore.function_count !== 0 ||
+        prematureKnowledgeCore.index_count !== 0 ||
+        prematureKnowledgeCore.trigger_count !== 0 ||
+        prematureKnowledgeCore.permission_count !== 0 ||
+        prematureKnowledgeCore.extension_count !== 0
+      )
+        return schemaNotReady();
+    } else {
+      const knowledgeTableNames = [
+        "hotel_knowledge_entries",
+        "hotel_knowledge_feedback",
+        "hotel_knowledge_links",
+        "hotel_knowledge_versions",
+      ] as const;
+      const knowledgeFunctionNames = [
+        "hotel_knowledge_search_vector_v1",
+        "hotel_knowledge_response_search_text_v1",
+        "hotel_knowledge_append_only_v1",
+        "hotel_knowledge_session_actor_v1",
+        "hotel_knowledge_has_permission_v1",
+        "hotel_knowledge_actor_v1",
+        "hotel_knowledge_reviewer_candidates_v1",
+        "hotel_knowledge_content_v1",
+        "hotel_knowledge_personal_data_v1",
+        "hotel_knowledge_failure_audit_v1",
+        "hotel_knowledge_version_snapshot_v1",
+        "hotel_knowledge_snapshot_v1",
+        "hotel_knowledge_scope_capabilities_v1",
+        "hotel_knowledge_capabilities_v1",
+        "hotel_knowledge_read_v1",
+        "hotel_knowledge_command_v1",
+        "hotel_knowledge_feedback_v1",
+        "hotel_knowledge_reconcile_due_v1",
+        "hotel_knowledge_rls_company_guard_v1",
+      ] as const;
+      const [knowledgeFoundation] = await sql<
+        {
+          knowledge_acl_count: number;
+          knowledge_catalog_source: string | null;
+          knowledge_column_acl_count: number;
+          knowledge_column_shape_count: number;
+          knowledge_force_rls_count: number;
+          knowledge_function_acl_count: number;
+          knowledge_function_acl_safe_count: number;
+          knowledge_function_count: number;
+          knowledge_function_execute_count: number;
+          knowledge_function_source: string | null;
+          knowledge_index_count: number;
+          knowledge_pg_trgm_count: number;
+          knowledge_owner_safe_count: number;
+          knowledge_policy_count: number;
+          knowledge_policy_total_count: number;
+          knowledge_rls_count: number;
+          knowledge_table_count: number;
+          knowledge_trigger_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public' and table_record.relkind in('r','p')
+              and table_record.relname=any(${knowledgeTableNames as unknown as string[]})) as knowledge_table_count,
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public' and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+              and table_record.relowner=(select marker.relowner from pg_catalog.pg_class marker join pg_catalog.pg_namespace marker_namespace on marker_namespace.oid=marker.relnamespace where marker_namespace.nspname='public' and marker.relname='schema_migrations')) as knowledge_owner_safe_count,
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public' and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+              and table_record.relrowsecurity) as knowledge_rls_count,
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public' and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+              and table_record.relforcerowsecurity) as knowledge_force_rls_count,
+          (select count(*)::integer from pg_catalog.pg_policies policy
+            where policy.schemaname='public' and policy.tablename=any(${knowledgeTableNames as unknown as string[]})
+              and policy.cmd='ALL' and policy.roles=array['public']::name[]
+              and policy.qual=policy.with_check
+              and pg_catalog.regexp_replace(policy.qual,'\\s','','g')
+                ~ '^\\(?((public\\.)?hotel_knowledge_rls_company_guard_v1\\(company_id\\))\\)?$') as knowledge_policy_count,
+          (select count(*)::integer from pg_catalog.pg_policies policy
+            where policy.schemaname='public' and policy.tablename=any(${knowledgeTableNames as unknown as string[]})) as knowledge_policy_total_count,
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+             cross join lateral pg_catalog.aclexplode(coalesce(table_record.relacl,pg_catalog.acldefault('r'::"char",table_record.relowner))) acl
+            where table_namespace.nspname='public' and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+              and acl.grantee<>table_record.relowner) as knowledge_acl_count,
+          (select count(*)::integer
+             from pg_catalog.pg_class table_record
+             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+             join pg_catalog.pg_attribute column_record on column_record.attrelid=table_record.oid and column_record.attnum>0 and not column_record.attisdropped
+             cross join lateral pg_catalog.aclexplode(column_record.attacl) acl
+            where table_namespace.nspname='public' and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+              and acl.grantee<>table_record.relowner) as knowledge_column_acl_count,
+          (select count(*)::integer
+             from pg_catalog.pg_proc function_record
+             join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+            where function_namespace.nspname='public' and function_record.proname=any(${knowledgeFunctionNames as unknown as string[]})
+              and function_record.proowner=(select marker_table.relowner from pg_catalog.pg_class marker_table join pg_catalog.pg_namespace marker_namespace on marker_namespace.oid=marker_table.relnamespace where marker_namespace.nspname='public' and marker_table.relname='schema_migrations')
+              and function_record.proconfig=array['search_path=pg_catalog']::text[]
+              and not function_record.proleakproof and function_record.proparallel='u'
+              and (select language_name.lanname from pg_catalog.pg_language language_name where language_name.oid=function_record.prolang)in('sql','plpgsql')
+              and function_record.prosecdef=(function_record.proname not in('hotel_knowledge_search_vector_v1','hotel_knowledge_response_search_text_v1','hotel_knowledge_append_only_v1','hotel_knowledge_content_v1','hotel_knowledge_personal_data_v1'))
+              and function_record.provolatile=case when function_record.proname in('hotel_knowledge_response_search_text_v1','hotel_knowledge_content_v1','hotel_knowledge_personal_data_v1')then'i' when function_record.proname in('hotel_knowledge_session_actor_v1','hotel_knowledge_has_permission_v1','hotel_knowledge_actor_v1','hotel_knowledge_reviewer_candidates_v1','hotel_knowledge_version_snapshot_v1','hotel_knowledge_snapshot_v1','hotel_knowledge_scope_capabilities_v1','hotel_knowledge_capabilities_v1','hotel_knowledge_rls_company_guard_v1')then's' else'v'end) as knowledge_function_count,
+          (select pg_catalog.string_agg(function_record.proname||'|'||function_record.prosrc,E'\\n' order by function_record.proname)
+             from pg_catalog.pg_proc function_record join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+            where function_namespace.nspname='public' and function_record.proname=any(${knowledgeFunctionNames as unknown as string[]})) as knowledge_function_source,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+             join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+             cross join lateral pg_catalog.aclexplode(coalesce(function_record.proacl,pg_catalog.acldefault('f'::"char",function_record.proowner))) acl
+            where function_namespace.nspname='public' and function_record.proname=any(${knowledgeFunctionNames as unknown as string[]})and acl.grantee<>function_record.proowner)as knowledge_function_acl_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+             join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+             cross join lateral pg_catalog.aclexplode(coalesce(function_record.proacl,pg_catalog.acldefault('f'::"char",function_record.proowner))) acl
+             join pg_catalog.pg_roles grantee_role on grantee_role.oid=acl.grantee
+             join public.runtime_database_capabilities capability on capability.role_name=grantee_role.rolname
+            where function_namespace.nspname='public' and function_record.proname=any(${knowledgeFunctionNames as unknown as string[]})and acl.grantee<>function_record.proowner and acl.privilege_type='EXECUTE'and not acl.is_grantable and((capability.capability='API_RUNTIME'and function_record.proname in('hotel_knowledge_capabilities_v1','hotel_knowledge_reviewer_candidates_v1','hotel_knowledge_read_v1','hotel_knowledge_command_v1','hotel_knowledge_feedback_v1'))or(capability.capability='RECONCILER'and function_record.proname='hotel_knowledge_reconcile_due_v1')))as knowledge_function_acl_safe_count,
+          (select count(*)::integer from unnest(array[
+             'public.hotel_knowledge_capabilities_v1(uuid,text)',
+             'public.hotel_knowledge_reviewer_candidates_v1(uuid,uuid,text)',
+             'public.hotel_knowledge_read_v1(uuid,uuid,jsonb,text)',
+             'public.hotel_knowledge_command_v1(uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+             'public.hotel_knowledge_feedback_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+             'public.hotel_knowledge_reconcile_due_v1(integer)'
+           ]) signature where pg_catalog.has_function_privilege(current_user,signature,'EXECUTE')) as knowledge_function_execute_count,
+          (select count(*)::integer from pg_catalog.pg_indexes index_record
+            join pg_catalog.pg_class index_class on index_class.relname=index_record.indexname
+            join pg_catalog.pg_namespace index_namespace on index_namespace.oid=index_class.relnamespace and index_namespace.nspname=index_record.schemaname
+            join pg_catalog.pg_index index_state on index_state.indexrelid=index_class.oid
+            where index_record.schemaname='public' and index_record.indexname=any(array[
+              'hotel_knowledge_search_vector_idx','hotel_knowledge_title_trgm_idx','hotel_knowledge_response_trgm_idx','hotel_knowledge_visible_recent_idx','hotel_knowledge_tags_idx','hotel_knowledge_links_issue_unique_idx','hotel_knowledge_links_repair_unique_idx'
+            ]) and index_state.indisvalid and index_state.indisready) as knowledge_index_count,
+          (select count(*)::integer from pg_catalog.pg_extension where extname='pg_trgm') as knowledge_pg_trgm_count,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid
+            join pg_catalog.pg_namespace trigger_namespace on trigger_namespace.oid=trigger_table.relnamespace
+            join pg_catalog.pg_proc trigger_function on trigger_function.oid=trigger_record.tgfoid
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=trigger_function.pronamespace
+            where trigger_namespace.nspname='public' and function_namespace.nspname='public'
+              and not trigger_record.tgisinternal and trigger_record.tgenabled='O'
+              and ((trigger_record.tgname='hotel_knowledge_search_vector' and trigger_table.relname='hotel_knowledge_entries' and trigger_function.proname='hotel_knowledge_search_vector_v1')
+                or(trigger_record.tgname='hotel_knowledge_versions_append_only' and trigger_table.relname='hotel_knowledge_versions' and trigger_function.proname='hotel_knowledge_append_only_v1')
+                or(trigger_record.tgname='hotel_knowledge_feedback_append_only' and trigger_table.relname='hotel_knowledge_feedback' and trigger_function.proname='hotel_knowledge_append_only_v1'))) as knowledge_trigger_count,
+          (select pg_catalog.string_agg(catalog_record.line,E'\\n' order by catalog_record.line)from(
+             select 'COLUMN|'||table_record.relname||'|'||attribute_record.attnum::text||'|'||attribute_record.attname||'|'||pg_catalog.format_type(attribute_record.atttypid,attribute_record.atttypmod)||'|'||attribute_record.attnotnull::text||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid,true),'')as line
+               from pg_catalog.pg_class table_record join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace join pg_catalog.pg_attribute attribute_record on attribute_record.attrelid=table_record.oid and attribute_record.attnum>0 and not attribute_record.attisdropped left join pg_catalog.pg_attrdef default_record on default_record.adrelid=table_record.oid and default_record.adnum=attribute_record.attnum
+              where table_namespace.nspname='public'and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+             union all
+             select 'CONSTRAINT|'||table_record.relname||'|'||constraint_record.contype::text||'|'||constraint_record.conname||'|'||constraint_record.convalidated::text||'|'||pg_catalog.pg_get_constraintdef(constraint_record.oid,true)
+               from pg_catalog.pg_constraint constraint_record join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'and table_record.relname=any(${knowledgeTableNames as unknown as string[]})
+             union all
+             select 'INDEX|'||index_record.tablename||'|'||index_record.indexname||'|'||index_record.indexdef from pg_catalog.pg_indexes index_record where index_record.schemaname='public'and index_record.tablename=any(${knowledgeTableNames as unknown as string[]})
+           )catalog_record)as knowledge_catalog_source,
+          (select count(*)::integer from pg_catalog.pg_attribute column_record
+            join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            where table_namespace.nspname='public' and table_record.relname='hotel_knowledge_entries'
+              and not column_record.attisdropped and column_record.attnum>0
+              and (column_record.attname,column_record.atttypid::pg_catalog.regtype::text,column_record.attnotnull) in(
+                ('company_id','uuid',true),('scope_type','text',true),('branch_id','uuid',false),('status','text',true),
+                ('risk_classification','text',true),('designated_reviewer_user_id','uuid',false),('review_requested_version','integer',false),('knowledge_search_vector','tsvector',true),('version','integer',true),('review_due_at','timestamp with time zone',true)
+              )) as knowledge_column_shape_count
+      `;
+      const knowledgeCatalogDigest = knowledgeFoundation?.knowledge_catalog_source
+        ? await sourceSha256(knowledgeFoundation.knowledge_catalog_source)
+        : null;
+      const expectedKnowledgeCatalogDigest =
+        knowledgeAttachmentsPhase === "EXPAND"
+          ? HOTEL_KNOWLEDGE_CORE_CONTRACT_CATALOG_SHA256
+          : HOTEL_KNOWLEDGE_CORE_EXPAND_CATALOG_SHA256;
+      const knowledgeSourceDigest = knowledgeFoundation?.knowledge_function_source
+        ? await sourceSha256(knowledgeFoundation.knowledge_function_source)
+        : null;
+      const expectedKnowledgeSourceDigest =
+        knowledgeAttachmentsPhase === "EXPAND"
+          ? HOTEL_KNOWLEDGE_CORE_CONTRACT_PROSRC_SHA256
+          : HOTEL_KNOWLEDGE_CORE_EXPAND_PROSRC_SHA256;
+      const expectedKnowledgeExecuteCount =
+        options.capability === "API_RUNTIME"
+          ? 5
+          : options.capability === "RECONCILER"
+            ? 1
+            : 0;
+      if (
+        knowledgeFoundation?.knowledge_table_count !== 4 ||
+        knowledgeFoundation.knowledge_owner_safe_count !== 4 ||
+        knowledgeFoundation.knowledge_rls_count !== 4 ||
+        knowledgeFoundation.knowledge_force_rls_count !== 4 ||
+        knowledgeFoundation.knowledge_policy_count !== 4 ||
+        knowledgeFoundation.knowledge_policy_total_count !== 4 ||
+        knowledgeFoundation.knowledge_acl_count !== 0 ||
+        knowledgeFoundation.knowledge_column_acl_count !== 0 ||
+        knowledgeFoundation.knowledge_function_count !== 19 ||
+        knowledgeFoundation.knowledge_function_acl_count !==
+          knowledgeFoundation.knowledge_function_acl_safe_count ||
+        knowledgeFoundation.knowledge_function_execute_count !==
+          expectedKnowledgeExecuteCount ||
+        knowledgeFoundation.knowledge_index_count !== 7 ||
+        knowledgeFoundation.knowledge_pg_trgm_count !== 1 ||
+        knowledgeFoundation.knowledge_trigger_count !== 3 ||
+        knowledgeFoundation.knowledge_column_shape_count !== 10 ||
+        knowledgeCatalogDigest !== expectedKnowledgeCatalogDigest ||
+        knowledgeSourceDigest !== expectedKnowledgeSourceDigest
+      )
+        return schemaNotReady();
+    }
+    if (knowledgeAttachmentsPhase === "PRE_EXPAND") {
+      const [prematureKnowledgeAttachments] = await sql<
+        {
+          catalog_source: string | null;
+          core_marker_count: number;
+          function_count: number;
+          table_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer from public.schema_migrations where version='0058_hotel_knowledge_bank') as core_marker_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relname in(
+             'hotel_knowledge_attachments','hotel_knowledge_file_access_rate_windows'
+           )) as table_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+           where function_namespace.nspname='public' and function_record.proname in(
+             'hotel_knowledge_visible_v1','hotel_knowledge_idempotency_begin_v1',
+             'hotel_knowledge_file_parent_scope_v1','hotel_knowledge_file_scope_v1',
+             'hotel_knowledge_file_command_v1','hotel_knowledge_attachment_command_v1',
+             'hotel_knowledge_file_view_v1'
+           )) as function_count,
+          (select pg_catalog.string_agg(catalog_record.line,E'\\n' order by catalog_record.line)from(
+             select 'COLUMN|'||table_record.relname||'|'||attribute_record.attnum::text||'|'||attribute_record.attname||'|'||pg_catalog.format_type(attribute_record.atttypid,attribute_record.atttypmod)||'|'||attribute_record.attnotnull::text||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid,true),'')as line
+               from pg_catalog.pg_class table_record join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace join pg_catalog.pg_attribute attribute_record on attribute_record.attrelid=table_record.oid and attribute_record.attnum>0 and not attribute_record.attisdropped left join pg_catalog.pg_attrdef default_record on default_record.adrelid=table_record.oid and default_record.adnum=attribute_record.attnum
+              where table_namespace.nspname='public'and table_record.relname in('hotel_file_access_grants','hotel_file_scan_jobs','hotel_file_uploads','hotel_file_versions')
+             union all
+             select 'CONSTRAINT|'||table_record.relname||'|'||constraint_record.contype::text||'|'||constraint_record.conname||'|'||constraint_record.convalidated::text||'|'||pg_catalog.pg_get_constraintdef(constraint_record.oid,true)
+               from pg_catalog.pg_constraint constraint_record join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'and table_record.relname in('hotel_file_access_grants','hotel_file_scan_jobs','hotel_file_uploads','hotel_file_versions')
+             union all
+             select 'INDEX|'||index_record.tablename||'|'||index_record.indexname||'|'||index_record.indexdef from pg_catalog.pg_indexes index_record where index_record.schemaname='public'and index_record.tablename in('hotel_file_access_grants','hotel_file_scan_jobs','hotel_file_uploads','hotel_file_versions')
+           )catalog_record)as catalog_source
+      `;
+      const prematureParentCatalogDigest = prematureKnowledgeAttachments?.catalog_source
+        ? await sourceSha256(prematureKnowledgeAttachments.catalog_source)
+        : null;
+      if (
+        prematureKnowledgeAttachments?.table_count !== 0 ||
+        prematureKnowledgeAttachments.function_count !== 0 ||
+        (prematureKnowledgeAttachments.core_marker_count === 1 &&
+          prematureParentCatalogDigest !==
+            HOTEL_KNOWLEDGE_ATTACHMENTS_PRE_EXPAND_PARENT_CATALOG_SHA256)
+      )
+        return schemaNotReady();
+    } else {
+      const attachmentTables = [
+        "hotel_knowledge_attachments",
+        "hotel_knowledge_file_access_rate_windows",
+      ] as const;
+      const attachmentParentTables = [
+        "hotel_file_access_grants",
+        "hotel_file_scan_jobs",
+        "hotel_file_uploads",
+        "hotel_file_versions",
+      ] as const;
+      const attachmentCatalogTables = [
+        ...attachmentTables,
+        ...attachmentParentTables,
+      ] as const;
+      const attachmentFunctions = [
+        "hotel_knowledge_visible_v1",
+        "hotel_knowledge_idempotency_begin_v1",
+        "hotel_knowledge_file_parent_scope_v1",
+        "hotel_knowledge_file_scope_v1",
+        "hotel_knowledge_file_command_v1",
+        "hotel_knowledge_attachment_command_v1",
+        "hotel_knowledge_file_view_v1",
+      ] as const;
+      const [attachmentFoundation] = await sql<
+        {
+          acl_count: number;
+          catalog_source: string | null;
+          column_acl_count: number;
+          action_constraint_count: number;
+          branch_nullable_count: number;
+          execute_count: number;
+          force_rls_count: number;
+          function_count: number;
+          function_acl_count: number;
+          function_acl_safe_count: number;
+          function_source: string | null;
+          knowledge_parent_column_count: number;
+          owner_safe_count: number;
+          policy_count: number;
+          policy_total_count: number;
+          rls_count: number;
+          table_count: number;
+          trigger_count: number;
+        }[]
+      >`
+        select
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relkind='r'
+             and table_record.relname=any(${attachmentTables as unknown as string[]})) as table_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public'and table_record.relname=any(${attachmentTables as unknown as string[]})
+             and table_record.relowner=(select marker.relowner from pg_catalog.pg_class marker join pg_catalog.pg_namespace marker_namespace on marker_namespace.oid=marker.relnamespace where marker_namespace.nspname='public'and marker.relname='schema_migrations'))as owner_safe_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relname=any(${attachmentTables as unknown as string[]})
+             and table_record.relrowsecurity) as rls_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relname=any(${attachmentTables as unknown as string[]})
+             and table_record.relforcerowsecurity) as force_rls_count,
+          (select count(*)::integer from pg_catalog.pg_policies policy
+           where policy.schemaname='public' and policy.tablename=any(${attachmentTables as unknown as string[]})
+             and policy.cmd='ALL' and policy.roles=array['public']::name[]
+             and policy.qual=policy.with_check
+             and pg_catalog.regexp_replace(policy.qual,'\\s','','g')
+               ~ '^\\(?((public\\.)?hotel_knowledge_rls_company_guard_v1\\(company_id\\))\\)?$') as policy_count,
+          (select count(*)::integer from pg_catalog.pg_policies policy
+           where policy.schemaname='public' and policy.tablename=any(${attachmentTables as unknown as string[]})) as policy_total_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            cross join lateral pg_catalog.aclexplode(coalesce(table_record.relacl,pg_catalog.acldefault('r'::"char",table_record.relowner))) acl
+           where table_namespace.nspname='public' and table_record.relname=any(${attachmentTables as unknown as string[]})
+             and acl.grantee<>table_record.relowner) as acl_count,
+          (select count(*)::integer from pg_catalog.pg_class table_record
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+            join pg_catalog.pg_attribute column_record on column_record.attrelid=table_record.oid and column_record.attnum>0 and not column_record.attisdropped
+            cross join lateral pg_catalog.aclexplode(column_record.attacl) acl
+           where table_namespace.nspname='public'and table_record.relname=any(${attachmentTables as unknown as string[]})and acl.grantee<>table_record.relowner)as column_acl_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+           where function_namespace.nspname='public' and function_record.proname=any(${attachmentFunctions as unknown as string[]})
+             and function_record.proowner=(select marker.relowner from pg_catalog.pg_class marker join pg_catalog.pg_namespace marker_namespace on marker_namespace.oid=marker.relnamespace where marker_namespace.nspname='public' and marker.relname='schema_migrations')
+             and function_record.prosecdef and function_record.proconfig=array['search_path=pg_catalog']::text[]
+             and not function_record.proleakproof) as function_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+            cross join lateral pg_catalog.aclexplode(coalesce(function_record.proacl,pg_catalog.acldefault('f'::"char",function_record.proowner))) acl
+           where function_namespace.nspname='public' and function_record.proname=any(${attachmentFunctions as unknown as string[]})and acl.grantee<>function_record.proowner)as function_acl_count,
+          (select count(*)::integer from pg_catalog.pg_proc function_record
+            join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+            cross join lateral pg_catalog.aclexplode(coalesce(function_record.proacl,pg_catalog.acldefault('f'::"char",function_record.proowner))) acl
+            join pg_catalog.pg_roles grantee_role on grantee_role.oid=acl.grantee
+            join public.runtime_database_capabilities capability on capability.role_name=grantee_role.rolname
+           where function_namespace.nspname='public' and function_record.proname=any(${attachmentFunctions as unknown as string[]})and acl.grantee<>function_record.proowner and acl.privilege_type='EXECUTE'and not acl.is_grantable and capability.capability='API_RUNTIME'and function_record.proname in('hotel_knowledge_file_parent_scope_v1','hotel_knowledge_file_scope_v1','hotel_knowledge_file_command_v1','hotel_knowledge_attachment_command_v1','hotel_knowledge_file_view_v1'))as function_acl_safe_count,
+          (select pg_catalog.string_agg(function_record.proname||'|'||function_record.prosrc,E'\\n' order by function_record.proname)
+             from pg_catalog.pg_proc function_record
+             join pg_catalog.pg_namespace function_namespace on function_namespace.oid=function_record.pronamespace
+            where function_namespace.nspname='public' and function_record.proname=any(${attachmentFunctions as unknown as string[]})) as function_source,
+          (select count(*)::integer from unnest(array[
+             'public.hotel_knowledge_file_parent_scope_v1(uuid,uuid,text)',
+             'public.hotel_knowledge_file_scope_v1(uuid,uuid,text)',
+             'public.hotel_knowledge_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+             'public.hotel_knowledge_attachment_command_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)',
+             'public.hotel_knowledge_file_view_v1(uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)'
+           ]) signature where pg_catalog.has_function_privilege(current_user,signature,'EXECUTE')) as execute_count,
+          (select count(*)::integer from pg_catalog.pg_attribute column_record
+            join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relname in(
+             'hotel_file_uploads','hotel_file_scan_jobs','hotel_file_versions','hotel_file_access_grants'
+           ) and column_record.attname='branch_id' and not column_record.attnotnull) as branch_nullable_count,
+          (select count(*)::integer from pg_catalog.pg_attribute column_record
+            join pg_catalog.pg_class table_record on table_record.oid=column_record.attrelid
+            join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+           where table_namespace.nspname='public' and table_record.relname in('hotel_file_uploads','hotel_file_access_grants')
+             and column_record.attname='knowledge_id' and not column_record.attnotnull) as knowledge_parent_column_count,
+          (select count(*)::integer from pg_catalog.pg_constraint constraint_record
+            join pg_catalog.pg_class constraint_table on constraint_table.oid=constraint_record.conrelid
+            join pg_catalog.pg_namespace constraint_namespace on constraint_namespace.oid=constraint_table.relnamespace
+           where constraint_namespace.nspname='public' and constraint_table.relname='hotel_knowledge_versions'
+             and constraint_record.conname='hotel_knowledge_versions_action_check'
+             and constraint_record.contype='c' and constraint_record.convalidated
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''CREATE''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''UPDATE''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''REQUEST_REVIEW''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''PUBLISH''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''MARK_NEEDS_REVIEW''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%AUTO_NEEDS_REVIEW%'
+             and pg_catalog.regexp_count(pg_catalog.pg_get_constraintdef(constraint_record.oid),'''[A-Z_]+''::text')=9
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''REPUBLISH''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''ARCHIVE''::text%'
+             and pg_catalog.pg_get_constraintdef(constraint_record.oid) like '%''ATTACHMENTS_UPDATE''::text%') as action_constraint_count,
+          (select pg_catalog.string_agg(catalog_record.line,E'\\n' order by catalog_record.line)from(
+             select 'COLUMN|'||table_record.relname||'|'||attribute_record.attnum::text||'|'||attribute_record.attname||'|'||pg_catalog.format_type(attribute_record.atttypid,attribute_record.atttypmod)||'|'||attribute_record.attnotnull::text||'|'||coalesce(pg_catalog.pg_get_expr(default_record.adbin,default_record.adrelid,true),'')as line
+               from pg_catalog.pg_class table_record join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace join pg_catalog.pg_attribute attribute_record on attribute_record.attrelid=table_record.oid and attribute_record.attnum>0 and not attribute_record.attisdropped left join pg_catalog.pg_attrdef default_record on default_record.adrelid=table_record.oid and default_record.adnum=attribute_record.attnum
+              where table_namespace.nspname='public'and table_record.relname=any(${attachmentCatalogTables as unknown as string[]})
+             union all
+             select 'CONSTRAINT|'||table_record.relname||'|'||constraint_record.contype::text||'|'||constraint_record.conname||'|'||constraint_record.convalidated::text||'|'||pg_catalog.pg_get_constraintdef(constraint_record.oid,true)
+               from pg_catalog.pg_constraint constraint_record join pg_catalog.pg_class table_record on table_record.oid=constraint_record.conrelid join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
+              where table_namespace.nspname='public'and table_record.relname=any(${attachmentCatalogTables as unknown as string[]})
+             union all
+             select 'INDEX|'||index_record.tablename||'|'||index_record.indexname||'|'||index_record.indexdef from pg_catalog.pg_indexes index_record where index_record.schemaname='public'and index_record.tablename=any(${attachmentCatalogTables as unknown as string[]})
+           )catalog_record)as catalog_source,
+          (select count(*)::integer from pg_catalog.pg_trigger trigger_record
+            join pg_catalog.pg_class trigger_table on trigger_table.oid=trigger_record.tgrelid
+            join pg_catalog.pg_namespace trigger_namespace on trigger_namespace.oid=trigger_table.relnamespace
+           where trigger_namespace.nspname='public' and trigger_table.relname='hotel_knowledge_attachments'
+             and trigger_record.tgname='hotel_knowledge_attachments_append_only' and not trigger_record.tgisinternal and trigger_record.tgenabled='O') as trigger_count
+      `;
+      const attachmentCatalogDigest = attachmentFoundation?.catalog_source
+        ? await sourceSha256(attachmentFoundation.catalog_source)
+        : null;
+      const attachmentSourceDigest = attachmentFoundation?.function_source
+        ? await sourceSha256(attachmentFoundation.function_source)
+        : null;
+      const expectedAttachmentExecuteCount =
+        options.capability === "API_RUNTIME" ? 5 : 0;
+      if (
+        attachmentFoundation?.table_count !== 2 ||
+        attachmentFoundation.owner_safe_count !== 2 ||
+        attachmentFoundation.rls_count !== 2 ||
+        attachmentFoundation.force_rls_count !== 2 ||
+        attachmentFoundation.policy_count !== 2 ||
+        attachmentFoundation.policy_total_count !== 2 ||
+        attachmentFoundation.acl_count !== 0 ||
+        attachmentFoundation.column_acl_count !== 0 ||
+        attachmentFoundation.function_count !== 7 ||
+        attachmentFoundation.function_acl_count !==
+          attachmentFoundation.function_acl_safe_count ||
+        attachmentFoundation.execute_count !== expectedAttachmentExecuteCount ||
+        attachmentFoundation.branch_nullable_count !== 4 ||
+        attachmentFoundation.knowledge_parent_column_count !== 2 ||
+        attachmentFoundation.action_constraint_count !== 1 ||
+        attachmentFoundation.trigger_count !== 1 ||
+        attachmentCatalogDigest !== HOTEL_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256 ||
+        attachmentSourceDigest !== HOTEL_KNOWLEDGE_ATTACHMENTS_PROSRC_SHA256
+      )
+        return schemaNotReady();
+    }
     if (ownerInquiriesPhase === "EXPAND") {
       const inquiryTableNames = [
         "hotel_inquiry_assignments",
@@ -3568,11 +4091,13 @@ export async function probeDatabaseReadiness(
         repairFoundation.permission_count !== 9 ||
         repairFoundation.direct_acl_count !== 0 ||
         repairFoundation.catalog_digest !==
-          (ownerInquiriesPhase === "EXPAND"
-            ? HOTEL_REPAIR_OWNER_INQUIRIES_CATALOG_SHA256
-            : dailySalesPhase === "EXPAND"
-              ? HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256
-              : HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)
+          (knowledgeAttachmentsPhase === "EXPAND"
+            ? HOTEL_REPAIR_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256
+            : ownerInquiriesPhase === "EXPAND"
+              ? HOTEL_REPAIR_OWNER_INQUIRIES_CATALOG_SHA256
+              : dailySalesPhase === "EXPAND"
+                ? HOTEL_REPAIR_DAILY_SALES_CATALOG_SHA256
+                : HOTEL_REPAIR_LIFECYCLE_CATALOG_SHA256)
       )
         return schemaNotReady();
     }
@@ -5212,13 +5737,15 @@ export async function probeDatabaseReadiness(
         )), 'hex') as digest
       `;
       const expectedFileAccessSchema =
-        ownerInquiriesPhase === "EXPAND"
-          ? HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256
-          : dailySalesPhase === "EXPAND"
-            ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
-            : repairLifecyclePhase === "CONTRACT"
-              ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
-              : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
+        knowledgeAttachmentsPhase === "EXPAND"
+          ? HOTEL_KNOWLEDGE_ATTACHMENTS_FILE_ACCESS_SCHEMA_SHA256
+          : ownerInquiriesPhase === "EXPAND"
+            ? HOTEL_OWNER_INQUIRIES_FILE_ACCESS_SCHEMA_SHA256
+            : dailySalesPhase === "EXPAND"
+              ? HOTEL_DAILY_SALES_FILE_ACCESS_SCHEMA_SHA256
+              : repairLifecyclePhase === "CONTRACT"
+                ? HOTEL_REPAIR_FILE_ACCESS_SCHEMA_SHA256
+                : HOTEL_FILE_ACCESS_SCHEMA_SHA256;
       if (fileAccessSchema?.digest !== expectedFileAccessSchema) {
         return schemaNotReady();
       }

@@ -1,3 +1,5 @@
+"use client";
+
 import type {
   AccountPermission,
   AuthenticatedPrincipal,
@@ -6,7 +8,12 @@ import type {
   OperationalIssueCapability,
 } from "@werehere/contracts";
 import {
+  knowledgeCapabilitiesResponseSchema,
+  knowledgeRoutes,
+} from "@werehere/contracts";
+import {
   Banknote,
+  BookOpenText,
   Building2,
   CalendarDays,
   CircleAlert,
@@ -14,7 +21,7 @@ import {
   LayoutDashboard,
   Users,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { AppShell } from "../shell/app-shell";
 
 const baseNavigation = [
@@ -53,7 +60,31 @@ export function HotelShell({
   inquiryCapabilities = [],
   principal,
 }: HotelShellProps) {
+  const [canReadKnowledge, setCanReadKnowledge] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(knowledgeRoutes.capabilities, {
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const parsed = knowledgeCapabilitiesResponseSchema.safeParse(
+          await response.json().catch(() => undefined),
+        );
+        setCanReadKnowledge(
+          response.ok && parsed.success && parsed.data.data.canRead,
+        );
+      })
+      .catch(() => setCanReadKnowledge(false));
+    return () => controller.abort();
+  }, []);
   const navigation = [...baseNavigation];
+  if (canReadKnowledge)
+    navigation.push({
+      href: "/knowledge",
+      icon: <BookOpenText />,
+      label: "운영 지식",
+    });
   if (calendarHref)
     navigation.push({
       href: calendarHref,

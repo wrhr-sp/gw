@@ -122,19 +122,302 @@ import {
   dailySalesListResponseSchema,
   dailySalesCapabilitiesResponseSchema,
   dailySalesRoutes,
+  createKnowledgeEntryRequestSchema,
+  knowledgeAttachmentLinkRequestSchema,
+  knowledgeCapabilitiesResponseSchema,
+  knowledgeEntryResponseSchema,
+  knowledgeFeedbackRequestSchema,
+  knowledgeListQuerySchema,
+  knowledgeListResponseSchema,
+  knowledgeRiskClassificationSchema,
+  knowledgeRoutes,
+  knowledgeStatusSchema,
+  knowledgeTransitionRequestSchema,
+  updateKnowledgeEntryRequestSchema,
 } from "../src/index";
 
 describe("hotel platform contracts", () => {
+  it("defines strict knowledge search, lifecycle, feedback, and route contracts", () => {
+    const knowledgeId = "6b000000-0000-4000-8000-000000000001";
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    expect(knowledgeStatusSchema.options).toEqual([
+      "DRAFT",
+      "REVIEW_REQUESTED",
+      "PUBLISHED",
+      "NEEDS_REVIEW",
+      "ARCHIVED",
+    ]);
+    expect(knowledgeRiskClassificationSchema.options).toEqual([
+      "STANDARD",
+      "SAFETY",
+      "LEGAL",
+      "PRIVACY",
+      "REFUND_COMPENSATION",
+    ]);
+    const create = createKnowledgeEntryRequestSchema.parse({
+      id: knowledgeId,
+      scopeType: "HOTEL",
+      hotelId,
+      title: "에어컨 냉방 저하 확인 순서",
+      summary: "전문업체 호출 전에 안전하게 확인할 항목입니다.",
+      knowledgeType: "FACILITY_MAINTENANCE",
+      riskClassification: "SAFETY",
+      situation: "객실 에어컨을 켰지만 냉방이 약한 상황",
+      symptomsAndContext: "송풍은 되지만 실내 온도가 내려가지 않습니다.",
+      checks: [
+        "설정 온도와 운전 모드를 확인합니다.",
+        "흡입구가 막히지 않았는지 확인합니다.",
+      ],
+      recommendedResponse: ["안전하게 전원을 끄고 필터 상태를 확인합니다."],
+      prohibitedOrCautionResponse: ["전기 덮개를 임의로 분해하지 않습니다."],
+      escalationCriteria:
+        "누전 냄새나 과열이 있으면 즉시 판매중지 후 관리자에게 보고합니다.",
+      requiredPermissionOrApproval: "객실 판매중지는 관리자 승인이 필요합니다.",
+      caseSummary: "필터 막힘으로 냉방이 약했던 사례",
+      outcomeAndLesson: "월별 필터 점검으로 재발을 줄였습니다.",
+      tags: ["에어컨", "냉방"],
+      relatedManualRefs: ["시설 안전 매뉴얼 3장"],
+      relatedIssueIds: [],
+      relatedRepairIds: [],
+      designatedReviewerUserId: "77777777-7777-4777-8777-777777777777",
+      reviewDueAt: "2027-02-21T00:00:00.000Z",
+    });
+    expect(create.scopeType).toBe("HOTEL");
+    const { id: createOnlyId, ...updateContent } = create;
+    expect(createOnlyId).toBe(knowledgeId);
+    expect(create.designatedReviewerUserId).toBe(
+      "77777777-7777-4777-8777-777777777777",
+    );
+    expect(
+      createKnowledgeEntryRequestSchema.safeParse({
+        ...create,
+        relatedIssueIds: [knowledgeId, knowledgeId],
+      }).success,
+    ).toBe(false);
+    expect(
+      createKnowledgeEntryRequestSchema.safeParse({
+        ...create,
+        relatedRepairIds: [knowledgeId, knowledgeId],
+      }).success,
+    ).toBe(false);
+    expect(
+      createKnowledgeEntryRequestSchema.safeParse({
+        ...create,
+        scopeType: "COMPANY",
+        hotelId,
+      }).success,
+    ).toBe(false);
+    expect(
+      updateKnowledgeEntryRequestSchema.parse({
+        ...updateContent,
+        version: 1,
+        reason: "현장 확인순서를 보완합니다.",
+      }).version,
+    ).toBe(1);
+    expect(
+      knowledgeTransitionRequestSchema.parse({
+        action: "REQUEST_REVIEW",
+        version: 2,
+        reason: "검토를 요청합니다.",
+      }).action,
+    ).toBe("REQUEST_REVIEW");
+    expect(
+      knowledgeFeedbackRequestSchema.parse({
+        kind: "REPORT_ERROR",
+        version: 3,
+        comment: "현재 모델에는 이 확인순서가 맞지 않습니다.",
+      }).kind,
+    ).toBe("REPORT_ERROR");
+    expect(
+      knowledgeListQuerySchema.parse({
+        search: "에어컨 냉방",
+        scopeType: "HOTEL",
+        hotelId,
+        page: "1",
+        pageSize: "20",
+      }),
+    ).toMatchObject({ page: 1, pageSize: 20, search: "에어컨 냉방" });
+    expect(knowledgeRoutes.detail(knowledgeId)).toBe(
+      `/api/knowledge/${knowledgeId}`,
+    );
+    expect(knowledgeRoutes.transitions(knowledgeId)).toBe(
+      `/api/knowledge/${knowledgeId}/transitions`,
+    );
+    expect(knowledgeRoutes.feedback(knowledgeId)).toBe(
+      `/api/knowledge/${knowledgeId}/feedback`,
+    );
+    expect(knowledgeRoutes.uploadInit(knowledgeId)).toBe(
+      `/api/knowledge/${knowledgeId}/files/upload-init`,
+    );
+    const fileVersionId = "6b010000-0000-4000-8000-000000000001";
+    expect(
+      knowledgeAttachmentLinkRequestSchema.parse({
+        version: 1,
+        fileVersionIds: [fileVersionId],
+        reason: "현장 사진을 연결합니다.",
+      }).fileVersionIds,
+    ).toEqual([fileVersionId]);
+    expect(knowledgeRoutes.attachments(knowledgeId)).toBe(
+      `/api/knowledge/${knowledgeId}/attachments`,
+    );
+    expect(knowledgeRoutes.attachmentView(knowledgeId, fileVersionId)).toBe(
+      `/api/knowledge/${knowledgeId}/files/${fileVersionId}/view`,
+    );
+    expect(
+      hotelFileUploadInitRequestSchema.safeParse({
+        parent: { type: "KNOWLEDGE_ATTACHMENT", knowledgeId },
+        fileName: "냉방 점검 사진.png",
+        mimeType: "image/png",
+        sizeBytes: 1024,
+      }).success,
+    ).toBe(true);
+    expect(
+      knowledgeCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          canRead: true,
+          canCreate: true,
+          canReview: false,
+          canPublish: false,
+          canArchive: false,
+          company: {
+            canRead: true,
+            canCreate: true,
+            canReview: false,
+            canPublish: false,
+            canHighRiskPublish: false,
+            canArchive: false,
+          },
+          hotels: [
+            {
+              hotelId,
+              hotelName: "서울호텔",
+              permissions: {
+                canRead: true,
+                canCreate: true,
+                canReview: false,
+                canPublish: false,
+                canHighRiskPublish: false,
+                canArchive: false,
+              },
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      knowledgeEntryResponseSchema.safeParse({
+        ok: true,
+        data: { entry: { id: knowledgeId, unexpected: true } },
+        error: null,
+      }).success,
+    ).toBe(false);
+    const summary = {
+      id: knowledgeId,
+      scopeType: "HOTEL",
+      hotelId,
+      hotelName: "서울호텔",
+      title: create.title,
+      summary: create.summary,
+      knowledgeType: create.knowledgeType,
+      riskClassification: create.riskClassification,
+      tags: create.tags,
+      status: "PUBLISHED",
+      version: 3,
+      updatedAt: "2026-08-21T00:00:00.000Z",
+      isStale: false,
+    };
+    expect(
+      knowledgeListResponseSchema.safeParse({
+        ok: true,
+        data: { entries: [summary], page: 1, pageSize: 20, totalCount: 1 },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      knowledgeListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          entries: [
+            { ...summary, history: [], links: [], situation: "비공개 상세" },
+          ],
+          page: 1,
+          pageSize: 20,
+          totalCount: 1,
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+  });
+
   it("defines strict owner-inquiry public, private, state, and route contracts", () => {
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const inquiryId = "1a500000-0000-4000-8000-000000000001";
-    expect(createHotelInquiryRequestSchema.safeParse({ inquiryId, categoryCode:"SALES_SETTLEMENT", title:"정산 문의", body:"7월 정산자료 확인을 요청합니다." }).success).toBe(true);
-    expect(hotelInquiryMessageRequestSchema.safeParse({ version:1, body:"내부 검토", visibility:"INTERNAL" }).success).toBe(true);
-    expect(hotelInquiryTransitionRequestSchema.safeParse({ version:2, action:"REQUEST_SUPPLEMENT", reason:"추가 설명이 필요합니다." }).success).toBe(true);
-    const publicInquiry={ id:inquiryId, hotelId, categoryCode:"SALES_SETTLEMENT", categoryName:"매출·정산", title:"정산 문의", status:"ANSWERED", version:3, assignee:{displayName:"담당자"}, messages:[{id:"1a510000-0000-4000-8000-000000000001",body:"공개 답변",actor:{displayName:"담당자"},createdAt:"2026-08-15T00:00:00.000Z",visibility:"PUBLIC",attachments:[]}], answeredAt:"2026-08-15T00:00:00.000Z", closedAt:null, reopenUntil:null, createdAt:"2026-08-14T00:00:00.000Z", updatedAt:"2026-08-15T00:00:00.000Z" };
-    expect(hotelInquiryOwnerResponseSchema.safeParse({ok:true,data:{inquiry:publicInquiry},error:null}).success).toBe(true);
-    expect(hotelInquiryOwnerResponseSchema.safeParse({ok:true,data:{inquiry:{...publicInquiry,internalNotes:[]}},error:null}).success).toBe(false);
-    expect(hotelInquiryRoutes.detail(hotelId,inquiryId)).toBe(`/api/hotels/${hotelId}/inquiries/${inquiryId}`);
+    expect(
+      createHotelInquiryRequestSchema.safeParse({
+        inquiryId,
+        categoryCode: "SALES_SETTLEMENT",
+        title: "정산 문의",
+        body: "7월 정산자료 확인을 요청합니다.",
+      }).success,
+    ).toBe(true);
+    expect(
+      hotelInquiryMessageRequestSchema.safeParse({
+        version: 1,
+        body: "내부 검토",
+        visibility: "INTERNAL",
+      }).success,
+    ).toBe(true);
+    expect(
+      hotelInquiryTransitionRequestSchema.safeParse({
+        version: 2,
+        action: "REQUEST_SUPPLEMENT",
+        reason: "추가 설명이 필요합니다.",
+      }).success,
+    ).toBe(true);
+    const publicInquiry = {
+      id: inquiryId,
+      hotelId,
+      categoryCode: "SALES_SETTLEMENT",
+      categoryName: "매출·정산",
+      title: "정산 문의",
+      status: "ANSWERED",
+      version: 3,
+      assignee: { displayName: "담당자" },
+      messages: [
+        {
+          id: "1a510000-0000-4000-8000-000000000001",
+          body: "공개 답변",
+          actor: { displayName: "담당자" },
+          createdAt: "2026-08-15T00:00:00.000Z",
+          visibility: "PUBLIC",
+          attachments: [],
+        },
+      ],
+      answeredAt: "2026-08-15T00:00:00.000Z",
+      closedAt: null,
+      reopenUntil: null,
+      createdAt: "2026-08-14T00:00:00.000Z",
+      updatedAt: "2026-08-15T00:00:00.000Z",
+    };
+    expect(
+      hotelInquiryOwnerResponseSchema.safeParse({
+        ok: true,
+        data: { inquiry: publicInquiry },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      hotelInquiryOwnerResponseSchema.safeParse({
+        ok: true,
+        data: { inquiry: { ...publicInquiry, internalNotes: [] } },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(hotelInquiryRoutes.detail(hotelId, inquiryId)).toBe(
+      `/api/hotels/${hotelId}/inquiries/${inquiryId}`,
+    );
   });
 
   it("defines strict daily-sales money, lock, correction, owner, and route contracts", () => {
@@ -143,27 +426,166 @@ describe("hotel platform contracts", () => {
     const categoryId = "da510000-0000-4000-8000-000000000001";
     const paymentMethodId = "da520000-0000-4000-8000-000000000001";
     const evidenceId = "da530000-0000-4000-8000-000000000001";
-    const line = { categoryId, paymentMethodId, grossAmount: 150000, discountAmount: 10000, refundAmount: 5000, refundReason: "고객 요청 당일 환불" };
-    const draft = createDailySalesDraftRequestSchema.parse({ salesId, businessDate: "2026-08-13", memo: "주간 마감", lines: [line] });
-    expect(draft.lines[0]).toMatchObject({ grossAmount: 150000, refundAmount: 5000 });
-    expect(createDailySalesDraftRequestSchema.safeParse({ ...draft, lines: [{ ...line, grossAmount: 1.5 }] }).success).toBe(false);
-    expect(createDailySalesDraftRequestSchema.safeParse({ ...draft, lines: [{ ...line, refundReason: null }] }).success).toBe(false);
-    expect(updateDailySalesDraftRequestSchema.safeParse({ version: 1, memo: null, lines: [{ ...line, refundAmount: 0, refundReason: null }] }).success).toBe(true);
-    expect(confirmDailySalesRequestSchema.safeParse({ version: 2, evidenceFileVersionIds: [] }).success).toBe(false);
-    expect(confirmDailySalesRequestSchema.safeParse({ version: 2, evidenceFileVersionIds: [evidenceId] }).success).toBe(true);
-    expect(correctDailySalesRequestSchema.safeParse({ version: 3, reason: "마감자료 정정", evidenceFileVersionIds: [], memo: null, lines: [line] }).success).toBe(false);
-    expect(correctDailySalesRequestSchema.safeParse({ version: 3, reason: "마감자료 정정", evidenceFileVersionIds: [evidenceId], memo: null, lines: [line] }).success).toBe(true);
+    const line = {
+      categoryId,
+      paymentMethodId,
+      grossAmount: 150000,
+      discountAmount: 10000,
+      refundAmount: 5000,
+      refundReason: "고객 요청 당일 환불",
+    };
+    const draft = createDailySalesDraftRequestSchema.parse({
+      salesId,
+      businessDate: "2026-08-13",
+      memo: "주간 마감",
+      lines: [line],
+    });
+    expect(draft.lines[0]).toMatchObject({
+      grossAmount: 150000,
+      refundAmount: 5000,
+    });
+    expect(
+      createDailySalesDraftRequestSchema.safeParse({
+        ...draft,
+        lines: [{ ...line, grossAmount: 1.5 }],
+      }).success,
+    ).toBe(false);
+    expect(
+      createDailySalesDraftRequestSchema.safeParse({
+        ...draft,
+        lines: [{ ...line, refundReason: null }],
+      }).success,
+    ).toBe(false);
+    expect(
+      updateDailySalesDraftRequestSchema.safeParse({
+        version: 1,
+        memo: null,
+        lines: [{ ...line, refundAmount: 0, refundReason: null }],
+      }).success,
+    ).toBe(true);
+    expect(
+      confirmDailySalesRequestSchema.safeParse({
+        version: 2,
+        evidenceFileVersionIds: [],
+      }).success,
+    ).toBe(false);
+    expect(
+      confirmDailySalesRequestSchema.safeParse({
+        version: 2,
+        evidenceFileVersionIds: [evidenceId],
+      }).success,
+    ).toBe(true);
+    expect(
+      correctDailySalesRequestSchema.safeParse({
+        version: 3,
+        reason: "마감자료 정정",
+        evidenceFileVersionIds: [],
+        memo: null,
+        lines: [line],
+      }).success,
+    ).toBe(false);
+    expect(
+      correctDailySalesRequestSchema.safeParse({
+        version: 3,
+        reason: "마감자료 정정",
+        evidenceFileVersionIds: [evidenceId],
+        memo: null,
+        lines: [line],
+      }).success,
+    ).toBe(true);
 
-    const publicSales = { id: salesId, hotelId, businessDate: "2026-08-13", status: "LOCKED", version: 3, totals: { grossAmount: 150000, discountAmount: 10000, refundAmount: 5000, netAmount: 135000 }, lines: [line], evidence: [{ fileVersionId: evidenceId, displayName: "마감증빙.png" }], corrections: [], confirmedAt: "2026-08-13T12:00:00.000Z", updatedAt: "2026-08-13T12:00:00.000Z" };
-    expect(dailySalesOwnerResponseSchema.safeParse({ ok: true, data: { sales: publicSales }, error: null }).success).toBe(true);
-    expect(dailySalesOwnerResponseSchema.safeParse({ ok: true, data: { sales: { ...publicSales, internalMemo: "비공개", actorUserId: evidenceId } }, error: null }).success).toBe(false);
-    expect(dailySalesInternalResponseSchema.safeParse({ ok: true, data: { sales: { ...publicSales, internalMemo: "주간 마감", createdBy: { userId: evidenceId, displayName: "운영 담당" } } }, error: null }).success).toBe(true);
-    expect(dailySalesListResponseSchema.safeParse({ ok: true, data: { sales: [publicSales], pagination: { page: 1, pageSize: 20, total: 1 } }, error: null }).success).toBe(true);
-    expect(dailySalesCapabilitiesResponseSchema.safeParse({ ok: true, data: { hotels: [{ hotelId, hotelName: "서울호텔", canRead: true, canManage: true, canConfirm: true, canCorrect: true, ownerView: false }] }, error: null }).success).toBe(true);
-    expect(dailySalesRoutes.list(hotelId)).toBe(`/api/hotels/${hotelId}/daily-sales`);
-    expect(dailySalesRoutes.detail(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}`);
-    expect(dailySalesRoutes.confirm(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}/confirm`);
-    expect(dailySalesRoutes.corrections(hotelId, salesId)).toBe(`/api/hotels/${hotelId}/daily-sales/${salesId}/corrections`);
+    const publicSales = {
+      id: salesId,
+      hotelId,
+      businessDate: "2026-08-13",
+      status: "LOCKED",
+      version: 3,
+      totals: {
+        grossAmount: 150000,
+        discountAmount: 10000,
+        refundAmount: 5000,
+        netAmount: 135000,
+      },
+      lines: [line],
+      evidence: [{ fileVersionId: evidenceId, displayName: "마감증빙.png" }],
+      corrections: [],
+      confirmedAt: "2026-08-13T12:00:00.000Z",
+      updatedAt: "2026-08-13T12:00:00.000Z",
+    };
+    expect(
+      dailySalesOwnerResponseSchema.safeParse({
+        ok: true,
+        data: { sales: publicSales },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      dailySalesOwnerResponseSchema.safeParse({
+        ok: true,
+        data: {
+          sales: {
+            ...publicSales,
+            internalMemo: "비공개",
+            actorUserId: evidenceId,
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(false);
+    expect(
+      dailySalesInternalResponseSchema.safeParse({
+        ok: true,
+        data: {
+          sales: {
+            ...publicSales,
+            internalMemo: "주간 마감",
+            createdBy: { userId: evidenceId, displayName: "운영 담당" },
+          },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      dailySalesListResponseSchema.safeParse({
+        ok: true,
+        data: {
+          sales: [publicSales],
+          pagination: { page: 1, pageSize: 20, total: 1 },
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(
+      dailySalesCapabilitiesResponseSchema.safeParse({
+        ok: true,
+        data: {
+          hotels: [
+            {
+              hotelId,
+              hotelName: "서울호텔",
+              canRead: true,
+              canManage: true,
+              canConfirm: true,
+              canCorrect: true,
+              ownerView: false,
+            },
+          ],
+        },
+        error: null,
+      }).success,
+    ).toBe(true);
+    expect(dailySalesRoutes.list(hotelId)).toBe(
+      `/api/hotels/${hotelId}/daily-sales`,
+    );
+    expect(dailySalesRoutes.detail(hotelId, salesId)).toBe(
+      `/api/hotels/${hotelId}/daily-sales/${salesId}`,
+    );
+    expect(dailySalesRoutes.confirm(hotelId, salesId)).toBe(
+      `/api/hotels/${hotelId}/daily-sales/${salesId}/confirm`,
+    );
+    expect(dailySalesRoutes.corrections(hotelId, salesId)).toBe(
+      `/api/hotels/${hotelId}/daily-sales/${salesId}/corrections`,
+    );
   });
   it("keeps facility inspection execution additive, typed, and strict", () => {
     const roomId = "52000000-0000-4000-8000-000000000001";

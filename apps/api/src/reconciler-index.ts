@@ -14,6 +14,7 @@ import {
 } from "./inspections/materializer-factory";
 import { resolveDatabaseUrl } from "./database";
 import { reconcileExpiredInquiriesFromBindings } from "./inquiries/factory";
+import { reconcileDueKnowledgeFromBindings } from "./knowledge/factory";
 
 type ScheduledExecutionContext = {
   waitUntil(promise: Promise<unknown>): void;
@@ -54,6 +55,7 @@ async function runScheduled(
       recoverExpiredHotelFileAccessGrantsFromBindings(env),
       reconcileInspectionMaterializationsFromBindings(env),
       reconcileExpiredInquiriesFromBindings(env),
+      reconcileDueKnowledgeFromBindings(env),
     ]),
   );
 }

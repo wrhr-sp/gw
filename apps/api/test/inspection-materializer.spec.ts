@@ -4,6 +4,7 @@ const scheduledFactories = vi.hoisted(() => ({
   account: vi.fn(async () => undefined),
   inspection: vi.fn(async () => undefined),
   inquiry: vi.fn(async () => undefined),
+  knowledge: vi.fn(async () => undefined),
   lock: vi.fn(async (_databaseUrl: string, run: () => Promise<unknown>) =>
     run(),
   ),
@@ -25,6 +26,9 @@ vi.mock("../src/inspections/materializer-factory", () => ({
 }));
 vi.mock("../src/inquiries/factory", () => ({
   reconcileExpiredInquiriesFromBindings: scheduledFactories.inquiry,
+}));
+vi.mock("../src/knowledge/factory", () => ({
+  reconcileDueKnowledgeFromBindings: scheduledFactories.knowledge,
 }));
 import { reconcileInspectionMaterializations } from "../src/inspections/materializer";
 import reconcilerWorker from "../src/reconciler-index";
@@ -95,6 +99,7 @@ describe("inspection materialization reconciler", () => {
       undefined,
       undefined,
       undefined,
+      undefined,
     ]);
     expect(scheduledFactories.lock).toHaveBeenCalledWith(
       "test",
@@ -104,6 +109,7 @@ describe("inspection materialization reconciler", () => {
     expect(scheduledFactories.recover).toHaveBeenCalledWith(env);
     expect(scheduledFactories.inspection).toHaveBeenCalledWith(env);
     expect(scheduledFactories.inquiry).toHaveBeenCalledWith(env);
+    expect(scheduledFactories.knowledge).toHaveBeenCalledWith(env);
   });
 
   it("fails the real scheduled Worker promise when inspection bindings fail closed", async () => {

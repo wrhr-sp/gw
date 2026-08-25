@@ -101,6 +101,105 @@ SQL
   node -e "const u=new URL(process.argv[1]);u.username='gw_api_probe';u.password=process.argv[2];console.log(u.toString())" "$admin_url" "$probe_password"
 }
 
+grant_global_api_probe_table_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+GRANT SELECT ON TABLE
+  account_provisioning_attempts,auth_credential_rate_limits,auth_identities,auth_login_transactions,auth_sessions,
+  branches,companies,hotel_owner_assignments,hotel_profiles,hotel_room_status_history,hotel_room_types,hotel_rooms,
+  hotel_staff_assignments,housekeeping_hotel_links,idempotency_records,initial_password_change_attempts,login_id_registry,
+  outbox_jobs,permission_grants,permissions,roles,runtime_database_capabilities,schema_migrations,user_group_memberships,
+  user_groups,user_role_memberships,users,hotel_file_finalizer_capabilities,hotel_file_scanner_agent_capabilities,
+  hotel_file_links,hotel_file_uploads,hotel_file_versions,hotel_inspections,hotel_process_defaults,
+  inspection_checklist_item_exclusions,inspection_checklist_items,inspection_checklist_revisions,
+  inspection_item_result_history,inspection_item_results,inspection_routine_revisions,inspection_routine_rounds,
+  inspection_routines,process_definition_revisions,process_definitions,process_execution_history,process_executions,
+  process_stage_snapshots,process_transition_snapshots,hotel_common_areas,hotel_facility_types,hotel_facilities,
+  hotel_common_area_history,hotel_facility_type_history,hotel_facility_history
+TO gw_api_probe;
+GRANT INSERT ON TABLE account_provisioning_attempts,audit_events,auth_credential_rate_limits,auth_identities,
+  auth_login_transactions,branches,hotel_owner_assignments,hotel_profiles,hotel_room_types,hotel_staff_assignments,
+  housekeeping_hotel_links,idempotency_records,initial_password_change_attempts,login_id_registry,outbox_jobs,users
+TO gw_api_probe;
+GRANT UPDATE ON TABLE account_provisioning_attempts,auth_credential_rate_limits,auth_login_transactions,
+  idempotency_records,initial_password_change_attempts,outbox_jobs,users TO gw_api_probe;
+GRANT DELETE ON TABLE auth_credential_rate_limits,auth_login_transactions,idempotency_records TO gw_api_probe;
+GRANT UPDATE(updated_at) ON TABLE auth_identities,branches TO gw_api_probe;
+GRANT UPDATE(updated_at,version) ON TABLE hotel_profiles TO gw_api_probe;
+GRANT UPDATE(display_order,is_active,name,updated_at,updated_by,version) ON TABLE hotel_room_types TO gw_api_probe;
+GRANT UPDATE(end_date,terminated_at,terminated_by,termination_reason,updated_at,version) ON TABLE
+  hotel_owner_assignments,hotel_staff_assignments,housekeeping_hotel_links TO gw_api_probe;
+SQL
+}
+
+grant_global_api_probe_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+GRANT EXECUTE ON FUNCTION
+  hotel_room_lifecycle_command_v1(uuid,uuid,uuid,integer,text,text,uuid,uuid,uuid,text,text,text,text,text,uuid),
+  hotel_room_write_command_v1(uuid,uuid,uuid,text,integer,jsonb,uuid,uuid,text,text,text,text,text,uuid),
+  hotel_facility_reference_command_v1(uuid,uuid,text,text,uuid,integer,jsonb,text,uuid,uuid,uuid,text,text,text,text,text,uuid),
+  auth_create_session_v2(uuid,bytea,text,integer,integer,timestamptz,uuid),
+  auth_resolve_login_identity_v1(text),
+  auth_resolve_principal_v2(bytea,integer),
+  auth_revoke_session_v2(bytea,text,uuid),
+  auth_revoke_hotel_owner_sessions_v1(uuid,uuid),
+  auth_revoke_user_sessions_v1(uuid,uuid,text),
+  runtime_is_schema_owner(),
+  runtime_has_capability(text),
+  api_current_company_id(),
+  reconciler_current_company_id()
+  TO gw_api_probe;
+SQL
+}
+
+grant_inquiry_api_probe_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+GRANT EXECUTE ON FUNCTION
+  hotel_inquiry_capabilities_v1(uuid,text),
+  hotel_inquiry_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inquiry_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_inquiry_file_scope_v1(uuid,uuid,text),
+  hotel_inquiry_file_view_v1(uuid,uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid),
+  hotel_inquiry_read_v1(uuid,uuid,uuid,jsonb,text),
+  hotel_notification_command_v1(uuid,uuid,text,integer,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_notification_read_v1(uuid,jsonb,text)
+  TO gw_api_probe;
+SQL
+}
+
+grant_knowledge_api_probe_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+GRANT EXECUTE ON FUNCTION
+  hotel_knowledge_capabilities_v1(uuid,text),
+  hotel_knowledge_reviewer_candidates_v1(uuid,uuid,text),
+  hotel_knowledge_read_v1(uuid,uuid,jsonb,text),
+  hotel_knowledge_command_v1(uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_knowledge_feedback_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_knowledge_file_parent_scope_v1(uuid,uuid,text),
+  hotel_knowledge_file_scope_v1(uuid,uuid,text),
+  hotel_knowledge_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_knowledge_attachment_command_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_knowledge_file_view_v1(uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid)
+  TO gw_api_probe;
+SQL
+}
+
+grant_knowledge_core_api_probe_capabilities() {
+  local admin_url="$1"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+GRANT EXECUTE ON FUNCTION
+  hotel_knowledge_capabilities_v1(uuid,text),
+  hotel_knowledge_reviewer_candidates_v1(uuid,uuid,text),
+  hotel_knowledge_read_v1(uuid,uuid,jsonb,text),
+  hotel_knowledge_command_v1(uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid),
+  hotel_knowledge_feedback_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)
+  TO gw_api_probe;
+SQL
+}
+
 cleanup_api_probe_role() {
   local admin_url="$1"
   psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
@@ -116,6 +215,285 @@ DELETE FROM runtime_database_capabilities WHERE role_name = 'gw_api_probe';
 DROP OWNED BY gw_api_probe;
 DROP ROLE IF EXISTS gw_api_probe;
 SQL
+}
+
+run_hotel_knowledge_bank_integration() {
+  local admin_url="$1" api_url="$2" reconciler_url="$3" direct_status result
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $setup$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';internal_id uuid;reviewer_id uuid:='6b130000-0000-4000-8000-000000000001';designated_id uuid:='6b170000-0000-4000-8000-000000000001';owner_id uuid;unassigned_id uuid:='6b100000-0000-4000-8000-000000000001';p text;
+begin
+ select user_id into strict internal_id from public.auth_sessions where id='4f000000-0000-4000-8000-000000000001';select user_id into strict owner_id from public.auth_sessions where id='d9230000-0000-4000-8000-000000000001';
+ insert into public.users(id,company_id,user_type,display_name)values(reviewer_id,c,'INTERNAL_STAFF','지식 일반 검토자');insert into public.auth_identities(id,company_id,user_id,provider,provider_subject)values('6b140000-0000-4000-8000-000000000001',c,reviewer_id,'ZITADEL','knowledge-reviewer');insert into public.auth_sessions(id,company_id,user_id,identity_id,token_hash,idle_expires_at,absolute_expires_at,auth_time,authentication_method)values('6b150000-0000-4000-8000-000000000001',c,reviewer_id,'6b140000-0000-4000-8000-000000000001',sha256(convert_to((repeat('K',42)||'R'),'UTF8')),statement_timestamp()+interval'30 minutes',statement_timestamp()+interval'8 hours',statement_timestamp(),'OIDC_PKCE');insert into public.hotel_staff_assignments(id,company_id,branch_id,user_id,assignment_type,start_date,reason,created_by)values('6b160000-0000-4000-8000-000000000001',c,h,reviewer_id,'PRIMARY',statement_timestamp()::date,'지식 독립 검토',internal_id);
+ foreach p in array array['KNOWLEDGE_READ','KNOWLEDGE_CREATE']loop insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)values(gen_random_uuid(),c,h,'USER',internal_id,p,'ALLOW',statement_timestamp()-interval'1 day',internal_id,'지식 actual author');end loop;
+ foreach p in array array['KNOWLEDGE_READ','KNOWLEDGE_REVIEW','KNOWLEDGE_PUBLISH','KNOWLEDGE_ARCHIVE']loop insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)values(gen_random_uuid(),c,h,'USER',reviewer_id,p,'ALLOW',statement_timestamp()-interval'1 day',internal_id,'지식 actual reviewer');end loop;
+ insert into public.users(id,company_id,user_type,display_name)values(designated_id,c,'INTERNAL_STAFF','지식 지정 검토자');insert into public.auth_identities(id,company_id,user_id,provider,provider_subject)values('6b180000-0000-4000-8000-000000000001',c,designated_id,'ZITADEL','knowledge-designated-reviewer');insert into public.auth_sessions(id,company_id,user_id,identity_id,token_hash,idle_expires_at,absolute_expires_at,auth_time,authentication_method)values('6b190000-0000-4000-8000-000000000001',c,designated_id,'6b180000-0000-4000-8000-000000000001',sha256(convert_to((repeat('D',42)||'R'),'UTF8')),statement_timestamp()+interval'30 minutes',statement_timestamp()+interval'8 hours',statement_timestamp(),'OIDC_PKCE');insert into public.hotel_staff_assignments(id,company_id,branch_id,user_id,assignment_type,start_date,reason,created_by)values('6b1a0000-0000-4000-8000-000000000001',c,h,designated_id,'PRIMARY',statement_timestamp()::date,'지식 지정 검토',internal_id);
+ foreach p in array array['KNOWLEDGE_READ','KNOWLEDGE_REVIEW','KNOWLEDGE_PUBLISH','KNOWLEDGE_HIGH_RISK_PUBLISH','KNOWLEDGE_ARCHIVE']loop insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)values(gen_random_uuid(),c,h,'USER',designated_id,p,'ALLOW',statement_timestamp()-interval'1 day',internal_id,'지식 지정 검토자');end loop;
+ insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)values(gen_random_uuid(),c,h,'USER',owner_id,'KNOWLEDGE_READ','ALLOW',statement_timestamp()-interval'1 day',internal_id,'deny 우선'),(gen_random_uuid(),c,h,'USER',owner_id,'KNOWLEDGE_READ','DENY',statement_timestamp()-interval'1 day',internal_id,'explicit deny');
+ insert into public.users(id,company_id,user_type,display_name)values(unassigned_id,c,'INTERNAL_STAFF','미배정 지식 조회자');insert into public.auth_identities(id,company_id,user_id,provider,provider_subject)values('6b110000-0000-4000-8000-000000000001',c,unassigned_id,'ZITADEL','knowledge-unassigned');insert into public.auth_sessions(id,company_id,user_id,identity_id,token_hash,idle_expires_at,absolute_expires_at,auth_time,authentication_method)values('6b120000-0000-4000-8000-000000000001',c,unassigned_id,'6b110000-0000-4000-8000-000000000001',sha256(convert_to(repeat('U',43),'UTF8')),statement_timestamp()+interval'30 minutes',statement_timestamp()+interval'8 hours',statement_timestamp(),'OIDC_PKCE');insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)values(gen_random_uuid(),c,h,'USER',unassigned_id,'KNOWLEDGE_READ','ALLOW',statement_timestamp()-interval'1 day',internal_id,'미배정 사용자');
+end $setup$;
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $journey$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';k uuid:='6b200000-0000-4000-8000-000000000001';k_priv uuid:='6b240000-0000-4000-8000-000000000001';k_reviewer uuid:='6b250000-0000-4000-8000-000000000001';k_scope uuid:='6b260000-0000-4000-8000-000000000001';k_related uuid:='6b270000-0000-4000-8000-000000000001';r record;content jsonb;v integer;first_snapshot jsonb;search_term text;canonical_branch uuid;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('TimeZone','Asia/Seoul',true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_capabilities_v1(c,repeat('I',43));if r.command_status<>'OK'or not(r.result_snapshot->>'canCreate')::boolean or jsonb_array_length(r.result_snapshot->'hotels')<1 then raise exception'author capabilities failed: %',r.command_status;end if;
+ content:=jsonb_build_object('scopeType','HOTEL','hotelId',h,'title','에어컨 냉방 저하 확인 순서','summary','전문업체 호출 전에 안전하게 확인할 항목입니다.','knowledgeType','FACILITY_MAINTENANCE','riskClassification','STANDARD','designatedReviewerUserId',null,'situation','객실 에어컨을 켰지만 냉방이 약한 상황','symptomsAndContext','송풍은 되지만 실내 온도가 내려가지 않습니다.','checks',jsonb_build_array('설정 온도와 운전 모드를 확인합니다.','흡입구가 막히지 않았는지 확인합니다.'),'recommendedResponse',jsonb_build_array('안전하게 전원을 끄고 필터 상태를 확인합니다.'),'prohibitedOrCautionResponse',jsonb_build_array('전기 덮개를 임의로 분해하지 않습니다.'),'escalationCriteria','누전 냄새나 과열이 있으면 즉시 관리자에게 보고합니다.','requiredPermissionOrApproval','객실 판매중지는 관리자 승인이 필요합니다.','caseSummary','필터 막힘으로 냉방이 약했던 사례','outcomeAndLesson','월별 필터 점검으로 재발을 줄였습니다.','tags',jsonb_build_array('에어컨','냉방'),'relatedManualRefs',jsonb_build_array('시설 안전 매뉴얼 3장'),'relatedIssueIds','[]'::jsonb,'relatedRepairIds','[]'::jsonb,'reviewDueAt','2027-02-21T00:00:00.000Z');
+ select*into r from public.hotel_knowledge_command_v1(c,k,'CREATE',0,content,repeat('I',43),gen_random_uuid(),'knowledge-create','POST','/api/knowledge','create-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'or r.result_snapshot->>'status'<>'DRAFT'then raise exception'create failed: %',r.command_status;end if;first_snapshot:=r.result_snapshot;
+ select branch_id into canonical_branch from public.hotel_knowledge_file_parent_scope_v1(c,k,repeat('I',43));if canonical_branch is distinct from h then raise exception'canonical hotel attachment scope failed: %',canonical_branch;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'CREATE',0,content,repeat('I',43),gen_random_uuid(),'knowledge-create','POST','/api/knowledge','create-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'REPLAYED'or r.result_snapshot<>first_snapshot then raise exception'create replay failed: %',r.command_status;end if;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_read_v1(c,k,'{}',(repeat('K',42)||'R'));if r.command_status<>'NOT_FOUND'then raise exception'draft leaked: %',r.command_status;end if;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'REQUEST_REVIEW',1,jsonb_build_object('reason','현장 검토를 요청합니다.'),repeat('I',43),gen_random_uuid(),'knowledge-review-request','POST','/api/knowledge/'||k||'/transitions','review-request-hash',gen_random_uuid(),gen_random_uuid());v:=(r.result_snapshot->>'version')::integer;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','작성자 자체 게시 시도'),repeat('I',43),gen_random_uuid(),'knowledge-self-publish','POST','/api/knowledge/'||k||'/transitions','self-publish-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'FORBIDDEN'then raise exception'self review accepted: %',r.command_status;end if;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','안전 기준과 대응순서를 검토했습니다.'),(repeat('K',42)||'R'),gen_random_uuid(),'knowledge-publish','POST','/api/knowledge/'||k||'/transitions','publish-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'or r.result_snapshot->>'status'<>'PUBLISHED'or not(r.result_snapshot->'actions'->>'canMarkNeedsReview')::boolean then raise exception'publish/action projection failed: %',r.command_status;end if;v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'MARK_NEEDS_REVIEW',1,jsonb_build_object('reason','이전 version으로 재검토 전환을 시도합니다.'),(repeat('K',42)||'R'),gen_random_uuid(),'knowledge-stale','POST','/api/knowledge/'||k||'/transitions','stale-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'VERSION_CONFLICT'then raise exception'stale accepted: %',r.command_status;end if;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_read_v1(c,null,jsonb_build_object('search','냉방','page',1,'pageSize',20),repeat('I',43));if r.command_status<>'OK'or not exists(select 1 from jsonb_array_elements(r.result_snapshot->'entries')x where x->>'id'=k::text)or exists(select 1 from jsonb_array_elements(r.result_snapshot->'entries')x where x?'history'or x?'links'or x?'situation')then raise exception'search/summary failed: % %',r.command_status,r.result_snapshot;end if;
+ foreach search_term in array array['운전 모드','안전하게 전원을','임의로 분해']loop select*into r from public.hotel_knowledge_read_v1(c,null,jsonb_build_object('search',search_term,'page',1,'pageSize',20),repeat('I',43));if r.command_status<>'OK'or not exists(select 1 from jsonb_array_elements(r.result_snapshot->'entries')x where x->>'id'=k::text)then raise exception'response body search failed for %: % %',search_term,r.command_status,r.result_snapshot;end if;end loop;
+ select*into r from public.hotel_knowledge_read_v1('6bf00000-0000-4000-8000-000000000001',k,'{}',repeat('I',43));if r.command_status<>'FORBIDDEN'then raise exception'cross-company accepted: %',r.command_status;end if;
+ perform set_config('app.session_id','d9230000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_read_v1(c,k,'{}',repeat('O',43));if r.command_status<>'NOT_FOUND'then raise exception'explicit deny lost: %',r.command_status;end if;
+ perform set_config('app.session_id','6b120000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_read_v1(c,k,'{}',repeat('U',43));if r.command_status<>'NOT_FOUND'then raise exception'unassigned read accepted: %',r.command_status;end if;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'MARK_NEEDS_REVIEW',v,jsonb_build_object('reason','현장 절차 변경으로 재검토가 필요합니다.'),(repeat('K',42)||'R'),gen_random_uuid(),'knowledge-stale-mark','POST','/api/knowledge/'||k||'/transitions','stale-mark-hash',gen_random_uuid(),gen_random_uuid());v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);content:=content||jsonb_build_object('title','객실 에어컨 냉방 필터 확인 절차','reason','현장 필터 확인순서를 보완합니다.');select*into r from public.hotel_knowledge_command_v1(c,k,'UPDATE',v,content,repeat('I',43),gen_random_uuid(),'knowledge-update','PATCH','/api/knowledge/'||k,'update-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'then raise exception'update failed: %',r.command_status;end if;v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'REPUBLISH',v,jsonb_build_object('reason','보완된 현장 절차를 재검토했습니다.'),(repeat('K',42)||'R'),gen_random_uuid(),'knowledge-republish','POST','/api/knowledge/'||k||'/transitions','republish-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'then raise exception'republish failed: %',r.command_status;end if;v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_feedback_v1(c,k,v,jsonb_build_object('kind','HELPFUL','comment',null),repeat('I',43),gen_random_uuid(),'knowledge-helpful','POST','/api/knowledge/'||k||'/feedback','helpful-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'RECORDED'then raise exception'feedback failed: %',r.command_status;end if;first_snapshot:=r.result_snapshot;
+ select*into r from public.hotel_knowledge_feedback_v1(c,k,v,jsonb_build_object('kind','HELPFUL','comment',null),repeat('I',43),gen_random_uuid(),'knowledge-helpful','POST','/api/knowledge/'||k||'/feedback','helpful-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'REPLAYED'or r.result_snapshot<>first_snapshot then raise exception'feedback replay failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_feedback_v1(c,k,v,jsonb_build_object('kind','NOT_HELPFUL','comment',null),repeat('I',43),gen_random_uuid(),'knowledge-opposite','POST','/api/knowledge/'||k||'/feedback','opposite-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'VALIDATION_ERROR'then raise exception'opposite vote accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_feedback_v1(c,k,v,jsonb_build_object('kind','REPORT_ERROR','comment','다음 검토에서 필터 교체주기를 다시 확인해 주세요.'),repeat('I',43),gen_random_uuid(),'knowledge-report','POST','/api/knowledge/'||k||'/feedback','report-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'RECORDED'then raise exception'report failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_read_v1(c,k,'{}',repeat('I',43));if r.command_status<>'OK'or r.result_snapshot->>'status'<>'PUBLISHED'or jsonb_array_length(r.result_snapshot->'history')<>6 or(r.result_snapshot->>'helpfulCount')::integer<>1 then raise exception'detail/history failed: % %',r.command_status,r.result_snapshot;end if;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','이미 게시된 상태에서 다시 게시 시도'),(repeat('K',42)||'R'),gen_random_uuid(),'knowledge-invalid-state','POST','/api/knowledge/'||k||'/transitions','invalid-state-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'INVALID_STATE_TRANSITION'then raise exception'invalid publish state accepted: %',r.command_status;end if;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'UPDATE',v,content||jsonb_build_object('reason','게시된 글 수정 시도'),repeat('I',43),gen_random_uuid(),'knowledge-update-published','PATCH','/api/knowledge/'||k,'update-published-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'FORBIDDEN'then raise exception'published update accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k_priv,'CREATE',0,content||jsonb_build_object('summary','연락처 test@example.com 포함'),repeat('I',43),gen_random_uuid(),'knowledge-privacy-denied','POST','/api/knowledge','privacy-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'KNOWLEDGE_PERSONAL_DATA_DETECTED'then raise exception'private content accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k_reviewer,'CREATE',0,content||jsonb_build_object('riskClassification','SAFETY','designatedReviewerUserId',null),repeat('I',43),gen_random_uuid(),'knowledge-reviewer-denied','POST','/api/knowledge','reviewer-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'VALIDATION_ERROR'then raise exception'invalid high-risk reviewer accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k_scope,'CREATE',0,content||jsonb_build_object('scopeType','COMPANY','hotelId',h),repeat('I',43),gen_random_uuid(),'knowledge-scope-denied','POST','/api/knowledge','scope-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'VALIDATION_ERROR'then raise exception'invalid scope accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k_related,'CREATE',0,content||jsonb_build_object('relatedIssueIds',jsonb_build_array('6b280000-0000-4000-8000-000000000001')),repeat('I',43),gen_random_uuid(),'knowledge-related-denied','POST','/api/knowledge','related-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'NOT_FOUND'then raise exception'invalid related resource accepted: %',r.command_status;end if;
+end $journey$;
+select 'HOTEL_KNOWLEDGE_BANK_API_JOURNEY_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_BANK_API_JOURNEY_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $audit_assert$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b200000-0000-4000-8000-000000000001';k_priv uuid:='6b240000-0000-4000-8000-000000000001';k_reviewer uuid:='6b250000-0000-4000-8000-000000000001';k_scope uuid:='6b260000-0000-4000-8000-000000000001';k_related uuid:='6b270000-0000-4000-8000-000000000001';
+begin
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_SELF_PUBLISH_DENIED' and result='DENIED')then raise exception'self publish denial audit missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_READ_DENIED' and result='DENIED')then raise exception'hidden detail denial audit missing';end if;
+ if(select count(*)from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_STATE_REJECTED'and result='DENIED')<2 then raise exception'state denial audits missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k_priv and event_code='KNOWLEDGE_CONTENT_REJECTED'and result='DENIED')then raise exception'privacy denial audit missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k_reviewer and event_code='KNOWLEDGE_REVIEWER_REJECTED'and result='DENIED')then raise exception'reviewer denial audit missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k_scope and event_code='KNOWLEDGE_SCOPE_REJECTED'and result='DENIED')then raise exception'scope denial audit missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k_related and event_code='KNOWLEDGE_RELATED_RESOURCE_REJECTED'and result='DENIED')then raise exception'related resource denial audit missing';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_FEEDBACK_DUPLICATE_REJECTED'and result='DENIED'and after_summary='{}'::jsonb)then raise exception'duplicate feedback denial audit missing';end if;
+ if exists(select 1 from public.audit_events where company_id=c and resource_id in(k,k_priv,k_reviewer,k_scope,k_related)and result='DENIED'and(after_summary<>'{}'::jsonb or coalesce(reason,'')~*'(에어컨|냉방 저하|test@example|opaque|token|session)'))then raise exception'failure audit leaked content or credential material';end if;
+end $audit_assert$;
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $high_risk_create$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';k uuid:='6b230000-0000-4000-8000-000000000001';r record;content jsonb;v integer;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ content:=jsonb_build_object('scopeType','HOTEL','hotelId',h,'title','감전 위험 객실 설비 대응','summary','고위험 안전 지식 게시 권한 actual 검증','knowledgeType','SAFETY_CAUTION','riskClassification','SAFETY','designatedReviewerUserId','6b170000-0000-4000-8000-000000000001','situation','감전 위험 상황','symptomsAndContext','전기 설비 이상','checks',jsonb_build_array('차단기를 확인합니다.'),'recommendedResponse',jsonb_build_array('현장을 통제합니다.'),'prohibitedOrCautionResponse',jsonb_build_array('임의 분해를 금지합니다.'),'escalationCriteria','즉시 관리자에게 보고','requiredPermissionOrApproval','지정 검토자 승인','caseSummary','','outcomeAndLesson','','tags',jsonb_build_array('안전'),'relatedManualRefs','[]'::jsonb,'relatedIssueIds','[]'::jsonb,'relatedRepairIds','[]'::jsonb,'reviewDueAt','2027-02-21T00:00:00.000Z');
+ select*into r from public.hotel_knowledge_command_v1(c,k,'CREATE',0,content,repeat('I',43),gen_random_uuid(),'high-create','POST','/api/knowledge','high-create-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'high risk create failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'REQUEST_REVIEW',1,jsonb_build_object('reason','고위험 검토 요청'),repeat('I',43),gen_random_uuid(),'high-review','POST','/api/knowledge/'||k||'/transitions','high-review-hash',gen_random_uuid(),gen_random_uuid());v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','6b150000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_read_v1(c,k,'{}',(repeat('K',42)||'R'));if r.command_status<>'OK'or(r.result_snapshot->'actions'->>'canPublish')::boolean then raise exception'ordinary reviewer action projection allowed high risk publish';end if;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','일반 검토자 고위험 게시 시도'),(repeat('K',42)||'R'),gen_random_uuid(),'high-publish-denied','POST','/api/knowledge/'||k||'/transitions','high-publish-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'FORBIDDEN'then raise exception'ordinary reviewer published high risk: %',r.command_status;end if;
+end $high_risk_create$;
+select 'HOTEL_KNOWLEDGE_HIGH_RISK_DENIED_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_HIGH_RISK_DENIED_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $high_grant$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';k uuid:='6b230000-0000-4000-8000-000000000001';reviewer uuid:='6b130000-0000-4000-8000-000000000001';grantor uuid;
+begin
+ select user_id into strict grantor from public.auth_sessions where id='4f000000-0000-4000-8000-000000000001';
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_HIGH_RISK_PUBLISH_DENIED'and result='DENIED'and after_summary='{}'::jsonb)then raise exception'high risk denial audit missing';end if;
+ if not exists(select 1 from public.hotel_knowledge_entries where company_id=c and id=k and designated_reviewer_user_id='6b170000-0000-4000-8000-000000000001' and review_requested_version=2)then raise exception'designated reviewer/version binding missing';end if;
+end $high_grant$;
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $high_publish$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b230000-0000-4000-8000-000000000001';r record;v integer;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','6b190000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_read_v1(c,k,'{}',(repeat('D',42)||'R'));if r.command_status<>'OK'or not(r.result_snapshot->'actions'->>'canPublish')::boolean then raise exception'designated reviewer action projection missing';end if;v:=(r.result_snapshot->>'version')::integer;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','지정 검토자 안전 검토 완료'),(repeat('D',42)||'R'),gen_random_uuid(),'high-publish-allowed','POST','/api/knowledge/'||k||'/transitions','high-publish-allowed-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'then raise exception'designated reviewer high risk publish failed: %',r.command_status;end if;v:=(r.result_snapshot->>'version')::integer;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'MARK_NEEDS_REVIEW',v,jsonb_build_object('reason','고위험 재검토 actual'),(repeat('D',42)||'R'),gen_random_uuid(),'high-mark-review','POST','/api/knowledge/'||k||'/transitions','high-mark-review-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'then raise exception'high risk mark review failed: %',r.command_status;end if;v:=(r.result_snapshot->>'version')::integer;
+ perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_command_v1(c,k,'REQUEST_REVIEW',v,jsonb_build_object('reason','고위험 재검토를 다시 요청합니다.'),repeat('I',43),gen_random_uuid(),'high-rereview','POST','/api/knowledge/'||k||'/transitions','high-rereview-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'or r.result_snapshot->>'status'<>'REVIEW_REQUESTED'then raise exception'high risk re-review request failed: %',r.command_status;end if;
+end $high_publish$;
+select 'HOTEL_KNOWLEDGE_HIGH_RISK_ALLOWED_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_HIGH_RISK_ALLOWED_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)
+select gen_random_uuid(),'10000000-0000-0000-0000-000000000001','50000000-0000-4000-8000-000000000001','USER','6b170000-0000-4000-8000-000000000001','KNOWLEDGE_HIGH_RISK_PUBLISH','DENY',statement_timestamp()-interval'1 day',user_id,'고위험 지정 검토자 explicit deny actual'from public.auth_sessions where id='4f000000-0000-4000-8000-000000000001';
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $high_deny$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b230000-0000-4000-8000-000000000001';r record;v integer;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','6b190000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_read_v1(c,k,'{}',(repeat('D',42)||'R'));if r.command_status<>'OK'then raise exception'high risk detail unavailable before explicit deny test';end if;v:=(r.result_snapshot->>'version')::integer;
+ select*into r from public.hotel_knowledge_command_v1(c,k,'PUBLISH',v,jsonb_build_object('reason','explicit deny 우회 시도'),(repeat('D',42)||'R'),gen_random_uuid(),'high-republish-denied','POST','/api/knowledge/'||k||'/transitions','high-republish-denied-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'FORBIDDEN'then raise exception'explicit deny lost for high risk: %',r.command_status;end if;
+end $high_deny$;
+select 'HOTEL_KNOWLEDGE_HIGH_RISK_EXPLICIT_DENY_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_HIGH_RISK_EXPLICIT_DENY_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "update public.hotel_knowledge_entries set review_due_at=statement_timestamp()-interval'1 day' where company_id='10000000-0000-0000-0000-000000000001' and id='6b200000-0000-4000-8000-000000000001' and status='PUBLISHED'" >/dev/null
+  direct_status="$(psql -X -At -d "$api_url" -c "select public.hotel_knowledge_reconcile_due_v1(100)" 2>&1 || true)"
+  [[ "$direct_status" == *"permission denied"* ]] || { printf 'knowledge reconciler execute ACL failed: %s\n' "$direct_status" >&2; return 1; }
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$reconciler_url" -c "select public.hotel_knowledge_reconcile_due_v1(100)")"
+  [[ "$result" == "1" ]] || { printf 'knowledge due reconcile expected 1, received %s\n' "$result" >&2; return 1; }
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$reconciler_url" -c "select public.hotel_knowledge_reconcile_due_v1(100)")"
+  [[ "$result" == "0" ]] || { printf 'knowledge due reconcile replay expected 0, received %s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $reconcile_assert$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b200000-0000-4000-8000-000000000001';
+begin
+ if not exists(select 1 from public.hotel_knowledge_entries where company_id=c and id=k and status='NEEDS_REVIEW')then raise exception'knowledge canonical due transition missing';end if;
+ if(select count(*)from public.hotel_knowledge_versions where company_id=c and knowledge_id=k and action='AUTO_NEEDS_REVIEW'and status='NEEDS_REVIEW'and actor_user_id is null)<>1 then raise exception'knowledge auto review immutable history invalid';end if;
+ if(select count(*)from public.audit_events where company_id=c and resource_id=k and event_code='KNOWLEDGE_AUTO_NEEDS_REVIEW'and actor_type='SYSTEM'and actor_user_id is null and result='SUCCEEDED')<>1 then raise exception'knowledge auto review system audit invalid';end if;
+end $reconcile_assert$;
+SQL
+  printf 'HOTEL_KNOWLEDGE_DUE_RECONCILER_ACTUAL_OK\n'
+  psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+with actor as (
+  select company_id, user_id
+  from public.auth_sessions
+  where id = '4f000000-0000-4000-8000-000000000001'
+)
+insert into public.permission_grants(
+  id, company_id, branch_id, subject_type, subject_id,
+  permission_code, effect, valid_from, granted_by, reason
+)
+select
+  gen_random_uuid(), actor.company_id, null, 'USER', actor.user_id,
+  permission_code, 'ALLOW', clock_timestamp() - interval '1 day', actor.user_id,
+  '회사 공통 지식 첨부 actual 작성자'
+from actor
+cross join (values ('KNOWLEDGE_READ'), ('KNOWLEDGE_CREATE')) permissions(permission_code);
+insert into public.audit_events(id,event_code,actor_user_id,actor_type,session_id,company_id,branch_id,resource_type,resource_id,after_summary,result,trace_id)
+select '6b3a0000-0000-4000-8000-000000000001', 'KNOWLEDGE_FILE_AUDIT_COLLISION_FIXTURE', user_id, 'INTERNAL_STAFF', id, company_id, '50000000-0000-4000-8000-000000000001', 'KNOWLEDGE_ENTRY', '6b210000-0000-4000-8000-000000000001', '{}'::jsonb, 'SUCCEEDED', '6b3a0000-0000-4000-8000-000000000002'
+from public.auth_sessions where id='4f000000-0000-4000-8000-000000000001';
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $attachment_prepare$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';kh uuid:='6b210000-0000-4000-8000-000000000001';kc uuid:='6b220000-0000-4000-8000-000000000001';uh uuid:='6b300000-0000-4000-8000-000000000001';uc uuid:='6b301000-0000-4000-8000-000000000001';ue uuid:='6b302000-0000-4000-8000-000000000001';sh uuid:='6b320000-0000-4000-8000-000000000001';sc uuid:='6b321000-0000-4000-8000-000000000001';r record;base jsonb;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ base:=jsonb_build_object('title','첨부 actual 지식','summary','private 첨부 actual 검증 자료입니다.','knowledgeType','FACILITY_MAINTENANCE','riskClassification','STANDARD','designatedReviewerUserId',null,'situation','첨부 actual 상황','symptomsAndContext','첨부 actual 맥락','checks',jsonb_build_array('첨부를 확인합니다.'),'recommendedResponse',jsonb_build_array('승인된 첨부만 사용합니다.'),'prohibitedOrCautionResponse',jsonb_build_array('외부 공개 URL을 만들지 않습니다.'),'escalationCriteria','검역 실패 시 관리자에게 보고합니다.','requiredPermissionOrApproval','지식 작성 권한이 필요합니다.','caseSummary','','outcomeAndLesson','','tags',jsonb_build_array('첨부'),'relatedManualRefs','[]'::jsonb,'relatedIssueIds','[]'::jsonb,'relatedRepairIds','[]'::jsonb,'reviewDueAt','2027-02-21T00:00:00.000Z');
+ select*into r from public.hotel_knowledge_command_v1(c,kh,'CREATE',0,base||jsonb_build_object('scopeType','HOTEL','hotelId',h),repeat('I',43),gen_random_uuid(),'knowledge-attachment-hotel-create','POST','/api/knowledge','knowledge-attachment-hotel-create-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'hotel attachment draft create failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_command_v1(c,kc,'CREATE',0,base||jsonb_build_object('scopeType','COMPANY','hotelId',null),repeat('I',43),gen_random_uuid(),'knowledge-attachment-company-create','POST','/api/knowledge','knowledge-attachment-company-create-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'company attachment draft create failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,'6b303000-0000-4000-8000-000000000001','UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','WRONG_PARENT','knowledgeId',kh),'fileName','state.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','quarantine/6b303000-0000-4000-8000-000000000001/'||repeat('S',43),'reservationFingerprint',repeat('c',64)),repeat('I',43),gen_random_uuid(),'knowledge-file-state-rejected','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-file-state-rejected-hash','6b3a0000-0000-4000-8000-000000000003','6b3a0000-0000-4000-8000-000000000004');if r.command_status<>'INVALID_STATE_TRANSITION'then raise exception'file state rejection missing: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,'6b304000-0000-4000-8000-000000000001','UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kh),'fileName','reservation.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','invalid-key','reservationFingerprint',repeat('d',64)),repeat('I',43),gen_random_uuid(),'knowledge-file-reservation-rejected','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-file-reservation-rejected-hash','6b3a0000-0000-4000-8000-000000000005','6b3a0000-0000-4000-8000-000000000006');if r.command_status<>'INVALID_STATE_TRANSITION'then raise exception'file reservation rejection missing: %',r.command_status;end if;
+ begin perform public.hotel_knowledge_file_command_v1(c,h,'6b305000-0000-4000-8000-000000000001','UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kh),'fileName','collision.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','invalid-key','reservationFingerprint',repeat('e',64)),repeat('I',43),gen_random_uuid(),'knowledge-file-audit-collision','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-file-audit-collision-hash','6b3a0000-0000-4000-8000-000000000001','6b3a0000-0000-4000-8000-000000000007');raise exception'audit collision failure was swallowed';exception when unique_violation then null;end;if exists(select 1 from public.hotel_file_uploads where company_id=c and id='6b305000-0000-4000-8000-000000000001')then raise exception'audit collision did not roll back upload';end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,uh,'UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kh),'fileName','호텔지식.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','quarantine/'||uh||'/'||repeat('H',43),'reservationFingerprint',repeat('a',64)),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-init','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-hotel-file-init-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'hotel file init failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,uh,'UPLOAD_COMPLETE',0,jsonb_build_object('etag','bad-etag','objectVersion','knowledge-hotel-source-v1','sizeBytes',12,'mimeType','image/png','reservationFingerprint',repeat('a',64),'scanJobId',gen_random_uuid()),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-complete-integrity','POST','/api/files/uploads/'||uh||'/complete','knowledge-hotel-file-complete-integrity-hash','6b3a0000-0000-4000-8000-000000000008','6b3a0000-0000-4000-8000-000000000009');if r.command_status<>'FILE_INTEGRITY_MISMATCH'then raise exception'file completion integrity rejection missing: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,uh,'UPLOAD_COMPLETE',0,jsonb_build_object('etag','"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"','objectVersion','knowledge-hotel-source-v1','sizeBytes',12,'mimeType','image/png','reservationFingerprint',repeat('a',64),'scanJobId',sh),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-complete','POST','/api/files/uploads/'||uh||'/complete','knowledge-hotel-file-complete-hash',gen_random_uuid(),gen_random_uuid());if r.command_status not in('UPDATED','REPLAYED')then raise exception'hotel file complete failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,null,uc,'UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kc),'fileName','회사지식.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','quarantine/'||uc||'/'||repeat('C',43),'reservationFingerprint',repeat('b',64)),repeat('I',43),gen_random_uuid(),'knowledge-company-file-init','POST','/api/knowledge/'||kc||'/files/upload-init','knowledge-company-file-init-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'company file init failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,null,uc,'UPLOAD_COMPLETE',0,jsonb_build_object('etag','"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"','objectVersion','knowledge-company-source-v1','sizeBytes',12,'mimeType','image/png','reservationFingerprint',repeat('b',64),'scanJobId',sc),repeat('I',43),gen_random_uuid(),'knowledge-company-file-complete','POST','/api/files/uploads/'||uc||'/complete','knowledge-company-file-complete-hash',gen_random_uuid(),gen_random_uuid());if r.command_status not in('UPDATED','REPLAYED')then raise exception'company file complete failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,ue,'UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kh),'fileName','expired.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','quarantine/'||ue||'/'||repeat('E',43),'reservationFingerprint',repeat('f',64)),repeat('I',43),gen_random_uuid(),'knowledge-expired-file-init','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-expired-file-init-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'CREATED'then raise exception'expired fixture init failed: %',r.command_status;end if;
+end $attachment_prepare$;
+select 'HOTEL_KNOWLEDGE_ATTACHMENT_PREPARE_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_ATTACHMENT_PREPARE_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+update public.hotel_file_uploads set created_at=statement_timestamp()-interval'10 minutes',expires_at=statement_timestamp()-interval'5 minutes',updated_at=statement_timestamp()where company_id='10000000-0000-0000-0000-000000000001'and id='6b302000-0000-4000-8000-000000000001';
+with actor as(select user_id from public.auth_sessions where id='4f000000-0000-4000-8000-000000000001'),fixture as(select gen_random_uuid()id from generate_series(1,8))
+insert into public.hotel_file_uploads(id,company_id,branch_id,parent_type,knowledge_id,display_name,declared_mime,reserved_size,quarantine_object_key,reservation_fingerprint,status,initiated_by,initiated_session_id,expires_at)
+select f.id,'10000000-0000-0000-0000-000000000001','50000000-0000-4000-8000-000000000001','KNOWLEDGE_ATTACHMENT','6b210000-0000-4000-8000-000000000001','quota-fixture','image/png',12,'quarantine/'||f.id||'/'||repeat('Q',43),encode(sha256(convert_to(f.id::text,'UTF8')),'hex'),'PENDING_UPLOAD',a.user_id,'4f000000-0000-4000-8000-000000000001',statement_timestamp()+interval'5 minutes'from fixture f cross join actor a;
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $upload_terminal_failures$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';kh uuid:='6b210000-0000-4000-8000-000000000001';ue uuid:='6b302000-0000-4000-8000-000000000001';uq uuid:='6b306000-0000-4000-8000-000000000001';r record;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,ue,'UPLOAD_COMPLETE',0,jsonb_build_object('etag','"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"','objectVersion','expired-source','sizeBytes',12,'mimeType','image/png','reservationFingerprint',repeat('f',64),'scanJobId',gen_random_uuid()),repeat('I',43),gen_random_uuid(),'knowledge-file-expired-rejected','POST','/api/files/uploads/'||ue||'/complete','knowledge-file-expired-rejected-hash','6b3a0000-0000-4000-8000-00000000000a','6b3a0000-0000-4000-8000-00000000000b');if r.command_status<>'FILE_UPLOAD_EXPIRED'then raise exception'file expiration rejection missing: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_file_command_v1(c,h,uq,'UPLOAD_INIT',0,jsonb_build_object('parent',jsonb_build_object('type','KNOWLEDGE_ATTACHMENT','knowledgeId',kh),'fileName','quota.png','mimeType','image/png','sizeBytes',12,'quarantineObjectKey','quarantine/'||uq||'/'||repeat('Q',43),'reservationFingerprint',repeat('a',64)),repeat('I',43),gen_random_uuid(),'knowledge-file-quota-rejected','POST','/api/knowledge/'||kh||'/files/upload-init','knowledge-file-quota-rejected-hash','6b3a0000-0000-4000-8000-00000000000c','6b3a0000-0000-4000-8000-00000000000d');if r.command_status<>'FILE_QUOTA_EXCEEDED'then raise exception'file quota rejection missing: %',r.command_status;end if;
+end $upload_terminal_failures$;
+select 'HOTEL_KNOWLEDGE_UPLOAD_TERMINAL_FAILURES_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_UPLOAD_TERMINAL_FAILURES_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  printf 'HOTEL_KNOWLEDGE_UPLOAD_TERMINAL_FAILURES_OK\n'
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "delete from public.hotel_file_uploads where company_id='10000000-0000-0000-0000-000000000001'and display_name='quota-fixture'" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+do $promote$
+declare c uuid:='10000000-0000-0000-0000-000000000001';r record;
+begin
+ for r in select * from (values
+  ('6b300000-0000-4000-8000-000000000001'::uuid,'6b310000-0000-4000-8000-000000000001'::uuid,'6b320000-0000-4000-8000-000000000001'::uuid,'"cccccccccccccccccccccccccccccccc"'::text,'hotel-clean-v1'::text),
+  ('6b301000-0000-4000-8000-000000000001'::uuid,'6b311000-0000-4000-8000-000000000001'::uuid,'6b321000-0000-4000-8000-000000000001'::uuid,'"dddddddddddddddddddddddddddddddd"'::text,'company-clean-v1'::text)
+ )v(upload_id,file_id,scan_id,clean_etag,clean_version)
+ loop
+  update public.hotel_file_uploads set status='READY_UNLINKED',updated_at=statement_timestamp()where company_id=c and id=r.upload_id;
+  insert into public.hotel_file_versions(id,company_id,branch_id,upload_id,clean_object_key,clean_etag,clean_object_version,clean_sha256,clean_size,detected_mime,display_name,exif_location_removed,original_retention_until)
+  select r.file_id,u.company_id,u.branch_id,u.id,'clean/'||r.file_id,r.clean_etag,r.clean_version,decode(repeat('ab',32),'hex'),u.reserved_size,u.declared_mime,u.display_name,true,statement_timestamp()+interval'5 years'from public.hotel_file_uploads u where u.company_id=c and u.id=r.upload_id;
+  update public.hotel_file_scan_jobs set status='COMPLETED',attempt_count=1,scanner_sha256=decode(repeat('ab',32),'hex'),detected_mime='image/png',file_version_id=r.file_id,clean_object_key='clean/'||r.file_id,completed_at=statement_timestamp(),updated_at=statement_timestamp()where company_id=c and id=r.scan_id and upload_id=r.upload_id;
+  if not found then raise exception'scan job promotion missing: %',r.scan_id;end if;
+ end loop;
+end $promote$;
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $attachment_journey$
+declare c uuid:='10000000-0000-0000-0000-000000000001';h uuid:='50000000-0000-4000-8000-000000000001';kh uuid:='6b210000-0000-4000-8000-000000000001';kc uuid:='6b220000-0000-4000-8000-000000000001';uh uuid:='6b300000-0000-4000-8000-000000000001';uc uuid:='6b301000-0000-4000-8000-000000000001';fh uuid:='6b310000-0000-4000-8000-000000000001';fc uuid:='6b311000-0000-4000-8000-000000000001';r record;grant_id uuid;trace_id uuid;completion_token text:=repeat('T',43);
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_file_scope_v1(c,uh,repeat('I',43));if r.branch_id<>h or r.knowledge_id<>kh then raise exception'hotel scope mismatch: %',to_jsonb(r);end if;
+ select*into r from public.hotel_knowledge_file_scope_v1(c,uc,repeat('I',43));if r.branch_id is not null or r.knowledge_id<>kc then raise exception'company scope mismatch: %',to_jsonb(r);end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kh,1,jsonb_build_object('fileVersionIds',jsonb_build_array(fc),'reason','cross-parent 차단'),repeat('I',43),gen_random_uuid(),'knowledge-cross-parent-link','PUT','/api/knowledge/'||kh||'/attachments','knowledge-cross-parent-link-hash',gen_random_uuid(),gen_random_uuid());if r.command_status not in('NOT_FOUND','VALIDATION_ERROR')then raise exception'cross-parent link accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kh,1,jsonb_build_object('fileVersionIds',jsonb_build_array(fh),'reason','호텔 private 첨부 연결'),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-link','PUT','/api/knowledge/'||kh||'/attachments','knowledge-hotel-file-link-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'or jsonb_array_length(r.result_snapshot->'attachments')<>1 then raise exception'hotel file link failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kh,1,jsonb_build_object('fileVersionIds',jsonb_build_array(fh),'reason','호텔 private 첨부 연결'),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-link','PUT','/api/knowledge/'||kh||'/attachments','knowledge-hotel-file-link-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'REPLAYED'then raise exception'hotel file link replay failed: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kh,2,jsonb_build_object('fileVersionIds',jsonb_build_array(fh),'reason','다른 payload'),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-link','PUT','/api/knowledge/'||kh||'/attachments','knowledge-hotel-file-link-different-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'IDEMPOTENCY_CONFLICT'then raise exception'hotel file link conflict lost: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kh,2,jsonb_build_object('fileVersionIds','[]'::jsonb,'reason','기존 첨부 제거 시도'),repeat('I',43),gen_random_uuid(),'knowledge-hotel-file-detach','PUT','/api/knowledge/'||kh||'/attachments','knowledge-hotel-file-detach-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'VALIDATION_ERROR'then raise exception'logical detach accepted: %',r.command_status;end if;
+ select*into r from public.hotel_knowledge_attachment_command_v1(c,kc,1,jsonb_build_object('fileVersionIds',jsonb_build_array(fc),'reason','회사 공통 private 첨부 연결'),repeat('I',43),gen_random_uuid(),'knowledge-company-file-link','PUT','/api/knowledge/'||kc||'/attachments','knowledge-company-file-link-hash',gen_random_uuid(),gen_random_uuid());if r.command_status<>'UPDATED'or jsonb_array_length(r.result_snapshot->'attachments')<>1 then raise exception'company file link failed: % %',r.command_status,r.result_snapshot;end if;
+ grant_id:=gen_random_uuid();trace_id:=gen_random_uuid();select*into r from public.hotel_knowledge_file_view_v1(c,kh,fh,'AUTHORIZE',repeat('I',43),grant_id,completion_token,gen_random_uuid(),gen_random_uuid(),trace_id);if r.command_status<>'OK'or r.result_snapshot->>'cleanObjectKey'<>'clean/'||fh then raise exception'hotel view authorize failed: % %',r.command_status,r.result_snapshot;end if;select*into r from public.hotel_knowledge_file_view_v1(c,kh,fh,'SUCCEEDED',repeat('I',43),grant_id,completion_token,gen_random_uuid(),gen_random_uuid(),trace_id);if r.command_status<>'RECORDED'then raise exception'hotel view success audit failed: %',r.command_status;end if;
+ grant_id:=gen_random_uuid();trace_id:=gen_random_uuid();select*into r from public.hotel_knowledge_file_view_v1(c,kc,fc,'AUTHORIZE',repeat('I',43),grant_id,completion_token,gen_random_uuid(),gen_random_uuid(),trace_id);if r.command_status<>'OK'or r.result_snapshot->>'cleanObjectKey'<>'clean/'||fc then raise exception'company view authorize failed: % %',r.command_status,r.result_snapshot;end if;select*into r from public.hotel_knowledge_file_view_v1(c,kc,fc,'SUCCEEDED',repeat('I',43),grant_id,completion_token,gen_random_uuid(),gen_random_uuid(),trace_id);if r.command_status<>'RECORDED'then raise exception'company view success audit failed: %',r.command_status;end if;
+ perform set_config('app.session_id','d9230000-0000-4000-8000-000000000001',true);select*into r from public.hotel_knowledge_file_view_v1(c,kh,fh,'AUTHORIZE',repeat('O',43),gen_random_uuid(),completion_token,gen_random_uuid(),gen_random_uuid(),gen_random_uuid());if r.command_status<>'NOT_FOUND'then raise exception'explicit deny/draft view accepted: %',r.command_status;end if;
+end $attachment_journey$;
+select 'HOTEL_KNOWLEDGE_ATTACHMENT_ACTUAL_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_ATTACHMENT_ACTUAL_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+insert into public.permission_grants(id,company_id,branch_id,subject_type,subject_id,permission_code,effect,valid_from,granted_by,reason)
+select gen_random_uuid(),s.company_id,'50000000-0000-4000-8000-000000000001','USER',s.user_id,'HOTEL_FILE_READ','DENY',statement_timestamp()-interval'1 day',s.user_id,'지식 읽기 허용 파일 읽기 explicit deny actual'from public.auth_sessions s where s.id='4f000000-0000-4000-8000-000000000001';
+SQL
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" <<'SQL'
+do $file_read_deny$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b210000-0000-4000-8000-000000000001';f uuid:='6b310000-0000-4000-8000-000000000001';r record;
+begin
+ perform set_config('app.company_id',c::text,true);perform set_config('app.session_id','4f000000-0000-4000-8000-000000000001',true);
+ select*into r from public.hotel_knowledge_read_v1(c,k,'{}',repeat('I',43));if r.command_status<>'OK'or jsonb_array_length(r.result_snapshot->'attachments')<>0 then raise exception'file-read deny projection failed: % %',r.command_status,r.result_snapshot;end if;
+ select*into r from public.hotel_knowledge_file_view_v1(c,k,f,'AUTHORIZE',repeat('I',43),gen_random_uuid(),repeat('T',43),gen_random_uuid(),gen_random_uuid(),gen_random_uuid());if r.command_status<>'NOT_FOUND'then raise exception'file-read explicit deny authorize accepted: %',r.command_status;end if;
+end $file_read_deny$;
+select 'HOTEL_KNOWLEDGE_FILE_READ_EXPLICIT_DENY_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_FILE_READ_EXPLICIT_DENY_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "delete from public.permission_grants where reason='지식 읽기 허용 파일 읽기 explicit deny actual'" >/dev/null
+  set +e; psql -X -v ON_ERROR_STOP=1 -At -d "$api_url" -c "select count(*) from public.hotel_knowledge_entries" >/dev/null 2>&1; direct_status=$?; set -e
+  [[ "$direct_status" -ne 0 ]] || { printf '%s\n' "knowledge API direct table access succeeded" >&2; return 1; }
+  result="$(psql -X -v ON_ERROR_STOP=1 -At -d "$admin_url" <<'SQL'
+do $verify$
+declare c uuid:='10000000-0000-0000-0000-000000000001';k uuid:='6b200000-0000-4000-8000-000000000001';kh uuid:='6b210000-0000-4000-8000-000000000001';fh uuid:='6b310000-0000-4000-8000-000000000001';
+begin
+ if(select count(*)from public.hotel_knowledge_versions where company_id=c and knowledge_id=k)<>7 then raise exception'version count mismatch';end if;if exists(select 1 from public.hotel_knowledge_versions where company_id=c and knowledge_id=k and not(snapshot?'entry'and snapshot?'relatedIssueIds'and snapshot?'relatedRepairIds'and snapshot?'attachmentFileVersionIds')or snapshot?'actions')then raise exception'version snapshot incomplete or actor-projected';end if;
+ if not exists(select 1 from public.hotel_knowledge_versions where company_id=c and knowledge_id=kh and action='ATTACHMENTS_UPDATE'and snapshot->'attachmentFileVersionIds'=jsonb_build_array(fh)and not(snapshot?'actions'))then raise exception'attachment version snapshot is not canonical';end if;
+ if not exists(select 1 from public.audit_events where company_id=c and resource_id=kh and event_code in('KNOWLEDGE_ATTACHMENT_PARENT_REJECTED','KNOWLEDGE_ATTACHMENT_SET_REJECTED')and result='DENIED'and after_summary='{}'::jsonb)then raise exception'attachment terminal failure audit missing';end if;
+ if(select count(distinct event_code)from public.audit_events where company_id=c and resource_id=kh and event_code in('KNOWLEDGE_FILE_STATE_REJECTED','KNOWLEDGE_FILE_QUOTA_REJECTED','KNOWLEDGE_FILE_RESERVATION_REJECTED','KNOWLEDGE_FILE_EXPIRED_REJECTED','KNOWLEDGE_FILE_COMPLETION_REJECTED')and result='DENIED'and after_summary='{}'::jsonb)<>5 then raise exception'upload terminal failure audits missing';end if;
+ if exists(select 1 from public.audit_events where company_id=c and resource_id=kh and event_code like 'KNOWLEDGE_FILE_%_REJECTED'and(coalesce(reason,'')~*'(state\\.png|reservation\\.png|quota\\.png|expired\\.png|etag|quarantine/|objectVersion)'or after_summary<>'{}'::jsonb))then raise exception'upload failure audit leaked request metadata';end if;
+ begin update public.hotel_knowledge_versions set reason='tamper'where company_id=c and knowledge_id=k;raise exception'version update accepted';exception when sqlstate'55000'then null;end;
+ if(select count(*)from public.audit_events where company_id=c and resource_type='KNOWLEDGE_ENTRY'and resource_id=k)<8 then raise exception'audit missing';end if;if has_table_privilege('gw_api_probe','public.hotel_knowledge_entries','SELECT')or has_table_privilege('gw_api_probe','public.hotel_knowledge_versions','SELECT')then raise exception'API table ACL widened';end if;if has_function_privilege('gw_runtime_probe','public.hotel_knowledge_command_v1(uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid)','EXECUTE')then raise exception'reconciler execute widened';end if;
+end $verify$;
+select 'HOTEL_KNOWLEDGE_BANK_CATALOG_HISTORY_OK';
+SQL
+)"
+  [[ "$result" == *"HOTEL_KNOWLEDGE_BANK_CATALOG_HISTORY_OK"* ]] || { printf '%s\n' "$result" >&2; return 1; }
+  printf '%s\n' "HOTEL_KNOWLEDGE_BANK_ACTUAL_INTEGRATION_OK"
 }
 
 grant_checklist_v2_api_capabilities() {
@@ -606,12 +984,17 @@ assert_schema_not_ready() {
     TEST_READY_URL="$probe_url" pnpm exec tsx <<'NODE'
 import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 
-const result = await probeDatabaseReadiness(process.env.TEST_READY_URL);
+const result = await probeDatabaseReadiness(process.env.TEST_READY_URL, {
+  capability: process.env.TEST_READY_CAPABILITY ?? "RECONCILER",
+});
 if (result.status !== "SCHEMA_NOT_READY") {
   throw new Error(`expected SCHEMA_NOT_READY, received ${result.status}`);
 }
 NODE
   )
+  if [[ -n "${READINESS_SECOND_PROBE_URL:-}" && "$probe_url" != "$READINESS_SECOND_PROBE_URL" ]]; then
+    READINESS_SECOND_PROBE_URL= TEST_READY_CAPABILITY=API_RUNTIME assert_schema_not_ready "$READINESS_SECOND_PROBE_URL"
+  fi
 }
 
 assert_schema_ready() {
@@ -623,7 +1006,7 @@ import { probeDatabaseReadiness } from "./packages/db/src/client.ts";
 
 let checkpoint = "NONE";
 const result = await probeDatabaseReadiness(process.env.TEST_READY_URL, {
-  capability: "RECONCILER",
+  capability: process.env.TEST_READY_CAPABILITY ?? "RECONCILER",
   onSchemaNotReady: (value) => {
     checkpoint = value;
   },
@@ -633,6 +1016,9 @@ if (result.status !== "READY") {
 }
 NODE
   )
+  if [[ -n "${READINESS_SECOND_PROBE_URL:-}" && "$probe_url" != "$READINESS_SECOND_PROBE_URL" ]]; then
+    READINESS_SECOND_PROBE_URL= TEST_READY_CAPABILITY=API_RUNTIME assert_schema_ready "$READINESS_SECOND_PROBE_URL"
+  fi
 }
 
 assert_operational_issue_readiness_damage() {
@@ -709,6 +1095,137 @@ alter table public.hotel_daily_sales
 SQL
   assert_schema_ready "$probe_url"
   printf 'HOTEL_DAILY_SALES_READINESS_DAMAGE_OK\n'
+}
+
+assert_knowledge_core_readiness_damage() {
+  local admin_url="$1" probe_url="$2" definition owner
+  assert_schema_ready "$probe_url"
+  definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_functiondef('public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text)'::regprocedure)")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "create or replace function public.hotel_knowledge_has_permission_v1(p_company_id uuid,p_user_id uuid,p_branch_id uuid,p_permission_code text)returns boolean language sql stable security definer set search_path=pg_catalog as \$f\$select false\$f\$" >/dev/null
+  [[ "$(psql -X -At -d "$admin_url" -c "select btrim(prosrc)='select false' from pg_catalog.pg_proc where oid='public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text)'::regprocedure")" == "t" ]] || { printf 'knowledge helper body damage did not apply\n' >&2; return 1; }
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "$definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'grant execute on function public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text) to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'revoke execute on function public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  owner="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_userbyid(p.proowner)from pg_catalog.pg_proc p where p.oid='public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text)'::regprocedure")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter function public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text) owner to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter function public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text) owner to \"$owner\"" >/dev/null
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'revoke all on function public.hotel_knowledge_has_permission_v1(uuid,uuid,uuid,text) from public' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_entries disable trigger hotel_knowledge_search_vector' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_entries enable trigger hotel_knowledge_search_vector' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_versions disable trigger hotel_knowledge_versions_append_only' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_versions enable trigger hotel_knowledge_versions_append_only' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_entries no force row level security' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_entries force row level security' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'create policy hotel_knowledge_entries_unexpected_permissive on public.hotel_knowledge_entries using (true) with check (true)' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'drop policy hotel_knowledge_entries_unexpected_permissive on public.hotel_knowledge_entries' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'grant select(title) on public.hotel_knowledge_entries to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'revoke select(title) on public.hotel_knowledge_entries from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop index public.hotel_knowledge_links_issue_unique_idx;
+create unique index hotel_knowledge_links_issue_unique_idx on public.hotel_knowledge_links(company_id,knowledge_id,issue_id);
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+drop index public.hotel_knowledge_links_issue_unique_idx;
+create unique index hotel_knowledge_links_issue_unique_idx on public.hotel_knowledge_links(company_id,knowledge_id,issue_id)where link_kind='ISSUE';
+SQL
+  assert_schema_ready "$probe_url"
+  owner="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_userbyid(c.relowner)from pg_catalog.pg_class c where c.oid='public.hotel_knowledge_links'::regclass")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_links owner to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter table public.hotel_knowledge_links owner to \"$owner\"" >/dev/null
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_KNOWLEDGE_CORE_READINESS_DAMAGE_OK\n'
+}
+
+assert_knowledge_attachments_pre_expand_parent_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local parent_check_definition
+  assert_schema_ready "$probe_url"
+  parent_check_definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_constraintdef(oid,true) from pg_catalog.pg_constraint where conrelid='public.hotel_file_uploads'::regclass and conname='hotel_file_uploads_parent_exact_check'")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_file_uploads drop constraint hotel_file_uploads_parent_exact_check' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter table public.hotel_file_uploads add constraint hotel_file_uploads_parent_exact_check $parent_check_definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter index public.hotel_file_uploads_pkey rename to hotel_file_uploads_pkey_damage' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter index public.hotel_file_uploads_pkey_damage rename to hotel_file_uploads_pkey' >/dev/null
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_KNOWLEDGE_ATTACHMENTS_PRE_EXPAND_PARENT_READINESS_DAMAGE_OK\n'
+}
+
+assert_knowledge_attachments_readiness_damage() {
+  local admin_url="$1"
+  local probe_url="$2"
+  local owner
+  local parent_check_definition
+  local parent_fk_definition
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_knowledge_versions
+  drop constraint hotel_knowledge_versions_action_check,
+  add constraint hotel_knowledge_versions_action_check check(
+    action in ('CREATE','UPDATE','REQUEST_REVIEW','PUBLISH','MARK_NEEDS_REVIEW','AUTO_NEEDS_REVIEW','REPUBLISH','ARCHIVE')
+  );
+SQL
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" >/dev/null <<'SQL'
+alter table public.hotel_knowledge_versions
+  drop constraint hotel_knowledge_versions_action_check,
+  add constraint hotel_knowledge_versions_action_check check(
+    action in ('CREATE','UPDATE','REQUEST_REVIEW','PUBLISH','MARK_NEEDS_REVIEW','AUTO_NEEDS_REVIEW','REPUBLISH','ARCHIVE','ATTACHMENTS_UPDATE')
+  );
+SQL
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'create policy hotel_knowledge_attachments_unexpected_permissive on public.hotel_knowledge_attachments using (true) with check (true)' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'drop policy hotel_knowledge_attachments_unexpected_permissive on public.hotel_knowledge_attachments' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'grant execute on function public.hotel_knowledge_idempotency_begin_v1(uuid,uuid,text,text,text,text) to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'revoke execute on function public.hotel_knowledge_idempotency_begin_v1(uuid,uuid,text,text,text,text) from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'grant select(file_version_id) on public.hotel_knowledge_attachments to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'revoke select(file_version_id) on public.hotel_knowledge_attachments from gw_runtime_probe' >/dev/null
+  assert_schema_ready "$probe_url"
+  owner="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_userbyid(c.relowner)from pg_catalog.pg_class c where c.oid='public.hotel_knowledge_attachments'::regclass")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_knowledge_attachments owner to gw_runtime_probe' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter table public.hotel_knowledge_attachments owner to \"$owner\"" >/dev/null
+  assert_schema_ready "$probe_url"
+  parent_check_definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_constraintdef(oid,true) from pg_catalog.pg_constraint where conrelid='public.hotel_file_uploads'::regclass and conname='hotel_file_uploads_parent_exact_check'")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_file_uploads drop constraint hotel_file_uploads_parent_exact_check' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter table public.hotel_file_uploads add constraint hotel_file_uploads_parent_exact_check $parent_check_definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  parent_fk_definition="$(psql -X -At -d "$admin_url" -c "select pg_catalog.pg_get_constraintdef(oid,true) from pg_catalog.pg_constraint where conrelid='public.hotel_file_access_grants'::regclass and conname='hotel_file_access_grants_knowledge_fkey'")"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter table public.hotel_file_access_grants drop constraint hotel_file_access_grants_knowledge_fkey' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c "alter table public.hotel_file_access_grants add constraint hotel_file_access_grants_knowledge_fkey $parent_fk_definition" >/dev/null
+  assert_schema_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter index public.hotel_file_uploads_pkey rename to hotel_file_uploads_pkey_damage' >/dev/null
+  assert_schema_not_ready "$probe_url"
+  psql -X -v ON_ERROR_STOP=1 -d "$admin_url" -c 'alter index public.hotel_file_uploads_pkey_damage rename to hotel_file_uploads_pkey' >/dev/null
+  assert_schema_ready "$probe_url"
+  printf 'HOTEL_KNOWLEDGE_ATTACHMENTS_READINESS_DAMAGE_OK\n'
 }
 
 assert_owner_inquiries_readiness_damage() {
@@ -1648,6 +2165,8 @@ FILE_UPLOAD_POLLING_SCOPE_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations
 HOTEL_INQUIRY_LIST_PROJECTION_CORRECTION_MIGRATION="$ROOT_DIR/packages/db/migrations/0055_hotel_inquiry_list_projection_correction.sql"
 COMMON_IN_APP_NOTIFICATIONS_MIGRATION="$ROOT_DIR/packages/db/migrations/0056_common_in_app_notifications.sql"
 COMMON_IN_APP_NOTIFICATION_INDEXES_MIGRATION="$ROOT_DIR/packages/db/migrations/0057_common_in_app_notification_indexes.sql"
+HOTEL_KNOWLEDGE_BANK_MIGRATION="$ROOT_DIR/packages/db/migrations/0058_hotel_knowledge_bank.sql"
+HOTEL_KNOWLEDGE_ATTACHMENTS_MIGRATION="$ROOT_DIR/packages/db/migrations/0059_hotel_knowledge_attachments.sql"
 COMMON_IN_APP_NOTIFICATIONS_TEST_SQL="$ROOT_DIR/packages/db/test/common-notifications-integration.sql"
 FILE_SCANNER_AGENT_AUTHORITY_TEST_SQL="$ROOT_DIR/packages/db/test/file-scanner-agent-authority-integration.sql"
 GOOGLE_CALENDAR_REMOVAL_TEST_SQL="$ROOT_DIR/packages/db/test/google-calendar-removal-integration.sql"
@@ -2679,6 +3198,53 @@ psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$FILE_UPLOAD_POLLING_SCOPE_CORREC
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_INQUIRY_LIST_PROJECTION_CORRECTION_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$COMMON_IN_APP_NOTIFICATIONS_MIGRATION" >/dev/null
 psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$COMMON_IN_APP_NOTIFICATION_INDEXES_MIGRATION" >/dev/null
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -c "create table public.hotel_knowledge_entries(id uuid)" >/dev/null
+assert_schema_not_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -c "drop table public.hotel_knowledge_entries" >/dev/null
+assert_schema_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_KNOWLEDGE_BANK_MIGRATION" >/dev/null
+assert_schema_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -c "delete from public.hotel_file_scanner_agent_capabilities where role_name=session_user;delete from public.runtime_database_capabilities where role_name=session_user and capability='API_RUNTIME'" >/dev/null
+PRE_KNOWLEDGE_API_PROBE_URL="$(configure_api_probe_role "$ADMIN_URL")"
+grant_global_api_probe_table_capabilities "$ADMIN_URL"
+grant_checklist_v2_api_capabilities "$ADMIN_URL"
+grant_facility_execution_capabilities "$ADMIN_URL"
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
+grant_global_api_probe_capabilities "$ADMIN_URL"
+grant_inquiry_api_probe_capabilities "$ADMIN_URL"
+grant_knowledge_core_api_probe_capabilities "$ADMIN_URL"
+READINESS_SECOND_PROBE_URL="$PRE_KNOWLEDGE_API_PROBE_URL"
+export READINESS_SECOND_PROBE_URL
+assert_knowledge_attachments_pre_expand_parent_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+unset READINESS_SECOND_PROBE_URL
+cleanup_api_probe_role "$ADMIN_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -c "insert into public.runtime_database_capabilities(role_name,capability)values(session_user,'API_RUNTIME')on conflict(role_name)do update set capability=excluded.capability;insert into public.hotel_file_scanner_agent_capabilities(role_name)values(session_user)on conflict(role_name)do nothing" >/dev/null
+assert_schema_ready "$PROBE_URL"
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -f "$HOTEL_KNOWLEDGE_ATTACHMENTS_MIGRATION" >/dev/null
+assert_schema_ready "$PROBE_URL"
+KNOWLEDGE_ATTACHMENT_MARKER_COUNT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -c "select count(*) from public.schema_migrations where version='0059_hotel_knowledge_attachments'")"
+if [[ "$KNOWLEDGE_ATTACHMENT_MARKER_COUNT" != "1" ]]; then
+  echo "knowledge attachment migration marker read-back failed" >&2
+  exit 1
+fi
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_URL" -c "delete from public.hotel_file_scanner_agent_capabilities where role_name=session_user; delete from public.runtime_database_capabilities where role_name=session_user and capability='API_RUNTIME'" >/dev/null
+KNOWLEDGE_API_PROBE_URL="$(configure_api_probe_role "$ADMIN_URL")"
+grant_global_api_probe_table_capabilities "$ADMIN_URL"
+grant_checklist_v2_api_capabilities "$ADMIN_URL"
+grant_facility_execution_capabilities "$ADMIN_URL"
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
+grant_global_api_probe_capabilities "$ADMIN_URL"
+grant_inquiry_api_probe_capabilities "$ADMIN_URL"
+grant_knowledge_api_probe_capabilities "$ADMIN_URL"
+READINESS_SECOND_PROBE_URL="$KNOWLEDGE_API_PROBE_URL"
+export READINESS_SECOND_PROBE_URL
+assert_knowledge_core_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+assert_knowledge_attachments_readiness_damage "$ADMIN_URL" "$PROBE_URL"
+unset READINESS_SECOND_PROBE_URL
+run_hotel_knowledge_bank_integration "$ADMIN_URL" "$KNOWLEDGE_API_PROBE_URL" "$PROBE_URL"
+cleanup_api_probe_role "$ADMIN_URL"
+register_owner_api_capability "$ADMIN_URL"
+grant_repair_lifecycle_capabilities "$ADMIN_URL"
 HOTEL_OWNER_INQUIRIES_RESULT="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_URL" -f "$HOTEL_OWNER_INQUIRIES_TEST_SQL")"
 if [[ "$HOTEL_OWNER_INQUIRIES_RESULT" != *"HOTEL_OWNER_INQUIRIES_INTEGRATION_OK"* ]]; then
   printf '%s\n' "$HOTEL_OWNER_INQUIRIES_RESULT" >&2
