@@ -57,6 +57,7 @@ describe("account feature-guide registry", () => {
 describe("hotel feature-guide registry", () => {
   it("covers approved hotel routes with complete operational guidance", () => {
     expect(hotelFeatureGuideRoutes).toEqual({
+      "/knowledge": "hotel-knowledge.bank",
       "/hotels/calendar": "hotel-calendar.workspace",
       "/hotels/[hotelId]": "hotel-management.detail",
       "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
@@ -65,22 +66,30 @@ describe("hotel feature-guide registry", () => {
       "/hotels/[hotelId]/issues": "hotel-operational-issue.lifecycle",
       "/hotels/[hotelId]/repairs": "hotel-repair.lifecycle",
     });
-    expect(hotelFeatureGuides["hotel-repair.lifecycle"].title).toBe("하자·보수");
+    expect(hotelFeatureGuides["hotel-repair.lifecycle"].title).toBe(
+      "하자·보수",
+    );
+    expect(hotelFeatureGuides["hotel-knowledge.bank"].title).toBe(
+      "운영 지식뱅크",
+    );
+    expect(
+      JSON.stringify(hotelFeatureGuides["hotel-knowledge.bank"]),
+    ).toContain("개인정보");
     expect(hotelFeatureGuides["hotel-daily-sales.ledger"].title).toBe(
       "일매출 장부",
     );
     expect(hotelFeatureGuides["hotel-management.detail"].title).toBe(
       "호텔 상세",
     );
-    expect(JSON.stringify(hotelFeatureGuides["hotel-management.detail"])).toContain(
-      "객실",
-    );
+    expect(
+      JSON.stringify(hotelFeatureGuides["hotel-management.detail"]),
+    ).toContain("객실");
     expect(hotelFeatureGuides["hotel-inspection.review"].title).toBe(
       "점검 검토",
     );
-    expect(JSON.stringify(hotelFeatureGuides["hotel-inspection.review"])).toContain(
-      "점검",
-    );
+    expect(
+      JSON.stringify(hotelFeatureGuides["hotel-inspection.review"]),
+    ).toContain("점검");
     for (const guide of Object.values(hotelFeatureGuides)) {
       expect(JSON.stringify(guide)).not.toMatch(forbiddenCopy);
       for (const item of [

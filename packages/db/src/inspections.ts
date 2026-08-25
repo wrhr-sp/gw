@@ -27,6 +27,10 @@ export type InspectionCommandResult = {
   status: string;
   payload: unknown | null;
 };
+export type KnowledgeFileCommandInput = Omit<
+  InspectionCommandInput,
+  "hotelId"
+> & { hotelId: string | null };
 
 export type ProcessMutationInput = Omit<
   InspectionCommandInput,
@@ -56,6 +60,21 @@ export interface InspectionRepository {
   inquiryFileCommand?(
     input: InspectionCommandInput,
   ): Promise<InspectionCommandResult>;
+  knowledgeFileCommand?(
+    input: KnowledgeFileCommandInput,
+  ): Promise<InspectionCommandResult>;
+  knowledgeFileParentScope?(input: {
+    companyId: string;
+    knowledgeId: string;
+    sessionId: string;
+    sessionToken: string;
+  }): Promise<{ hotelId: string | null } | null>;
+  knowledgeFileUploadScope?(input: {
+    companyId: string;
+    sessionId: string;
+    sessionToken: string;
+    uploadId: string;
+  }): Promise<{ hotelId: string | null; knowledgeId: string } | null>;
   inquiryFileUploadScope?(input: {
     companyId: string;
     sessionId: string;
@@ -128,6 +147,19 @@ export interface InspectionRepository {
     grantId: string;
     hotelId: string;
     inquiryId: string;
+    sessionId: string;
+    sessionToken: string;
+    traceId: string;
+  }): Promise<InspectionCommandResult>;
+  knowledgeFileViewCommand?(input: {
+    action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED";
+    alertAuditEventId: string;
+    auditEventId: string;
+    companyId: string;
+    completionToken: string;
+    fileVersionId: string;
+    grantId: string;
+    knowledgeId: string;
     sessionId: string;
     sessionToken: string;
     traceId: string;
@@ -413,6 +445,50 @@ export function createPostgresInspectionRepository(
         return rows[0]?.branch_id ?? null;
       });
     },
+    async knowledgeFileCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(await transaction<CommandRow[]>`
+          select * from public.hotel_knowledge_file_command_v1(
+            ${input.companyId}::uuid, ${input.hotelId}::uuid,
+            ${input.resourceId}::uuid, ${input.action}::text,
+            ${input.expectedVersion}::integer, ${transaction.json(input.value as never)}::jsonb,
+            ${input.sessionToken}::text, ${input.idempotencyRecordId}::uuid,
+            ${input.idempotencyKey}::text, ${input.httpMethod}::text,
+            ${input.operationPath}::text, ${input.requestHash}::text,
+            ${input.auditEventId}::uuid, ${input.traceId}::uuid
+          )
+        `);
+      });
+    },
+    async knowledgeFileParentScope(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const rows = await transaction<{ branch_id: string | null }[]>`
+          select * from public.hotel_knowledge_file_parent_scope_v1(
+            ${input.companyId}::uuid, ${input.knowledgeId}::uuid, ${input.sessionToken}::text
+          )
+        `;
+        const row = rows[0];
+        return rows.length === 1 && row ? { hotelId: row.branch_id } : null;
+      });
+    },
+    async knowledgeFileUploadScope(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        const rows = await transaction<
+          { branch_id: string | null; knowledge_id: string }[]
+        >`
+          select * from public.hotel_knowledge_file_scope_v1(
+            ${input.companyId}::uuid, ${input.uploadId}::uuid, ${input.sessionToken}::text
+          )
+        `;
+        const row = rows[0];
+        return rows.length === 1 && row
+          ? { hotelId: row.branch_id, knowledgeId: row.knowledge_id }
+          : null;
+      });
+    },
     async fileUploadScope(input) {
       return sql.begin(async (transaction) => {
         await transaction`
@@ -515,6 +591,20 @@ export function createPostgresInspectionRepository(
             ${input.grantId}::uuid, ${input.completionToken}::text,
             ${input.auditEventId}::uuid, ${input.alertAuditEventId}::uuid,
             ${input.traceId}::uuid
+          )
+        `);
+      });
+    },
+    async knowledgeFileViewCommand(input) {
+      return sql.begin(async (transaction) => {
+        await transaction`select set_config('app.session_id', ${input.sessionId}, true)`;
+        return one(await transaction<CommandRow[]>`
+          select * from public.hotel_knowledge_file_view_v1(
+            ${input.companyId}::uuid, ${input.knowledgeId}::uuid,
+            ${input.fileVersionId}::uuid, ${input.action}::text,
+            ${input.sessionToken}::text, ${input.grantId}::uuid,
+            ${input.completionToken}::text, ${input.auditEventId}::uuid,
+            ${input.alertAuditEventId}::uuid, ${input.traceId}::uuid
           )
         `);
       });

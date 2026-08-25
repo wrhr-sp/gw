@@ -194,6 +194,63 @@ describe("same-origin API runtime proxy", () => {
     });
   });
 
+  it("proxies only exact knowledge attachment paths and methods", async () => {
+    process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
+    const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
+    vi.stubGlobal("fetch", upstreamFetch);
+    const knowledgeId = "55555555-5555-4555-8555-555555555555";
+    const uploadId = "77777777-7777-4777-8777-777777777777";
+    const fileVersionId = "88888888-8888-4888-8888-888888888888";
+    const approved = [
+      [POST, "POST", ["knowledge", knowledgeId, "files", "upload-init"]],
+      [
+        GET,
+        "GET",
+        ["knowledge", knowledgeId, "files", "uploads", uploadId, "status"],
+      ],
+      [PUT, "PUT", ["knowledge", knowledgeId, "attachments"]],
+      [
+        GET,
+        "GET",
+        ["knowledge", knowledgeId, "files", fileVersionId, "view"],
+      ],
+    ] as const;
+    for (const [handler, method, path] of approved) {
+      const response = await handler(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`, {
+          method,
+        }),
+        { params: Promise.resolve({ path: [...path] }) },
+      );
+      expect(response.status).toBe(200);
+    }
+    const wrongMethod = await POST(
+      new Request(
+        `https://hotel.example.test/api/knowledge/${knowledgeId}/attachments`,
+        { method: "POST" },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["knowledge", knowledgeId, "attachments"],
+        }),
+      },
+    );
+    expect(wrongMethod.status).toBe(405);
+    expect(wrongMethod.headers.get("allow")).toBe("PUT");
+    for (const path of [
+      ["knowledge", "not-a-uuid", "attachments"],
+      ["knowledge", knowledgeId, "files", "upload-init", "extra"],
+      ["knowledge", knowledgeId, "files", uploadId, "download"],
+    ]) {
+      const rejected = await GET(
+        new Request(`https://hotel.example.test/api/${path.join("/")}`),
+        { params: Promise.resolve({ path }) },
+      );
+      expect(rejected.status).toBe(404);
+    }
+    expect(upstreamFetch).toHaveBeenCalledTimes(approved.length);
+  });
+
   it("proxies only exact owner-inquiry paths and methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));

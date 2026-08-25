@@ -38,6 +38,9 @@ const API_PROXY_METHODS = new Map<string, ReadonlySet<string>>([
   ["issues/capabilities", new Set(["GET"])],
   ["inquiries/capabilities", new Set(["GET"])],
   ["notifications", new Set(["GET"])],
+  ["knowledge", new Set(["GET", "POST"])],
+  ["knowledge/capabilities", new Set(["GET"])],
+  ["knowledge/reviewer-candidates", new Set(["GET"])],
   ["hotels", new Set(["GET", "POST"])],
   ["admin/users", new Set(["GET", "POST"])],
   ["admin/users/eligible-hotels", new Set(["GET"])],
@@ -56,6 +59,44 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     new RegExp(`^notifications/${UUID_PATH_PATTERN}/read$`, "iu").test(apiPath)
   )
     return new Set(["POST"]);
+  if (new RegExp(`^knowledge/${UUID_PATH_PATTERN}$`, "iu").test(apiPath))
+    return new Set(["GET", "PATCH"]);
+  if (
+    new RegExp(
+      `^knowledge/${UUID_PATH_PATTERN}/(?:transitions|feedback)$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
+  if (new RegExp(`^knowledge/${UUID_PATH_PATTERN}/links$`, "iu").test(apiPath))
+    return new Set(["GET"]);
+  if (
+    new RegExp(
+      `^knowledge/${UUID_PATH_PATTERN}/files/upload-init$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["POST"]);
+  if (
+    new RegExp(
+      `^knowledge/${UUID_PATH_PATTERN}/files/uploads/${UUID_PATH_PATTERN}/status$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
+  if (
+    new RegExp(
+      `^knowledge/${UUID_PATH_PATTERN}/files/${UUID_PATH_PATTERN}/view$`,
+      "iu",
+    ).test(apiPath)
+  )
+    return new Set(["GET"]);
+  if (
+    new RegExp(`^knowledge/${UUID_PATH_PATTERN}/attachments$`, "iu").test(
+      apiPath,
+    )
+  )
+    return new Set(["PUT"]);
   if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/daily-sales$`, "iu").test(apiPath)
   )

@@ -1,10 +1,15 @@
 import {
   hotelFileRoutes,
+  knowledgeRoutes,
   type AuthenticatedPrincipal,
   type HotelFileUploadCompleteRequest,
   type HotelFileUploadInitRequest,
 } from "@werehere/contracts";
-import type { InspectionRepository } from "@werehere/db";
+import type {
+  InspectionCommandResult,
+  InspectionRepository,
+  KnowledgeFileCommandInput,
+} from "@werehere/db";
 import { sha256 } from "../auth/crypto";
 
 export interface PrivateR2Binding {
@@ -550,6 +555,28 @@ export interface HotelFileService {
     value: HotelFileUploadInitRequest,
     idempotencyKey: string,
   ): Promise<unknown>;
+  knowledgeInit(
+    principal: FilePrincipal,
+    knowledgeId: string,
+    value: HotelFileUploadInitRequest,
+    idempotencyKey: string,
+  ): Promise<unknown>;
+  knowledgeStatus(
+    principal: FilePrincipal,
+    knowledgeId: string,
+    uploadId: string,
+  ): Promise<unknown>;
+  knowledgeView(
+    principal: FilePrincipal,
+    knowledgeId: string,
+    fileVersionId: string,
+  ): Promise<{
+    body: ReadableStream<Uint8Array>;
+    displayName: string;
+    etag: string;
+    mimeType: string;
+    sizeBytes: number;
+  }>;
   status(
     principal: FilePrincipal,
     hotelId: string,
@@ -557,10 +584,15 @@ export interface HotelFileService {
   ): Promise<unknown>;
   view(
     principal: FilePrincipal,
-    hotelId: string,
+    hotelId: string | null,
     inspectionId: string,
     fileVersionId: string,
-    parentType?: "DAILY_SALES" | "INQUIRY" | "INSPECTION" | "REPAIR",
+    parentType?:
+      | "DAILY_SALES"
+      | "INQUIRY"
+      | "INSPECTION"
+      | "KNOWLEDGE"
+      | "REPAIR",
   ): Promise<{
     body: ReadableStream<Uint8Array>;
     displayName: string;
@@ -613,14 +645,30 @@ export function createHotelFileService(
   async function canonicalScope(
     principal: FilePrincipal,
     uploadId: string,
-  ): Promise<{ hotelId: string; inquiry: boolean }> {
+  ): Promise<{
+    hotelId: string | null;
+    kind: "DEFAULT" | "INQUIRY" | "KNOWLEDGE";
+    knowledgeId?: string;
+  }> {
+    const knowledgeScope = await repository.knowledgeFileUploadScope?.({
+      companyId: principal.companyId,
+      sessionId: principal.sessionId,
+      sessionToken: principal.sessionToken,
+      uploadId,
+    });
+    if (knowledgeScope)
+      return {
+        hotelId: knowledgeScope.hotelId,
+        kind: "KNOWLEDGE",
+        knowledgeId: knowledgeScope.knowledgeId,
+      };
     const inquiryHotelId = await repository.inquiryFileUploadScope?.({
       companyId: principal.companyId,
       sessionId: principal.sessionId,
       sessionToken: principal.sessionToken,
       uploadId,
     });
-    if (inquiryHotelId) return { hotelId: inquiryHotelId, inquiry: true };
+    if (inquiryHotelId) return { hotelId: inquiryHotelId, kind: "INQUIRY" };
     if (!repository.fileUploadScope)
       throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
     const hotelId = await repository.fileUploadScope({
@@ -630,45 +678,65 @@ export function createHotelFileService(
       uploadId,
     });
     if (!hotelId) throw new FileStorageError("RESOURCE_NOT_FOUND");
-    return { hotelId, inquiry: false };
+    return { hotelId, kind: "DEFAULT" };
   }
   async function authorize(
     principal: FilePrincipal,
     uploadId: string,
-  ): Promise<{ hotelId: string; inquiry: boolean; upload: AuthorizedUpload }> {
-    const { hotelId, inquiry } = await canonicalScope(principal, uploadId);
-    const query = inquiry ? repository.inquiryFileCommand : undefined;
-    const result = query
-      ? await query({
-          action: "UPLOAD_AUTHORIZE", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
-          expectedVersion: 0, hotelId, httpMethod: "POST", idempotencyKey: "read-only",
-          idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
-          resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
-          traceId: crypto.randomUUID(), value: {},
-        })
-      : await repository.fileQuery({
-          action: "UPLOAD_AUTHORIZE",
-          companyId: principal.companyId,
-          hotelId,
-          sessionId: principal.sessionId,
-          sessionToken: principal.sessionToken,
-          uploadId,
-        });
+  ): Promise<{
+    hotelId: string | null;
+    kind: "DEFAULT" | "INQUIRY" | "KNOWLEDGE";
+    knowledgeId?: string;
+    upload: AuthorizedUpload;
+  }> {
+    const scope = await canonicalScope(principal, uploadId);
+    let result;
+    if (scope.kind === "KNOWLEDGE") {
+      const command = repository.knowledgeFileCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      result = await command({
+        action: "UPLOAD_AUTHORIZE", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+        expectedVersion: 0, hotelId: scope.hotelId, httpMethod: "POST", idempotencyKey: "read-only",
+        idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
+        resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(), value: {},
+      });
+    } else if (scope.kind === "INQUIRY") {
+      const command = repository.inquiryFileCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      result = await command({
+        action: "UPLOAD_AUTHORIZE", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+        expectedVersion: 0, hotelId: scope.hotelId as string, httpMethod: "POST", idempotencyKey: "read-only",
+        idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
+        resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(), value: {},
+      });
+    } else {
+      result = await repository.fileQuery({
+        action: "UPLOAD_AUTHORIZE",
+        companyId: principal.companyId,
+        hotelId: scope.hotelId as string,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
+        uploadId,
+      });
+    }
     if (result.status !== "OK")
       throw new FileStorageError("RESOURCE_NOT_FOUND");
-    return { hotelId, inquiry, upload: authorized(result.payload) };
+    return { ...scope, upload: authorized(result.payload) };
   }
   async function mutate(
     principal: FilePrincipal,
-    hotelId: string,
+    hotelId: string | null,
     uploadId: string,
     action: "UPLOAD_COMPLETE" | "UPLOAD_INIT",
     value: unknown,
     path: string,
     idempotencyKey: string,
-    inquiry = false,
+    kind: "DEFAULT" | "INQUIRY" | "KNOWLEDGE" = "DEFAULT",
   ) {
     const repairInit =
+      kind === "DEFAULT" &&
       action === "UPLOAD_INIT" &&
       typeof value === "object" &&
       value !== null &&
@@ -681,16 +749,23 @@ export function createHotelFileService(
             }
           ).repairFileUploadInit
         : undefined;
-    const command = inquiry
-      ? repository.inquiryFileCommand
-      : repairInit ?? repository.fileCommand;
+    const command =
+      kind === "KNOWLEDGE"
+        ? repository.knowledgeFileCommand
+        : kind === "INQUIRY"
+          ? repository.inquiryFileCommand
+          : repairInit ?? repository.fileCommand;
     if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-    const result = await command({
+    const result = await (
+      command as (
+        input: KnowledgeFileCommandInput,
+      ) => Promise<InspectionCommandResult>
+    )({
       action,
       auditEventId: crypto.randomUUID(),
       companyId: principal.companyId,
       expectedVersion: 0,
-      hotelId,
+      hotelId: kind === "KNOWLEDGE" ? hotelId : (hotelId as string),
       httpMethod: "POST",
       idempotencyKey,
       idempotencyRecordId: crypto.randomUUID(),
@@ -713,8 +788,13 @@ export function createHotelFileService(
   }
   async function viewCommand(
     principal: FilePrincipal,
-    hotelId: string,
-    parentType: "DAILY_SALES" | "INQUIRY" | "INSPECTION" | "REPAIR",
+    hotelId: string | null,
+    parentType:
+      | "DAILY_SALES"
+      | "INQUIRY"
+      | "INSPECTION"
+      | "KNOWLEDGE"
+      | "REPAIR",
     parentId: string,
     fileVersionId: string,
     action: "ABORTED" | "AUTHORIZE" | "FAILED" | "SUCCEEDED",
@@ -735,24 +815,122 @@ export function createHotelFileService(
       sessionToken: principal.sessionToken,
       traceId,
     };
+    if (parentType === "KNOWLEDGE") {
+      const command = repository.knowledgeFileViewCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      return command({ ...shared, knowledgeId: parentId });
+    }
     if (parentType === "INQUIRY") {
       const command = repository.inquiryFileViewCommand;
       if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-      return command({ ...shared, inquiryId: parentId });
+      return command({ ...shared, hotelId: hotelId as string, inquiryId: parentId });
     }
     if (parentType === "REPAIR") {
       const command = repository.repairFileViewCommand;
       if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-      return command({ ...shared, repairId: parentId });
+      return command({ ...shared, hotelId: hotelId as string, repairId: parentId });
     }
     if (parentType === "DAILY_SALES") {
       const command = repository.dailySalesFileViewCommand;
       if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-      return command({ ...shared, salesId: parentId });
+      return command({ ...shared, hotelId: hotelId as string, salesId: parentId });
     }
     const command = repository.fileViewCommand;
     if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
-    return command({ ...shared, inspectionId: parentId });
+    return command({ ...shared, hotelId: hotelId as string, inspectionId: parentId });
+  }
+
+  async function initUpload(
+    principal: FilePrincipal,
+    hotelId: string | null,
+    value: HotelFileUploadInitRequest,
+    idempotencyKey: string,
+    knowledgeId?: string,
+  ) {
+    const idempotentContext = {
+        companyId: principal.companyId,
+        hotelId,
+        idempotencyKey,
+        knowledgeId,
+        operation: "UPLOAD_INIT",
+        userId: principal.userId,
+      },
+      uploadId = await deriveFileIdempotentUuid(idempotentContext),
+      quarantineObjectKey = store.reserveQuarantineKey(
+        uploadId,
+        await derivePrivateQuarantineSuffix(idempotentContext),
+      );
+    const reservationFingerprint = await hexHash({
+      companyId: principal.companyId,
+      hotelId,
+      knowledgeId,
+      mimeType: value.mimeType,
+      quarantineObjectKey,
+      sizeBytes: value.sizeBytes,
+      uploadId,
+    });
+    const parent = value.parent as {
+      type: string;
+      inspectionId?: string;
+      itemSnapshotId?: string;
+      repairCaseId?: string;
+      repairVisitId?: string;
+      salesId?: string;
+      inquiryId?: string;
+      knowledgeId?: string;
+    };
+    if (
+      knowledgeId &&
+      (parent.type !== "KNOWLEDGE_ATTACHMENT" || parent.knowledgeId !== knowledgeId)
+    )
+      throw new FileStorageError("RESOURCE_NOT_FOUND");
+    const parentPayload =
+      parent.type === "INSPECTION_ITEM_EVIDENCE"
+        ? { parentType: parent.type, inspectionId: parent.inspectionId, itemSnapshotId: parent.itemSnapshotId }
+        : parent.type === "REPAIR_CASE_EVIDENCE"
+          ? { parentType: parent.type, repairCaseId: parent.repairCaseId }
+          : parent.type === "REPAIR_VISIT_COMPLETION_EVIDENCE"
+            ? { parentType: parent.type, repairCaseId: parent.repairCaseId, repairVisitId: parent.repairVisitId }
+            : parent.type === "OWNER_INQUIRY_ATTACHMENT"
+              ? { parentType: parent.type, parent: { type: parent.type, inquiryId: parent.inquiryId } }
+              : parent.type === "KNOWLEDGE_ATTACHMENT"
+                ? { parentType: parent.type, parent: { type: parent.type, knowledgeId: parent.knowledgeId } }
+                : { parentType: parent.type, dailySalesId: parent.salesId };
+    const path = knowledgeId
+      ? knowledgeRoutes.uploadInit(knowledgeId)
+      : hotelFileRoutes.uploadInit(hotelId as string);
+    const kind = knowledgeId
+      ? "KNOWLEDGE"
+      : parent.type === "OWNER_INQUIRY_ATTACHMENT"
+        ? "INQUIRY"
+        : "DEFAULT";
+    const payload = await mutate(
+      principal,
+      hotelId,
+      uploadId,
+      "UPLOAD_INIT",
+      {
+        fileName: value.fileName,
+        ...parentPayload,
+        mimeType: value.mimeType,
+        quarantineObjectKey,
+        reservationFingerprint,
+        sizeBytes: value.sizeBytes,
+      },
+      path,
+      idempotencyKey,
+      kind,
+    );
+    const upload = object(payload);
+    return {
+      upload: { id: upload.id, status: upload.status },
+      uploadUrl: hotelFileRoutes.uploadBody(uploadId),
+      expiresInSeconds: 300,
+      requiredHeaders: {
+        "Content-Type": value.mimeType,
+        "If-None-Match": "*" as const,
+      },
+    };
   }
 
   return {
@@ -771,7 +949,7 @@ export function createHotelFileService(
       return { etag: result.etag };
     },
     async complete(principal, uploadId, value, idempotencyKey) {
-      const { hotelId, inquiry, upload } = await authorize(principal, uploadId);
+      const { hotelId, kind, upload } = await authorize(principal, uploadId);
       const objectState = await store.headReservedOriginal(
         upload.quarantineObjectKey,
       );
@@ -793,97 +971,71 @@ export function createHotelFileService(
             companyId: principal.companyId,
             idempotencyKey,
             operation: "UPLOAD_COMPLETE",
-            sessionId: principal.sessionId,
+            userId: principal.userId,
             uploadId,
           }),
         },
         hotelFileRoutes.uploadComplete(uploadId),
         idempotencyKey,
-        inquiry,
+        kind,
       );
     },
     async init(principal, hotelId, value, idempotencyKey) {
-      const idempotentContext = {
-          companyId: principal.companyId,
-          hotelId,
-          idempotencyKey,
-          operation: "UPLOAD_INIT",
-          sessionId: principal.sessionId,
-        },
-        uploadId = await deriveFileIdempotentUuid(idempotentContext),
-        quarantineObjectKey = store.reserveQuarantineKey(
-          uploadId,
-          await derivePrivateQuarantineSuffix(idempotentContext),
-        );
-      const reservationFingerprint = await hexHash({
+      return initUpload(principal, hotelId, value, idempotencyKey);
+    },
+    async knowledgeInit(principal, knowledgeId, value, idempotencyKey) {
+      const scope = await repository.knowledgeFileParentScope?.({
         companyId: principal.companyId,
-        hotelId,
-        mimeType: value.mimeType,
-        quarantineObjectKey,
-        sizeBytes: value.sizeBytes,
-        uploadId,
+        knowledgeId,
+        sessionId: principal.sessionId,
+        sessionToken: principal.sessionToken,
       });
-      const parent = value.parent as {
-        type: string;
-        inspectionId?: string;
-        itemSnapshotId?: string;
-        repairCaseId?: string;
-        repairVisitId?: string;
-        salesId?: string;
-        inquiryId?: string;
-      };
-      const parentPayload =
-        parent.type === "INSPECTION_ITEM_EVIDENCE"
-          ? { parentType: parent.type, inspectionId: parent.inspectionId, itemSnapshotId: parent.itemSnapshotId }
-          : parent.type === "REPAIR_CASE_EVIDENCE"
-            ? { parentType: parent.type, repairCaseId: parent.repairCaseId }
-            : parent.type === "REPAIR_VISIT_COMPLETION_EVIDENCE"
-              ? { parentType: parent.type, repairCaseId: parent.repairCaseId, repairVisitId: parent.repairVisitId }
-              : parent.type === "OWNER_INQUIRY_ATTACHMENT"
-                ? { parentType: parent.type, parent: { type: parent.type, inquiryId: parent.inquiryId } }
-                : { parentType: parent.type, dailySalesId: parent.salesId };
-      const payload = await mutate(
+      if (!scope) throw new FileStorageError("RESOURCE_NOT_FOUND");
+      return initUpload(
         principal,
-        hotelId,
-        uploadId,
-        "UPLOAD_INIT",
-        {
-          fileName: value.fileName,
-          ...parentPayload,
-          mimeType: value.mimeType,
-          quarantineObjectKey,
-          reservationFingerprint,
-          sizeBytes: value.sizeBytes,
-        },
-        hotelFileRoutes.uploadInit(hotelId),
+        scope.hotelId,
+        value,
         idempotencyKey,
-        parent.type === "OWNER_INQUIRY_ATTACHMENT",
+        knowledgeId,
       );
-      const upload = object(payload);
-      return {
-        upload: { id: upload.id, status: upload.status },
-        uploadUrl: hotelFileRoutes.uploadBody(uploadId),
-        expiresInSeconds: 300,
-        requiredHeaders: {
-          "Content-Type": value.mimeType,
-          "If-None-Match": "*" as const,
-        },
-      };
+    },
+    async knowledgeStatus(principal, knowledgeId, uploadId) {
+      const scope = await canonicalScope(principal, uploadId);
+      if (scope.kind !== "KNOWLEDGE" || scope.knowledgeId !== knowledgeId)
+        throw new FileStorageError("RESOURCE_NOT_FOUND");
+      const command = repository.knowledgeFileCommand;
+      if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+      const result = await command({
+        action: "STATUS", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+        expectedVersion: 0, hotelId: scope.hotelId, httpMethod: "POST", idempotencyKey: "read-only",
+        idempotencyRecordId: crypto.randomUUID(), operationPath: knowledgeRoutes.uploadStatus(knowledgeId, uploadId), requestHash: "read-only",
+        resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+        traceId: crypto.randomUUID(), value: {},
+      });
+      if (result.status !== "OK") throw new FileStorageError("RESOURCE_NOT_FOUND");
+      return result.payload;
     },
     async status(principal, hotelId, uploadId) {
       const scope = await canonicalScope(principal, uploadId);
-      const result = scope.inquiry && repository.inquiryFileCommand
-        ? await repository.inquiryFileCommand({
-            action: "STATUS", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
-            expectedVersion: 0, hotelId: scope.hotelId, httpMethod: "POST", idempotencyKey: "read-only",
-            idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
-            resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
-            traceId: crypto.randomUUID(), value: {},
-          })
-        : await repository.fileQuery({
-            action: "STATUS", companyId: principal.companyId, hotelId,
-            sessionId: principal.sessionId, sessionToken: principal.sessionToken, uploadId,
-          });
+      if (scope.kind === "KNOWLEDGE" || scope.hotelId !== hotelId)
+        throw new FileStorageError("RESOURCE_NOT_FOUND");
+      let result;
+      if (scope.kind === "INQUIRY") {
+        const command = repository.inquiryFileCommand;
+        if (!command) throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+        result = await command({
+          action: "STATUS", auditEventId: crypto.randomUUID(), companyId: principal.companyId,
+          expectedVersion: 0, hotelId, httpMethod: "POST", idempotencyKey: "read-only",
+          idempotencyRecordId: crypto.randomUUID(), operationPath: "/api/read-only", requestHash: "read-only",
+          resourceId: uploadId, sessionId: principal.sessionId, sessionToken: principal.sessionToken,
+          traceId: crypto.randomUUID(), value: {},
+        });
+      } else {
+        result = await repository.fileQuery({
+          action: "STATUS", companyId: principal.companyId, hotelId,
+          sessionId: principal.sessionId, sessionToken: principal.sessionToken, uploadId,
+        });
+      }
       if (result.status !== "OK")
         throw new FileStorageError("RESOURCE_NOT_FOUND");
       return result.payload;
@@ -1021,6 +1173,15 @@ export function createHotelFileService(
         salesId,
         fileVersionId,
         "DAILY_SALES",
+      );
+    },
+    async knowledgeView(principal, knowledgeId, fileVersionId) {
+      return this.view(
+        principal,
+        null,
+        knowledgeId,
+        fileVersionId,
+        "KNOWLEDGE",
       );
     },
   };

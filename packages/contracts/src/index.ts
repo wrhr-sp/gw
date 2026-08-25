@@ -74,6 +74,8 @@ export const hotelErrorCodeSchema = z.enum([
   "CALENDAR_RESULT_TOO_DENSE",
   "CALENDAR_HOTEL_REQUIRED",
   "CALENDAR_ACCESS_FORBIDDEN",
+  "KNOWLEDGE_PERSONAL_DATA_DETECTED",
+  "KNOWLEDGE_REVIEW_REQUIRED",
 
   "FILE_UPLOAD_EXPIRED",
   "FILE_INTEGRITY_MISMATCH",
@@ -2728,6 +2730,12 @@ export const hotelFileUploadInitRequestSchema = z
           inquiryId: z.uuid(),
         })
         .strict(),
+      z
+        .object({
+          type: z.literal("KNOWLEDGE_ATTACHMENT"),
+          knowledgeId: z.uuid(),
+        })
+        .strict(),
     ]),
     fileName: safeEvidenceFileNameSchema,
     sizeBytes: z
@@ -2786,6 +2794,9 @@ export const hotelFileUploadInitResponseSchema = z
     error: z.null(),
   })
   .strict();
+export type HotelFileUploadInitResponse = z.infer<
+  typeof hotelFileUploadInitResponseSchema
+>;
 const fileUploadPreCleanSchema = z
   .object({
     id: z.uuid(),
@@ -3643,48 +3654,351 @@ export const operationalIssueRoutes = {
 } as const;
 
 export const hotelInquiryStatusSchema = z.enum([
-  "RECEIVED", "ASSIGNED", "ANSWERING", "ANSWERED", "SUPPLEMENT_REQUESTED", "CLOSED",
+  "RECEIVED",
+  "ASSIGNED",
+  "ANSWERING",
+  "ANSWERED",
+  "SUPPLEMENT_REQUESTED",
+  "CLOSED",
 ]);
 export const hotelInquiryCategoryCodeSchema = z.enum([
-  "CONTRACT_POLICY", "SALES_SETTLEMENT", "ROOM_FACILITY", "INSPECTION_ISSUE", "ACCOUNT_PERMISSION", "OTHER",
+  "CONTRACT_POLICY",
+  "SALES_SETTLEMENT",
+  "ROOM_FACILITY",
+  "INSPECTION_ISSUE",
+  "ACCOUNT_PERMISSION",
+  "OTHER",
 ]);
 const inquiryTextSchema = z.string().trim().min(2).max(4000);
-export const createHotelInquiryRequestSchema = z.object({ inquiryId:z.uuid(), categoryCode:hotelInquiryCategoryCodeSchema, title:z.string().trim().min(2).max(160), body:inquiryTextSchema }).strict();
-export const hotelInquiryMessageRequestSchema = z.object({ version:z.number().int().positive(), body:inquiryTextSchema, visibility:z.enum(["PUBLIC","INTERNAL"]), attachmentFileVersionIds:z.array(z.uuid()).max(10).default([]) }).strict();
-export const hotelInquiryAssignRequestSchema = z.object({ version:z.number().int().positive(), assigneeUserId:z.uuid(), reason:z.string().trim().min(2).max(500) }).strict();
-export const hotelInquiryTransitionRequestSchema = z.object({ version:z.number().int().positive(), action:z.enum(["START_ANSWER","MARK_ANSWERED","REQUEST_SUPPLEMENT","CLOSE","REOPEN"]), reason:z.string().trim().min(2).max(500) }).strict();
-export const hotelInquiryListQuerySchema = z.object({ page:z.coerce.number().int().min(1).default(1), pageSize:z.coerce.number().int().min(1).max(100).default(20), status:hotelInquiryStatusSchema.optional(), categoryCode:hotelInquiryCategoryCodeSchema.optional() }).strict();
-const inquiryPublicActorSchema=z.object({displayName:z.string().trim().min(1).max(100)}).strict();
-const inquiryInternalActorSchema=inquiryPublicActorSchema.extend({userId:z.uuid()}).strict();
-const inquiryAttachmentSchema=z.object({fileVersionId:z.uuid(),displayName:z.string().trim().min(1).max(180)}).strict();
-const inquiryPublicMessageSchema=z.object({id:z.uuid(),body:inquiryTextSchema,actor:inquiryPublicActorSchema,createdAt:z.iso.datetime(),visibility:z.literal("PUBLIC"),attachments:z.array(inquiryAttachmentSchema).max(10)}).strict();
-const inquiryInternalMessageSchema=z.object({id:z.uuid(),body:inquiryTextSchema,actor:inquiryInternalActorSchema,createdAt:z.iso.datetime(),visibility:z.enum(["PUBLIC","INTERNAL"]),attachments:z.array(inquiryAttachmentSchema).max(10)}).strict();
-const hotelInquiryPublicSchema=z.object({id:z.uuid(),hotelId:z.uuid(),categoryCode:hotelInquiryCategoryCodeSchema,categoryName:z.string().trim().min(1).max(100),title:z.string().trim().min(2).max(160),status:hotelInquiryStatusSchema,version:z.number().int().positive(),assignee:inquiryPublicActorSchema.nullable(),messages:z.array(inquiryPublicMessageSchema).max(1000),answeredAt:z.iso.datetime().nullable(),closedAt:z.iso.datetime().nullable(),reopenUntil:z.iso.datetime().nullable(),createdAt:z.iso.datetime(),updatedAt:z.iso.datetime()}).strict();
-export type HotelInquiryPublic=z.infer<typeof hotelInquiryPublicSchema>;
-const hotelInquiryInternalSchema=hotelInquiryPublicSchema.extend({assignee:inquiryInternalActorSchema.nullable(),messages:z.array(inquiryInternalMessageSchema).max(1000),statusHistory:z.array(z.object({id:z.uuid(),action:z.string().min(1).max(50),fromStatus:hotelInquiryStatusSchema.nullable(),toStatus:hotelInquiryStatusSchema,reason:z.string().min(2).max(500),actor:z.union([inquiryInternalActorSchema,inquiryPublicActorSchema]),createdAt:z.iso.datetime(),version:z.number().int().positive()}).strict()).max(1000)}).strict();
-export type HotelInquiry=z.infer<typeof hotelInquiryInternalSchema>;
-export const hotelInquiryOwnerResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiry:hotelInquiryPublicSchema}).strict(),error:z.null()}).strict();
-export const hotelInquiryInternalResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiry:hotelInquiryInternalSchema}).strict(),error:z.null()}).strict();
-export const hotelInquiryNotificationSchema=z.object({id:z.uuid(),inquiryId:z.uuid(),title:z.string().trim().min(2).max(160),eventCode:z.string().trim().min(1).max(100),createdAt:z.iso.datetime(),readAt:z.iso.datetime().nullable()}).strict();
-export type HotelInquiryNotification=z.infer<typeof hotelInquiryNotificationSchema>;
-export const hotelNotificationSourceSchema=z.enum(["INQUIRY","OPERATIONAL_ISSUE"]);
-export const hotelNotificationSchema=z.object({id:z.uuid(),source:hotelNotificationSourceSchema,hotelId:z.uuid(),title:z.string().trim().min(2).max(240),eventCode:z.string().trim().min(1).max(100),href:z.string().regex(/^\/hotels\/[0-9a-f-]{36}\/(?:inquiries|issues)(?:\?[A-Za-z]+Id=[0-9a-f-]{36})?$/u),createdAt:z.iso.datetime(),readAt:z.iso.datetime().nullable(),version:z.number().int().min(0).max(1)}).strict();
-export type HotelNotification=z.infer<typeof hotelNotificationSchema>;
-export const hotelNotificationListQuerySchema=z.object({limit:z.coerce.number().int().min(1).max(100).default(20)}).strict();
-export const hotelNotificationListResponseSchema=z.object({ok:z.literal(true),data:z.object({notifications:z.array(hotelNotificationSchema).max(100),unreadCount:z.number().int().nonnegative()}).strict(),error:z.null()}).strict();
-export const markHotelNotificationReadRequestSchema=z.object({version:z.number().int().min(0).max(1)}).strict();
-export const hotelNotificationResponseSchema=z.object({ok:z.literal(true),data:z.object({notification:hotelNotificationSchema}).strict(),error:z.null()}).strict();
-export const hotelNotificationRoutes={list:"/api/notifications",markRead:(notificationId:string)=>`/api/notifications/${notificationId}/read`} as const;
-export const hotelInquiryListResponseSchema=z.object({ok:z.literal(true),data:z.object({inquiries:z.array(hotelInquiryPublicSchema).max(100),notifications:z.array(hotelInquiryNotificationSchema).max(100),pagination:z.object({page:z.number().int().positive(),pageSize:z.number().int().positive(),total:z.number().int().nonnegative()}).strict()}).strict(),error:z.null()}).strict();
-export const hotelInquiryCapabilitiesResponseSchema=z.object({ok:z.literal(true),data:z.object({hotels:z.array(z.object({hotelId:z.uuid(),hotelName:z.string().trim().min(1).max(200),ownerView:z.boolean(),canRead:z.boolean(),canCreate:z.boolean(),canReply:z.boolean(),canAssign:z.boolean(),canManageSettings:z.boolean()}).strict()).max(1000)}).strict(),error:z.null()}).strict();
-export type HotelInquiryCapability=z.infer<typeof hotelInquiryCapabilitiesResponseSchema>["data"]["hotels"][number];
-export const hotelInquiryContactSchema=z.object({phone:z.string().trim().min(3).max(50),email:z.email(),operatingHours:z.string().trim().min(2).max(500),version:z.number().int().positive()}).strict();
-export const hotelInquiryContactResponseSchema=z.object({ok:z.literal(true),data:z.object({contact:hotelInquiryContactSchema}).strict(),error:z.null()}).strict();
-export const updateHotelInquiryContactRequestSchema=hotelInquiryContactSchema.omit({version:true}).extend({version:z.number().int().nonnegative()}).strict();
-export const updateHotelInquiryRouteRequestSchema=z.object({version:z.number().int().nonnegative(),groupId:z.uuid().nullable(),active:z.boolean()}).strict();
-export const hotelInquirySettingsResponseSchema=z.object({ok:z.literal(true),data:z.object({contact:hotelInquiryContactSchema.nullable(),routes:z.array(z.object({categoryCode:hotelInquiryCategoryCodeSchema,categoryName:z.string().trim().min(1).max(100),groupId:z.uuid().nullable(),groupName:z.string().trim().min(1).max(100).nullable(),active:z.boolean(),version:z.number().int().nonnegative()}).strict()).max(100),groups:z.array(z.object({id:z.uuid(),name:z.string().trim().min(1).max(100)}).strict()).max(1000)}).strict(),error:z.null()}).strict();
-const inquiryBasePath=(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiries` as const;
-export const hotelInquiryRoutes={capabilities:"/api/inquiries/capabilities" as const,contact:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-contact` as const,settings:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings` as const,settingsContact:(hotelId:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/contact` as const,settingsRoute:(hotelId:string,categoryCode:string)=>`/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/routes/${encodeURIComponent(categoryCode)}` as const,list:inquiryBasePath,create:inquiryBasePath,detail:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}` as const,messages:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/messages` as const,assign:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/assign` as const,transitions:(hotelId:string,inquiryId:string)=>`${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/transitions` as const} as const;
+export const createHotelInquiryRequestSchema = z
+  .object({
+    inquiryId: z.uuid(),
+    categoryCode: hotelInquiryCategoryCodeSchema,
+    title: z.string().trim().min(2).max(160),
+    body: inquiryTextSchema,
+  })
+  .strict();
+export const hotelInquiryMessageRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    body: inquiryTextSchema,
+    visibility: z.enum(["PUBLIC", "INTERNAL"]),
+    attachmentFileVersionIds: z.array(z.uuid()).max(10).default([]),
+  })
+  .strict();
+export const hotelInquiryAssignRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    assigneeUserId: z.uuid(),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
+export const hotelInquiryTransitionRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    action: z.enum([
+      "START_ANSWER",
+      "MARK_ANSWERED",
+      "REQUEST_SUPPLEMENT",
+      "CLOSE",
+      "REOPEN",
+    ]),
+    reason: z.string().trim().min(2).max(500),
+  })
+  .strict();
+export const hotelInquiryListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    status: hotelInquiryStatusSchema.optional(),
+    categoryCode: hotelInquiryCategoryCodeSchema.optional(),
+  })
+  .strict();
+const inquiryPublicActorSchema = z
+  .object({ displayName: z.string().trim().min(1).max(100) })
+  .strict();
+const inquiryInternalActorSchema = inquiryPublicActorSchema
+  .extend({ userId: z.uuid() })
+  .strict();
+const inquiryAttachmentSchema = z
+  .object({
+    fileVersionId: z.uuid(),
+    displayName: z.string().trim().min(1).max(180),
+  })
+  .strict();
+const inquiryPublicMessageSchema = z
+  .object({
+    id: z.uuid(),
+    body: inquiryTextSchema,
+    actor: inquiryPublicActorSchema,
+    createdAt: z.iso.datetime(),
+    visibility: z.literal("PUBLIC"),
+    attachments: z.array(inquiryAttachmentSchema).max(10),
+  })
+  .strict();
+const inquiryInternalMessageSchema = z
+  .object({
+    id: z.uuid(),
+    body: inquiryTextSchema,
+    actor: inquiryInternalActorSchema,
+    createdAt: z.iso.datetime(),
+    visibility: z.enum(["PUBLIC", "INTERNAL"]),
+    attachments: z.array(inquiryAttachmentSchema).max(10),
+  })
+  .strict();
+const hotelInquiryPublicSchema = z
+  .object({
+    id: z.uuid(),
+    hotelId: z.uuid(),
+    categoryCode: hotelInquiryCategoryCodeSchema,
+    categoryName: z.string().trim().min(1).max(100),
+    title: z.string().trim().min(2).max(160),
+    status: hotelInquiryStatusSchema,
+    version: z.number().int().positive(),
+    assignee: inquiryPublicActorSchema.nullable(),
+    messages: z.array(inquiryPublicMessageSchema).max(1000),
+    answeredAt: z.iso.datetime().nullable(),
+    closedAt: z.iso.datetime().nullable(),
+    reopenUntil: z.iso.datetime().nullable(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict();
+export type HotelInquiryPublic = z.infer<typeof hotelInquiryPublicSchema>;
+const hotelInquiryInternalSchema = hotelInquiryPublicSchema
+  .extend({
+    assignee: inquiryInternalActorSchema.nullable(),
+    messages: z.array(inquiryInternalMessageSchema).max(1000),
+    statusHistory: z
+      .array(
+        z
+          .object({
+            id: z.uuid(),
+            action: z.string().min(1).max(50),
+            fromStatus: hotelInquiryStatusSchema.nullable(),
+            toStatus: hotelInquiryStatusSchema,
+            reason: z.string().min(2).max(500),
+            actor: z.union([
+              inquiryInternalActorSchema,
+              inquiryPublicActorSchema,
+            ]),
+            createdAt: z.iso.datetime(),
+            version: z.number().int().positive(),
+          })
+          .strict(),
+      )
+      .max(1000),
+  })
+  .strict();
+export type HotelInquiry = z.infer<typeof hotelInquiryInternalSchema>;
+export const hotelInquiryOwnerResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ inquiry: hotelInquiryPublicSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const hotelInquiryInternalResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ inquiry: hotelInquiryInternalSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const hotelInquiryNotificationSchema = z
+  .object({
+    id: z.uuid(),
+    inquiryId: z.uuid(),
+    title: z.string().trim().min(2).max(160),
+    eventCode: z.string().trim().min(1).max(100),
+    createdAt: z.iso.datetime(),
+    readAt: z.iso.datetime().nullable(),
+  })
+  .strict();
+export type HotelInquiryNotification = z.infer<
+  typeof hotelInquiryNotificationSchema
+>;
+export const hotelNotificationSourceSchema = z.enum([
+  "INQUIRY",
+  "OPERATIONAL_ISSUE",
+]);
+export const hotelNotificationSchema = z
+  .object({
+    id: z.uuid(),
+    source: hotelNotificationSourceSchema,
+    hotelId: z.uuid(),
+    title: z.string().trim().min(2).max(240),
+    eventCode: z.string().trim().min(1).max(100),
+    href: z
+      .string()
+      .regex(
+        /^\/hotels\/[0-9a-f-]{36}\/(?:inquiries|issues)(?:\?[A-Za-z]+Id=[0-9a-f-]{36})?$/u,
+      ),
+    createdAt: z.iso.datetime(),
+    readAt: z.iso.datetime().nullable(),
+    version: z.number().int().min(0).max(1),
+  })
+  .strict();
+export type HotelNotification = z.infer<typeof hotelNotificationSchema>;
+export const hotelNotificationListQuerySchema = z
+  .object({ limit: z.coerce.number().int().min(1).max(100).default(20) })
+  .strict();
+export const hotelNotificationListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        notifications: z.array(hotelNotificationSchema).max(100),
+        unreadCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const markHotelNotificationReadRequestSchema = z
+  .object({ version: z.number().int().min(0).max(1) })
+  .strict();
+export const hotelNotificationResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ notification: hotelNotificationSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const hotelNotificationRoutes = {
+  list: "/api/notifications",
+  markRead: (notificationId: string) =>
+    `/api/notifications/${notificationId}/read`,
+} as const;
+export const hotelInquiryListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        inquiries: z.array(hotelInquiryPublicSchema).max(100),
+        notifications: z.array(hotelInquiryNotificationSchema).max(100),
+        pagination: z
+          .object({
+            page: z.number().int().positive(),
+            pageSize: z.number().int().positive(),
+            total: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const hotelInquiryCapabilitiesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        hotels: z
+          .array(
+            z
+              .object({
+                hotelId: z.uuid(),
+                hotelName: z.string().trim().min(1).max(200),
+                ownerView: z.boolean(),
+                canRead: z.boolean(),
+                canCreate: z.boolean(),
+                canReply: z.boolean(),
+                canAssign: z.boolean(),
+                canManageSettings: z.boolean(),
+              })
+              .strict(),
+          )
+          .max(1000),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export type HotelInquiryCapability = z.infer<
+  typeof hotelInquiryCapabilitiesResponseSchema
+>["data"]["hotels"][number];
+export const hotelInquiryContactSchema = z
+  .object({
+    phone: z.string().trim().min(3).max(50),
+    email: z.email(),
+    operatingHours: z.string().trim().min(2).max(500),
+    version: z.number().int().positive(),
+  })
+  .strict();
+export const hotelInquiryContactResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ contact: hotelInquiryContactSchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const updateHotelInquiryContactRequestSchema = hotelInquiryContactSchema
+  .omit({ version: true })
+  .extend({ version: z.number().int().nonnegative() })
+  .strict();
+export const updateHotelInquiryRouteRequestSchema = z
+  .object({
+    version: z.number().int().nonnegative(),
+    groupId: z.uuid().nullable(),
+    active: z.boolean(),
+  })
+  .strict();
+export const hotelInquirySettingsResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        contact: hotelInquiryContactSchema.nullable(),
+        routes: z
+          .array(
+            z
+              .object({
+                categoryCode: hotelInquiryCategoryCodeSchema,
+                categoryName: z.string().trim().min(1).max(100),
+                groupId: z.uuid().nullable(),
+                groupName: z.string().trim().min(1).max(100).nullable(),
+                active: z.boolean(),
+                version: z.number().int().nonnegative(),
+              })
+              .strict(),
+          )
+          .max(100),
+        groups: z
+          .array(
+            z
+              .object({ id: z.uuid(), name: z.string().trim().min(1).max(100) })
+              .strict(),
+          )
+          .max(1000),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const inquiryBasePath = (hotelId: string) =>
+  `/api/hotels/${encodeURIComponent(hotelId)}/inquiries` as const;
+export const hotelInquiryRoutes = {
+  capabilities: "/api/inquiries/capabilities" as const,
+  contact: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inquiry-contact` as const,
+  settings: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings` as const,
+  settingsContact: (hotelId: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/contact` as const,
+  settingsRoute: (hotelId: string, categoryCode: string) =>
+    `/api/hotels/${encodeURIComponent(hotelId)}/inquiry-settings/routes/${encodeURIComponent(categoryCode)}` as const,
+  list: inquiryBasePath,
+  create: inquiryBasePath,
+  detail: (hotelId: string, inquiryId: string) =>
+    `${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}` as const,
+  messages: (hotelId: string, inquiryId: string) =>
+    `${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/messages` as const,
+  assign: (hotelId: string, inquiryId: string) =>
+    `${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/assign` as const,
+  transitions: (hotelId: string, inquiryId: string) =>
+    `${inquiryBasePath(hotelId)}/${encodeURIComponent(inquiryId)}/transitions` as const,
+} as const;
 
 export const dailySalesStatusSchema = z.enum(["DRAFT", "LOCKED"]);
 export type DailySalesStatus = z.infer<typeof dailySalesStatusSchema>;
@@ -3955,4 +4269,402 @@ export const dailySalesRoutes = {
     `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}/confirm` as const,
   corrections: (hotelId: string, salesId: string) =>
     `${dailySalesBasePath(hotelId)}/${encodeURIComponent(salesId)}/corrections` as const,
+} as const;
+
+export const knowledgeScopeTypeSchema = z.enum(["COMPANY", "HOTEL"]);
+export type KnowledgeScopeType = z.infer<typeof knowledgeScopeTypeSchema>;
+export const knowledgeStatusSchema = z.enum([
+  "DRAFT",
+  "REVIEW_REQUESTED",
+  "PUBLISHED",
+  "NEEDS_REVIEW",
+  "ARCHIVED",
+]);
+export type KnowledgeStatus = z.infer<typeof knowledgeStatusSchema>;
+export const knowledgeTypeSchema = z.enum([
+  "DEFECT_REPAIR",
+  "FACILITY_MAINTENANCE",
+  "COMPLAINT_RESPONSE",
+  "ROOM_OPERATION",
+  "HOUSEKEEPING",
+  "SAFETY_CAUTION",
+  "CONTRACTOR",
+  "OTHER",
+]);
+export type KnowledgeType = z.infer<typeof knowledgeTypeSchema>;
+export const knowledgeRiskClassificationSchema = z.enum([
+  "STANDARD",
+  "SAFETY",
+  "LEGAL",
+  "PRIVACY",
+  "REFUND_COMPENSATION",
+]);
+export type KnowledgeRiskClassification = z.infer<
+  typeof knowledgeRiskClassificationSchema
+>;
+
+const knowledgeText = (minimum: number, maximum: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .min(minimum, { error: message })
+    .max(maximum, { error: message });
+const knowledgeStringList = (maximumItems: number, maximumLength: number) =>
+  z.array(z.string().trim().min(1).max(maximumLength)).max(maximumItems);
+const knowledgeUniqueUuidList = z
+  .array(z.uuid())
+  .max(50)
+  .refine((values) => new Set(values).size === values.length, {
+    error: "관련 자료는 중복 없이 선택해 주세요.",
+  });
+const knowledgeContentFields = {
+  scopeType: knowledgeScopeTypeSchema,
+  hotelId: z.uuid().nullable(),
+  title: knowledgeText(2, 160, "제목은 2~160자로 입력해 주세요."),
+  summary: knowledgeText(2, 500, "요약은 2~500자로 입력해 주세요."),
+  knowledgeType: knowledgeTypeSchema,
+  riskClassification: knowledgeRiskClassificationSchema,
+  situation: knowledgeText(2, 4000, "상황은 2~4000자로 입력해 주세요."),
+  symptomsAndContext: knowledgeText(
+    2,
+    4000,
+    "증상과 맥락은 2~4000자로 입력해 주세요.",
+  ),
+  checks: knowledgeStringList(30, 1000).min(1),
+  recommendedResponse: knowledgeStringList(30, 1000).min(1),
+  prohibitedOrCautionResponse: knowledgeStringList(30, 1000).min(1),
+  escalationCriteria: knowledgeText(
+    2,
+    3000,
+    "에스컬레이션 기준은 2~3000자로 입력해 주세요.",
+  ),
+  requiredPermissionOrApproval: knowledgeText(
+    2,
+    2000,
+    "필요 권한·승인은 2~2000자로 입력해 주세요.",
+  ),
+  caseSummary: z.string().trim().max(4000),
+  outcomeAndLesson: z.string().trim().max(4000),
+  tags: knowledgeStringList(20, 50),
+  relatedManualRefs: knowledgeStringList(20, 300),
+  relatedIssueIds: knowledgeUniqueUuidList,
+  relatedRepairIds: knowledgeUniqueUuidList,
+  designatedReviewerUserId: z.uuid().nullable(),
+  reviewDueAt: z.iso.datetime(),
+} as const;
+
+function validateKnowledgeScope(
+  value: { scopeType: KnowledgeScopeType; hotelId: string | null },
+  context: z.RefinementCtx,
+) {
+  if (
+    (value.scopeType === "COMPANY" && value.hotelId !== null) ||
+    (value.scopeType === "HOTEL" && value.hotelId === null)
+  )
+    context.addIssue({
+      code: "custom",
+      message: "회사 공통은 호텔을 비우고 호텔 전용은 호텔을 선택해 주세요.",
+      path: ["hotelId"],
+    });
+}
+
+export const createKnowledgeEntryRequestSchema = z
+  .object({ id: z.uuid(), ...knowledgeContentFields })
+  .strict()
+  .superRefine(validateKnowledgeScope);
+export type CreateKnowledgeEntryRequest = z.infer<
+  typeof createKnowledgeEntryRequestSchema
+>;
+export const updateKnowledgeEntryRequestSchema = z
+  .object({
+    ...knowledgeContentFields,
+    version: z.number().int().positive(),
+    reason: knowledgeText(2, 500, "변경 사유는 2~500자로 입력해 주세요."),
+  })
+  .strict()
+  .superRefine(validateKnowledgeScope);
+export type UpdateKnowledgeEntryRequest = z.infer<
+  typeof updateKnowledgeEntryRequestSchema
+>;
+export const knowledgeAttachmentLinkRequestSchema = z
+  .object({
+    version: z.number().int().positive(),
+    fileVersionIds: z.array(z.uuid()).max(10),
+    reason: knowledgeText(2, 500, "첨부 변경 사유는 2~500자로 입력해 주세요."),
+  })
+  .strict();
+export type KnowledgeAttachmentLinkRequest = z.infer<
+  typeof knowledgeAttachmentLinkRequestSchema
+>;
+export const knowledgeTransitionRequestSchema = z
+  .object({
+    action: z.enum([
+      "REQUEST_REVIEW",
+      "PUBLISH",
+      "MARK_NEEDS_REVIEW",
+      "REPUBLISH",
+      "ARCHIVE",
+    ]),
+    version: z.number().int().positive(),
+    reason: knowledgeText(2, 500, "처리 사유는 2~500자로 입력해 주세요."),
+  })
+  .strict();
+export type KnowledgeTransitionRequest = z.infer<
+  typeof knowledgeTransitionRequestSchema
+>;
+export const knowledgeFeedbackRequestSchema = z
+  .object({
+    kind: z.enum(["HELPFUL", "NOT_HELPFUL", "REPORT_ERROR"]),
+    version: z.number().int().positive(),
+    comment: z.string().trim().max(1000).nullable(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      value.kind === "REPORT_ERROR" &&
+      (!value.comment || value.comment.length < 2)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "오류·수정 신고 내용을 2자 이상 입력해 주세요.",
+        path: ["comment"],
+      });
+    if (value.kind !== "REPORT_ERROR" && value.comment !== null)
+      context.addIssue({
+        code: "custom",
+        message: "유용성 평가에는 별도 내용을 저장하지 않습니다.",
+        path: ["comment"],
+      });
+  });
+export type KnowledgeFeedbackRequest = z.infer<
+  typeof knowledgeFeedbackRequestSchema
+>;
+
+const knowledgeActorSchema = z
+  .object({ displayName: z.string().trim().min(1).max(200) })
+  .strict();
+const knowledgeHistorySchema = z
+  .object({
+    version: z.number().int().positive(),
+    action: z.string().trim().min(1).max(40),
+    status: knowledgeStatusSchema,
+    reason: z.string().trim().min(1).max(500),
+    actor: knowledgeActorSchema,
+    occurredAt: z.iso.datetime(),
+  })
+  .strict();
+const knowledgeLinkSchema = z
+  .object({
+    kind: z.enum(["ISSUE", "REPAIR"]),
+    id: z.uuid(),
+    title: z.string().trim().min(1).max(200),
+    href: z.string().regex(/^\/hotels\/[0-9a-f-]+\/(?:issues|repairs)\?/u),
+  })
+  .strict();
+const knowledgeAttachmentSchema = z
+  .object({
+    fileVersionId: z.uuid(),
+    displayName: z.string().trim().min(1).max(180),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/heic"]),
+    sizeBytes: z.number().int().positive().max(20 * 1024 * 1024),
+    viewHref: z
+      .string()
+      .regex(/^\/api\/knowledge\/[0-9a-f-]+\/files\/[0-9a-f-]+\/view$/u),
+  })
+  .strict();
+const knowledgeEntryActionsSchema = z
+  .object({
+    canEdit: z.boolean(),
+    canRequestReview: z.boolean(),
+    canPublish: z.boolean(),
+    canMarkNeedsReview: z.boolean(),
+    canArchive: z.boolean(),
+    canAttach: z.boolean(),
+  })
+  .strict();
+export const knowledgeEntrySchema = z
+  .object({
+    id: z.uuid(),
+    ...knowledgeContentFields,
+    status: knowledgeStatusSchema,
+    author: knowledgeActorSchema,
+    reviewer: knowledgeActorSchema.nullable(),
+    designatedReviewer: knowledgeActorSchema.nullable(),
+    reviewRequestedVersion: z.number().int().positive().nullable(),
+    publishedAt: z.iso.datetime().nullable(),
+    reviewedAt: z.iso.datetime().nullable(),
+    version: z.number().int().positive(),
+    createdAt: z.iso.datetime(),
+    updatedAt: z.iso.datetime(),
+    isStale: z.boolean(),
+    helpfulCount: z.number().int().nonnegative(),
+    notHelpfulCount: z.number().int().nonnegative(),
+    history: z.array(knowledgeHistorySchema).max(200),
+    links: z.array(knowledgeLinkSchema).max(100),
+    attachments: z.array(knowledgeAttachmentSchema).max(10).default([]),
+    actions: knowledgeEntryActionsSchema,
+  })
+  .strict();
+export type KnowledgeEntry = z.infer<typeof knowledgeEntrySchema>;
+export const knowledgeSummarySchema = z
+  .object({
+    id: z.uuid(),
+    scopeType: knowledgeScopeTypeSchema,
+    hotelId: z.uuid().nullable(),
+    hotelName: z.string().trim().min(1).max(200).nullable(),
+    title: z.string().trim().min(2).max(160),
+    summary: z.string().trim().min(2).max(500),
+    knowledgeType: knowledgeTypeSchema,
+    riskClassification: knowledgeRiskClassificationSchema,
+    tags: z.array(z.string().trim().min(1).max(50)).max(20),
+    status: knowledgeStatusSchema,
+    version: z.number().int().positive(),
+    updatedAt: z.iso.datetime(),
+    isStale: z.boolean(),
+  })
+  .strict();
+export type KnowledgeSummary = z.infer<typeof knowledgeSummarySchema>;
+export const knowledgeEntryResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z.object({ entry: knowledgeEntrySchema }).strict(),
+    error: z.null(),
+  })
+  .strict();
+export const knowledgeListQuerySchema = z
+  .object({
+    search: z.string().trim().max(200).optional().default(""),
+    scopeType: knowledgeScopeTypeSchema.optional(),
+    hotelId: z.uuid().optional(),
+    knowledgeType: knowledgeTypeSchema.optional(),
+    status: knowledgeStatusSchema.optional(),
+    reviewedBefore: z.iso.datetime().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .strict();
+export type KnowledgeListQuery = z.infer<typeof knowledgeListQuerySchema>;
+export const knowledgeListResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        entries: z.array(knowledgeSummarySchema).max(100),
+        page: z.number().int().positive(),
+        pageSize: z.number().int().positive(),
+        totalCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+const knowledgeScopeCapabilitiesSchema = z
+  .object({
+    canRead: z.boolean(),
+    canCreate: z.boolean(),
+    canReview: z.boolean(),
+    canPublish: z.boolean(),
+    canHighRiskPublish: z.boolean(),
+    canArchive: z.boolean(),
+  })
+  .strict();
+export const knowledgeCapabilitiesSchema = z
+  .object({
+    canRead: z.boolean(),
+    canCreate: z.boolean(),
+    canReview: z.boolean(),
+    canPublish: z.boolean(),
+    canArchive: z.boolean(),
+    company: knowledgeScopeCapabilitiesSchema,
+    hotels: z
+      .array(
+        z
+          .object({
+            hotelId: z.uuid(),
+            hotelName: z.string().trim().min(1).max(200),
+            permissions: knowledgeScopeCapabilitiesSchema,
+          })
+          .strict(),
+      )
+      .max(1000),
+  })
+  .strict();
+export type KnowledgeCapabilities = z.infer<typeof knowledgeCapabilitiesSchema>;
+export const knowledgeReviewerCandidatesQuerySchema = z
+  .object({
+    scopeType: knowledgeScopeTypeSchema,
+    hotelId: z.uuid().optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.scopeType === "COMPANY" && value.hotelId !== undefined) ||
+      (value.scopeType === "HOTEL" && value.hotelId === undefined)
+    )
+      context.addIssue({
+        code: "custom",
+        message: "회사 공통은 호텔을 비우고 호텔 전용은 호텔을 선택해 주세요.",
+        path: ["hotelId"],
+      });
+  });
+export const knowledgeReviewerCandidateSchema = z
+  .object({
+    userId: z.uuid(),
+    displayName: z.string().trim().min(1).max(200),
+  })
+  .strict();
+export type KnowledgeReviewerCandidate = z.infer<
+  typeof knowledgeReviewerCandidateSchema
+>;
+export const knowledgeReviewerCandidatesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({ candidates: z.array(knowledgeReviewerCandidateSchema).max(1000) })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const knowledgeCapabilitiesResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: knowledgeCapabilitiesSchema,
+    error: z.null(),
+  })
+  .strict();
+export const knowledgeFeedbackResponseSchema = z
+  .object({
+    ok: z.literal(true),
+    data: z
+      .object({
+        helpfulCount: z.number().int().nonnegative(),
+        notHelpfulCount: z.number().int().nonnegative(),
+      })
+      .strict(),
+    error: z.null(),
+  })
+  .strict();
+export const knowledgeRoutes = {
+  list: "/api/knowledge" as const,
+  create: "/api/knowledge" as const,
+  reviewerCandidates: "/api/knowledge/reviewer-candidates" as const,
+  capabilities: "/api/knowledge/capabilities" as const,
+  detail: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}` as const,
+  update: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}` as const,
+  transitions: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/transitions` as const,
+  feedback: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/feedback` as const,
+  links: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/links` as const,
+  uploadInit: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/files/upload-init` as const,
+  attachments: (knowledgeId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/attachments` as const,
+  uploadStatus: (knowledgeId: string, uploadId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/files/uploads/${encodeURIComponent(uploadId)}/status` as const,
+  attachmentView: (knowledgeId: string, fileVersionId: string) =>
+    `/api/knowledge/${encodeURIComponent(knowledgeId)}/files/${encodeURIComponent(fileVersionId)}/view` as const,
 } as const;
