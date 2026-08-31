@@ -45,19 +45,10 @@ describe("hosted Preview knowledge smoke", () => {
       execFileSync(process.execPath, ["--check", smokePath], { stdio: "pipe" }),
     ).not.toThrow();
     expect(() =>
-      execFileSync(
-        "pnpm",
-        [
-          "exec",
-          "eslint",
-          smokePath,
-          "--rule",
-          "no-unsafe-finally: off",
-          "--rule",
-          "no-undef: error",
-        ],
-        { cwd: repositoryRoot, stdio: "pipe" },
-      ),
+      execFileSync("pnpm", ["exec", "eslint", smokePath], {
+        cwd: repositoryRoot,
+        stdio: "pipe",
+      }),
     ).not.toThrow();
     expect(source).toContain("auth_create_session_v2");
     expect(source).toContain("bootstrapCredential");
@@ -69,6 +60,8 @@ describe("hosted Preview knowledge smoke", () => {
     expect(source).toContain("public.user_role_memberships");
     expect(source).toContain("public.user_group_memberships");
     expect(source).toContain("AUTHORITY_STILL_PRESENT");
+    expect(source).toContain("cleanupFixtureAuthority(cleanupFixtureUserIds)");
+    expect(source).toContain("revokeAndVerifySession(tokenHash)");
     expect(source).toContain("KNOWLEDGE_SELF_PUBLISH_DENIED");
     expect(source).toContain("KNOWLEDGE_HIGH_RISK_PUBLISH");
     for (const action of [

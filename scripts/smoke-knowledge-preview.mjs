@@ -643,6 +643,51 @@ async function verifyUi(viewport, label) {
   await context.close();
 }
 
+async function cleanupFixtureAuthority(cleanupFixtureUserIds) {
+  await ownerSql.begin(async (tx) => {
+    await tx`delete from public.permission_grants
+      where company_id=${bootstrapPrincipal.company_id}::uuid
+        and subject_type='USER' and subject_id=any(${cleanupFixtureUserIds}::uuid[])`;
+    await tx`delete from public.user_role_memberships
+      where company_id=${bootstrapPrincipal.company_id}::uuid and user_id=any(${cleanupFixtureUserIds}::uuid[])`;
+    await tx`delete from public.user_group_memberships
+      where company_id=${bootstrapPrincipal.company_id}::uuid and user_id=any(${cleanupFixtureUserIds}::uuid[])`;
+  });
+  const [remainingAuthority] = await ownerSql`
+    select
+      (select count(*)::int from public.permission_grants
+        where company_id=${bootstrapPrincipal.company_id}::uuid and subject_type='USER'
+          and subject_id=any(${cleanupFixtureUserIds}::uuid[])) as grant_count,
+      (select count(*)::int from public.user_role_memberships
+        where company_id=${bootstrapPrincipal.company_id}::uuid
+          and user_id=any(${cleanupFixtureUserIds}::uuid[])) as role_count,
+      (select count(*)::int from public.user_group_memberships
+        where company_id=${bootstrapPrincipal.company_id}::uuid
+          and user_id=any(${cleanupFixtureUserIds}::uuid[])) as group_count`;
+  if (
+    remainingAuthority?.grant_count !== 0 ||
+    remainingAuthority?.role_count !== 0 ||
+    remainingAuthority?.group_count !== 0
+  )
+    throw new Error("AUTHORITY_STILL_PRESENT");
+}
+async function revokeAndVerifySession(tokenHash) {
+  const [before] = await ownerSql`
+    select count(*)::int as active_count from public.auth_sessions
+     where token_hash=${tokenHash} and revoked_at is null`;
+  if (before?.active_count === 1) {
+    const [revoked] = await sql`
+      select public.auth_revoke_session_v2(${tokenHash},'Preview 지식 smoke cleanup',${randomUUID()}::uuid) as revoked`;
+    if (revoked?.revoked !== true) throw new Error("SESSION_REVOKE_FALSE");
+  } else if (before?.active_count !== 0) {
+    throw new Error("SESSION_CARDINALITY_INVALID");
+  }
+  const [after] = await ownerSql`
+    select count(*)::int as active_count from public.auth_sessions
+     where token_hash=${tokenHash} and revoked_at is null`;
+  if (after?.active_count !== 0) throw new Error("SESSION_STILL_ACTIVE");
+}
+
 try {
   sessionHashes.push(bootstrapCredential.tokenHash);
   const bootstrapSessions =
@@ -1372,32 +1417,7 @@ try {
   ].filter(Boolean);
   if (cleanupFixtureUserIds.length) {
     try {
-      await ownerSql.begin(async (tx) => {
-        await tx`delete from public.permission_grants
-          where company_id=${bootstrapPrincipal.company_id}::uuid
-            and subject_type='USER' and subject_id=any(${cleanupFixtureUserIds}::uuid[])`;
-        await tx`delete from public.user_role_memberships
-          where company_id=${bootstrapPrincipal.company_id}::uuid and user_id=any(${cleanupFixtureUserIds}::uuid[])`;
-        await tx`delete from public.user_group_memberships
-          where company_id=${bootstrapPrincipal.company_id}::uuid and user_id=any(${cleanupFixtureUserIds}::uuid[])`;
-      });
-      const [remainingAuthority] = await ownerSql`
-        select
-          (select count(*)::int from public.permission_grants
-            where company_id=${bootstrapPrincipal.company_id}::uuid and subject_type='USER'
-              and subject_id=any(${cleanupFixtureUserIds}::uuid[])) as grant_count,
-          (select count(*)::int from public.user_role_memberships
-            where company_id=${bootstrapPrincipal.company_id}::uuid
-              and user_id=any(${cleanupFixtureUserIds}::uuid[])) as role_count,
-          (select count(*)::int from public.user_group_memberships
-            where company_id=${bootstrapPrincipal.company_id}::uuid
-              and user_id=any(${cleanupFixtureUserIds}::uuid[])) as group_count`;
-      if (
-        remainingAuthority?.grant_count !== 0 ||
-        remainingAuthority?.role_count !== 0 ||
-        remainingAuthority?.group_count !== 0
-      )
-        throw new Error("AUTHORITY_STILL_PRESENT");
+      await cleanupFixtureAuthority(cleanupFixtureUserIds);
     } catch {
       console.error("PREVIEW_KNOWLEDGE_CLEANUP_GRANTS_FAILED");
       process.exitCode = 1;
@@ -1405,20 +1425,7 @@ try {
   }
   for (const tokenHash of sessionHashes) {
     try {
-      const [before] = await ownerSql`
-        select count(*)::int as active_count from public.auth_sessions
-         where token_hash=${tokenHash} and revoked_at is null`;
-      if (before?.active_count === 1) {
-        const [revoked] = await sql`
-          select public.auth_revoke_session_v2(${tokenHash},'Preview 지식 smoke cleanup',${randomUUID()}::uuid) as revoked`;
-        if (revoked?.revoked !== true) throw new Error("SESSION_REVOKE_FALSE");
-      } else if (before?.active_count !== 0) {
-        throw new Error("SESSION_CARDINALITY_INVALID");
-      }
-      const [after] = await ownerSql`
-        select count(*)::int as active_count from public.auth_sessions
-         where token_hash=${tokenHash} and revoked_at is null`;
-      if (after?.active_count !== 0) throw new Error("SESSION_STILL_ACTIVE");
+      await revokeAndVerifySession(tokenHash);
     } catch {
       console.error("PREVIEW_KNOWLEDGE_CLEANUP_SESSION_FAILED");
       process.exitCode = 1;
