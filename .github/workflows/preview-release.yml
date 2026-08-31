@@ -1297,6 +1297,33 @@ jobs:
           grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-smoke.log
           printf 'PREVIEW_COMMON_NOTIFICATIONS_SMOKE_OK\n'
 
+      - name: Verify hosted Preview knowledge lifecycle, search, private attachments, and responsive UI before contract
+        id: knowledge_smoke
+        env:
+          KNOWLEDGE_DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
+          KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          trap 'rm -f "$smoke_log"' EXIT
+          set +e
+          DATABASE_URL_PREVIEW="$KNOWLEDGE_DATABASE_URL_PREVIEW" \
+            PREVIEW_FILE_SCANNER_AGENT_TOKEN="$KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN" \
+            ZITADEL_PREVIEW_SUBJECT="$KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT" \
+            KNOWLEDGE_SMOKE_PHASE=PRE_CONTRACT \
+            pnpm exec tsx scripts/smoke-knowledge-preview.mjs >"$smoke_log" 2>&1
+          smoke_status=$?
+          set -e
+          unset KNOWLEDGE_DATABASE_URL_PREVIEW KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT
+          grep -E '^PREVIEW_KNOWLEDGE_[A-Z0-9_]+$' "$smoke_log" || true
+          (( smoke_status == 0 ))
+          grep -qx 'PREVIEW_KNOWLEDGE_API_DB_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_ISOLATION_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_PRIVATE_FILE_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_UI_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_PRE_CONTRACT_SMOKE_OK' "$smoke_log"
+
       - name: Verify hosted Preview Console credential and callback before contract
         id: console_credential_callback_smoke
         env:
@@ -1420,6 +1447,33 @@ jobs:
           grep -qx 'PREVIEW_OPERATIONAL_ISSUE_NOTIFICATION_SMOKE_OK' /tmp/preview-operational-issues-post-contract-smoke.log
           printf 'PREVIEW_COMMON_NOTIFICATIONS_POST_CONTRACT_SMOKE_OK\n'
           grep -qx 'PREVIEW_OWNER_INQUIRY_POST_CONTRACT_SMOKE_OK' /tmp/preview-owner-inquiry-post-contract-smoke.log
+
+      - name: Verify hosted Preview knowledge lifecycle, search, private attachments, and responsive UI after contract
+        id: knowledge_post_contract_smoke
+        env:
+          KNOWLEDGE_DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}
+          KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          trap 'rm -f "$smoke_log"' EXIT
+          set +e
+          DATABASE_URL_PREVIEW="$KNOWLEDGE_DATABASE_URL_PREVIEW" \
+            PREVIEW_FILE_SCANNER_AGENT_TOKEN="$KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN" \
+            ZITADEL_PREVIEW_SUBJECT="$KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT" \
+            KNOWLEDGE_SMOKE_PHASE=POST_CONTRACT \
+            pnpm exec tsx scripts/smoke-knowledge-preview.mjs >"$smoke_log" 2>&1
+          smoke_status=$?
+          set -e
+          unset KNOWLEDGE_DATABASE_URL_PREVIEW KNOWLEDGE_FILE_SCANNER_AGENT_TOKEN KNOWLEDGE_ZITADEL_PREVIEW_SUBJECT
+          grep -E '^PREVIEW_KNOWLEDGE_[A-Z0-9_]+$' "$smoke_log" || true
+          (( smoke_status == 0 ))
+          grep -qx 'PREVIEW_KNOWLEDGE_API_DB_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_ISOLATION_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_PRIVATE_FILE_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_UI_SMOKE_OK' "$smoke_log"
+          grep -qx 'PREVIEW_KNOWLEDGE_POST_CONTRACT_SMOKE_OK' "$smoke_log"
 
       - name: Verify hosted Preview own Calendar mutation after contract
         env:
