@@ -59,3 +59,7 @@
 - 타 회사·타 호텔·미배정·explicit DENY 제목/건수/태그/링크 은닉
 - PC·390px·키보드·Axe
 - Preview 저장→검색→상세→상태전이→재조회
+- Preview release는 EXPAND Worker 배포 뒤와 CONTRACT 뒤에 각각 별도 canary를 생성해 company+hotel에서 유도된 전용 작성자·지정 검토자·타 호텔 격리 actor, 고위험 게시, 자체 게시 차단, 전체 lifecycle, full-token·field-isolated 한글 부분 Hybrid 검색, ordered immutable version·actor·attachment snapshot·audit·archive read-back을 같은 hosted API와 canonical PostgreSQL에서 검증한다. bootstrap principal은 scope discovery와 fixture grantor에만 사용하고 업무권한을 부여하지 않는다.
+- 두 phase 모두 private R2 body PUT→complete→ClamAV CLEAN→attachment-link commit 뒤 response 소비 전 rejection→동일 key/body replay→same-origin view를 실행한다. 회사·호텔 각각 attachment/version/성공 audit/completed receipt가 exact 1건인지 확인하고, 모든 JSON projection에서 bucket·object key/version·ETag·provider URL·scanner internals를 차단하며 `KNOWLEDGE_READ`와 `HOTEL_FILE_READ`가 분리돼 file-read 미보유 검토자에게 attachment projection과 body가 은닉되는지 확인한다.
+- hosted UI는 story route가 아니라 실제 `/knowledge`를 PC 1440px와 모바일 390px에서 열어 검색 결과·키보드 focus·가로 overflow·Axe를 검증한다. smoke는 고정 code/marker만 출력하고 DB URL·session token·파일명·object key·ETag·본문을 출력하지 않는다.
+- canary 업무 레코드·immutable version·audit은 삭제하지 않고 보관 상태로 남긴다. 전용 fixture의 기존 direct grant·role/group membership은 시작 시 제거하고 의도한 subject/scope/permission/effect matrix만 authoritative read-back하며, finally에서 fixture authority 전체 absence와 생성 시도한 opaque session의 revoke 결과·absence를 확인한다. absolute upload URL은 exact same-origin이 아니면 cookie·body 전송 전에 차단한다.
