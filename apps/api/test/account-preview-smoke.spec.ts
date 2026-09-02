@@ -1,7 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
-import { errors as playwrightErrors } from "@playwright/test";
+import { chromium, errors as playwrightErrors } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
 import * as cleanupHelpers from "../../../scripts/lib/preview-account-smoke-cleanup.mjs";
@@ -323,6 +323,22 @@ describe("hosted Preview account-management smoke", () => {
     });
     expect(unavailableHeading.calls()).toBe(3);
 
+    const hotelErrorBoundary = createPage({
+      outcomes: ["hotel-error", "ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: hotelErrorBoundary,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
+    });
+    expect(hotelErrorBoundary.calls()).toBe(1);
+
     const classified = createPage({
       diagnostics: {
         code: "FORBIDDEN",
@@ -466,6 +482,70 @@ describe("hosted Preview account-management smoke", () => {
         "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
     });
     expect(inconsistentRoomPagination.calls()).toBe(1);
+  });
+
+  it("classifies the real hotel error-boundary DOM on the first navigation", async () => {
+    const baseUrl = "https://preview.example.test";
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const targetUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+    const browser = await chromium.launch({ headless: true });
+    let navigations = 0;
+    try {
+      const page = await browser.newPage();
+      await page.route(targetUrl, async (route) => {
+        navigations += 1;
+        await route.fulfill({
+          body: `<!doctype html><html lang="ko"><body><section role="alert"><h1>호텔 화면을 불러오지 못했습니다</h1></section></body></html>`,
+          contentType: "text/html; charset=utf-8",
+          status: 200,
+        });
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 2_000,
+          hotelId,
+          navigationTimeoutMs: 5_000,
+          page,
+        }),
+      ).rejects.toMatchObject({
+        previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
+      });
+      expect(navigations).toBe(1);
+    } finally {
+      await browser.close();
+    }
+  });
+
+  it("accepts the real inspection settings heading on the first navigation", async () => {
+    const baseUrl = "https://preview.example.test";
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const targetUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+    const browser = await chromium.launch({ headless: true });
+    let navigations = 0;
+    try {
+      const page = await browser.newPage();
+      await page.route(targetUrl, async (route) => {
+        navigations += 1;
+        await route.fulfill({
+          body: `<!doctype html><html lang="ko"><body><main><h1>점검 설정</h1></main></body></html>`,
+          contentType: "text/html; charset=utf-8",
+          status: 200,
+        });
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 2_000,
+          hotelId,
+          navigationTimeoutMs: 5_000,
+          page,
+        }),
+      ).resolves.toBeUndefined();
+      expect(navigations).toBe(1);
+    } finally {
+      await browser.close();
+    }
   });
 
   it("establishes canonical staff scope before the hosted checklist journey", () => {
@@ -727,6 +807,7 @@ describe("hosted Preview account-management smoke", () => {
   it("preserves only validated inspection loader diagnostics after cleanup", async () => {
     for (const safeCode of [
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+      "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
