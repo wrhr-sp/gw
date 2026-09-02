@@ -37,10 +37,23 @@ const navigationHelperUrl = new URL(
   "../../../scripts/lib/preview-account-smoke-navigation.mjs",
   import.meta.url,
 );
+const inspectionSettingsPageUrl = new URL(
+  "../../../apps/web/app/hotels/[hotelId]/inspections/settings/page.tsx",
+  import.meta.url,
+);
+const serverInspectionsUrl = new URL(
+  "../../../apps/web/lib/server-inspections.ts",
+  import.meta.url,
+);
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
 const helperSource = readFileSync(cleanupHelperUrl, "utf8");
 const navigationSource = readFileSync(navigationHelperUrl, "utf8");
+const inspectionSettingsPageSource = readFileSync(
+  inspectionSettingsPageUrl,
+  "utf8",
+);
+const serverInspectionsSource = readFileSync(serverInspectionsUrl, "utf8");
 
 describe("hosted Preview account-management smoke", () => {
   it("is valid executable JavaScript", () => {
@@ -57,6 +70,7 @@ describe("hosted Preview account-management smoke", () => {
     const createPage = ({
       afterBackoffUrls,
       afterWaitUrls,
+      diagnostics,
       gotoErrors,
       jsonValueErrors,
       outcomes,
@@ -65,6 +79,7 @@ describe("hosted Preview account-management smoke", () => {
     }: {
       afterBackoffUrls?: string[];
       afterWaitUrls?: string[];
+      diagnostics?: { code: string; stage: string; status: string };
       gotoErrors?: Array<Error | null>;
       jsonValueErrors?: Array<Error | null>;
       outcomes: Array<string | null>;
@@ -81,6 +96,16 @@ describe("hosted Preview account-management smoke", () => {
           const gotoError = gotoErrors?.[attempt - 1];
           if (gotoError) throw gotoError;
         },
+        locator: () => ({
+          getAttribute: async (name: string) =>
+            name === "data-error-stage"
+              ? (diagnostics?.stage ?? null)
+              : name === "data-error-status"
+                ? (diagnostics?.status ?? null)
+                : name === "data-error-code"
+                  ? (diagnostics?.code ?? null)
+                  : null,
+        }),
         url: () => currentUrl,
         waitForFunction: async () => {
           currentUrl = afterWaitUrls?.[attempt - 1] ?? currentUrl;
@@ -100,7 +125,14 @@ describe("hosted Preview account-management smoke", () => {
       };
     };
 
-    const transient = createPage({ outcomes: ["failure", "ready"] });
+    const transient = createPage({
+      diagnostics: {
+        code: "INTERNAL_ERROR",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "503",
+      },
+      outcomes: ["failure", "ready"],
+    });
     await navigateInspectionSettings({
       baseUrl,
       headingTimeoutMs: 1,
@@ -150,6 +182,11 @@ describe("hosted Preview account-management smoke", () => {
 
     const boundaryDuringBackoff = createPage({
       afterBackoffUrls: [`${baseUrl}/login`],
+      diagnostics: {
+        code: "INTERNAL_ERROR",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "503",
+      },
       outcomes: ["failure"],
     });
     await expect(
@@ -234,7 +271,151 @@ describe("hosted Preview account-management smoke", () => {
         page: terminal,
       }),
     ).rejects.toThrow("Hosted checklist UI server render failed");
-    expect(terminal.calls()).toBe(3);
+    expect(terminal.calls()).toBe(1);
+
+    const classified = createPage({
+      diagnostics: {
+        code: "FORBIDDEN",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "403",
+      },
+      outcomes: ["failure", "ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: classified,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode:
+        "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",
+    });
+    expect(classified.calls()).toBe(1);
+
+    const persistentServerFailure = createPage({
+      diagnostics: {
+        code: "INTERNAL_ERROR",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "503",
+      },
+      outcomes: ["failure", "failure", "failure"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: persistentServerFailure,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode:
+        "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_503_INTERNAL_ERROR",
+    });
+    expect(persistentServerFailure.calls()).toBe(3);
+
+    const unknownCode = createPage({
+      diagnostics: {
+        code: "NOT_A_REAL_API_CODE",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "503",
+      },
+      outcomes: ["failure", "ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: unknownCode,
+      }),
+    ).rejects.toEqual(
+      new Error("Hosted checklist UI server render failed"),
+    );
+    expect(unknownCode.calls()).toBe(1);
+
+    for (const diagnostics of [
+      {
+        code: "FORBIDDEN",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "503",
+      },
+      {
+        code: "AUTHENTICATION_REQUIRED",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "500",
+      },
+      {
+        code: "INTERNAL_ERROR",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "409",
+      },
+      {
+        code: "INTERNAL_ERROR",
+        stage: "CONFIGURATION_DEFINITIONS",
+        status: "502",
+      },
+    ]) {
+      const mismatchedPair = createPage({
+        diagnostics,
+        outcomes: ["failure", "ready"],
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: mismatchedPair,
+        }),
+      ).rejects.toEqual(
+        new Error("Hosted checklist UI server render failed"),
+      );
+      expect(mismatchedPair.calls()).toBe(1);
+    }
+
+    const malformedRoomResponse = createPage({
+      diagnostics: {
+        code: "INTERNAL_ERROR",
+        stage: "ROOMS",
+        status: "502",
+      },
+      outcomes: ["failure", "ready"],
+    });
+    await navigateInspectionSettings({
+      baseUrl,
+      headingTimeoutMs: 1,
+      hotelId,
+      navigationTimeoutMs: 1,
+      page: malformedRoomResponse,
+    });
+    expect(malformedRoomResponse.calls()).toBe(2);
+
+    const inconsistentRoomPagination = createPage({
+      diagnostics: {
+        code: "INTERNAL_ERROR",
+        stage: "ROOMS",
+        status: "409",
+      },
+      outcomes: ["failure", "ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: inconsistentRoomPagination,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode:
+        "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
+    });
+    expect(inconsistentRoomPagination.calls()).toBe(1);
   });
 
   it("establishes canonical staff scope before the hosted checklist journey", () => {
@@ -272,6 +453,13 @@ describe("hosted Preview account-management smoke", () => {
       "for (let attempt = 1; attempt <= 3; attempt += 1)",
     );
     expect(navigationSource).toContain("점검 설정을 불러오지 못했습니다");
+    expect(navigationSource).toContain('getAttribute("data-error-stage")');
+    expect(inspectionSettingsPageSource).toContain("data-error-stage={stage}");
+    expect(inspectionSettingsPageSource).toContain(
+      "stage={`CONFIGURATION_${configuration.stage}`}",
+    );
+    expect(serverInspectionsSource).toContain('stage: "DEFINITIONS"');
+    expect(helperSource).toContain("INSPECTION_CHECKLIST_V2_UI_SERVER_");
     expect(source).toContain("{ waitUntil: \"domcontentloaded\", timeout: hostedUiTimeoutMs }");
     expect(source).toContain("{ timeout: hostedUiTimeoutMs }");
     expect(source).toContain("expectedStatuses: [200, 404]");
@@ -483,6 +671,47 @@ describe("hosted Preview account-management smoke", () => {
           writeSuccess: () => undefined,
         }),
       ).rejects.toThrow(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${failureCode}`);
+    }
+  });
+
+  it("preserves only validated inspection loader diagnostics after cleanup", async () => {
+    for (const safeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_502_INTERNAL_ERROR",
+    ]) {
+      await expect(
+        finalizePreviewSmoke({
+          cleanupReference: "safe-ref",
+          cleanupFailed: false,
+          close: async () => undefined,
+          journeyError: new Error("private runtime detail"),
+          journeyFailureCode: safeCode,
+          writeSuccess: () => undefined,
+        }),
+      ).rejects.toThrow(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${safeCode}`);
+    }
+
+    for (const unsafeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_SECRETS_403_FORBIDDEN",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_200_OK",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_503_BAD-CODE",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_503_NOT_A_REAL_API_CODE",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_503_FORBIDDEN",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_500_AUTHENTICATION_REQUIRED",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_409_INTERNAL_ERROR",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_502_INTERNAL_ERROR",
+    ]) {
+      await expect(
+        finalizePreviewSmoke({
+          cleanupReference: "safe-ref",
+          cleanupFailed: false,
+          close: async () => undefined,
+          journeyError: new Error("private runtime detail"),
+          journeyFailureCode: unsafeCode,
+          writeSuccess: () => undefined,
+        }),
+      ).rejects.toThrow("PREVIEW_ACCOUNT_JOURNEY_FAILED_UNCLASSIFIED");
     }
   });
 

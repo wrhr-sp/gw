@@ -4,10 +4,23 @@ import { fetchInspectionConfiguration } from "../../../../../lib/server-inspecti
 import { fetchAllFacilityInspectionData } from "../../../../../lib/server-facilities";
 import { fetchAllRoomInspectionData } from "../../../../../lib/server-rooms";
 
-function Failure({ message }: { message: string }) {
+function Failure({
+  code,
+  message,
+  stage,
+  status,
+}: {
+  code: string;
+  message: string;
+  stage: string;
+  status: number;
+}) {
   return (
     <section
       className="rounded-panel border border-border bg-surface p-6"
+      data-error-code={code}
+      data-error-stage={stage}
+      data-error-status={status}
       role="alert"
     >
       <h1 className="text-lg font-semibold">점검 설정을 불러오지 못했습니다</h1>
@@ -29,10 +42,33 @@ export default async function InspectionSettingsPage({
   ]);
   if (!configuration.ok && configuration.code === "RESOURCE_NOT_FOUND")
     notFound();
-  if (!configuration.ok) return <Failure message={configuration.message} />;
-  if (!roomData.ok) return <Failure message={roomData.error.message} />;
+  if (!configuration.ok)
+    return (
+      <Failure
+        code={configuration.code}
+        message={configuration.message}
+        stage={`CONFIGURATION_${configuration.stage}`}
+        status={configuration.status}
+      />
+    );
+  if (!roomData.ok)
+    return (
+      <Failure
+        code={roomData.error.code}
+        message={roomData.error.message}
+        stage="ROOMS"
+        status={roomData.error.status}
+      />
+    );
   if (!facilityData.ok)
-    return <Failure message={facilityData.error.message} />;
+    return (
+      <Failure
+        code={facilityData.error.code}
+        message={facilityData.error.message}
+        stage="FACILITIES"
+        status={facilityData.error.status}
+      />
+    );
   return (
     <InspectionConfigurationPanel
       hotelId={hotelId}
