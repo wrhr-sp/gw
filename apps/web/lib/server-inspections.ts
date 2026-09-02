@@ -188,13 +188,7 @@ export async function fetchInspectionReviews(hotelId: string) {
 }
 
 export async function fetchInspectionConfiguration(hotelId: string) {
-  const [
-    checklistResponse,
-    definitionsResponse,
-    defaultResponse,
-    candidatesResponse,
-    routinesResponse,
-  ] = await Promise.all([
+  const responses = await Promise.all([
     request(inspectionRoutes.checklistV2(hotelId)),
     request(
       `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
@@ -203,67 +197,70 @@ export async function fetchInspectionConfiguration(hotelId: string) {
     request(processRoutes.reviewerCandidates(hotelId)),
     request(inspectionRoutes.routinesV2(hotelId)),
   ]);
+  const [
+    checklistResponse,
+    definitionsResponse,
+    defaultResponse,
+    candidatesResponse,
+    routinesResponse,
+  ] = responses;
+  if (responses.some((response) => response.status === 401)) redirect("/login");
+
+  const failedResponse = [
+    { response: checklistResponse, stage: "CHECKLIST" as const },
+    { response: definitionsResponse, stage: "DEFINITIONS" as const },
+    { response: defaultResponse, stage: "DEFAULT" as const },
+    { response: candidatesResponse, stage: "CANDIDATES" as const },
+    { response: routinesResponse, stage: "ROUTINES" as const },
+  ].find(({ response }) => !response.ok);
+  if (failedResponse)
+    return {
+      ok: false as const,
+      ...(await structuredFailure(
+        failedResponse.response,
+        "점검 설정을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      )),
+      stage: failedResponse.stage,
+      status: failedResponse.response.status,
+    };
+
+  const checklist = inspectionChecklistV2ResponseSchema.safeParse(
+    await checklistResponse.json().catch(() => undefined),
+  );
+  const definitions = processDefinitionListResponseSchema.safeParse(
+    await definitionsResponse.json().catch(() => undefined),
+  );
+  const currentDefault = processDefaultResponseSchema.safeParse(
+    await defaultResponse.json().catch(() => undefined),
+  );
+  const reviewerCandidates = processReviewerCandidatesResponseSchema.safeParse(
+    await candidatesResponse.json().catch(() => undefined),
+  );
+  const routines = inspectionRoutineV2ListResponseSchema.safeParse(
+    await routinesResponse.json().catch(() => undefined),
+  );
   if (
-    checklistResponse.status === 401 ||
-    definitionsResponse.status === 401 ||
-    defaultResponse.status === 401 ||
-    candidatesResponse.status === 401 ||
-    routinesResponse.status === 401
+    checklist.success &&
+    definitions.success &&
+    currentDefault.success &&
+    reviewerCandidates.success &&
+    routines.success
   )
-    redirect("/login");
-  if (
-    checklistResponse.ok &&
-    definitionsResponse.ok &&
-    defaultResponse.ok &&
-    candidatesResponse.ok &&
-    routinesResponse.ok
-  ) {
-    const checklist = inspectionChecklistV2ResponseSchema.safeParse(
-      await checklistResponse.json().catch(() => undefined),
-    );
-    const definitions = processDefinitionListResponseSchema.safeParse(
-      await definitionsResponse.json().catch(() => undefined),
-    );
-    const currentDefault = processDefaultResponseSchema.safeParse(
-      await defaultResponse.json().catch(() => undefined),
-    );
-    const reviewerCandidates =
-      processReviewerCandidatesResponseSchema.safeParse(
-        await candidatesResponse.json().catch(() => undefined),
-      );
-    const routines = inspectionRoutineV2ListResponseSchema.safeParse(
-      await routinesResponse.json().catch(() => undefined),
-    );
-    if (
-      checklist.success &&
-      definitions.success &&
-      currentDefault.success &&
-      reviewerCandidates.success &&
-      routines.success
-    )
-      return {
-        ok: true as const,
-        checklist: checklist.data.data.checklist,
-        definitions: definitions.data.data.definitions,
-        currentDefault: currentDefault.data.data.default,
-        reviewerCandidates: reviewerCandidates.data.data.candidates,
-        routines: routines.data.data.routines,
-      };
-  }
-  const response = !checklistResponse.ok
-    ? checklistResponse
-    : !definitionsResponse.ok
-      ? definitionsResponse
-      : !defaultResponse.ok
-        ? defaultResponse
-        : !candidatesResponse.ok
-          ? candidatesResponse
-          : routinesResponse;
+    return {
+      ok: true as const,
+      checklist: checklist.data.data.checklist,
+      definitions: definitions.data.data.definitions,
+      currentDefault: currentDefault.data.data.default,
+      reviewerCandidates: reviewerCandidates.data.data.candidates,
+      routines: routines.data.data.routines,
+    };
   return {
+    code: "INVALID_RESPONSE" as const,
+    error: "점검 설정 응답이 올바르지 않습니다.",
+    message: "점검 설정 응답이 올바르지 않습니다.",
     ok: false as const,
-    ...(await structuredFailure(
-      response,
-      "점검 설정을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
-    )),
+    retryable: true,
+    stage: "RESPONSE_SCHEMA" as const,
+    status: 502,
   };
 }

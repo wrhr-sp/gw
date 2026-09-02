@@ -1,5 +1,63 @@
 import { errors as playwrightErrors } from "@playwright/test";
 
+const inspectionFailureStages = new Set([
+  "CONFIGURATION_CHECKLIST",
+  "CONFIGURATION_DEFINITIONS",
+  "CONFIGURATION_DEFAULT",
+  "CONFIGURATION_CANDIDATES",
+  "CONFIGURATION_ROUTINES",
+  "CONFIGURATION_RESPONSE_SCHEMA",
+  "ROOMS",
+  "FACILITIES",
+]);
+const inspectionFailureStatuses = new Map([
+  ["AUTHENTICATION_REQUIRED", new Set(["401"])],
+  ["AUTH_RATE_LIMITED", new Set(["429"])],
+  ["DB_NOT_CONFIGURED", new Set(["503"])],
+  ["FORBIDDEN", new Set(["403"])],
+  ["INTERNAL_ERROR", new Set(["409", "500", "502", "503"])],
+  ["INVALID_ERROR_RESPONSE", new Set(["502", "503"])],
+  ["INVALID_RESPONSE", new Set(["502"])],
+  ["PROCESS_DEFAULT_REQUIRED", new Set(["422"])],
+  ["RESOURCE_NOT_FOUND", new Set(["404"])],
+  ["SCHEMA_NOT_READY", new Set(["503"])],
+  ["VALIDATION_ERROR", new Set(["400", "422"])],
+]);
+
+function matchesInspectionFailurePair(stage, status, code) {
+  if (!inspectionFailureStatuses.get(code)?.has(status)) return false;
+  if (code === "INTERNAL_ERROR" && (status === "409" || status === "502"))
+    return stage === "ROOMS" || stage === "FACILITIES";
+  return true;
+}
+
+async function classifiedServerFailure(page) {
+  const failure = page.locator(
+    "section[data-error-stage][data-error-status][data-error-code]",
+  );
+  const [stage, status, code] = await Promise.all([
+    failure.getAttribute("data-error-stage"),
+    failure.getAttribute("data-error-status"),
+    failure.getAttribute("data-error-code"),
+  ]);
+  if (
+    stage &&
+    inspectionFailureStages.has(stage) &&
+    status &&
+    code &&
+    matchesInspectionFailurePair(stage, status, code)
+  ) {
+    const error = new Error("Hosted checklist UI server render failed");
+    error.previewFailureCode =
+      `INSPECTION_CHECKLIST_V2_UI_SERVER_${stage}_${status}_${code}`;
+    return { error, retryable: status.startsWith("5") };
+  }
+  return {
+    error: new Error("Hosted checklist UI server render failed"),
+    retryable: false,
+  };
+}
+
 export async function navigateInspectionSettings({
   baseUrl,
   headingTimeoutMs = 30_000,
@@ -48,12 +106,11 @@ export async function navigateInspectionSettings({
     const outcome = headingHandle ? await headingHandle.jsonValue() : null;
     assertBoundary();
     if (outcome === "ready") return;
-    if (attempt === 3) {
-      throw new Error(
-        outcome === "failure"
-          ? "Hosted checklist UI server render failed"
-          : "Hosted checklist UI heading was unavailable",
-      );
+    if (outcome === "failure") {
+      const classified = await classifiedServerFailure(page);
+      if (!classified.retryable || attempt === 3) throw classified.error;
+    } else if (attempt === 3) {
+      throw new Error("Hosted checklist UI heading was unavailable");
     }
     await page.waitForTimeout(attempt * 2_000);
     assertBoundary();

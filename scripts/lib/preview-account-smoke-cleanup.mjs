@@ -299,9 +299,44 @@ export async function finalizePreviewSmoke({
       "SESSION_REVOCATION",
       "UNCLASSIFIED",
     ]);
-    const safeFailureCode = allowedFailureCodes.has(journeyFailureCode)
-      ? journeyFailureCode
-      : "UNCLASSIFIED";
+    const allowedInspectionServerStatuses = new Map([
+      ["AUTHENTICATION_REQUIRED", new Set(["401"])],
+      ["AUTH_RATE_LIMITED", new Set(["429"])],
+      ["DB_NOT_CONFIGURED", new Set(["503"])],
+      ["FORBIDDEN", new Set(["403"])],
+      ["INTERNAL_ERROR", new Set(["409", "500", "502", "503"])],
+      ["INVALID_ERROR_RESPONSE", new Set(["502", "503"])],
+      ["INVALID_RESPONSE", new Set(["502"])],
+      ["PROCESS_DEFAULT_REQUIRED", new Set(["422"])],
+      ["RESOURCE_NOT_FOUND", new Set(["404"])],
+      ["SCHEMA_NOT_READY", new Set(["503"])],
+      ["VALIDATION_ERROR", new Set(["400", "422"])],
+    ]);
+    const inspectionServerFailureMatch =
+      /^INSPECTION_CHECKLIST_V2_UI_SERVER_(CONFIGURATION_(?:CHECKLIST|DEFINITIONS|DEFAULT|CANDIDATES|ROUTINES|RESPONSE_SCHEMA)|ROOMS|FACILITIES)_((?:4|5)\d{2})_([A-Z][A-Z0-9_]{1,63})$/.exec(
+        journeyFailureCode,
+      );
+    const inspectionFailureStage = inspectionServerFailureMatch?.[1];
+    const inspectionFailureStatus = inspectionServerFailureMatch?.[2];
+    const inspectionFailureCode = inspectionServerFailureMatch?.[3];
+    const stageSpecificInternalError =
+      inspectionFailureCode === "INTERNAL_ERROR" &&
+      (inspectionFailureStatus === "409" || inspectionFailureStatus === "502");
+    const safeInspectionServerFailure = Boolean(
+      inspectionFailureStage &&
+        inspectionFailureStatus &&
+        inspectionFailureCode &&
+        allowedInspectionServerStatuses
+          .get(inspectionFailureCode)
+          ?.has(inspectionFailureStatus) &&
+        (!stageSpecificInternalError ||
+          inspectionFailureStage === "ROOMS" ||
+          inspectionFailureStage === "FACILITIES"),
+    );
+    const safeFailureCode =
+      allowedFailureCodes.has(journeyFailureCode) || safeInspectionServerFailure
+        ? journeyFailureCode
+        : "UNCLASSIFIED";
     throw new Error(`PREVIEW_ACCOUNT_JOURNEY_FAILED_${safeFailureCode}`);
   }
   writeSuccess();
