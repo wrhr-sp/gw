@@ -70,6 +70,7 @@ describe("hosted Preview account-management smoke", () => {
     const createPage = ({
       afterBackoffUrls,
       afterWaitUrls,
+      diagnosticSectionExists,
       diagnostics,
       gotoErrors,
       jsonValueErrors,
@@ -79,7 +80,8 @@ describe("hosted Preview account-management smoke", () => {
     }: {
       afterBackoffUrls?: string[];
       afterWaitUrls?: string[];
-      diagnostics?: { code: string; stage: string; status: string };
+      diagnosticSectionExists?: boolean;
+      diagnostics?: Partial<{ code: string; stage: string; status: string }>;
       gotoErrors?: Array<Error | null>;
       jsonValueErrors?: Array<Error | null>;
       outcomes: Array<string | null>;
@@ -88,6 +90,7 @@ describe("hosted Preview account-management smoke", () => {
     }) => {
       let attempt = 0;
       let currentUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+      const sectionExists = diagnosticSectionExists ?? diagnostics !== undefined;
       return {
         calls: () => attempt,
         goto: async () => {
@@ -97,14 +100,20 @@ describe("hosted Preview account-management smoke", () => {
           if (gotoError) throw gotoError;
         },
         locator: () => ({
-          getAttribute: async (name: string) =>
-            name === "data-error-stage"
-              ? (diagnostics?.stage ?? null)
-              : name === "data-error-status"
-                ? (diagnostics?.status ?? null)
-                : name === "data-error-code"
-                  ? (diagnostics?.code ?? null)
-                  : null,
+          first: () => ({
+            count: async () => (sectionExists ? 1 : 0),
+            getAttribute: async (name: string) => {
+              if (!sectionExists)
+                throw new playwrightErrors.TimeoutError("locator timeout");
+              return name === "data-error-stage"
+                ? (diagnostics?.stage ?? null)
+                : name === "data-error-status"
+                  ? (diagnostics?.status ?? null)
+                  : name === "data-error-code"
+                    ? (diagnostics?.code ?? null)
+                    : null;
+            },
+          }),
         }),
         url: () => currentUrl,
         waitForFunction: async () => {
@@ -270,8 +279,49 @@ describe("hosted Preview account-management smoke", () => {
         navigationTimeoutMs: 1,
         page: terminal,
       }),
-    ).rejects.toThrow("Hosted checklist UI server render failed");
+    ).rejects.toMatchObject({
+      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+    });
     expect(terminal.calls()).toBe(1);
+
+    const malformedDiagnosticSection = createPage({
+      diagnosticSectionExists: true,
+      diagnostics: { stage: "ROOMS" },
+      outcomes: ["failure", "ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: malformedDiagnosticSection,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+    });
+    expect(malformedDiagnosticSection.calls()).toBe(1);
+
+    const unavailableHeading = createPage({
+      outcomes: [null, null, null],
+      waitErrors: [
+        new playwrightErrors.TimeoutError("heading timeout"),
+        new playwrightErrors.TimeoutError("heading timeout"),
+        new playwrightErrors.TimeoutError("heading timeout"),
+      ],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: unavailableHeading,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+    });
+    expect(unavailableHeading.calls()).toBe(3);
 
     const classified = createPage({
       diagnostics: {
@@ -333,9 +383,9 @@ describe("hosted Preview account-management smoke", () => {
         navigationTimeoutMs: 1,
         page: unknownCode,
       }),
-    ).rejects.toEqual(
-      new Error("Hosted checklist UI server render failed"),
-    );
+    ).rejects.toMatchObject({
+      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+    });
     expect(unknownCode.calls()).toBe(1);
 
     for (const diagnostics of [
@@ -372,9 +422,9 @@ describe("hosted Preview account-management smoke", () => {
           navigationTimeoutMs: 1,
           page: mismatchedPair,
         }),
-      ).rejects.toEqual(
-        new Error("Hosted checklist UI server render failed"),
-      );
+      ).rejects.toMatchObject({
+        previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+      });
       expect(mismatchedPair.calls()).toBe(1);
     }
 
@@ -676,6 +726,8 @@ describe("hosted Preview account-management smoke", () => {
 
   it("preserves only validated inspection loader diagnostics after cleanup", async () => {
     for (const safeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_502_INTERNAL_ERROR",

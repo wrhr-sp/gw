@@ -31,10 +31,23 @@ function matchesInspectionFailurePair(stage, status, code) {
   return true;
 }
 
+function previewNavigationFailure(previewFailureCode, message) {
+  const error = new Error(message);
+  error.previewFailureCode = previewFailureCode;
+  return error;
+}
+
 async function classifiedServerFailure(page) {
-  const failure = page.locator(
-    "section[data-error-stage][data-error-status][data-error-code]",
-  );
+  const failure = page.locator('section[role="alert"]').first();
+  if ((await failure.count()) !== 1) {
+    return {
+      error: previewNavigationFailure(
+        "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+        "Hosted checklist UI server render failed",
+      ),
+      retryable: false,
+    };
+  }
   const [stage, status, code] = await Promise.all([
     failure.getAttribute("data-error-stage"),
     failure.getAttribute("data-error-status"),
@@ -47,13 +60,17 @@ async function classifiedServerFailure(page) {
     code &&
     matchesInspectionFailurePair(stage, status, code)
   ) {
-    const error = new Error("Hosted checklist UI server render failed");
-    error.previewFailureCode =
-      `INSPECTION_CHECKLIST_V2_UI_SERVER_${stage}_${status}_${code}`;
+    const error = previewNavigationFailure(
+      `INSPECTION_CHECKLIST_V2_UI_SERVER_${stage}_${status}_${code}`,
+      "Hosted checklist UI server render failed",
+    );
     return { error, retryable: status.startsWith("5") };
   }
   return {
-    error: new Error("Hosted checklist UI server render failed"),
+    error: previewNavigationFailure(
+      "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
+      "Hosted checklist UI server render failed",
+    ),
     retryable: false,
   };
 }
@@ -110,7 +127,10 @@ export async function navigateInspectionSettings({
       const classified = await classifiedServerFailure(page);
       if (!classified.retryable || attempt === 3) throw classified.error;
     } else if (attempt === 3) {
-      throw new Error("Hosted checklist UI heading was unavailable");
+      throw previewNavigationFailure(
+        "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+        "Hosted checklist UI heading was unavailable",
+      );
     }
     await page.waitForTimeout(attempt * 2_000);
     assertBoundary();
