@@ -12,6 +12,7 @@ import {
   waitForProviderInactive,
   waitForZeroActiveSessions,
 } from "./lib/preview-account-smoke-cleanup.mjs";
+import { navigateInspectionSettings } from "./lib/preview-account-smoke-navigation.mjs";
 import {
   runHostedMutation,
   runHostedMutationWithReload,
@@ -949,13 +950,12 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
     });
 
     journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_NAVIGATE";
-    await page.goto(
-      `${baseUrl}/hotels/${encodeURIComponent(hotelId)}/inspections/settings`,
-      { waitUntil: "domcontentloaded", timeout: hostedUiTimeoutMs },
-    );
-    await page
-      .getByRole("heading", { name: "점검 설정" })
-      .waitFor({ state: "visible", timeout: hostedUiTimeoutMs });
+    await navigateInspectionSettings({
+      baseUrl,
+      hotelId,
+      navigationTimeoutMs: hostedUiTimeoutMs,
+      page,
+    });
     await assertAccessible(page, "mobile");
     const facilityInput = page
       .locator(`[data-checklist-item-id="${facilityItem.itemId}"]`)
