@@ -1,9 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { readFileSync } from "node:fs";
+import { errors as playwrightErrors } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
 import * as cleanupHelpers from "../../../scripts/lib/preview-account-smoke-cleanup.mjs";
+// @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
+import * as navigationSmokeHelpers from "../../../scripts/lib/preview-account-smoke-navigation.mjs";
 // @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
 import * as relationshipSmokeHelpers from "../../../scripts/lib/preview-relationship-smoke-contract.mjs";
 
@@ -20,6 +23,7 @@ const {
 } = cleanupHelpers;
 const { runHostedMutation, runHostedMutationWithReload } =
   relationshipSmokeHelpers;
+const { navigateInspectionSettings } = navigationSmokeHelpers;
 
 const smokeUrl = new URL(
   "../../../scripts/smoke-account-preview.mjs",
@@ -29,9 +33,14 @@ const cleanupHelperUrl = new URL(
   "../../../scripts/lib/preview-account-smoke-cleanup.mjs",
   import.meta.url,
 );
+const navigationHelperUrl = new URL(
+  "../../../scripts/lib/preview-account-smoke-navigation.mjs",
+  import.meta.url,
+);
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
 const helperSource = readFileSync(cleanupHelperUrl, "utf8");
+const navigationSource = readFileSync(navigationHelperUrl, "utf8");
 
 describe("hosted Preview account-management smoke", () => {
   it("is valid executable JavaScript", () => {
@@ -40,6 +49,192 @@ describe("hosted Preview account-management smoke", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("retries only transient inspection SSR failures and preserves navigation boundaries", async () => {
+    const baseUrl = "https://preview.example.test";
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const createPage = ({
+      afterBackoffUrls,
+      afterWaitUrls,
+      gotoErrors,
+      jsonValueErrors,
+      outcomes,
+      urls,
+      waitErrors,
+    }: {
+      afterBackoffUrls?: string[];
+      afterWaitUrls?: string[];
+      gotoErrors?: Array<Error | null>;
+      jsonValueErrors?: Array<Error | null>;
+      outcomes: Array<string | null>;
+      urls?: string[];
+      waitErrors?: Array<Error | null>;
+    }) => {
+      let attempt = 0;
+      let currentUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+      return {
+        calls: () => attempt,
+        goto: async () => {
+          attempt += 1;
+          currentUrl = urls?.[attempt - 1] ?? currentUrl;
+          const gotoError = gotoErrors?.[attempt - 1];
+          if (gotoError) throw gotoError;
+        },
+        url: () => currentUrl,
+        waitForFunction: async () => {
+          currentUrl = afterWaitUrls?.[attempt - 1] ?? currentUrl;
+          const waitError = waitErrors?.[attempt - 1];
+          if (waitError) throw waitError;
+          return {
+            jsonValue: async () => {
+              const jsonValueError = jsonValueErrors?.[attempt - 1];
+              if (jsonValueError) throw jsonValueError;
+              return outcomes[attempt - 1] ?? null;
+            },
+          };
+        },
+        waitForTimeout: async () => {
+          currentUrl = afterBackoffUrls?.[attempt - 1] ?? currentUrl;
+        },
+      };
+    };
+
+    const transient = createPage({ outcomes: ["failure", "ready"] });
+    await navigateInspectionSettings({
+      baseUrl,
+      headingTimeoutMs: 1,
+      hotelId,
+      navigationTimeoutMs: 1,
+      page: transient,
+    });
+    expect(transient.calls()).toBe(2);
+
+    for (const boundaryUrl of [
+      `${baseUrl}/login`,
+      `${baseUrl}/account/initial-password`,
+      "https://provider.example.test/login",
+    ]) {
+      const boundary = createPage({ outcomes: ["ready"], urls: [boundaryUrl] });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: boundary,
+        }),
+      ).rejects.toThrow("Hosted checklist UI navigation boundary failed");
+      expect(boundary.calls()).toBe(1);
+    }
+
+    for (const boundaryUrl of [
+      `${baseUrl}/login`,
+      "https://attacker.example.test/hijacked",
+    ]) {
+      const boundaryDuringWait = createPage({
+        afterWaitUrls: [boundaryUrl],
+        outcomes: ["ready"],
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: boundaryDuringWait,
+        }),
+      ).rejects.toThrow("Hosted checklist UI navigation boundary failed");
+      expect(boundaryDuringWait.calls()).toBe(1);
+    }
+
+    const boundaryDuringBackoff = createPage({
+      afterBackoffUrls: [`${baseUrl}/login`],
+      outcomes: ["failure"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: boundaryDuringBackoff,
+      }),
+    ).rejects.toThrow("Hosted checklist UI navigation boundary failed");
+    expect(boundaryDuringBackoff.calls()).toBe(1);
+
+    const redirectTimeout = createPage({
+      gotoErrors: [new Error("navigation timeout")],
+      outcomes: [],
+      urls: [`${baseUrl}/login`],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: redirectTimeout,
+      }),
+    ).rejects.toThrow("navigation timeout");
+    expect(redirectTimeout.calls()).toBe(1);
+
+    const headingTimeout = createPage({
+      outcomes: [null, "ready"],
+      waitErrors: [new playwrightErrors.TimeoutError("heading timeout")],
+    });
+    await navigateInspectionSettings({
+      baseUrl,
+      headingTimeoutMs: 1,
+      hotelId,
+      navigationTimeoutMs: 1,
+      page: headingTimeout,
+    });
+    expect(headingTimeout.calls()).toBe(2);
+
+    const protocolFailure = createPage({
+      outcomes: [],
+      waitErrors: [new Error("protocol failure")],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: protocolFailure,
+      }),
+    ).rejects.toThrow("protocol failure");
+    expect(protocolFailure.calls()).toBe(1);
+
+    const jsonValueFailure = createPage({
+      jsonValueErrors: [new Error("json value failure")],
+      outcomes: ["ready"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: jsonValueFailure,
+      }),
+    ).rejects.toThrow("json value failure");
+    expect(jsonValueFailure.calls()).toBe(1);
+
+    const terminal = createPage({
+      outcomes: ["failure", "failure", "failure"],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: terminal,
+      }),
+    ).rejects.toThrow("Hosted checklist UI server render failed");
+    expect(terminal.calls()).toBe(3);
   });
 
   it("establishes canonical staff scope before the hosted checklist journey", () => {
@@ -69,6 +264,14 @@ describe("hosted Preview account-management smoke", () => {
       "response.url() === `${baseUrl}${processMutationPath}`",
     );
     expect(source).toContain("const hostedUiTimeoutMs = 120_000;");
+    expect(source).toContain('import { navigateInspectionSettings } from');
+    expect(navigationSource).toContain(
+      "export async function navigateInspectionSettings({",
+    );
+    expect(navigationSource).toContain(
+      "for (let attempt = 1; attempt <= 3; attempt += 1)",
+    );
+    expect(navigationSource).toContain("점검 설정을 불러오지 못했습니다");
     expect(source).toContain("{ waitUntil: \"domcontentloaded\", timeout: hostedUiTimeoutMs }");
     expect(source).toContain("{ timeout: hostedUiTimeoutMs }");
     expect(source).toContain("expectedStatuses: [200, 404]");
