@@ -111,6 +111,8 @@ export async function navigateInspectionSettings({
           if (headings.includes("점검 설정")) return "ready";
           if (headings.includes("점검 설정을 불러오지 못했습니다"))
             return "failure";
+          if (headings.includes("호텔 화면을 불러오지 못했습니다"))
+            return "hotel-error";
           return null;
         },
         undefined,
@@ -123,6 +125,12 @@ export async function navigateInspectionSettings({
     const outcome = headingHandle ? await headingHandle.jsonValue() : null;
     assertBoundary();
     if (outcome === "ready") return;
+    if (outcome === "hotel-error") {
+      throw previewNavigationFailure(
+        "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
+        "Hosted hotel route error boundary rendered",
+      );
+    }
     if (outcome === "failure") {
       const classified = await classifiedServerFailure(page);
       if (!classified.retryable || attempt === 3) throw classified.error;
