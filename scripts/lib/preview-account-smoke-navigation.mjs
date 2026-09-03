@@ -154,6 +154,22 @@ async function classifyUnavailableHeading(page) {
     : "UNEXPECTED_HEADING";
 }
 
+function navigationResponseClass(response) {
+  try {
+    if (!response || typeof response.status !== "function")
+      return "NO_RESPONSE";
+    const status = response.status();
+    if (!Number.isInteger(status)) return "NO_RESPONSE";
+    if (status >= 200 && status < 300) return "HTTP_2XX";
+    if (status >= 300 && status < 400) return "HTTP_3XX";
+    if (status >= 400 && status < 500) return "HTTP_4XX";
+    if (status >= 500 && status < 600) return "HTTP_5XX";
+  } catch {
+    // Fixed fallback below; transport details must not leave the browser process.
+  }
+  return "NO_RESPONSE";
+}
+
 export async function navigateInspectionSettings({
   baseUrl,
   headingTimeoutMs = 90_000,
@@ -175,7 +191,7 @@ export async function navigateInspectionSettings({
     }
   };
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await page.goto(targetUrl, {
+    const navigationResponse = await page.goto(targetUrl, {
       waitUntil: "domcontentloaded",
       timeout: navigationTimeoutMs,
     });
@@ -216,8 +232,12 @@ export async function navigateInspectionSettings({
     } else if (attempt === 3) {
       const unavailableState = await classifyUnavailableHeading(page);
       assertBoundary();
+      const classifiedState =
+        unavailableState === "NEXT_ERROR_ROOT"
+          ? `${unavailableState}_${navigationResponseClass(navigationResponse)}`
+          : unavailableState;
       throw previewNavigationFailure(
-        `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${unavailableState}`,
+        `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${classifiedState}`,
         "Hosted checklist UI heading was unavailable",
       );
     }
