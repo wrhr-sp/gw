@@ -162,8 +162,10 @@ describe("hosted Preview account-management smoke", () => {
       outcomes: Array<string | null>;
       unavailableState?:
         | "AUTH_HEADING"
+        | "NOT_FOUND_HEADING"
         | "NO_HEADING"
         | "PASSWORD_HEADING"
+        | "SERVER_ERROR_HEADING"
         | "UNEXPECTED_ALERT"
         | "UNEXPECTED_HEADING";
       urls?: string[];
@@ -402,8 +404,10 @@ describe("hosted Preview account-management smoke", () => {
 
     for (const unavailableState of [
       "AUTH_HEADING",
+      "NOT_FOUND_HEADING",
       "NO_HEADING",
       "PASSWORD_HEADING",
+      "SERVER_ERROR_HEADING",
       "UNEXPECTED_ALERT",
       "UNEXPECTED_HEADING",
     ] as const) {
@@ -660,9 +664,17 @@ describe("hosted Preview account-management smoke", () => {
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const targetUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
     const cases = [
-      ["AUTH_HEADING", "<main><h1>로그인</h1></main>"],
+      ["AUTH_HEADING", "<main><h1>위아히어 호텔 운영</h1></main>"],
+      [
+        "NOT_FOUND_HEADING",
+        "<main><h1>404</h1><h2>This page could not be found.</h2></main>",
+      ],
       ["NO_HEADING", "<main></main>"],
       ["PASSWORD_HEADING", "<main><h1>새 비밀번호 설정</h1></main>"],
+      [
+        "SERVER_ERROR_HEADING",
+        "<main><h1>500</h1><h2>Internal Server Error.</h2></main>",
+      ],
       ["UNEXPECTED_ALERT", '<main><section role="alert"><p>오류</p></section></main>'],
       ["UNEXPECTED_HEADING", "<main><h1>다른 화면</h1></main>"],
     ] as const;
@@ -971,8 +983,10 @@ describe("hosted Preview account-management smoke", () => {
   it("preserves only validated inspection loader diagnostics after cleanup", async () => {
     for (const safeCode of [
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_AUTH_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NOT_FOUND_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NO_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_PASSWORD_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_SERVER_ERROR_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_ALERT",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",

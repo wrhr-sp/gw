@@ -113,8 +113,10 @@ async function classifiedServerFailure(page) {
 
 const unavailableHeadingStates = new Set([
   "AUTH_HEADING",
+  "NOT_FOUND_HEADING",
   "NO_HEADING",
   "PASSWORD_HEADING",
+  "SERVER_ERROR_HEADING",
   "UNEXPECTED_ALERT",
   "UNEXPECTED_HEADING",
 ]);
@@ -124,8 +126,18 @@ async function classifyUnavailableHeading(page) {
     const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
       .map((heading) => heading.textContent?.trim())
       .filter(Boolean);
-    if (headings.includes("로그인")) return "AUTH_HEADING";
+    if (headings.includes("위아히어 호텔 운영")) return "AUTH_HEADING";
+    if (
+      headings.includes("404") &&
+      headings.includes("This page could not be found.")
+    )
+      return "NOT_FOUND_HEADING";
     if (headings.includes("새 비밀번호 설정")) return "PASSWORD_HEADING";
+    if (
+      headings.includes("500") &&
+      headings.includes("Internal Server Error.")
+    )
+      return "SERVER_ERROR_HEADING";
     if (document.querySelector('section[role="alert"]'))
       return "UNEXPECTED_ALERT";
     return headings.length === 0 ? "NO_HEADING" : "UNEXPECTED_HEADING";
