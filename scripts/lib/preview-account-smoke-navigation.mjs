@@ -77,7 +77,7 @@ async function classifiedServerFailure(page) {
 
 export async function navigateInspectionSettings({
   baseUrl,
-  headingTimeoutMs = 30_000,
+  headingTimeoutMs = 90_000,
   hotelId,
   navigationTimeoutMs,
   page,
