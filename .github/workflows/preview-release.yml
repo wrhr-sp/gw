@@ -8,6 +8,11 @@ on:
         required: true
         default: false
         type: boolean
+      preview_unresponsive_worker_redeploy:
+        description: Allow one-time redeploy only when existing Preview Workers time out and canonical dependencies remain verified
+        required: true
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -324,6 +329,26 @@ jobs:
           printf '%s\n' 'Preview Worker topology is partial; refusing release.' >&2
           exit 1
 
+      - name: Validate unresponsive Preview Worker recovery request
+        shell: bash
+        env:
+          PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED: ${{ inputs.preview_unresponsive_worker_redeploy }}
+          PREVIEW_API_EXISTED: ${{ steps.worker_snapshot.outputs.api_existed }}
+          PREVIEW_RECONCILER_EXISTED: ${{ steps.worker_snapshot.outputs.reconciler_existed }}
+          PREVIEW_WEB_EXISTED: ${{ steps.worker_snapshot.outputs.web_existed }}
+        run: |
+          set -euo pipefail
+          if [[ "$PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED" != "true" ]]; then
+            exit 0
+          fi
+          if [[ "$PREVIEW_API_EXISTED" != "true" || \
+                "$PREVIEW_RECONCILER_EXISTED" != "true" || \
+                "$PREVIEW_WEB_EXISTED" != "true" ]]; then
+            printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_RECOVERY_COMPLETE_TOPOLOGY_REQUIRED' >&2
+            exit 1
+          fi
+          printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_RECOVERY_REQUEST_TOPOLOGY_VERIFIED'
+
       - name: Expand Neon Preview database for compatible Worker deploy
         id: database_expand
         env:
@@ -355,6 +380,8 @@ jobs:
         env:
           PREVIEW_CONTRACT_COMPATIBLE_EXPAND: ${{ steps.database_expand.outputs.contract_compatible }}
           PREVIEW_HYPERDRIVE_RETARGET_APPROVED: ${{ inputs.preview_hyperdrive_retarget }}
+          PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED: ${{ inputs.preview_unresponsive_worker_redeploy }}
+          PREVIEW_RECONCILER_EXISTED: ${{ steps.worker_snapshot.outputs.reconciler_existed }}
           PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION
         run: |
           set +e
@@ -364,11 +391,53 @@ jobs:
           readiness_status="$?"
           set -e
           if [[ "$readiness_status" -eq 0 && "$readiness_classification" == "READY" ]]; then
+            if [[ "$PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED" == "true" ]]; then
+              printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED_WITHOUT_TIMEOUT' >&2
+              exit 1
+            fi
             node scripts/smoke-cloudflare-preview.mjs
             ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} PREVIEW_BOOTSTRAP_LOGIN_ID=${{ secrets.PREVIEW_BOOTSTRAP_LOGIN_ID }} node scripts/smoke-zitadel-console-preview.mjs
             printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
             printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
+            printf 'unresponsive_redeploy_required=false\n' >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          if [[ "$readiness_status" -eq 12 && "$readiness_classification" == "UNRESPONSIVE" ]]; then
+            if [[ "$PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED" != "true" ]]; then
+              printf '%s\n' 'PREVIEW_EXISTING_UNRESPONSIVE_WORKER_REDEPLOY_NOT_APPROVED' >&2
+              exit 1
+            fi
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "false" ]]; then
+              printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_RETARGET_CONFLICT' >&2
+              exit 1
+            fi
+            if [[ "$PREVIEW_CONTRACT_COMPATIBLE_EXPAND" != "true" ]]; then
+              printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_EXPAND_NOT_ATTESTED' >&2
+              exit 1
+            fi
+            if [[ "$PREVIEW_RECONCILER_EXISTED" != "true" ]]; then
+              printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_COMPLETE_TOPOLOGY_REQUIRED' >&2
+              exit 1
+            fi
+            set +e
+            web_classification="$(
+              node scripts/preview-hyperdrive-retarget-contract.mjs probe-web "$WEB_PREVIEW_URL"
+            )"
+            web_status="$?"
+            set -e
+            if [[ "$web_status" -ne 0 || "$web_classification" != "WEB_READY" ]]; then
+              printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_WEB_UNAVAILABLE' >&2
+              exit 1
+            fi
+            printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
+            printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
+            printf 'unresponsive_redeploy_required=true\n' >> "$GITHUB_OUTPUT"
+            printf '%s\n' 'PREVIEW_EXISTING_UNRESPONSIVE_WORKER_REDEPLOY_REQUIRED'
+            exit 0
+          fi
+          if [[ "$PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED" == "true" ]]; then
+            printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED_WITHOUT_TIMEOUT' >&2
+            exit 1
           fi
           if [[ "$readiness_status" -eq 11 && "$readiness_classification" == "SCHEMA_NOT_READY" ]]; then
             if [[ "$PREVIEW_HYPERDRIVE_RETARGET_APPROVED" != "true" && \
@@ -378,6 +447,7 @@ jobs:
             fi
             printf 'retarget_required=false\n' >> "$GITHUB_OUTPUT"
             printf 'legacy_schema_recovery_required=true\n' >> "$GITHUB_OUTPUT"
+            printf 'unresponsive_redeploy_required=false\n' >> "$GITHUB_OUTPUT"
             printf 'legacy_schema_recovery_attested=%s\n' \
               "$PREVIEW_CONTRACT_COMPATIBLE_EXPAND" >> "$GITHUB_OUTPUT"
             printf '%s\n' 'PREVIEW_EXISTING_LEGACY_SCHEMA_RECOVERY_REQUIRED'
@@ -393,6 +463,7 @@ jobs:
           fi
           printf 'retarget_required=true\n' >> "$GITHUB_OUTPUT"
           printf 'legacy_schema_recovery_required=false\n' >> "$GITHUB_OUTPUT"
+          printf 'unresponsive_redeploy_required=false\n' >> "$GITHUB_OUTPUT"
           printf '%s\n' 'PREVIEW_EXISTING_WORKER_RETARGET_REQUIRED'
 
       - name: Create or update Preview Hyperdrives
@@ -406,6 +477,7 @@ jobs:
           PREVIEW_HYPERDRIVE_RETARGET_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}
           PREVIEW_LEGACY_SCHEMA_RECOVERY_ATTESTED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_attested }}
           PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_required }}
+          PREVIEW_UNRESPONSIVE_REDEPLOY_REQUIRED: ${{ steps.pre_hyperdrive_compatibility.outputs.unresponsive_redeploy_required }}
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/hyperdrive/configs"
@@ -619,6 +691,19 @@ jobs:
             printf '%s\n' 'Existing reconciler Worker Hyperdrive binding ID was invalid.' >&2
             exit 1
           fi
+          if [[ "$PREVIEW_UNRESPONSIVE_REDEPLOY_REQUIRED" == "true" ]]; then
+            if [[ "$api_existed" != "true" || "$reconciler_existed" != "true" || "$web_existed" != "true" ]]; then
+              printf '%s\n' 'Preview unresponsive redeploy requires complete existing Worker topology.' >&2
+              exit 1
+            fi
+            if [[ "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" != "false" || \
+                  "$PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED" != "false" ]]; then
+              printf '%s\n' 'Preview unresponsive redeploy cannot alter Hyperdrive recovery state.' >&2
+              exit 1
+            fi
+            reconciler_config_expected=true
+            printf '%s\n' 'PREVIEW_UNRESPONSIVE_REDEPLOY_HYPERDRIVE_MUTATION_DENIED'
+          fi
           if [[ "$PREVIEW_HYPERDRIVE_RETARGET_REQUIRED" == "true" && "$PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED" == "true" ]]; then
             printf '%s\n' 'Preview Hyperdrive retarget and legacy schema recovery cannot both be required.' >&2
             exit 1
@@ -749,7 +834,9 @@ jobs:
         env:
           PREVIEW_BOOTSTRAP_MAPPING_PHASE: PRE_ROTATION
         run: |
-          if [[ "${{ steps.hyperdrive.outputs.legacy_api_promoted }}" == "true" && \
+          if [[ "${{ steps.pre_hyperdrive_compatibility.outputs.unresponsive_redeploy_required }}" == "true" ]]; then
+            printf '%s\n' 'PREVIEW_UNRESPONSIVE_WORKER_PRE_DEPLOY_SMOKE_DEFERRED'
+          elif [[ "${{ steps.hyperdrive.outputs.legacy_api_promoted }}" == "true" && \
                 ( "${{ steps.pre_hyperdrive_compatibility.outputs.retarget_required }}" == "true" || \
                   "${{ steps.pre_hyperdrive_compatibility.outputs.legacy_schema_recovery_required }}" == "true" ) ]]; then
             printf '%s\n' 'PREVIEW_LEGACY_API_POST_RETARGET_SMOKE_DEFERRED'
