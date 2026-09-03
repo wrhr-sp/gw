@@ -757,7 +757,7 @@ describe("same-origin API runtime proxy", () => {
     expect(response.status).toBe(503);
   });
 
-  it("proxies only inspection v2 execution and routine methods", async () => {
+  it("proxies only approved inspection and process configuration methods", async () => {
     process.env.HOTEL_API_ORIGIN = "http://127.0.0.1:8787";
     const upstreamFetch = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", upstreamFetch);
@@ -766,6 +766,18 @@ describe("same-origin API runtime proxy", () => {
     const inspectionId = "91000000-0000-4000-8000-000000000001";
     const itemId = "95000000-0000-4000-8000-000000000001";
     const cases = [
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "process-defaults", "room-inspection"],
+      },
+      {
+        method: "PUT",
+        path: ["hotels", hotelId, "process-defaults", "room-inspection"],
+      },
+      {
+        method: "GET",
+        path: ["hotels", hotelId, "process-reviewer-candidates"],
+      },
       { method: "GET", path: ["hotels", hotelId, "inspection-routines", "v2"] },
       {
         method: "POST",
@@ -815,6 +827,35 @@ describe("same-origin API runtime proxy", () => {
       );
       expect(response.status).toBe(200);
     }
+    const rejectedCandidatePath = [
+      "hotels",
+      hotelId,
+      "process-reviewer-candidates",
+    ];
+    const rejectedCandidate = await PUT(
+      new Request(
+        `https://hotel.example.test/api/${rejectedCandidatePath.join("/")}`,
+        { method: "PUT" },
+      ),
+      { params: Promise.resolve({ path: rejectedCandidatePath }) },
+    );
+    expect(rejectedCandidate.status).toBe(405);
+    expect(rejectedCandidate.headers.get("allow")).toBe("GET");
+    const rejectedDefaultPath = [
+      "hotels",
+      hotelId,
+      "process-defaults",
+      "room-inspection",
+    ];
+    const rejectedDefault = await POST(
+      new Request(
+        `https://hotel.example.test/api/${rejectedDefaultPath.join("/")}`,
+        { method: "POST" },
+      ),
+      { params: Promise.resolve({ path: rejectedDefaultPath }) },
+    );
+    expect(rejectedDefault.status).toBe(405);
+    expect(rejectedDefault.headers.get("allow")).toBe("GET, PUT");
     const rejectedRoutinePath = [
       "hotels",
       hotelId,

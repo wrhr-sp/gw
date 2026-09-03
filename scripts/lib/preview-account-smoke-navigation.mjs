@@ -37,6 +37,42 @@ function previewNavigationFailure(previewFailureCode, message) {
   return error;
 }
 
+export async function preflightInspectionSettings({
+  baseUrl,
+  hotelId,
+  request,
+  timeoutMs,
+}) {
+  const encodedHotelId = encodeURIComponent(hotelId);
+  const checks = [
+    ["CHECKLIST", `/api/hotels/${encodedHotelId}/inspection-checklist/v2`],
+    [
+      "DEFINITIONS",
+      `/api/admin/process-definitions?hotelId=${encodedHotelId}`,
+    ],
+    [
+      "DEFAULT",
+      `/api/hotels/${encodedHotelId}/process-defaults/room-inspection`,
+    ],
+    [
+      "CANDIDATES",
+      `/api/hotels/${encodedHotelId}/process-reviewer-candidates`,
+    ],
+    ["ROUTINES", `/api/hotels/${encodedHotelId}/inspection-routines/v2`],
+  ];
+  for (const [stage, path] of checks) {
+    const response = await request.get(`${baseUrl}${path}`, {
+      timeout: timeoutMs,
+    });
+    if (!response.ok()) {
+      throw previewNavigationFailure(
+        `INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_${stage}`,
+        "Hosted checklist UI configuration preflight failed",
+      );
+    }
+  }
+}
+
 async function classifiedServerFailure(page) {
   const failure = page.locator('section[role="alert"]').first();
   if ((await failure.count()) !== 1) {

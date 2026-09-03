@@ -23,7 +23,8 @@ const {
 } = cleanupHelpers;
 const { runHostedMutation, runHostedMutationWithReload } =
   relationshipSmokeHelpers;
-const { navigateInspectionSettings } = navigationSmokeHelpers;
+const { navigateInspectionSettings, preflightInspectionSettings } =
+  navigationSmokeHelpers;
 
 const smokeUrl = new URL(
   "../../../scripts/smoke-account-preview.mjs",
@@ -62,6 +63,79 @@ describe("hosted Preview account-management smoke", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("preflights inspection settings with the browser cookie request context", async () => {
+    const baseUrl = "https://preview.example.test";
+    const hotelId = "hotel/value";
+    const paths = [
+      "/api/hotels/hotel%2Fvalue/inspection-checklist/v2",
+      "/api/admin/process-definitions?hotelId=hotel%2Fvalue",
+      "/api/hotels/hotel%2Fvalue/process-defaults/room-inspection",
+      "/api/hotels/hotel%2Fvalue/process-reviewer-candidates",
+      "/api/hotels/hotel%2Fvalue/inspection-routines/v2",
+    ];
+    const calls: Array<{ timeout: number; url: string }> = [];
+    let activeRequests = 0;
+    let maxActiveRequests = 0;
+    await preflightInspectionSettings({
+      baseUrl,
+      hotelId,
+      request: {
+        get: async (url: string, options: { timeout: number }) => {
+          calls.push({ timeout: options.timeout, url });
+          activeRequests += 1;
+          maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+          await Promise.resolve();
+          activeRequests -= 1;
+          return { ok: () => true };
+        },
+      },
+      timeoutMs: 1234,
+    });
+    expect(maxActiveRequests).toBe(1);
+    expect(calls).toEqual(
+      paths.map((path) => ({ timeout: 1234, url: `${baseUrl}${path}` })),
+    );
+
+    const stages = [
+      "CHECKLIST",
+      "DEFINITIONS",
+      "DEFAULT",
+      "CANDIDATES",
+      "ROUTINES",
+    ] as const;
+    for (const [failedIndex, failedStage] of stages.entries()) {
+      let requestCount = 0;
+      await expect(
+        preflightInspectionSettings({
+          baseUrl,
+          hotelId,
+          request: {
+            get: async () => {
+              const requestIndex = requestCount;
+              requestCount += 1;
+              return { ok: () => requestIndex !== failedIndex };
+            },
+          },
+          timeoutMs: 1234,
+        }),
+      ).rejects.toMatchObject({
+        message: "Hosted checklist UI configuration preflight failed",
+        previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_${failedStage}`,
+      });
+      expect(requestCount).toBe(failedIndex + 1);
+    }
+
+    const transportFailure = new Error("bounded transport failure");
+    await expect(
+      preflightInspectionSettings({
+        baseUrl,
+        hotelId,
+        request: { get: async () => Promise.reject(transportFailure) },
+        timeoutMs: 1234,
+      }),
+    ).rejects.toBe(transportFailure);
   });
 
   it("retries only transient inspection SSR failures and preserves navigation boundaries", async () => {
@@ -659,7 +733,13 @@ describe("hosted Preview account-management smoke", () => {
       "response.url() === `${baseUrl}${processMutationPath}`",
     );
     expect(source).toContain("const hostedUiTimeoutMs = 120_000;");
-    expect(source).toContain('import { navigateInspectionSettings } from');
+    expect(source).toContain("preflightInspectionSettings,");
+    expect(source.indexOf("await preflightInspectionSettings({")).toBeLessThan(
+      source.indexOf("await navigateInspectionSettings({"),
+    );
+    expect(navigationSource).toContain(
+      "export async function preflightInspectionSettings({",
+    );
     expect(navigationSource).toContain(
       "export async function navigateInspectionSettings({",
     );
@@ -896,6 +976,12 @@ describe("hosted Preview account-management smoke", () => {
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_ALERT",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_CANDIDATES",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_CHECKLIST",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_DEFAULT",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_DEFINITIONS",
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_ROUTINES",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_409_INTERNAL_ERROR",
@@ -914,6 +1000,7 @@ describe("hosted Preview account-management smoke", () => {
     }
 
     for (const unsafeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_SECRETS",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_SECRETS_403_FORBIDDEN",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_200_OK",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_503_BAD-CODE",
