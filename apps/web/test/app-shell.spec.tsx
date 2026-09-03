@@ -67,44 +67,53 @@ describe("hotel operations app shell", () => {
     expect(html).toContain("업무 내용");
   });
 
-  it("authenticates before starting shared capability fan-out", async () => {
-    let resolvePrincipal!: (value: { displayName: string }) => void;
-    layoutLoaders.principal.mockReturnValueOnce(
-      new Promise((resolve) => {
-        resolvePrincipal = resolve;
-      }),
-    );
-    layoutLoaders.account.mockResolvedValue({});
-    layoutLoaders.calendar.mockResolvedValue({
-      canViewAllHotels: false,
-      hotels: [],
-    });
-    layoutLoaders.dailySales.mockResolvedValue({});
-    layoutLoaders.issues.mockResolvedValue({});
-    layoutLoaders.inquiries.mockResolvedValue({});
+  it("serializes shared capability reads after authentication", async () => {
+    const deferred = <T,>() => {
+      let resolve!: (value: T) => void;
+      const promise = new Promise<T>((done) => {
+        resolve = done;
+      });
+      return { promise, resolve };
+    };
+    const principal = deferred<{ displayName: string }>();
+    const account = deferred<Record<string, never>>();
+    const calendar = deferred<{
+      canViewAllHotels: boolean;
+      hotels: never[];
+    }>();
+    const dailySales = deferred<Record<string, never>>();
+    const issues = deferred<Record<string, never>>();
+    const inquiries = deferred<Record<string, never>>();
+    for (const loader of Object.values(layoutLoaders)) loader.mockReset();
+    layoutLoaders.principal.mockReturnValueOnce(principal.promise);
+    layoutLoaders.account.mockReturnValueOnce(account.promise);
+    layoutLoaders.calendar.mockReturnValueOnce(calendar.promise);
+    layoutLoaders.dailySales.mockReturnValueOnce(dailySales.promise);
+    layoutLoaders.issues.mockReturnValueOnce(issues.promise);
+    layoutLoaders.inquiries.mockReturnValueOnce(inquiries.promise);
 
     const pending = HotelsLayout({ children: <div>업무</div> });
     await Promise.resolve();
-    for (const loader of [
-      layoutLoaders.account,
-      layoutLoaders.calendar,
-      layoutLoaders.dailySales,
-      layoutLoaders.issues,
-      layoutLoaders.inquiries,
-    ]) {
-      expect(loader).not.toHaveBeenCalled();
-    }
+    expect(layoutLoaders.principal).toHaveBeenCalledOnce();
+    expect(layoutLoaders.account).not.toHaveBeenCalled();
 
-    resolvePrincipal({ displayName: "관리자" });
+    principal.resolve({ displayName: "관리자" });
+    await vi.waitFor(() => expect(layoutLoaders.account).toHaveBeenCalledOnce());
+    expect(layoutLoaders.calendar).not.toHaveBeenCalled();
+    account.resolve({});
+    await vi.waitFor(() => expect(layoutLoaders.calendar).toHaveBeenCalledOnce());
+    expect(layoutLoaders.dailySales).not.toHaveBeenCalled();
+    calendar.resolve({ canViewAllHotels: false, hotels: [] });
+    await vi.waitFor(() =>
+      expect(layoutLoaders.dailySales).toHaveBeenCalledOnce(),
+    );
+    expect(layoutLoaders.issues).not.toHaveBeenCalled();
+    dailySales.resolve({});
+    await vi.waitFor(() => expect(layoutLoaders.issues).toHaveBeenCalledOnce());
+    expect(layoutLoaders.inquiries).not.toHaveBeenCalled();
+    issues.resolve({});
+    await vi.waitFor(() => expect(layoutLoaders.inquiries).toHaveBeenCalledOnce());
+    inquiries.resolve({});
     await pending;
-    for (const loader of [
-      layoutLoaders.account,
-      layoutLoaders.calendar,
-      layoutLoaders.dailySales,
-      layoutLoaders.issues,
-      layoutLoaders.inquiries,
-    ]) {
-      expect(loader).toHaveBeenCalledOnce();
-    }
   });
 });
