@@ -39,8 +39,14 @@ function workflowRun(name: string) {
 function runPreHyperdriveCompatibility(options: {
   approved: boolean;
   attested: boolean;
-  classification: "DB_DEPENDENCY_UNAVAILABLE" | "SCHEMA_NOT_READY";
-  status: 10 | 11;
+  classification:
+    | "DB_DEPENDENCY_UNAVAILABLE"
+    | "SCHEMA_NOT_READY"
+    | "UNCLASSIFIED_FAILURE"
+    | "UNRESPONSIVE";
+  recoveryApproved?: boolean;
+  reconcilerExists?: boolean;
+  status: 1 | 10 | 11 | 12;
 }) {
   const directory = mkdtempSync(join(tmpdir(), "preview-pre-hyperdrive-"));
   const binDirectory = join(directory, "bin");
@@ -49,7 +55,7 @@ function runPreHyperdriveCompatibility(options: {
   writeFileSync(outputFile, "");
   writeFileSync(
     join(binDirectory, "node"),
-    `#!/usr/bin/env bash\nprintf '%s\\n' "$MOCK_READINESS_CLASSIFICATION"\nexit "$MOCK_READINESS_STATUS"\n`,
+    `#!/usr/bin/env bash\nif [[ "$2" == "probe-web" ]]; then printf '%s\\n' 'WEB_READY'; exit 0; fi\nprintf '%s\\n' "$MOCK_READINESS_CLASSIFICATION"\nexit "$MOCK_READINESS_STATUS"\n`,
     { mode: 0o755 },
   );
   const result = spawnSync(
@@ -67,6 +73,10 @@ function runPreHyperdriveCompatibility(options: {
         GITHUB_OUTPUT: outputFile,
         PREVIEW_CONTRACT_COMPATIBLE_EXPAND: String(options.attested),
         PREVIEW_HYPERDRIVE_RETARGET_APPROVED: String(options.approved),
+        PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED: String(
+          options.recoveryApproved ?? false,
+        ),
+        PREVIEW_RECONCILER_EXISTED: String(options.reconcilerExists ?? true),
         MOCK_READINESS_CLASSIFICATION: options.classification,
         MOCK_READINESS_STATUS: String(options.status),
         WEB_PREVIEW_URL: "https://preview.invalid",
@@ -76,6 +86,34 @@ function runPreHyperdriveCompatibility(options: {
   const githubOutput = readFileSync(outputFile, "utf8");
   rmSync(directory, { recursive: true, force: true });
   return { result, githubOutput };
+}
+
+function runUnresponsiveRecoveryRequestTopology(options: {
+  approved: boolean;
+  apiExists: boolean;
+  reconcilerExists: boolean;
+  webExists: boolean;
+}) {
+  return spawnSync(
+    "bash",
+    [
+      "-c",
+      workflowRun("Validate unresponsive Preview Worker recovery request"),
+    ],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED: String(
+          options.approved,
+        ),
+        PREVIEW_API_EXISTED: String(options.apiExists),
+        PREVIEW_RECONCILER_EXISTED: String(options.reconcilerExists),
+        PREVIEW_WEB_EXISTED: String(options.webExists),
+      },
+    },
+  );
 }
 
 type Origin = {
@@ -143,6 +181,7 @@ function runHyperdriveStep(options: {
   reconcilerPresent?: boolean;
   workersExist?: boolean;
   reconcilerWorkerExists?: boolean;
+  unresponsiveRecovery?: boolean;
   apiBindingId?: string;
   reconcilerBindingId?: string;
 }) {
@@ -347,6 +386,9 @@ NODE
       PREVIEW_LEGACY_SCHEMA_RECOVERY_REQUIRED: String(
         options.legacySchemaRecovery ?? false,
       ),
+      PREVIEW_UNRESPONSIVE_REDEPLOY_REQUIRED: String(
+        options.unresponsiveRecovery ?? false,
+      ),
       MOCK_HYPERDRIVE_STATE: stateFile,
       MOCK_HYPERDRIVE_CALLS: callsFile,
       MOCK_FAIL_UPDATE_ID: options.failUpdateId ?? "",
@@ -497,6 +539,105 @@ afterEach(() => {
 });
 
 describe("Preview Hyperdrive source-faithful shell sequence", () => {
+  it("permits a recovery request only for complete existing Worker topology", () => {
+    expect(
+      runUnresponsiveRecoveryRequestTopology({
+        approved: true,
+        apiExists: true,
+        reconcilerExists: true,
+        webExists: true,
+      }).status,
+    ).toBe(0);
+    for (const topology of [
+      [false, false, false],
+      [true, false, true],
+      [true, true, false],
+    ] as const) {
+      const [apiExists, reconcilerExists, webExists] = topology;
+      const result = runUnresponsiveRecoveryRequestTopology({
+        approved: true,
+        apiExists,
+        reconcilerExists,
+        webExists,
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(
+        "PREVIEW_UNRESPONSIVE_WORKER_RECOVERY_COMPLETE_TOPOLOGY_REQUIRED",
+      );
+    }
+    expect(
+      runUnresponsiveRecoveryRequestTopology({
+        approved: false,
+        apiExists: false,
+        reconcilerExists: false,
+        webExists: false,
+      }).status,
+    ).toBe(0);
+  });
+
+  it("allows an explicitly approved attested unresponsive-Worker redeploy without retarget", () => {
+    const execution = runPreHyperdriveCompatibility({
+      approved: false,
+      attested: true,
+      classification: "UNRESPONSIVE",
+      recoveryApproved: true,
+      status: 12,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.githubOutput).toContain("retarget_required=false");
+    expect(execution.githubOutput).toContain(
+      "unresponsive_redeploy_required=true",
+    );
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_EXISTING_UNRESPONSIVE_WORKER_REDEPLOY_REQUIRED",
+    );
+  });
+
+  it("rejects unapproved, unattested, retargeting, and unclassified recovery", () => {
+    for (const options of [
+      {
+        approved: false,
+        attested: true,
+        classification: "UNRESPONSIVE" as const,
+        recoveryApproved: false,
+        status: 12 as const,
+      },
+      {
+        approved: false,
+        attested: false,
+        classification: "UNRESPONSIVE" as const,
+        recoveryApproved: true,
+        status: 12 as const,
+      },
+      {
+        approved: true,
+        attested: true,
+        classification: "UNRESPONSIVE" as const,
+        recoveryApproved: true,
+        status: 12 as const,
+      },
+      {
+        approved: false,
+        attested: true,
+        classification: "UNRESPONSIVE" as const,
+        recoveryApproved: true,
+        reconcilerExists: false,
+        status: 12 as const,
+      },
+      {
+        approved: false,
+        attested: true,
+        classification: "UNCLASSIFIED_FAILURE" as const,
+        recoveryApproved: true,
+        status: 1 as const,
+      },
+    ]) {
+      const execution = runPreHyperdriveCompatibility(options);
+      expect(execution.result.status).not.toBe(0);
+      expect(execution.githubOutput).toBe("");
+    }
+  });
+
   it("accepts attested schema recovery without enabling retarget", () => {
     const execution = runPreHyperdriveCompatibility({
       approved: false,
@@ -534,6 +675,35 @@ describe("Preview Hyperdrive source-faithful shell sequence", () => {
     });
     expect(execution.result.status).not.toBe(0);
     expect(execution.githubOutput).toBe("");
+  });
+
+  it("performs no Hyperdrive mutation for complete unresponsive recovery", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      unresponsiveRecovery: true,
+    });
+    expect(execution.result.status).toBe(0);
+    expect(execution.calls).toEqual([]);
+    expect(execution.result.stdout).toContain(
+      "PREVIEW_UNRESPONSIVE_REDEPLOY_HYPERDRIVE_MUTATION_DENIED",
+    );
+  });
+
+  it("rejects unresponsive recovery before creating a missing reconciler Hyperdrive", () => {
+    const execution = runHyperdriveStep({
+      apiOrigin: canonicalApi,
+      reconcilerOrigin: canonicalReconciler,
+      approved: false,
+      required: false,
+      reconcilerPresent: false,
+      reconcilerWorkerExists: false,
+      unresponsiveRecovery: true,
+    });
+    expect(execution.result.status).not.toBe(0);
+    expect(execution.calls).toEqual([]);
   });
 
   it("performs no mutation for default-false existing canonical targets", () => {

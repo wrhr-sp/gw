@@ -525,9 +525,15 @@ describe("Preview account provisioning wiring", () => {
       ),
       workflow.indexOf("Create or update Preview Hyperdrives"),
     );
-    expect(compatibilityStep).toContain("api_existed == 'true'");
-    expect(compatibilityStep).toContain("web_existed == 'true'");
-    expect(compatibilityStep).not.toContain("reconciler_existed");
+    expect(compatibilityStep).toContain(
+      "if: steps.worker_snapshot.outputs.api_existed == 'true' && steps.worker_snapshot.outputs.web_existed == 'true'",
+    );
+    expect(compatibilityStep).toContain(
+      "PREVIEW_RECONCILER_EXISTED: ${{ steps.worker_snapshot.outputs.reconciler_existed }}",
+    );
+    expect(compatibilityStep).toContain(
+      "PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_COMPLETE_TOPOLOGY_REQUIRED",
+    );
   });
 
   it("uses a stable protected-environment bootstrap approval reference", () => {

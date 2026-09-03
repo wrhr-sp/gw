@@ -219,7 +219,20 @@ describe("Preview account Worker release safety", () => {
 
   it("keeps the one-time Hyperdrive retarget gate explicit and default-off", () => {
     expect(workflow).toContain("preview_hyperdrive_retarget:");
+    expect(workflow).toContain("preview_unresponsive_worker_redeploy:");
     expect(workflow).toContain("default: false");
+    const recoveryRequestGate = workflowStep(
+      "Validate unresponsive Preview Worker recovery request",
+    );
+    expect(recoveryRequestGate).toContain(
+      "PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED",
+    );
+    expect(recoveryRequestGate).toContain("PREVIEW_API_EXISTED");
+    expect(recoveryRequestGate).toContain("PREVIEW_RECONCILER_EXISTED");
+    expect(recoveryRequestGate).toContain("PREVIEW_WEB_EXISTED");
+    expect(recoveryRequestGate).toContain(
+      "PREVIEW_UNRESPONSIVE_WORKER_RECOVERY_COMPLETE_TOPOLOGY_REQUIRED",
+    );
     const databaseExpand = workflowStep(
       "Expand Neon Preview database for compatible Worker deploy",
     );
@@ -233,6 +246,23 @@ describe("Preview account Worker release safety", () => {
       "Verify previous Workers remain compatible after expand",
     );
     expect(preTarget).toContain("PREVIEW_HYPERDRIVE_RETARGET_APPROVED");
+    expect(preTarget).toContain(
+      "PREVIEW_UNRESPONSIVE_WORKER_REDEPLOY_APPROVED",
+    );
+    expect(preTarget).toContain(
+      "PREVIEW_EXISTING_UNRESPONSIVE_WORKER_REDEPLOY_REQUIRED",
+    );
+    expect(preTarget).toContain("unresponsive_redeploy_required=true");
+    expect(preTarget).toContain("probe-web");
+    const previousWorkerSmoke = workflowStep(
+      "Verify previous Workers use canonical Preview Hyperdrives",
+    );
+    expect(previousWorkerSmoke).toContain(
+      "steps.pre_hyperdrive_compatibility.outputs.unresponsive_redeploy_required",
+    );
+    expect(previousWorkerSmoke).toContain(
+      "PREVIEW_UNRESPONSIVE_WORKER_PRE_DEPLOY_SMOKE_DEFERRED",
+    );
     expect(preTarget).not.toContain(
       "ZITADEL_PREVIEW_SUBJECT: ${{ secrets.ZITADEL_PREVIEW_SUBJECT }}",
     );

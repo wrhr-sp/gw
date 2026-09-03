@@ -4,16 +4,44 @@ import { pathToFileURL } from "node:url";
 const isObject = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+const probeTimeoutMilliseconds = 20_000;
+
+function isTransportTimeout(value) {
+  return (
+    isObject(value) &&
+    value.transport === "TIMEOUT" &&
+    Object.keys(value).length === 1
+  );
+}
+
+function hasExactKeys(value, expectedKeys) {
+  if (!isObject(value)) return false;
+  const keys = Object.keys(value).sort();
+  return (
+    keys.length === expectedKeys.length &&
+    expectedKeys.every((key, index) => keys[index] === key)
+  );
+}
+
+function isLiveUp(live) {
+  return (
+    isObject(live) &&
+    live.status === 200 &&
+    hasExactKeys(live.body, ["data", "error", "ok"]) &&
+    live.body.ok === true &&
+    live.body.error === null &&
+    hasExactKeys(live.body.data, ["service", "status"]) &&
+    live.body.data.service === "werehere-hotel-api" &&
+    live.body.data.status === "UP"
+  );
+}
+
 export function classifyReadinessResponses(live, ready) {
-  if (
-    !isObject(live) ||
-    live.status !== 200 ||
-    !isObject(live.body) ||
-    live.body.ok !== true ||
-    live.body.data?.status !== "UP"
-  ) {
+  if (isTransportTimeout(live)) return "UNRESPONSIVE";
+  if (!isLiveUp(live)) {
     return "UNCLASSIFIED_FAILURE";
   }
+  if (isTransportTimeout(ready)) return "UNRESPONSIVE";
   if (
     isObject(ready) &&
     ready.status === 200 &&
@@ -126,18 +154,81 @@ export function parseCreatedHyperdriveId(output) {
   return match?.[1] ?? null;
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, {
-    headers: { accept: "application/json" },
-    redirect: "manual",
-  });
-  let body;
+async function boundedFetch(url, init, readBody, options = {}) {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeoutMilliseconds =
+    options.timeoutMilliseconds ?? probeTimeoutMilliseconds;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMilliseconds);
   try {
-    body = await response.json();
-  } catch {
-    body = null;
+    const response = await fetchImpl(url, { ...init, signal: controller.signal });
+    return {
+      response,
+      body: await readBody(response, controller.signal),
+    };
+  } catch (error) {
+    if (controller.signal.aborted) return { transport: "TIMEOUT" };
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  return { status: response.status, body };
+}
+
+async function fetchJson(url, options) {
+  const result = await boundedFetch(
+    url,
+    { headers: { accept: "application/json" }, redirect: "manual" },
+    async (response, signal) => {
+      try {
+        return await response.json();
+      } catch (error) {
+        if (signal.aborted) throw error;
+        return null;
+      }
+    },
+    options,
+  );
+  if (isTransportTimeout(result)) return result;
+  return { status: result.response.status, body: result.body };
+}
+
+export async function probePublicWeb(baseUrl, options) {
+  const home = await boundedFetch(
+    baseUrl,
+    { redirect: "manual" },
+    async () => null,
+    options,
+  );
+  if (
+    isTransportTimeout(home) ||
+    home.response.status !== 307 ||
+    home.response.headers.get("location") !== "/hotel-operations"
+  ) {
+    return false;
+  }
+  const login = await boundedFetch(
+    `${baseUrl}/login?authRequest=preview-recovery-probe&csrf=${"c".repeat(43)}`,
+    { headers: { accept: "text/html" }, redirect: "manual" },
+    (response) => response.text(),
+    options,
+  );
+  return (
+    !isTransportTimeout(login) &&
+    login.response.status === 200 &&
+    login.body.includes("login-name") &&
+    login.body.includes("login-password") &&
+    login.body.includes('name="csrf"') &&
+    login.body.includes("/api/auth/custom-login") &&
+    !login.body.includes("ZITADEL로 로그인")
+  );
+}
+
+export async function probeReadiness(baseUrl, options) {
+  const live = await fetchJson(`${baseUrl}/api/health/live`, options);
+  if (isTransportTimeout(live)) return "UNRESPONSIVE";
+  if (!isLiveUp(live)) return "UNCLASSIFIED_FAILURE";
+  const ready = await fetchJson(`${baseUrl}/api/health/ready`, options);
+  return classifyReadinessResponses(live, ready);
 }
 
 async function main() {
@@ -147,14 +238,23 @@ async function main() {
     if (!baseUrl || !baseUrl.startsWith("https://")) {
       throw new Error("PREVIEW_READINESS_PROBE_INVALID_URL");
     }
-    const classification = classifyReadinessResponses(
-      await fetchJson(`${baseUrl}/api/health/live`),
-      await fetchJson(`${baseUrl}/api/health/ready`),
-    );
+    const classification = await probeReadiness(baseUrl);
     process.stdout.write(`${classification}\n`);
     if (classification === "DB_DEPENDENCY_UNAVAILABLE") process.exitCode = 10;
     else if (classification === "SCHEMA_NOT_READY") process.exitCode = 11;
+    else if (classification === "UNRESPONSIVE") process.exitCode = 12;
     else if (classification !== "READY") process.exitCode = 1;
+    return;
+  }
+  if (mode === "probe-web") {
+    const baseUrl = first?.trim().replace(/\/+$/u, "");
+    if (!baseUrl || !baseUrl.startsWith("https://")) {
+      throw new Error("PREVIEW_WEB_PROBE_INVALID_URL");
+    }
+    if (!(await probePublicWeb(baseUrl))) {
+      throw new Error("PREVIEW_WEB_PROBE_FAILED");
+    }
+    process.stdout.write("WEB_READY\n");
     return;
   }
   if (mode === "target-state") {

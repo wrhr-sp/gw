@@ -7,9 +7,18 @@ const {
   decideRetarget,
   hyperdriveTargetState,
   parseCreatedHyperdriveId,
+  probePublicWeb,
+  probeReadiness,
 } = retargetContract;
 
-const liveUp = { status: 200, body: { ok: true, data: { status: "UP" } } };
+const liveUp = {
+  status: 200,
+  body: {
+    ok: true,
+    data: { service: "werehere-hotel-api", status: "UP" },
+    error: null,
+  },
+};
 const ready = { status: 200, body: { ok: true, data: { status: "READY" } } };
 const unavailable = {
   status: 500,
@@ -19,6 +28,7 @@ const schemaNotReady = {
   status: 503,
   body: { ok: false, error: { code: "SCHEMA_NOT_READY" } },
 };
+const transportTimeout = { transport: "TIMEOUT" };
 
 const matchingConfig = {
   id: "hyperdrive-api",
@@ -34,6 +44,124 @@ const target =
   "postgresql://api_runtime:secret-sentinel@preview.example.invalid:5432/gw";
 
 describe("Preview Hyperdrive retarget contract", () => {
+  it("classifies only its own bounded transport abort as unresponsive", async () => {
+    const abortingFetch = (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          reject(new Error("fixture aborted"));
+        });
+      });
+    await expect(
+      probeReadiness("https://preview.invalid", {
+        fetchImpl: abortingFetch,
+        timeoutMilliseconds: 5,
+      }),
+    ).resolves.toBe("UNRESPONSIVE");
+    await expect(
+      probeReadiness("https://preview.invalid", {
+        fetchImpl: () => Promise.reject(new Error("fixture dns failure")),
+        timeoutMilliseconds: 50,
+      }),
+    ).rejects.toThrow("fixture dns failure");
+  });
+
+  it("does not let a readiness timeout override invalid liveness", async () => {
+    for (const invalidLiveBody of [
+      { ...liveUp.body, data: { ...liveUp.body.data, service: "wrong-service" } },
+      { ...liveUp.body, error: { code: "INTERNAL_ERROR" } },
+      { ...liveUp.body, extra: true },
+      { ...liveUp.body, data: { ...liveUp.body.data, extra: true } },
+    ]) {
+      let calls = 0;
+      const fetchImpl = (_url: string, init: RequestInit) => {
+        calls += 1;
+        if (calls === 1) {
+          return Promise.resolve(
+            new Response(JSON.stringify(invalidLiveBody), {
+              headers: { "content-type": "application/json" },
+              status: 200,
+            }),
+          );
+        }
+        return new Promise<Response>((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () =>
+            reject(new Error("fixture aborted")),
+          );
+        });
+      };
+      await expect(
+        probeReadiness("https://preview.invalid", {
+          fetchImpl,
+          timeoutMilliseconds: 5,
+        }),
+      ).resolves.toBe("UNCLASSIFIED_FAILURE");
+      expect(calls).toBe(1);
+    }
+  });
+
+  it("classifies a stalled readiness response body as unresponsive", async () => {
+    let calls = 0;
+    const fetchImpl = (_url: string, init: RequestInit) => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(
+          new Response(JSON.stringify(liveUp.body), {
+            headers: { "content-type": "application/json" },
+            status: 200,
+          }),
+        );
+      }
+      return Promise.resolve({
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener("abort", () =>
+              reject(new Error("fixture body aborted")),
+            );
+          }),
+        status: 200,
+      } as Response);
+    };
+    await expect(
+      probeReadiness("https://preview.invalid", {
+        fetchImpl,
+        timeoutMilliseconds: 5,
+      }),
+    ).resolves.toBe("UNRESPONSIVE");
+    expect(calls).toBe(2);
+  });
+
+  it("accepts only the exact public Web redirect and login contract", async () => {
+    const validLogin =
+      '<form action="/api/auth/custom-login"><input id="login-name"><input id="login-password"><input name="csrf"></form>';
+    const fetchImpl = (url: string) => {
+      if (url === "https://preview.invalid") {
+        return Promise.resolve(
+          new Response(null, {
+            headers: { location: "/hotel-operations" },
+            status: 307,
+          }),
+        );
+      }
+      return Promise.resolve(new Response(validLogin, { status: 200 }));
+    };
+    await expect(
+      probePublicWeb("https://preview.invalid", { fetchImpl }),
+    ).resolves.toBe(true);
+    await expect(
+      probePublicWeb("https://preview.invalid", {
+        fetchImpl: (url: string) =>
+          Promise.resolve(
+            url === "https://preview.invalid"
+              ? new Response(null, {
+                  headers: { location: "/login" },
+                  status: 307,
+                })
+              : new Response(validLogin, { status: 200 }),
+          ),
+      }),
+    ).resolves.toBe(false);
+  });
+
   it("classifies only exact liveness and readiness payloads", () => {
     expect(classifyReadinessResponses(liveUp, ready)).toBe("READY");
     expect(classifyReadinessResponses(liveUp, unavailable)).toBe(
@@ -41,6 +169,12 @@ describe("Preview Hyperdrive retarget contract", () => {
     );
     expect(classifyReadinessResponses(liveUp, schemaNotReady)).toBe(
       "SCHEMA_NOT_READY",
+    );
+    expect(classifyReadinessResponses(transportTimeout, null)).toBe(
+      "UNRESPONSIVE",
+    );
+    expect(classifyReadinessResponses(liveUp, transportTimeout)).toBe(
+      "UNRESPONSIVE",
     );
     for (const candidate of [
       { status: 429, body: unavailable.body },
