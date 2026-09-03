@@ -207,6 +207,32 @@ describe("inspection review SSR structured errors", () => {
 });
 
 describe("inspection configuration SSR v2 fetch", () => {
+  it("keeps at most one configuration API request in flight", async () => {
+    const resolvers: Array<(response: Response) => void> = [];
+    fetchApi.mockReset();
+    fetchApi.mockImplementation(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    const pending = fetchInspectionConfiguration(hotelId);
+    await vi.waitFor(() => expect(fetchApi).toHaveBeenCalledTimes(1));
+    for (let expectedCalls = 2; expectedCalls <= 5; expectedCalls += 1) {
+      resolvers[expectedCalls - 2]!(new Response(null, { status: 500 }));
+      await vi.waitFor(() =>
+        expect(fetchApi).toHaveBeenCalledTimes(expectedCalls),
+      );
+    }
+    resolvers[4]!(new Response(null, { status: 500 }));
+    await expect(pending).resolves.toMatchObject({
+      ok: false,
+      stage: "CHECKLIST",
+      status: 500,
+    });
+  });
+
   it("reads the typed ROOM/FACILITY checklist from the additive v2 route", async () => {
     fetchApi.mockReset();
     fetchApi

@@ -16,19 +16,11 @@ export default async function HotelsLayout({
   children: ReactNode;
 }) {
   const principal = await requireAuthenticatedPrincipal();
-  const [
-    accountPermissions,
-    calendarCapabilities,
-    dailySalesCapabilities,
-    issueCapabilities,
-    inquiryCapabilities,
-  ] = await Promise.all([
-    fetchAccountCapabilities(),
-    fetchCalendarCapabilities(),
-    fetchDailySalesCapabilities(),
-    fetchOperationalIssueCapabilities(),
-    fetchInquiryCapabilities(),
-  ]);
+  const accountPermissions = await fetchAccountCapabilities();
+  const calendarCapabilities = await fetchCalendarCapabilities();
+  const dailySalesCapabilities = await fetchDailySalesCapabilities();
+  const issueCapabilities = await fetchOperationalIssueCapabilities();
+  const inquiryCapabilities = await fetchInquiryCapabilities();
   const calendarHref = calendarNavigationHref(
     calendarCapabilities.canViewAllHotels,
     calendarCapabilities.hotels,

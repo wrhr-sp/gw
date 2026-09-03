@@ -188,22 +188,24 @@ export async function fetchInspectionReviews(hotelId: string) {
 }
 
 export async function fetchInspectionConfiguration(hotelId: string) {
-  const responses = await Promise.all([
-    request(inspectionRoutes.checklistV2(hotelId)),
-    request(
-      `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
-    ),
-    request(processRoutes.hotelDefault(hotelId)),
-    request(processRoutes.reviewerCandidates(hotelId)),
-    request(inspectionRoutes.routinesV2(hotelId)),
-  ]);
-  const [
+  const checklistResponse = await request(
+    inspectionRoutes.checklistV2(hotelId),
+  );
+  const definitionsResponse = await request(
+    `${processRoutes.definitions}?hotelId=${encodeURIComponent(hotelId)}`,
+  );
+  const defaultResponse = await request(processRoutes.hotelDefault(hotelId));
+  const candidatesResponse = await request(
+    processRoutes.reviewerCandidates(hotelId),
+  );
+  const routinesResponse = await request(inspectionRoutes.routinesV2(hotelId));
+  const responses = [
     checklistResponse,
     definitionsResponse,
     defaultResponse,
     candidatesResponse,
     routinesResponse,
-  ] = responses;
+  ];
   if (responses.some((response) => response.status === 401)) redirect("/login");
 
   const failedResponse = [
