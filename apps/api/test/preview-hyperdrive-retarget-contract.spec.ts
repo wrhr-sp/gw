@@ -99,7 +99,7 @@ describe("Preview Hyperdrive retarget contract", () => {
     }
   });
 
-  it("classifies a stalled readiness response body as unresponsive", async () => {
+  it("classifies a stalled readiness response body separately from an unresponsive Worker", async () => {
     let calls = 0;
     const fetchImpl = (_url: string, init: RequestInit) => {
       calls += 1;
@@ -126,7 +126,7 @@ describe("Preview Hyperdrive retarget contract", () => {
         fetchImpl,
         timeoutMilliseconds: 5,
       }),
-    ).resolves.toBe("UNRESPONSIVE");
+    ).resolves.toBe("READINESS_TIMEOUT");
     expect(calls).toBe(2);
   });
 
@@ -174,7 +174,7 @@ describe("Preview Hyperdrive retarget contract", () => {
       "UNRESPONSIVE",
     );
     expect(classifyReadinessResponses(liveUp, transportTimeout)).toBe(
-      "UNRESPONSIVE",
+      "READINESS_TIMEOUT",
     );
     for (const candidate of [
       { status: 429, body: unavailable.body },

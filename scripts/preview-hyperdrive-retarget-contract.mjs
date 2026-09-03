@@ -4,7 +4,8 @@ import { pathToFileURL } from "node:url";
 const isObject = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
-const probeTimeoutMilliseconds = 20_000;
+const liveProbeTimeoutMilliseconds = 20_000;
+const readinessProbeTimeoutMilliseconds = 90_000;
 
 function isTransportTimeout(value) {
   return (
@@ -41,7 +42,7 @@ export function classifyReadinessResponses(live, ready) {
   if (!isLiveUp(live)) {
     return "UNCLASSIFIED_FAILURE";
   }
-  if (isTransportTimeout(ready)) return "UNRESPONSIVE";
+  if (isTransportTimeout(ready)) return "READINESS_TIMEOUT";
   if (
     isObject(ready) &&
     ready.status === 200 &&
@@ -157,7 +158,7 @@ export function parseCreatedHyperdriveId(output) {
 async function boundedFetch(url, init, readBody, options = {}) {
   const fetchImpl = options.fetchImpl ?? fetch;
   const timeoutMilliseconds =
-    options.timeoutMilliseconds ?? probeTimeoutMilliseconds;
+    options.timeoutMilliseconds ?? liveProbeTimeoutMilliseconds;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMilliseconds);
   try {
@@ -223,11 +224,15 @@ export async function probePublicWeb(baseUrl, options) {
   );
 }
 
-export async function probeReadiness(baseUrl, options) {
+export async function probeReadiness(baseUrl, options = {}) {
   const live = await fetchJson(`${baseUrl}/api/health/live`, options);
   if (isTransportTimeout(live)) return "UNRESPONSIVE";
   if (!isLiveUp(live)) return "UNCLASSIFIED_FAILURE";
-  const ready = await fetchJson(`${baseUrl}/api/health/ready`, options);
+  const ready = await fetchJson(`${baseUrl}/api/health/ready`, {
+    ...options,
+    timeoutMilliseconds:
+      options.timeoutMilliseconds ?? readinessProbeTimeoutMilliseconds,
+  });
   return classifyReadinessResponses(live, ready);
 }
 
@@ -243,6 +248,7 @@ async function main() {
     if (classification === "DB_DEPENDENCY_UNAVAILABLE") process.exitCode = 10;
     else if (classification === "SCHEMA_NOT_READY") process.exitCode = 11;
     else if (classification === "UNRESPONSIVE") process.exitCode = 12;
+    else if (classification === "READINESS_TIMEOUT") process.exitCode = 13;
     else if (classification !== "READY") process.exitCode = 1;
     return;
   }

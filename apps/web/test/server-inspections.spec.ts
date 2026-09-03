@@ -5,7 +5,7 @@ const { fetchApi } = vi.hoisted(() => ({ fetchApi: vi.fn() }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({ toString: () => "" }),
 }));
-vi.mock("next/navigation", () => ({ redirect: vi.fn() }));
+vi.mock("next/navigation", () => ({ redirect: vi.fn(), notFound: vi.fn() }));
 vi.mock("../lib/api-transport", () => ({ fetchApi }));
 
 import {
@@ -13,8 +13,51 @@ import {
   fetchInspectionExecutions,
   fetchInspectionReviews,
 } from "../lib/server-inspections";
+import { loadInspectionSettingsPageData } from "../lib/inspection-settings-page-data";
 
 const hotelId = "50000000-0000-4000-8000-000000000001";
+
+describe("inspection settings page load ordering", () => {
+  it("does not start secondary loaders before canonical configuration succeeds", async () => {
+    let resolveConfiguration!: (value: never) => void;
+    const configuration = vi.fn(
+      () =>
+        new Promise<never>((resolve) => {
+          resolveConfiguration = resolve;
+        }),
+    );
+    const rooms = vi.fn(async () => undefined as never);
+    const facilities = vi.fn(async () => undefined as never);
+
+    const pending = loadInspectionSettingsPageData(hotelId, {
+      configuration,
+      facilities,
+      rooms,
+    });
+    await Promise.resolve();
+    expect(configuration).toHaveBeenCalledOnce();
+    expect(rooms).not.toHaveBeenCalled();
+    expect(facilities).not.toHaveBeenCalled();
+
+    resolveConfiguration({ ok: true } as never);
+    await pending;
+    expect(rooms).toHaveBeenCalledOnce();
+    expect(facilities).toHaveBeenCalledOnce();
+  });
+
+  it("does not start secondary loaders after configuration failure", async () => {
+    const rooms = vi.fn(async () => undefined as never);
+    const facilities = vi.fn(async () => undefined as never);
+    const result = await loadInspectionSettingsPageData(hotelId, {
+      configuration: vi.fn(async () => ({ ok: false } as never)),
+      facilities,
+      rooms,
+    });
+    expect(result.configuration).toEqual({ ok: false });
+    expect(rooms).not.toHaveBeenCalled();
+    expect(facilities).not.toHaveBeenCalled();
+  });
+});
 
 function execution(id: string, roomNumber: string) {
   return {
