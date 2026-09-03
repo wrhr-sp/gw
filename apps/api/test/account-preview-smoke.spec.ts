@@ -90,9 +90,11 @@ describe("hosted Preview account-management smoke", () => {
     }) => {
       let attempt = 0;
       let currentUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+      const observedHeadingTimeouts: number[] = [];
       const sectionExists = diagnosticSectionExists ?? diagnostics !== undefined;
       return {
         calls: () => attempt,
+        headingTimeouts: () => observedHeadingTimeouts,
         goto: async () => {
           attempt += 1;
           currentUrl = urls?.[attempt - 1] ?? currentUrl;
@@ -116,7 +118,12 @@ describe("hosted Preview account-management smoke", () => {
           }),
         }),
         url: () => currentUrl,
-        waitForFunction: async () => {
+        waitForFunction: async (
+          _predicate: () => unknown,
+          _argument: unknown,
+          options: { timeout: number },
+        ) => {
+          observedHeadingTimeouts.push(options.timeout);
           currentUrl = afterWaitUrls?.[attempt - 1] ?? currentUrl;
           const waitError = waitErrors?.[attempt - 1];
           if (waitError) throw waitError;
@@ -133,6 +140,15 @@ describe("hosted Preview account-management smoke", () => {
         },
       };
     };
+
+    const defaultBudget = createPage({ outcomes: ["ready"] });
+    await navigateInspectionSettings({
+      baseUrl,
+      hotelId,
+      navigationTimeoutMs: 1,
+      page: defaultBudget,
+    });
+    expect(defaultBudget.headingTimeouts()).toEqual([90_000]);
 
     const transient = createPage({
       diagnostics: {
