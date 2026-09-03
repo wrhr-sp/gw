@@ -35,7 +35,12 @@ export default async function InspectionSettingsPage({
   const { hotelId } = await params;
   const loaded = await loadInspectionSettingsPageData(hotelId);
   const { configuration } = loaded;
-  if (!configuration.ok && configuration.code === "RESOURCE_NOT_FOUND")
+  if (
+    !configuration.ok &&
+    configuration.code === "RESOURCE_NOT_FOUND" &&
+    configuration.stage === "CHECKLIST" &&
+    configuration.status === 404
+  )
     notFound();
   if (!configuration.ok)
     return (
