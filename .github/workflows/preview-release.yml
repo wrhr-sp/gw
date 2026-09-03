@@ -1302,8 +1302,70 @@ jobs:
       - name: Verify hosted Preview account management and canonical login before contract
         id: account_management_smoke
         run: |
-          set -o pipefail
+          set -euo pipefail
+          tail_raw="$(mktemp)"
+          tail_control="$(mktemp)"
+          chmod 600 "$tail_raw" "$tail_control"
+          tail_pid=""
+          tail_pgid=""
+          stop_tail() {
+            if [[ -n "$tail_pgid" ]] && kill -0 -- "-$tail_pgid" 2>/dev/null; then
+              kill -TERM -- "-$tail_pgid" 2>/dev/null || true
+              for _ in 1 2 3 4 5; do
+                kill -0 -- "-$tail_pgid" 2>/dev/null || break
+                sleep 1
+              done
+              if kill -0 -- "-$tail_pgid" 2>/dev/null; then
+                kill -KILL -- "-$tail_pgid" 2>/dev/null || true
+                for _ in 1 2 3 4 5; do
+                  kill -0 -- "-$tail_pgid" 2>/dev/null || break
+                  sleep 1
+                done
+              fi
+            fi
+            if [[ -n "$tail_pid" ]]; then wait "$tail_pid" 2>/dev/null || true; fi
+            if [[ -n "$tail_pgid" ]] && kill -0 -- "-$tail_pgid" 2>/dev/null; then
+              return 1
+            fi
+            tail_pid=""
+            tail_pgid=""
+          }
+          cleanup_tail() {
+            stop_tail || true
+            rm -f "$tail_raw" "$tail_control"
+          }
+          trap cleanup_tail EXIT
+          CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid pnpm --filter @werehere/api exec wrangler tail werehere-hotel-web-preview \
+            --format json >"$tail_raw" 2>"$tail_control" &
+          tail_pid="$!"
+          tail_pgid="$tail_pid"
+          tail_canary='tailCanary=preview-account-smoke'
+          tail_ready=false
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            if ! kill -0 -- "-$tail_pgid" 2>/dev/null; then break; fi
+            curl --silent --show-error --max-time 2 --output /dev/null "${WEB_PREVIEW_URL}/login?${tail_canary}" || true
+            sleep 1
+            if grep -Fq "$tail_canary" "$tail_raw"; then
+              tail_ready=true
+              break
+            fi
+          done
+          if [[ "$tail_ready" != "true" ]]; then
+            printf '%s\n' 'PREVIEW_WEB_SSR_TAIL_UNAVAILABLE'
+            exit 1
+          fi
+          set +e
           ZITADEL_PREVIEW_SUBJECT=${{ secrets.ZITADEL_PREVIEW_SUBJECT }} ZITADEL_USER_PROVISIONER_TOKEN=${{ secrets.ZITADEL_USER_PROVISIONER_TOKEN }} ZITADEL_SERVICE_USER_TOKEN=${{ secrets.ZITADEL_SERVICE_USER_TOKEN }} node scripts/smoke-account-preview.mjs | tee /tmp/preview-account-smoke.log
+          smoke_status="${PIPESTATUS[0]}"
+          set -e
+          if ! stop_tail; then
+            printf '%s\n' 'PREVIEW_WEB_SSR_TAIL_TERMINATION_FAILED'
+            exit 1
+          fi
+          if [[ "$smoke_status" -ne 0 ]]; then
+            node scripts/classify-preview-web-tail.mjs "$tail_raw"
+            exit "$smoke_status"
+          fi
           grep -qx 'PREVIEW_PROCESS_WORKS_UI_SMOKE_OK' /tmp/preview-account-smoke.log
           grep -qx 'PREVIEW_ACCOUNT_MANAGEMENT_SMOKE_OK' /tmp/preview-account-smoke.log
 

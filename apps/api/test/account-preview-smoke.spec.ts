@@ -1,6 +1,8 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { chromium, errors as playwrightErrors } from "@playwright/test";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error Operational ESM helper is executed directly by Node in the release workflow.
@@ -46,6 +48,14 @@ const serverInspectionsUrl = new URL(
   "../../../apps/web/lib/server-inspections.ts",
   import.meta.url,
 );
+const webTailClassifierUrl = new URL(
+  "../../../scripts/classify-preview-web-tail.mjs",
+  import.meta.url,
+);
+const previewReleaseWorkflowUrl = new URL(
+  "../../../.github/workflows/preview-release.yml",
+  import.meta.url,
+);
 const smokePath = fileURLToPath(smokeUrl);
 const source = readFileSync(smokeUrl, "utf8");
 const helperSource = readFileSync(cleanupHelperUrl, "utf8");
@@ -63,6 +73,220 @@ describe("hosted Preview account-management smoke", () => {
         stdio: "pipe",
       }),
     ).not.toThrow();
+  });
+
+  it("classifies private Web Worker tail data into fixed SSR markers", () => {
+    const directory = mkdtempSync(join(tmpdir(), "preview-web-tail-"));
+    const fixturePath = join(directory, "tail.ndjson");
+    const classifierPath = fileURLToPath(webTailClassifierUrl);
+    const workflow = readFileSync(previewReleaseWorkflowUrl, "utf8");
+    const accountStep = workflow.slice(
+      workflow.indexOf(
+        "- name: Verify hosted Preview account management and canonical login before contract",
+      ),
+      workflow.indexOf(
+        "- name: Verify hosted Preview own Calendar and responsive UI before contract",
+      ),
+    );
+    expect(accountStep).toContain("chmod 600 \"$tail_raw\" \"$tail_control\"");
+    expect(accountStep).not.toContain("        env:\n          CLOUDFLARE_ACCOUNT_ID:");
+    expect(accountStep).toContain(
+      "CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid pnpm",
+    );
+    expect(accountStep).toContain(
+      'kill -TERM -- "-$tail_pgid"',
+    );
+    expect(accountStep).toContain(
+      'kill -KILL -- "-$tail_pgid"',
+    );
+    expect(accountStep).toContain(
+      "PREVIEW_WEB_SSR_TAIL_UNAVAILABLE",
+    );
+    expect(accountStep).toContain("tail_canary='tailCanary=preview-account-smoke'");
+    expect(accountStep).toContain(
+      'curl --silent --show-error --max-time 2 --output /dev/null "${WEB_PREVIEW_URL}/login?${tail_canary}"',
+    );
+    expect(accountStep).toContain('grep -Fq "$tail_canary" "$tail_raw"');
+    expect(accountStep).toContain('[[ "$tail_ready" != "true" ]]');
+    expect(accountStep).toContain("wrangler tail werehere-hotel-web-preview");
+    expect(accountStep).toContain(
+      '--format json >"$tail_raw" 2>"$tail_control" &',
+    );
+    expect(accountStep).toContain("trap cleanup_tail EXIT");
+    expect(accountStep).toContain('smoke_status="${PIPESTATUS[0]}"');
+    expect(accountStep).toContain(
+      'node scripts/classify-preview-web-tail.mjs "$tail_raw"',
+    );
+    expect(accountStep).toContain('exit "$smoke_status"');
+    expect(accountStep).not.toContain('cat "$tail_raw"');
+    expect(accountStep).not.toContain('cat "$tail_control"');
+    const settingsUrl =
+      "https://preview.example.test/hotels/50000000-0000-4000-8000-000000000001/inspections/settings";
+    const runRaw = (content: string) => {
+      writeFileSync(fixturePath, content, { mode: 0o600 });
+      return spawnSync(process.execPath, [classifierPath, fixturePath], {
+        encoding: "utf8",
+      });
+    };
+    const run = (events: unknown[]) =>
+      runRaw(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
+    try {
+      for (const [detail, marker] of [
+        [
+          { exceptions: [{ message: "crypto.randomUUID is not a function" }] },
+          "PREVIEW_WEB_SSR_TAIL_CRYPTO_RANDOM_UUID",
+        ],
+        [
+          { exceptions: [{ message: "Too many subrequests" }] },
+          "PREVIEW_WEB_SSR_TAIL_SUBREQUEST_LIMIT",
+        ],
+        [
+          {
+            exceptions: [
+              { message: "The script will never generate a response" },
+            ],
+          },
+          "PREVIEW_WEB_SSR_TAIL_NO_RESPONSE",
+        ],
+        [
+          { outcome: "exceededCpu", exceptions: [] },
+          "PREVIEW_WEB_SSR_TAIL_CPU_LIMIT",
+        ],
+        [
+          { outcome: "exceededMemory", exceptions: [] },
+          "PREVIEW_WEB_SSR_TAIL_MEMORY_LIMIT",
+        ],
+        [
+          { exceptions: [{ message: "Exceeded CPU time limit" }] },
+          "PREVIEW_WEB_SSR_TAIL_CPU_LIMIT",
+        ],
+        [
+          { exceptions: [{ message: "Worker exceeded memory limit" }] },
+          "PREVIEW_WEB_SSR_TAIL_MEMORY_LIMIT",
+        ],
+        [
+          { exceptions: [{ name: "TypeError", message: "private-value" }] },
+          "PREVIEW_WEB_SSR_TAIL_TYPE_ERROR",
+        ],
+        [
+          { exceptions: [{ name: "RangeError", message: "private-value" }] },
+          "PREVIEW_WEB_SSR_TAIL_RANGE_ERROR",
+        ],
+        [
+          { exceptions: [{ name: "Error", message: "private-value" }] },
+          "PREVIEW_WEB_SSR_TAIL_ERROR",
+        ],
+        [
+          { logs: [{ message: ["private-value"] }] },
+          "PREVIEW_WEB_SSR_TAIL_SETTINGS_EVENT_UNCLASSIFIED",
+        ],
+      ] as const) {
+        const result = run([{ event: { request: { url: settingsUrl } }, ...detail }]);
+        expect(result.status).toBe(0);
+        expect(result.stdout.trim()).toBe(marker);
+        expect(`${result.stdout}${result.stderr}`).not.toContain("private-value");
+      }
+
+      const prettyTypeError = {
+        event: { request: { url: settingsUrl } },
+        exceptions: [{ name: "TypeError", message: "private-value" }],
+      };
+      const prettyResult = runRaw(`${JSON.stringify(prettyTypeError, null, 4)}\n`);
+      expect(prettyResult.status).toBe(0);
+      expect(prettyResult.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_TYPE_ERROR",
+      );
+      expect(`${prettyResult.stdout}${prettyResult.stderr}`).not.toContain(
+        "private-value",
+      );
+
+      const multiplePrettyResult = runRaw(
+        `${JSON.stringify(
+          {
+            event: { request: { url: "https://preview.example.test/login" } },
+            exceptions: [{ name: "Error", message: "private-value" }],
+          },
+          null,
+          4,
+        )}\n${JSON.stringify(
+          {
+            event: { request: { url: settingsUrl } },
+            outcome: "exceededCpu",
+          },
+          null,
+          4,
+        )}\n`,
+      );
+      expect(multiplePrettyResult.status).toBe(0);
+      expect(multiplePrettyResult.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_CPU_LIMIT",
+      );
+
+      const noSettingsEvent = run([
+        {
+          event: { request: { url: "https://preview.example.test/login" } },
+          exceptions: [{ name: "TypeError", message: "private-value" }],
+        },
+      ]);
+      expect(noSettingsEvent.status).toBe(0);
+      expect(noSettingsEvent.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_NO_SETTINGS_EVENT",
+      );
+      expect(`${noSettingsEvent.stdout}${noSettingsEvent.stderr}`).not.toContain(
+        "private-value",
+      );
+
+      const precedence = run([
+        {
+          event: { request: { url: settingsUrl } },
+          exceptions: [{ name: "TypeError", message: "private-value" }],
+        },
+        {
+          event: { request: { url: settingsUrl } },
+          exceptions: [{ message: "crypto.randomUUID is not a function" }],
+        },
+      ]);
+      expect(precedence.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_CRYPTO_RANDOM_UUID",
+      );
+
+      const canonicalOutcomePrecedence = run([
+        {
+          event: { request: { url: settingsUrl } },
+          outcome: "exceededMemory",
+          exceptions: [{ message: "crypto.randomUUID is not a function" }],
+        },
+      ]);
+      expect(canonicalOutcomePrecedence.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_MEMORY_LIMIT",
+      );
+
+      const nestedUrlSpoof = run([
+        {
+          event: {
+            request: { url: "https://preview.example.test/login" },
+          },
+          outcome: "ok",
+          logs: [{ url: settingsUrl, outcome: "exceededCpu" }],
+        },
+      ]);
+      expect(nestedUrlSpoof.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_NO_SETTINGS_EVENT",
+      );
+
+      const nestedOutcomeSpoof = run([
+        {
+          event: { request: { url: settingsUrl } },
+          outcome: "ok",
+          logs: [{ outcome: "exceededCpu" }],
+        },
+      ]);
+      expect(nestedOutcomeSpoof.stdout.trim()).toBe(
+        "PREVIEW_WEB_SSR_TAIL_SETTINGS_EVENT_UNCLASSIFIED",
+      );
+    } finally {
+      rmSync(directory, { force: true, recursive: true });
+    }
   });
 
   it("preflights inspection settings with the browser cookie request context", async () => {
