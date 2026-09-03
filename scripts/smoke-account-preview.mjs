@@ -12,7 +12,10 @@ import {
   waitForProviderInactive,
   waitForZeroActiveSessions,
 } from "./lib/preview-account-smoke-cleanup.mjs";
-import { navigateInspectionSettings } from "./lib/preview-account-smoke-navigation.mjs";
+import {
+  navigateInspectionSettings,
+  preflightInspectionSettings,
+} from "./lib/preview-account-smoke-navigation.mjs";
 import {
   runHostedMutation,
   runHostedMutationWithReload,
@@ -924,6 +927,13 @@ async function verifyHostedChecklistUi(hotelId, token, canonicalChecklist) {
       },
     ]);
     const page = await context.newPage();
+    journeyFailureCode = "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT";
+    await preflightInspectionSettings({
+      baseUrl,
+      hotelId,
+      request: context.request,
+      timeoutMs: hostedUiTimeoutMs,
+    });
     const idempotencyKeys = [];
     page.on("request", (request) => {
       if (request.method() === "PUT" && request.url() === endpoint) {

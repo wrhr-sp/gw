@@ -209,6 +209,22 @@ function allowedMethods(apiPath: string): ReadonlySet<string> | undefined {
     return new Set(["GET", "PUT"]);
   }
   if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/process-defaults/room-inspection$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET", "PUT"]);
+  }
+  if (
+    new RegExp(
+      `^hotels/${UUID_PATH_PATTERN}/process-reviewer-candidates$`,
+      "iu",
+    ).test(apiPath)
+  ) {
+    return new Set(["GET"]);
+  }
+  if (
     new RegExp(`^hotels/${UUID_PATH_PATTERN}/files/upload-init$`, "iu").test(
       apiPath,
     )
