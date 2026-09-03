@@ -148,6 +148,7 @@ describe("hosted Preview account-management smoke", () => {
       diagnostics,
       gotoErrors,
       jsonValueErrors,
+      navigationStatuses,
       outcomes,
       unavailableState = "NO_HEADING",
       urls,
@@ -159,6 +160,7 @@ describe("hosted Preview account-management smoke", () => {
       diagnostics?: Partial<{ code: string; stage: string; status: string }>;
       gotoErrors?: Array<Error | null>;
       jsonValueErrors?: Array<Error | null>;
+      navigationStatuses?: Array<number | string | Error | null>;
       outcomes: Array<string | null>;
       unavailableState?:
         | "APP_SHELL_HEADING"
@@ -187,6 +189,16 @@ describe("hosted Preview account-management smoke", () => {
           currentUrl = urls?.[attempt - 1] ?? currentUrl;
           const gotoError = gotoErrors?.[attempt - 1];
           if (gotoError) throw gotoError;
+          const status = navigationStatuses?.[attempt - 1];
+          if (status instanceof Error)
+            return Object.defineProperty({}, "status", {
+              get() {
+                throw status;
+              },
+            });
+          return status === null || status === undefined
+            ? null
+            : { status: () => status };
         },
         locator: () => ({
           first: () => ({
@@ -435,10 +447,97 @@ describe("hosted Preview account-management smoke", () => {
           page: unavailableHeading,
         }),
       ).rejects.toMatchObject({
-        previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${unavailableState}`,
+        previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${
+          unavailableState === "NEXT_ERROR_ROOT"
+            ? "NEXT_ERROR_ROOT_NO_RESPONSE"
+            : unavailableState
+        }`,
       });
       expect(unavailableHeading.calls()).toBe(3);
     }
+
+    for (const [status, responseClass] of [
+      [200, "HTTP_2XX"],
+      [307, "HTTP_3XX"],
+      [404, "HTTP_4XX"],
+      [503, "HTTP_5XX"],
+    ] as const) {
+      const nextErrorResponse = createPage({
+        navigationStatuses: [status, status, status],
+        outcomes: [null, null, null],
+        unavailableState: "NEXT_ERROR_ROOT",
+        waitErrors: [
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+        ],
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: nextErrorResponse,
+        }),
+      ).rejects.toMatchObject({
+        previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_${responseClass}`,
+      });
+    }
+
+    for (const invalidStatus of [
+      "503",
+      200.5,
+      Number.NaN,
+      600,
+      new Error("sensitive-getter-detail"),
+    ]) {
+      const invalidNextErrorResponse = createPage({
+        navigationStatuses: [invalidStatus, invalidStatus, invalidStatus],
+        outcomes: [null, null, null],
+        unavailableState: "NEXT_ERROR_ROOT",
+        waitErrors: [
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+        ],
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: invalidNextErrorResponse,
+        }),
+      ).rejects.toMatchObject({
+        previewFailureCode:
+          "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_NO_RESPONSE",
+      });
+    }
+
+    const finalResponseWins = createPage({
+      navigationStatuses: [503, 404, 200],
+      outcomes: [null, null, null],
+      unavailableState: "NEXT_ERROR_ROOT",
+      waitErrors: [
+        new playwrightErrors.TimeoutError("heading timeout"),
+        new playwrightErrors.TimeoutError("heading timeout"),
+        new playwrightErrors.TimeoutError("heading timeout"),
+      ],
+    });
+    await expect(
+      navigateInspectionSettings({
+        baseUrl,
+        headingTimeoutMs: 1,
+        hotelId,
+        navigationTimeoutMs: 1,
+        page: finalResponseWins,
+      }),
+    ).rejects.toMatchObject({
+      previewFailureCode:
+        "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_HTTP_2XX",
+    });
 
     const hotelErrorBoundary = createPage({
       outcomes: ["hotel-error", "ready"],
@@ -720,7 +819,9 @@ describe("hosted Preview account-management smoke", () => {
             page: smokePage,
           }),
         ).rejects.toMatchObject({
-          previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${state}`,
+          previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${
+            state === "NEXT_ERROR_ROOT" ? "NEXT_ERROR_ROOT_HTTP_2XX" : state
+          }`,
         });
         expect(navigations).toBe(3);
         await page.close();
@@ -997,7 +1098,11 @@ describe("hosted Preview account-management smoke", () => {
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_APP_SHELL_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_AUTH_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_EDGE_ERROR_ROOT",
-      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_HTTP_2XX",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_HTTP_3XX",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_HTTP_4XX",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_HTTP_5XX",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT_NO_RESPONSE",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NOT_FOUND_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NO_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_PASSWORD_HEADING",
@@ -1029,6 +1134,7 @@ describe("hosted Preview account-management smoke", () => {
     }
 
     for (const unsafeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT",
       "INSPECTION_CHECKLIST_V2_UI_PREFLIGHT_SECRETS",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_SECRETS_403_FORBIDDEN",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_ROOMS_200_OK",
