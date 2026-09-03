@@ -1,8 +1,6 @@
 import { notFound } from "next/navigation";
 import { InspectionConfigurationPanel } from "../../../../../components/inspections/inspection-configuration-panel";
-import { fetchInspectionConfiguration } from "../../../../../lib/server-inspections";
-import { fetchAllFacilityInspectionData } from "../../../../../lib/server-facilities";
-import { fetchAllRoomInspectionData } from "../../../../../lib/server-rooms";
+import { loadInspectionSettingsPageData } from "../../../../../lib/inspection-settings-page-data";
 
 function Failure({
   code,
@@ -35,11 +33,8 @@ export default async function InspectionSettingsPage({
   params: Promise<{ hotelId: string }>;
 }) {
   const { hotelId } = await params;
-  const [configuration, roomData, facilityData] = await Promise.all([
-    fetchInspectionConfiguration(hotelId),
-    fetchAllRoomInspectionData(hotelId),
-    fetchAllFacilityInspectionData(hotelId),
-  ]);
+  const loaded = await loadInspectionSettingsPageData(hotelId);
+  const { configuration } = loaded;
   if (!configuration.ok && configuration.code === "RESOURCE_NOT_FOUND")
     notFound();
   if (!configuration.ok)
@@ -51,6 +46,10 @@ export default async function InspectionSettingsPage({
         status={configuration.status}
       />
     );
+  if (!("roomData" in loaded) || !("facilityData" in loaded)) {
+    throw new Error("Inspection settings loader result is incomplete");
+  }
+  const { roomData, facilityData } = loaded;
   if (!roomData.ok)
     return (
       <Failure

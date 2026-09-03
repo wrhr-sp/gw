@@ -15,15 +15,14 @@ export default async function HotelsLayout({
 }: {
   children: ReactNode;
 }) {
+  const principal = await requireAuthenticatedPrincipal();
   const [
-    principal,
     accountPermissions,
     calendarCapabilities,
     dailySalesCapabilities,
     issueCapabilities,
     inquiryCapabilities,
   ] = await Promise.all([
-    requireAuthenticatedPrincipal(),
     fetchAccountCapabilities(),
     fetchCalendarCapabilities(),
     fetchDailySalesCapabilities(),
