@@ -75,6 +75,7 @@ describe("hosted Preview account-management smoke", () => {
       gotoErrors,
       jsonValueErrors,
       outcomes,
+      unavailableState = "NO_HEADING",
       urls,
       waitErrors,
     }: {
@@ -85,6 +86,12 @@ describe("hosted Preview account-management smoke", () => {
       gotoErrors?: Array<Error | null>;
       jsonValueErrors?: Array<Error | null>;
       outcomes: Array<string | null>;
+      unavailableState?:
+        | "AUTH_HEADING"
+        | "NO_HEADING"
+        | "PASSWORD_HEADING"
+        | "UNEXPECTED_ALERT"
+        | "UNEXPECTED_HEADING";
       urls?: string[];
       waitErrors?: Array<Error | null>;
     }) => {
@@ -94,6 +101,7 @@ describe("hosted Preview account-management smoke", () => {
       const sectionExists = diagnosticSectionExists ?? diagnostics !== undefined;
       return {
         calls: () => attempt,
+        evaluate: async () => unavailableState,
         headingTimeouts: () => observedHeadingTimeouts,
         goto: async () => {
           attempt += 1;
@@ -318,26 +326,35 @@ describe("hosted Preview account-management smoke", () => {
     });
     expect(malformedDiagnosticSection.calls()).toBe(1);
 
-    const unavailableHeading = createPage({
-      outcomes: [null, null, null],
-      waitErrors: [
-        new playwrightErrors.TimeoutError("heading timeout"),
-        new playwrightErrors.TimeoutError("heading timeout"),
-        new playwrightErrors.TimeoutError("heading timeout"),
-      ],
-    });
-    await expect(
-      navigateInspectionSettings({
-        baseUrl,
-        headingTimeoutMs: 1,
-        hotelId,
-        navigationTimeoutMs: 1,
-        page: unavailableHeading,
-      }),
-    ).rejects.toMatchObject({
-      previewFailureCode: "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
-    });
-    expect(unavailableHeading.calls()).toBe(3);
+    for (const unavailableState of [
+      "AUTH_HEADING",
+      "NO_HEADING",
+      "PASSWORD_HEADING",
+      "UNEXPECTED_ALERT",
+      "UNEXPECTED_HEADING",
+    ] as const) {
+      const unavailableHeading = createPage({
+        outcomes: [null, null, null],
+        unavailableState,
+        waitErrors: [
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+          new playwrightErrors.TimeoutError("heading timeout"),
+        ],
+      });
+      await expect(
+        navigateInspectionSettings({
+          baseUrl,
+          headingTimeoutMs: 1,
+          hotelId,
+          navigationTimeoutMs: 1,
+          page: unavailableHeading,
+        }),
+      ).rejects.toMatchObject({
+        previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${unavailableState}`,
+      });
+      expect(unavailableHeading.calls()).toBe(3);
+    }
 
     const hotelErrorBoundary = createPage({
       outcomes: ["hotel-error", "ready"],
@@ -559,6 +576,57 @@ describe("hosted Preview account-management smoke", () => {
         }),
       ).resolves.toBeUndefined();
       expect(navigations).toBe(1);
+    } finally {
+      await browser.close();
+    }
+  });
+
+  it("classifies unavailable heading DOM without exposing its text", async () => {
+    const baseUrl = "https://preview.example.test";
+    const hotelId = "50000000-0000-4000-8000-000000000001";
+    const targetUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
+    const cases = [
+      ["AUTH_HEADING", "<main><h1>로그인</h1></main>"],
+      ["NO_HEADING", "<main></main>"],
+      ["PASSWORD_HEADING", "<main><h1>새 비밀번호 설정</h1></main>"],
+      ["UNEXPECTED_ALERT", '<main><section role="alert"><p>오류</p></section></main>'],
+      ["UNEXPECTED_HEADING", "<main><h1>다른 화면</h1></main>"],
+    ] as const;
+    const browser = await chromium.launch({ headless: true });
+    try {
+      for (const [state, body] of cases) {
+        const page = await browser.newPage();
+        let navigations = 0;
+        await page.route(targetUrl, async (route) => {
+          navigations += 1;
+          await route.fulfill({
+            body: `<!doctype html><html lang="ko"><body>${body}</body></html>`,
+            contentType: "text/html; charset=utf-8",
+            status: 200,
+          });
+        });
+        const smokePage = {
+          evaluate: page.evaluate.bind(page),
+          goto: page.goto.bind(page),
+          locator: page.locator.bind(page),
+          url: page.url.bind(page),
+          waitForFunction: page.waitForFunction.bind(page),
+          waitForTimeout: async () => undefined,
+        };
+        await expect(
+          navigateInspectionSettings({
+            baseUrl,
+            headingTimeoutMs: 50,
+            hotelId,
+            navigationTimeoutMs: 5_000,
+            page: smokePage,
+          }),
+        ).rejects.toMatchObject({
+          previewFailureCode: `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${state}`,
+        });
+        expect(navigations).toBe(3);
+        await page.close();
+      }
     } finally {
       await browser.close();
     }
@@ -822,7 +890,11 @@ describe("hosted Preview account-management smoke", () => {
 
   it("preserves only validated inspection loader diagnostics after cleanup", async () => {
     for (const safeCode of [
-      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_AUTH_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NO_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_PASSWORD_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_ALERT",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_UNEXPECTED_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HOTEL_ERROR_BOUNDARY",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_UNCLASSIFIED",
       "INSPECTION_CHECKLIST_V2_UI_SERVER_CONFIGURATION_DEFINITIONS_403_FORBIDDEN",

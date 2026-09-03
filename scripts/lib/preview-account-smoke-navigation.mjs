@@ -75,6 +75,30 @@ async function classifiedServerFailure(page) {
   };
 }
 
+const unavailableHeadingStates = new Set([
+  "AUTH_HEADING",
+  "NO_HEADING",
+  "PASSWORD_HEADING",
+  "UNEXPECTED_ALERT",
+  "UNEXPECTED_HEADING",
+]);
+
+async function classifyUnavailableHeading(page) {
+  const state = await page.evaluate(() => {
+    const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
+      .map((heading) => heading.textContent?.trim())
+      .filter(Boolean);
+    if (headings.includes("로그인")) return "AUTH_HEADING";
+    if (headings.includes("새 비밀번호 설정")) return "PASSWORD_HEADING";
+    if (document.querySelector('section[role="alert"]'))
+      return "UNEXPECTED_ALERT";
+    return headings.length === 0 ? "NO_HEADING" : "UNEXPECTED_HEADING";
+  });
+  return unavailableHeadingStates.has(state)
+    ? state
+    : "UNEXPECTED_HEADING";
+}
+
 export async function navigateInspectionSettings({
   baseUrl,
   headingTimeoutMs = 90_000,
@@ -135,8 +159,10 @@ export async function navigateInspectionSettings({
       const classified = await classifiedServerFailure(page);
       if (!classified.retryable || attempt === 3) throw classified.error;
     } else if (attempt === 3) {
+      const unavailableState = await classifyUnavailableHeading(page);
+      assertBoundary();
       throw previewNavigationFailure(
-        "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE",
+        `INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_${unavailableState}`,
         "Hosted checklist UI heading was unavailable",
       );
     }
