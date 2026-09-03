@@ -112,7 +112,10 @@ async function classifiedServerFailure(page) {
 }
 
 const unavailableHeadingStates = new Set([
+  "APP_SHELL_HEADING",
   "AUTH_HEADING",
+  "EDGE_ERROR_ROOT",
+  "NEXT_ERROR_ROOT",
   "NOT_FOUND_HEADING",
   "NO_HEADING",
   "PASSWORD_HEADING",
@@ -126,6 +129,7 @@ async function classifyUnavailableHeading(page) {
     const headings = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")]
       .map((heading) => heading.textContent?.trim())
       .filter(Boolean);
+    if (document.querySelector("#cf-error-details")) return "EDGE_ERROR_ROOT";
     if (headings.includes("위아히어 호텔 운영")) return "AUTH_HEADING";
     if (
       headings.includes("404") &&
@@ -138,8 +142,11 @@ async function classifyUnavailableHeading(page) {
       headings.includes("Internal Server Error.")
     )
       return "SERVER_ERROR_HEADING";
+    if (document.documentElement.id === "__next_error__")
+      return "NEXT_ERROR_ROOT";
     if (document.querySelector('section[role="alert"]'))
       return "UNEXPECTED_ALERT";
+    if (document.querySelector("#main-content")) return "APP_SHELL_HEADING";
     return headings.length === 0 ? "NO_HEADING" : "UNEXPECTED_HEADING";
   });
   return unavailableHeadingStates.has(state)

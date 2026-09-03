@@ -161,7 +161,10 @@ describe("hosted Preview account-management smoke", () => {
       jsonValueErrors?: Array<Error | null>;
       outcomes: Array<string | null>;
       unavailableState?:
+        | "APP_SHELL_HEADING"
         | "AUTH_HEADING"
+        | "EDGE_ERROR_ROOT"
+        | "NEXT_ERROR_ROOT"
         | "NOT_FOUND_HEADING"
         | "NO_HEADING"
         | "PASSWORD_HEADING"
@@ -403,7 +406,10 @@ describe("hosted Preview account-management smoke", () => {
     expect(malformedDiagnosticSection.calls()).toBe(1);
 
     for (const unavailableState of [
+      "APP_SHELL_HEADING",
       "AUTH_HEADING",
+      "EDGE_ERROR_ROOT",
+      "NEXT_ERROR_ROOT",
       "NOT_FOUND_HEADING",
       "NO_HEADING",
       "PASSWORD_HEADING",
@@ -664,7 +670,13 @@ describe("hosted Preview account-management smoke", () => {
     const hotelId = "50000000-0000-4000-8000-000000000001";
     const targetUrl = `${baseUrl}/hotels/${hotelId}/inspections/settings`;
     const cases = [
+      ["APP_SHELL_HEADING", '<main id="main-content"><h1>다른 앱 화면</h1></main>'],
       ["AUTH_HEADING", "<main><h1>위아히어 호텔 운영</h1></main>"],
+      [
+        "EDGE_ERROR_ROOT",
+        '<main><div id="cf-error-details"><h1>Edge failure</h1></div></main>',
+      ],
+      ["NEXT_ERROR_ROOT", "<main><h1>Next failure</h1></main>", "__next_error__"],
       [
         "NOT_FOUND_HEADING",
         "<main><h1>404</h1><h2>This page could not be found.</h2></main>",
@@ -680,13 +692,13 @@ describe("hosted Preview account-management smoke", () => {
     ] as const;
     const browser = await chromium.launch({ headless: true });
     try {
-      for (const [state, body] of cases) {
+      for (const [state, body, htmlId] of cases) {
         const page = await browser.newPage();
         let navigations = 0;
         await page.route(targetUrl, async (route) => {
           navigations += 1;
           await route.fulfill({
-            body: `<!doctype html><html lang="ko"><body>${body}</body></html>`,
+            body: `<!doctype html><html lang="ko"${htmlId ? ` id="${htmlId}"` : ""}><body>${body}</body></html>`,
             contentType: "text/html; charset=utf-8",
             status: 200,
           });
@@ -982,7 +994,10 @@ describe("hosted Preview account-management smoke", () => {
 
   it("preserves only validated inspection loader diagnostics after cleanup", async () => {
     for (const safeCode of [
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_APP_SHELL_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_AUTH_HEADING",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_EDGE_ERROR_ROOT",
+      "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NEXT_ERROR_ROOT",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NOT_FOUND_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_NO_HEADING",
       "INSPECTION_CHECKLIST_V2_UI_HEADING_UNAVAILABLE_PASSWORD_HEADING",
