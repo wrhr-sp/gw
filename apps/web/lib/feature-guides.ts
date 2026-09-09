@@ -71,6 +71,16 @@ export const accountFeatureGuides = {
 export type AccountFeatureGuideKey = keyof typeof accountFeatureGuides;
 
 export const hotelFeatureGuides = {
+  "hotel-operations.entry": {
+    audience: ["호텔관리 업무를 사용하는 사내 임직원, 하우스키핑과 호텔 소유주"],
+    cautions: ["현재 배정과 권한에 따라 조회할 수 있는 호텔과 업무가 다릅니다."],
+    featureKey: "hotel-operations.entry",
+    permissions: ["로그인이 필요하며, 호텔과 업무별 접근 권한을 확인합니다."],
+    steps: ["호텔 목록 열기를 선택합니다.", "조회할 수 있는 호텔을 선택하고 필요한 업무를 엽니다."],
+    summary: "호텔 목록에서 업무할 호텔을 찾아 기본정보와 허용된 업무를 확인합니다.",
+    title: "호텔 운영",
+    version: "1.0",
+  },
   "hotel-owner-inquiry.lifecycle": {
     audience: ["호텔 소유주와 문의 담당 권한이 있는 사내 임직원"],
     cautions: [
@@ -270,6 +280,7 @@ export const hotelFeatureGuides = {
 export type HotelFeatureGuideKey = keyof typeof hotelFeatureGuides;
 
 export const hotelFeatureGuideRoutes = {
+  "/hotel-operations": "hotel-operations.entry",
   "/knowledge": "hotel-knowledge.bank",
   "/hotels/calendar": "hotel-calendar.workspace",
   "/hotels/[hotelId]/calendar": "hotel-calendar.workspace",
