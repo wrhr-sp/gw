@@ -57,6 +57,7 @@ describe("account feature-guide registry", () => {
 describe("hotel feature-guide registry", () => {
   it("covers approved hotel routes with complete operational guidance", () => {
     expect(hotelFeatureGuideRoutes).toEqual({
+      "/hotel-operations": "hotel-operations.entry",
       "/knowledge": "hotel-knowledge.bank",
       "/hotels/calendar": "hotel-calendar.workspace",
       "/hotels/[hotelId]": "hotel-management.detail",
