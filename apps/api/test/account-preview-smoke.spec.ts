@@ -88,10 +88,77 @@ describe("hosted Preview account-management smoke", () => {
         "- name: Verify hosted Preview own Calendar and responsive UI before contract",
       ),
     );
-    expect(accountStep).toContain("chmod 600 \"$tail_raw\" \"$tail_control\"");
+    expect(accountStep).toContain(
+      'chmod 600 "$tail_raw" "$tail_control" "$tail_pgid_file"',
+    );
     expect(accountStep).not.toContain("        env:\n          CLOUDFLARE_ACCOUNT_ID:");
     expect(accountStep).toContain(
-      "CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid pnpm",
+      "CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid --fork --wait bash -c",
+    );
+    expect(accountStep).toContain('tail_pgid_file="$(mktemp)"');
+    expect(accountStep).toContain('printf "%s\\n" "$$" > "$1"');
+    expect(accountStep).toContain('tail_pgid="$(<"$tail_pgid_file")"');
+
+    const stopTail = accountStep.slice(
+      accountStep.indexOf("          stop_tail() {"),
+      accountStep.indexOf("          cleanup_tail() {"),
+    );
+    const parentStart = stopTail.indexOf('if [[ -n "$tail_pid" ]]; then');
+    expect(parentStart).toBeGreaterThanOrEqual(0);
+    const parentStop = stopTail.slice(parentStart);
+    const parentLifecycle = [
+      "for _ in 1 2 3 4 5; do",
+      'kill -0 "$tail_pid" 2>/dev/null || break',
+      'if kill -0 "$tail_pid" 2>/dev/null; then',
+      'kill -KILL "$tail_pid" 2>/dev/null || true',
+      'wait "$tail_pid" 2>/dev/null || true',
+    ].map((token) => parentStop.indexOf(token));
+    expect(parentLifecycle.every((index) => index >= 0)).toBe(true);
+    expect(parentLifecycle).toEqual([...parentLifecycle].sort((a, b) => a - b));
+    expect(parentStop).not.toMatch(/for\s*\(\s*\(\s*;\s*;\s*\)\s*\)/u);
+    expect(parentStop).not.toMatch(/while\s+(?:true|:)\s*;/u);
+    expect(parentStop).not.toContain(
+      'if [[ -n "$tail_pid" ]]; then wait "$tail_pid"',
+    );
+
+    const tailLaunch = accountStep.indexOf("setsid --fork --wait bash -c");
+    const pidfileReadinessLoop = accountStep.indexOf(
+      'for _ in 1 2 3 4 5; do\n            [[ -s "$tail_pgid_file" ]] && break',
+      tailLaunch,
+    );
+    const childPgidRead = accountStep.indexOf(
+      'tail_pgid="$(<"$tail_pgid_file")"',
+      pidfileReadinessLoop,
+    );
+    const childPgidValidation = accountStep.indexOf(
+      '[[ ! "$tail_pgid" =~ ^[1-9][0-9]*$ ]]',
+      childPgidRead,
+    );
+    const canaryStart = accountStep.indexOf(
+      "tail_canary='tailCanary=preview-account-smoke'",
+      childPgidValidation,
+    );
+    expect([
+      tailLaunch,
+      pidfileReadinessLoop,
+      childPgidRead,
+      childPgidValidation,
+      canaryStart,
+    ].every((index) => index >= 0)).toBe(true);
+    expect([
+      tailLaunch,
+      pidfileReadinessLoop,
+      childPgidRead,
+      childPgidValidation,
+      canaryStart,
+    ]).toEqual(
+      [
+        tailLaunch,
+        pidfileReadinessLoop,
+        childPgidRead,
+        childPgidValidation,
+        canaryStart,
+      ].sort((a, b) => a - b),
     );
     expect(accountStep).toContain(
       'kill -TERM -- "-$tail_pgid"',
@@ -287,6 +354,34 @@ describe("hosted Preview account-management smoke", () => {
     } finally {
       rmSync(directory, { force: true, recursive: true });
     }
+  });
+
+  it("terminates a forked tail session by its recorded child process group", () => {
+    const probe = spawnSync(
+      "timeout",
+      [
+        "15s",
+        "bash",
+        "-c",
+        String.raw`set -euo pipefail
+pgid_file="$(mktemp)"
+cleanup() { rm -f "$pgid_file"; }
+trap cleanup EXIT
+setsid --fork --wait bash -c 'printf "%s\n" "$$" > "$1"; trap "" TERM; bash -c '\''trap "" TERM; sleep 30'\'' & wait' bash "$pgid_file" &
+parent_pid="$!"
+for _ in 1 2 3 4 5; do [[ -s "$pgid_file" ]] && break; sleep 1; done
+pgid="$(<"$pgid_file")"
+[[ "$pgid" =~ ^[1-9][0-9]*$ ]]
+kill -TERM -- "-$pgid" 2>/dev/null || true
+sleep 1
+if kill -0 -- "-$pgid" 2>/dev/null; then kill -KILL -- "-$pgid"; fi
+wait "$parent_pid" 2>/dev/null || true
+for _ in 1 2 3 4 5; do kill -0 -- "-$pgid" 2>/dev/null || exit 0; sleep 1; done
+exit 1`,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(probe.status).toBe(0);
   });
 
   it("preflights inspection settings with the browser cookie request context", async () => {

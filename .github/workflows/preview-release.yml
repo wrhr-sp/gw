@@ -1305,7 +1305,8 @@ jobs:
           set -euo pipefail
           tail_raw="$(mktemp)"
           tail_control="$(mktemp)"
-          chmod 600 "$tail_raw" "$tail_control"
+          tail_pgid_file="$(mktemp)"
+          chmod 600 "$tail_raw" "$tail_control" "$tail_pgid_file"
           tail_pid=""
           tail_pgid=""
           stop_tail() {
@@ -1323,7 +1324,16 @@ jobs:
                 done
               fi
             fi
-            if [[ -n "$tail_pid" ]]; then wait "$tail_pid" 2>/dev/null || true; fi
+            if [[ -n "$tail_pid" ]]; then
+              for _ in 1 2 3 4 5; do
+                kill -0 "$tail_pid" 2>/dev/null || break
+                sleep 1
+              done
+              if kill -0 "$tail_pid" 2>/dev/null; then
+                kill -KILL "$tail_pid" 2>/dev/null || true
+              fi
+              wait "$tail_pid" 2>/dev/null || true
+            fi
             if [[ -n "$tail_pgid" ]] && kill -0 -- "-$tail_pgid" 2>/dev/null; then
               return 1
             fi
@@ -1332,13 +1342,23 @@ jobs:
           }
           cleanup_tail() {
             stop_tail || true
-            rm -f "$tail_raw" "$tail_control"
+            rm -f "$tail_raw" "$tail_control" "$tail_pgid_file"
           }
           trap cleanup_tail EXIT
-          CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid pnpm --filter @werehere/api exec wrangler tail werehere-hotel-web-preview \
+          CLOUDFLARE_ACCOUNT_ID=${{ secrets.CLOUDFLARE_ACCOUNT_ID }} CLOUDFLARE_API_TOKEN=${{ secrets.CLOUDFLARE_API_TOKEN }} setsid --fork --wait bash -c \
+            'printf "%s\n" "$$" > "$1"; shift; exec "$@"' bash "$tail_pgid_file" \
+            pnpm --filter @werehere/api exec wrangler tail werehere-hotel-web-preview \
             --format json >"$tail_raw" 2>"$tail_control" &
           tail_pid="$!"
-          tail_pgid="$tail_pid"
+          for _ in 1 2 3 4 5; do
+            [[ -s "$tail_pgid_file" ]] && break
+            sleep 1
+          done
+          tail_pgid="$(<"$tail_pgid_file")"
+          if [[ ! "$tail_pgid" =~ ^[1-9][0-9]*$ ]]; then
+            printf '%s\n' 'PREVIEW_WEB_SSR_TAIL_UNAVAILABLE'
+            exit 1
+          fi
           tail_canary='tailCanary=preview-account-smoke'
           tail_ready=false
           for _ in 1 2 3 4 5 6 7 8 9 10; do
