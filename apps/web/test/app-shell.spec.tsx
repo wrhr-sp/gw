@@ -32,7 +32,7 @@ vi.mock("../lib/server-inquiries", () => ({
   fetchInquiryCapabilities: layoutLoaders.inquiries,
 }));
 vi.mock("../components/hotels/hotel-shell", () => ({
-  calendarNavigationHref: () => null,
+  calendarNavigationHref: () => { throw new Error("SERVER_CALLED_CLIENT_EXPORT"); },
   HotelShell: () => null,
 }));
 

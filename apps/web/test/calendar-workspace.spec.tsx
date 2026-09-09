@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CalendarWorkspace, sameInstant, seoulLocalDateTimeToInstant } from "../components/calendar/calendar-workspace";
-import { calendarNavigationHref } from "../components/hotels/hotel-shell";
+import { calendarNavigationHref } from "../lib/calendar-navigation";
 
 const hotelId = "50000000-0000-4000-8000-000000000001";
 const data = {
