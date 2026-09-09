@@ -198,6 +198,21 @@ describe("hosted Preview account-management smoke", () => {
     const run = (events: unknown[]) =>
       runRaw(`${events.map((event) => JSON.stringify(event)).join("\n")}\n`);
     try {
+      for (const [message, cause] of [
+        ["Dynamic server usage: private-value", "DYNAMIC_SERVER_USAGE"],
+        ["cookies was called outside a request scope private-value", "REQUEST_CONTEXT"],
+        ["Only plain objects can be passed to Client Components private-value", "RSC_SERIALIZATION"],
+        ["Minified React error #123 private-value", "REACT_RENDER"],
+        ["Cannot find module private-value", "MODULE_RESOLUTION"],
+        ["fetch failed private-value", "FETCH_FAILURE"],
+        ["Cannot perform I/O on behalf of a different request private-value", "REQUEST_IO_CONTEXT"],
+        ["Inspection settings loader result is incomplete private-value", "INSPECTION_LOADER_INCOMPLETE"],
+      ]) {
+        const result = run([{ event: { request: { url: settingsUrl } }, exceptions: [{ name: "Error", message }] }]);
+        expect(result.status).toBe(0);
+        expect(result.stdout.trim()).toBe(`PREVIEW_WEB_SSR_TAIL_${cause}`);
+        expect(result.stdout + result.stderr).not.toContain("private-value");
+      }
       for (const [detail, marker] of [
         [
           { exceptions: [{ message: "crypto.randomUUID is not a function" }] },
