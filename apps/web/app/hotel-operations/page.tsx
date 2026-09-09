@@ -1,6 +1,7 @@
 import { Button, FeatureGuide, PageHeader } from "@werehere/ui";
 import { Building2 } from "lucide-react";
-import { calendarNavigationHref, HotelShell } from "../../components/hotels/hotel-shell";
+import { HotelShell } from "../../components/hotels/hotel-shell";
+import { calendarNavigationHref } from "../../lib/calendar-navigation";
 import { requireAuthenticatedPrincipal } from "../../lib/server-auth";
 import { fetchAccountCapabilities } from "../../lib/server-accounts";
 import { fetchCalendarCapabilities } from "../../lib/server-calendar";

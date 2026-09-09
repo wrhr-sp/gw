@@ -12,7 +12,7 @@ vi.mock("../lib/server-accounts", () => ({ fetchAccountCapabilities: loaders.acc
 vi.mock("../lib/server-calendar", () => ({ fetchCalendarCapabilities: loaders.calendar }));
 vi.mock("../components/hotels/hotel-shell", () => ({
   HotelShell: ({ children }: { children: ReactNode }) => <main>{children}</main>,
-  calendarNavigationHref: () => undefined,
+  calendarNavigationHref: () => { throw new Error("SERVER_CALLED_CLIENT_EXPORT"); },
 }));
 import HotelOperationsPage from "../app/hotel-operations/page";
 

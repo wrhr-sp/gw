@@ -29,14 +29,6 @@ const baseNavigation = [
   { href: "/hotels", icon: <Building2 />, label: "호텔 관리" },
 ];
 
-export function calendarNavigationHref(
-  canViewAllHotels: boolean,
-  hotels: readonly { id: string }[],
-) {
-  if (canViewAllHotels) return "/hotels/calendar";
-  return hotels[0] ? `/hotels/${hotels[0].id}/calendar` : undefined;
-}
-
 type HotelShellProps = {
   children: ReactNode;
   accountPermissions?: AccountPermission[];
