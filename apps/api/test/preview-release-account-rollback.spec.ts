@@ -538,8 +538,8 @@ describe("Preview account Worker release safety", () => {
     );
   });
 
-  it("retires provider Worker secrets only after post-contract smoke and exact-version read-back", () => {
-    const stepName = "Retire Preview Google Calendar Worker secrets";
+  it("rechecks provider absence without deletion after post-contract smoke and exact-version read-back", () => {
+    const stepName = "Verify retired Preview provider absence after contract";
     const step = workflowStep(stepName);
     const cleanupPosition = workflow.indexOf(`      - name: ${stepName}\n`);
     const activeReadBackPosition = workflow.indexOf(
@@ -551,20 +551,11 @@ describe("Preview account Worker release safety", () => {
 
     expect(cleanupPosition).toBeGreaterThan(activeReadBackPosition);
     expect(cleanupPosition).toBeLessThan(rollbackBaselinePosition);
-    expect(step).toContain("werehere-hotel-api-preview");
-    expect(step).toContain("werehere-hotel-account-reconciler-preview");
-    for (const key of [
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
-      "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
-    ]) {
-      expect(step).toContain(key);
-    }
-    expect(step).toContain("wrangler secret list");
-    expect(step).toContain("wrangler secret delete");
-    expect(step).toContain("--format json");
-    expect(step).toContain("PREVIEW_PROVIDER_WORKER_SECRETS_REMOVED");
-    expect(step).toContain("Retired provider Worker secret remains");
+    expect(step).toContain("run: node scripts/verify-preview-retired-provider-absence.mjs");
+    expect(step).toContain("DATABASE_URL_PREVIEW:");
+    expect(step).toContain("CLOUDFLARE_API_TOKEN:");
+    expect(step).not.toContain("secret delete");
+    expect(step).not.toContain("decommission-google-calendar-preview.mjs");
   });
 
   it("classifies Hyperdrive state without an unfenced automatic rollback mutation", () => {

@@ -165,6 +165,13 @@ jobs:
           rm -f /tmp/werehere-api-preview-preflight.json
           printf '%s\n' 'PREVIEW_CONFIGURATION_PRESENT'
 
+      - name: Verify retired Preview provider absence before mutation
+        env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/verify-preview-retired-provider-absence.mjs
+
       - name: Verify approved ZITADEL bootstrap identity
         env:
           ZITADEL_ISSUER: ${{ vars.ZITADEL_ISSUER }}
@@ -1505,20 +1512,13 @@ jobs:
           RECONCILER_DATABASE_URL_FILE: ${{ env.RECONCILER_DATABASE_URL_FILE }}
         run: node scripts/wait-reconciler-drain.mjs
 
-      - name: Decommission Preview Google Calendar provider artifacts and grants
+      - name: Verify retired Preview provider absence before contract
         id: google_calendar_disposition
         env:
           DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
-          GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}
-          GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}
-          CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}
-        run: |
-          set -euo pipefail
-          output_file="$(mktemp)"
-          trap 'rm -f "$output_file"' EXIT
-          printf 'disposition_started=true\n' >> "$GITHUB_OUTPUT"
-          node scripts/decommission-google-calendar-preview.mjs | tee "$output_file"
-          grep -Eq '^PREVIEW_GOOGLE_PROVIDER_DISPOSITION_OK calendars=[0-9]+ credentials=[0-9]+$' "$output_file"
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: node scripts/verify-preview-retired-provider-absence.mjs
 
       - name: Verify exact active Workers after owner inquiry smoke and before contract
         id: owner_inquiry_exact_active_before_contract
@@ -1677,51 +1677,12 @@ jobs:
           verify_active werehere-hotel-api-preview "$EXPECTED_API_VERSION"
           verify_active werehere-hotel-web-preview "$EXPECTED_WEB_VERSION"
 
-      - name: Retire Preview Google Calendar Worker secrets
-        working-directory: apps/api
+      - name: Verify retired Preview provider absence after contract
         env:
+          DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          temp_dir="$(mktemp -d)"
-          trap 'rm -rf "$temp_dir"' EXIT
-          retired_keys='["GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET","CALENDAR_CREDENTIAL_AES_KEYRING_JSON","CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON","FILE_PROCESSOR_SHARED_SECRET"]'
-          workers=(
-            werehere-hotel-api-preview
-            werehere-hotel-account-reconciler-preview
-          )
-          for worker_name in "${workers[@]}"; do
-            before_file="$temp_dir/$worker_name-before.json"
-            after_file="$temp_dir/$worker_name-after.json"
-            pnpm exec wrangler secret list \
-              --name "$worker_name" \
-              --format json > "$before_file"
-            jq -e '
-              type == "array"
-              and all(.[]; type == "object" and (.name | type) == "string")
-            ' "$before_file" >/dev/null
-            while IFS= read -r key; do
-              if jq -e --arg key "$key" 'any(.[]; .name == $key)' "$before_file" >/dev/null; then
-                pnpm exec wrangler secret delete "$key" --name "$worker_name"
-              fi
-            done < <(jq -r '.[]' <<<"$retired_keys")
-            pnpm exec wrangler secret list \
-              --name "$worker_name" \
-              --format json > "$after_file"
-            jq -e '
-              type == "array"
-              and all(.[]; type == "object" and (.name | type) == "string")
-            ' "$after_file" >/dev/null
-            if jq -e --argjson retired "$retired_keys" '
-              any(.[]; .name as $name | $retired | index($name) != null)
-            ' "$after_file" >/dev/null; then
-              printf 'Retired provider Worker secret remains on %s.\n' "$worker_name" >&2
-              exit 1
-            fi
-          done
-          printf '%s\n' 'PREVIEW_PROVIDER_WORKER_SECRETS_REMOVED'
+        run: node scripts/verify-preview-retired-provider-absence.mjs
 
       - name: Record secure session-authority rollback baseline
         id: secure_rollback_baseline

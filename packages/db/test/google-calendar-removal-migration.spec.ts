@@ -89,7 +89,7 @@ describe("Cloudflare 자체 호텔 달력 전환", () => {
     expect(api).not.toContain("calendar-connections");
     expect(api).not.toContain("createCalendarConnectionServiceFromBindings");
     const cleanupMarker =
-      "      - name: Retire Preview Google Calendar Worker secrets\n";
+      "      - name: Verify retired Preview provider absence after contract\n";
     const cleanupStart = workflow.indexOf(cleanupMarker);
     const cleanupEnd = workflow.indexOf(
       "\n      - name: ",
@@ -99,7 +99,7 @@ describe("Cloudflare 자체 호텔 달력 전환", () => {
     expect(cleanupEnd).toBeGreaterThan(cleanupStart);
     const cleanupStep = workflow.slice(cleanupStart, cleanupEnd);
     const dispositionMarker =
-      "      - name: Decommission Preview Google Calendar provider artifacts and grants\n";
+      "      - name: Verify retired Preview provider absence before contract\n";
     const dispositionStart = workflow.indexOf(dispositionMarker);
     const dispositionEnd = workflow.indexOf(
       "\n      - name: ",
@@ -116,11 +116,11 @@ describe("Cloudflare 자체 호텔 달력 전환", () => {
       "CALENDAR_CREDENTIAL_AES_KEYRING_JSON",
       "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
     ]) {
-      expect(cleanupStep).toContain(retiredKey);
+      expect(cleanupStep).not.toContain(retiredKey);
       expect(workflowWithoutProviderLifecycle).not.toContain(retiredKey);
     }
-    expect(dispositionStep).toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
-    expect(dispositionStep).toContain("CALENDAR_CREDENTIAL_AES_KEYRING_JSON");
+    expect(dispositionStep).not.toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
+    expect(dispositionStep).not.toContain("CALENDAR_CREDENTIAL_AES_KEYRING_JSON");
     expect(dispositionStep).not.toContain(
       "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
     );

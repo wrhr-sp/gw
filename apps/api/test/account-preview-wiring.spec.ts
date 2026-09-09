@@ -110,7 +110,7 @@ describe("Preview account provisioning wiring", () => {
     expect(apiDeploy).toContain("FILE_SCANNER_AGENT_TOKEN");
     expect(workflow).not.toContain("werehere-api-preview-secrets.json");
     const cleanupMarker =
-      "      - name: Retire Preview Google Calendar Worker secrets\n";
+      "      - name: Verify retired Preview provider absence after contract\n";
     const cleanupStart = workflow.indexOf(cleanupMarker);
     const cleanupEnd = workflow.indexOf(
       "\n      - name: ",
@@ -119,10 +119,10 @@ describe("Preview account provisioning wiring", () => {
     expect(cleanupStart).toBeGreaterThanOrEqual(0);
     expect(cleanupEnd).toBeGreaterThan(cleanupStart);
     const cleanupStep = workflow.slice(cleanupStart, cleanupEnd);
-    expect(cleanupStep).toContain('"FILE_PROCESSOR_SHARED_SECRET"');
+    expect(cleanupStep).toContain("verify-preview-retired-provider-absence.mjs");
     expect(cleanupStep).not.toContain("${{ secrets.FILE_PROCESSOR_SHARED_SECRET }}");
     const dispositionMarker =
-      "      - name: Decommission Preview Google Calendar provider artifacts and grants\n";
+      "      - name: Verify retired Preview provider absence before contract\n";
     const dispositionStart = workflow.indexOf(dispositionMarker);
     const dispositionEnd = workflow.indexOf(
       "\n      - name: ",
@@ -143,24 +143,17 @@ describe("Preview account provisioning wiring", () => {
     expect(dispositionStep).toContain("        env:\n");
     for (const mapping of [
       "DATABASE_URL_PREVIEW: ${{ secrets.DATABASE_URL_PREVIEW }}",
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_ID: ${{ vars.GOOGLE_CALENDAR_OAUTH_CLIENT_ID }}",
-      "GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET }}",
-      "CALENDAR_CREDENTIAL_AES_KEYRING_JSON: ${{ secrets.CALENDAR_CREDENTIAL_AES_KEYRING_JSON }}",
-    ])
-      expect(dispositionStep).toContain(mapping);
-    const dispositionRun = dispositionStep.slice(
-      dispositionStep.indexOf("        run: |"),
-    );
-    expect(dispositionRun).not.toContain("${{");
-    expect(dispositionRun).toContain(
-      "node scripts/decommission-google-calendar-preview.mjs",
-    );
+      "CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}",
+      "CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}",
+    ]) expect(dispositionStep).toContain(mapping);
+    expect(dispositionStep).toContain("run: node scripts/verify-preview-retired-provider-absence.mjs");
+    expect(dispositionStep).not.toContain("decommission-google-calendar-preview.mjs");
     expect(dispositionStep).not.toContain(
       "CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON",
     );
     const preflight = workflow.slice(
       workflow.indexOf("Validate required Preview configuration"),
-      workflow.indexOf("Verify approved ZITADEL bootstrap identity"),
+      workflow.indexOf("Verify retired Preview provider absence before mutation"),
     );
     expect(preflight).not.toMatch(
       /CLOUDFLARE_(?:ACCOUNT_ID|API_TOKEN):\s*\$\{\{\s*secrets\./u,
@@ -200,7 +193,7 @@ describe("Preview account provisioning wiring", () => {
   it("reports every missing required Preview configuration in one preflight", () => {
     const preflight = workflow.slice(
       workflow.indexOf("Validate required Preview configuration"),
-      workflow.indexOf("Verify approved ZITADEL bootstrap identity"),
+      workflow.indexOf("Verify retired Preview provider absence before mutation"),
     );
     const requiredBlock = /required=\(\n([\s\S]*?)\n\s*\)/u.exec(
       preflight,
@@ -691,15 +684,15 @@ describe("Preview account provisioning wiring", () => {
       "set_config('lock_timeout','20min',true)",
     );
     expect(contractDrain).toContain(
-      "node scripts/decommission-google-calendar-preview.mjs",
+      "node scripts/verify-preview-retired-provider-absence.mjs",
     );
-    expect(contractDrain).toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
-    expect(contractDrain).toContain("CALENDAR_CREDENTIAL_AES_KEYRING_JSON");
+    expect(contractDrain).not.toContain("GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET");
+    expect(contractDrain).not.toContain("CALENDAR_CREDENTIAL_AES_KEYRING_JSON");
     expect(contractDrain.indexOf("wait-reconciler-drain.mjs")).toBeLessThan(
-      contractDrain.indexOf("decommission-google-calendar-preview.mjs"),
+      contractDrain.indexOf("verify-preview-retired-provider-absence.mjs"),
     );
     expect(contractDrain).not.toContain("sleep 35");
-    expect(contractDrain).toContain(
+    expect(contractDrain).not.toContain(
       "printf 'disposition_started=true\\n' >> \"$GITHUB_OUTPUT\"",
     );
     const rollback = workflow.slice(
