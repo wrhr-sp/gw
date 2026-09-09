@@ -46,14 +46,14 @@ describe("Preview free file scanner wiring", () => {
     expect(rendererSource).not.toContain("config.migrations");
   });
 
-  it("deploys only the scanner agent secret and retires the legacy processor secret", () => {
+  it("deploys only the scanner agent secret after the non-destructive retired-secret gate", () => {
     expect(releaseWorkflow).toContain(
       "PREVIEW_FILE_SCANNER_AGENT_TOKEN: ${{ secrets.PREVIEW_FILE_SCANNER_AGENT_TOKEN }}",
     );
     expect(releaseWorkflow).toContain("FILE_SCANNER_AGENT_TOKEN");
-    expect(releaseWorkflow).toContain(
-      'retired_keys=\'["GOOGLE_CALENDAR_OAUTH_CLIENT_SECRET","CALENDAR_CREDENTIAL_AES_KEYRING_JSON","CALENDAR_FINGERPRINT_HMAC_KEYRING_JSON","FILE_PROCESSOR_SHARED_SECRET"]\'',
-    );
+    expect(releaseWorkflow).toContain("Verify retired Preview provider absence before mutation");
+    expect(releaseWorkflow).toContain("node scripts/verify-preview-retired-provider-absence.mjs");
+    expect(releaseWorkflow).not.toContain("wrangler secret delete");
     expect(releaseWorkflow).not.toContain(
       "FILE_PROCESSOR_SHARED_SECRET_PREVIEW",
     );
