@@ -8,7 +8,9 @@ const uploadCodes = new Set([
   "HOTEL_RELATIONSHIP_CONFLICT",
 ]);
 
-export function classifyUploadFailure(status, payload) {
+const uploadStages = new Set(["AUTHENTICATION", "HEADERS", "SERVICE_INIT", "AUTHORIZE", "KNOWLEDGE_SCOPE", "INQUIRY_SCOPE", "DEFAULT_SCOPE", "AUTHORIZE_QUERY", "AUTHORIZE_PARSE", "R2_PUT", "CLOSE", "RESPONSE"]);
+
+export function classifyUploadFailure(status, payload, stage) {
   try {
     const error = payload?.error;
     const code = error?.code;
@@ -23,8 +25,12 @@ export function classifyUploadFailure(status, payload) {
     if (payload.ok === false && payload.data === null && error.retryable === true) {
       if (status === 503 && error.message === "호텔 API에 연결할 수 없습니다.")
         return "_INTERNAL_ERROR_ORIGIN_WEB_PROXY";
-      if (status === 500 && error.message === "호텔 요청을 처리할 수 없습니다.")
-        return "_INTERNAL_ERROR_ORIGIN_API";
+      if (status === 500 && error.message === "호텔 요청을 처리할 수 없습니다.") {
+        if (stage == null) return "_INTERNAL_ERROR_ORIGIN_API";
+        return uploadStages.has(stage)
+          ? `_INTERNAL_ERROR_ORIGIN_API_STAGE_${stage}`
+          : "_INTERNAL_ERROR_ORIGIN_API_STAGE_UNCLASSIFIED";
+      }
     }
     return "_INTERNAL_ERROR_ORIGIN_UNCLASSIFIED";
   } catch {

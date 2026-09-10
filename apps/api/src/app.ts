@@ -171,7 +171,7 @@ import {
   type HotelBindings,
 } from "./hotels/factory";
 import { HotelServiceError, type HotelService } from "./hotels/service";
-import { FileStorageError, type HotelFileService } from "./files/r2";
+import { FileStorageError, type HotelFileService, type FileUploadStage } from "./files/r2";
 import {
   createFileScannerAgentServiceFromBindings,
   type FileScannerAgentBindings,
@@ -717,12 +717,18 @@ export function createApp(options: CreateAppOptions = {}) {
   async function withHotelFileService<T>(
     bindings: Bindings | undefined,
     operation: (service: HotelFileService) => Promise<T>,
+    onCloseFailure?: () => void,
   ): Promise<T> {
     const service = getHotelFileService(bindings);
     try {
       return await operation(service);
     } finally {
-      if (!options.hotelFileService) await service.close?.();
+      if (!options.hotelFileService) {
+        await Promise.resolve().then(() => service.close?.()).catch((error) => {
+          onCloseFailure?.();
+          throw error;
+        });
+      }
     }
   }
 
@@ -4966,6 +4972,7 @@ export function createApp(options: CreateAppOptions = {}) {
 
   hotelApp.put("/api/files/uploads/:uploadId/body", async (context) => {
     context.header("Cache-Control", "no-store");
+    let uploadStage: FileUploadStage = "AUTHENTICATION";
     try {
       const principal = await requestPrincipal(context);
       if (!principal)
@@ -4977,6 +4984,7 @@ export function createApp(options: CreateAppOptions = {}) {
           ),
           401,
         );
+      uploadStage = "HEADERS";
       const uploadId = z.uuid().safeParse(context.req.param("uploadId"));
       if (!uploadId.success) return mutationFailure(context, "NOT_FOUND");
       const mimeType = context.req.header("content-type");
@@ -5009,20 +5017,29 @@ export function createApp(options: CreateAppOptions = {}) {
         return validationFailure(context, [
           { field: "headers", message: "업로드 필수 헤더를 확인해 주세요." },
         ]);
-      const stored = await withHotelFileService(context.env, (service) =>
-        service.authorizeAndPut(
+      uploadStage = "SERVICE_INIT";
+      const stored = await withHotelFileService(context.env, async (service) => {
+        uploadStage = "AUTHORIZE";
+        const result = await service.authorizeAndPut(
           roomMutationPrincipal(context, principal),
           uploadId.data,
           body,
           mimeType,
           contentLength,
-        ),
-      );
+          (stage) => { uploadStage = stage; },
+        );
+        uploadStage = "CLOSE";
+        return result;
+      }, () => { uploadStage = "CLOSE"; });
+      uploadStage = "RESPONSE";
       context.header("ETag", stored.etag);
       return context.body(null, 204);
     } catch (error) {
       if (error instanceof AuthServiceError) return authFailure(context, error);
-      return hotelFailure(context, error);
+      const response = hotelFailure(context, error);
+      // Only generic server failure exposes a fixed phase; never hidden-resource/auth denials.
+      if (response.status === 500) response.headers.set("X-Hotel-Upload-Stage", uploadStage);
+      return response;
     }
   });
 

@@ -65,7 +65,7 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("safeUploadErrorCode");
     expect(smoke).toContain("response.clone().json()");
     expect(smoke).toContain('import { classifyUploadFailure } from "./lib/preview-upload-failure.mjs"');
-    expect(smoke).toContain("return classifyUploadFailure(response.status, payload)");
+    expect(smoke).toContain('return classifyUploadFailure(response.status, payload, response.headers.get("x-hotel-upload-stage"))');
     expect(smoke).not.toContain('/^[A-Z_]+$/u.test(code)');
     expect(smoke).not.toContain("await uploaded.response.text()");
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
