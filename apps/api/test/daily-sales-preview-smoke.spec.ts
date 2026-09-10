@@ -1,5 +1,10 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+vi.mock("../../web/lib/api-transport", () => ({
+  ApiTransportNotConfiguredError: class extends Error {},
+  fetchApi: vi.fn(),
+  fetchApiSameOrigin: vi.fn(async () => { throw new Error("PRIVATE_TRANSPORT_SENTINEL"); }),
+}));
 const smoke = readFileSync(
   new URL("../../../scripts/smoke-daily-sales-preview.mjs", import.meta.url),
   "utf8",
@@ -9,6 +14,43 @@ const workflow = readFileSync(
   "utf8",
 );
 describe("daily sales Preview smoke", () => {
+  it("classifies the actual upload proxy response through the production smoke wrapper", async () => {
+    const { PUT } = await import(new URL("../../web/app/api/[...path]/route.ts", import.meta.url).href);
+    const { classifyUploadFailure } = await import(new URL("../../../scripts/lib/preview-upload-failure.mjs", import.meta.url).href);
+    const path = ["files", "uploads", "50000000-0000-4000-8000-000000000001", "body"];
+    const response = await PUT(new Request(`https://preview.example.test/api/${path.join("/")}`, { method: "PUT", body: "test", headers: { origin: "https://preview.example.test" } }), { params: Promise.resolve({ path }) });
+    expect(response.status).toBe(503);
+    expect((await response.clone().json()).error.code).toBe("AUTH_PROVIDER_UNAVAILABLE");
+    const start = smoke.indexOf("async function safeUploadErrorCode(response) {");
+    expect(start).toBeGreaterThanOrEqual(0);
+    const body = smoke.slice(smoke.indexOf("{", start) + 1, smoke.indexOf("\n}", start));
+    const run = new Function("classifyUploadFailure", "response", `return (async () => {${body}})()`);
+    const suffix = await run(classifyUploadFailure, response);
+    expect(suffix).toBe("_AUTH_PROVIDER_UNAVAILABLE_ORIGIN_WEB_PROXY");
+    const marker = `PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_SERVER${suffix}`;
+    expect(marker).toMatch(/^PREVIEW_DAILY_SALES_[A-Z_]+$/u);
+    expect(marker).not.toContain("PRIVATE_TRANSPORT_SENTINEL");
+    expect(classifyUploadFailure(500, { ok: false, data: null, error: { code: "AUTH_PROVIDER_UNAVAILABLE", message: "인증 API에 연결할 수 없습니다.", retryable: true } })).toBe("_AUTH_PROVIDER_UNAVAILABLE_ORIGIN_UNCLASSIFIED");
+  });
+  it("separates canonical proxy and API failures without echoing untrusted codes", async () => {
+    const { classifyUploadFailure } = await import(new URL("../../../scripts/lib/preview-upload-failure.mjs", import.meta.url).href);
+    const payload = (message: string) => ({ ok: false, data: null, error: { code: "INTERNAL_ERROR", message, retryable: true } });
+    expect(classifyUploadFailure(503, payload("호텔 API에 연결할 수 없습니다."))).toBe("_INTERNAL_ERROR_ORIGIN_WEB_PROXY");
+    expect(classifyUploadFailure(500, payload("호텔 요청을 처리할 수 없습니다."))).toBe("_INTERNAL_ERROR_ORIGIN_API");
+    expect(classifyUploadFailure(500, payload("호텔 API에 연결할 수 없습니다."))).toBe("_INTERNAL_ERROR_ORIGIN_UNCLASSIFIED");
+    expect(classifyUploadFailure(503, payload("호텔 요청을 처리할 수 없습니다."))).toBe("_INTERNAL_ERROR_ORIGIN_UNCLASSIFIED");
+    for (const status of [200, "503", 503.5, NaN, 600]) {
+      expect(classifyUploadFailure(status, payload("호텔 API에 연결할 수 없습니다."))).toBe("_INTERNAL_ERROR_ORIGIN_UNCLASSIFIED");
+    }
+    expect(classifyUploadFailure(503, payload("PRIVATE_SENTINEL"))).not.toContain("PRIVATE_SENTINEL");
+    expect(classifyUploadFailure(500, { error: { code: "PRIVATE_SENTINEL" } })).toBe("");
+    expect(classifyUploadFailure(409, { error: { code: "FILE_INTEGRITY_MISMATCH" } })).toBe("_FILE_INTEGRITY_MISMATCH");
+    expect(classifyUploadFailure(500, Object.defineProperty({}, "error", { get() { throw new Error("PRIVATE_SENTINEL"); } }))).toBe("");
+    const proxy = readFileSync(new URL("../../web/app/api/[...path]/route.ts", import.meta.url), "utf8");
+    const api = readFileSync(new URL("../src/app.ts", import.meta.url), "utf8");
+    expect(proxy).toContain('failure("INTERNAL_ERROR", "호텔 API에 연결할 수 없습니다.", 503, true)');
+    expect(api).toMatch(/errorResponse\("INTERNAL_ERROR", "호텔 요청을 처리할 수 없습니다\.", true\),\s*500/u);
+  });
   it("uses the hosted API, private R2 quarantine, scanner read-back and canonical PostgreSQL", () => {
     expect(smoke).toContain("/files/upload-init");
     expect(smoke).toContain("READY_UNLINKED");
@@ -22,7 +64,9 @@ describe("daily sales Preview smoke", () => {
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_STATUS_");
     expect(smoke).toContain("safeUploadErrorCode");
     expect(smoke).toContain("response.clone().json()");
-    expect(smoke).toContain('/^[A-Z_]+$/u.test(code)');
+    expect(smoke).toContain('import { classifyUploadFailure } from "./lib/preview-upload-failure.mjs"');
+    expect(smoke).toContain("return classifyUploadFailure(response.status, payload)");
+    expect(smoke).not.toContain('/^[A-Z_]+$/u.test(code)');
     expect(smoke).not.toContain("await uploaded.response.text()");
     expect(smoke).toContain("PREVIEW_DAILY_SALES_UPLOAD_BODY_ETAG_MISSING");
     expect(smoke).toContain("runFileScannerBatch");

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { classifyUploadFailure } from "./lib/preview-upload-failure.mjs";
 import { readFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { chromium } from "@playwright/test";
@@ -102,8 +103,7 @@ async function api(path, options = {}) {
 }
 async function safeUploadErrorCode(response) {
   const payload = await response.clone().json().catch(() => undefined);
-  const code = payload?.error?.code;
-  return typeof code === "string" && /^[A-Z_]+$/u.test(code) ? `_${code}` : "";
+  return classifyUploadFailure(response.status, payload);
 }
 async function command(path, method, body, failureCode) {
   const data = await api(path, {
