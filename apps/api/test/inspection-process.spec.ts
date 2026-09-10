@@ -553,6 +553,7 @@ describe("inspection HTTP API", () => {
       expect.any(ReadableStream),
       "image/jpeg",
       3,
+      expect.any(Function),
     );
 
     const crossOrigin = await app.request(

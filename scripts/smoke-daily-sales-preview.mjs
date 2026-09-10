@@ -103,7 +103,7 @@ async function api(path, options = {}) {
 }
 async function safeUploadErrorCode(response) {
   const payload = await response.clone().json().catch(() => undefined);
-  return classifyUploadFailure(response.status, payload);
+  return classifyUploadFailure(response.status, payload, response.headers.get("x-hotel-upload-stage"));
 }
 async function command(path, method, body, failureCode) {
   const data = await api(path, {

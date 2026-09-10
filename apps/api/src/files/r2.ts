@@ -534,6 +534,9 @@ export async function deriveFileIdempotentUuid(
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
+export type FileUploadStage = "AUTHENTICATION" | "HEADERS" | "SERVICE_INIT" | "AUTHORIZE" | "KNOWLEDGE_SCOPE" | "INQUIRY_SCOPE" | "DEFAULT_SCOPE" | "AUTHORIZE_QUERY" | "AUTHORIZE_PARSE" | "R2_PUT" | "CLOSE" | "RESPONSE";
+type UploadStageObserver = (stage: FileUploadStage) => void;
+
 export interface HotelFileService {
   close?(): Promise<void>;
   authorizeAndPut(
@@ -542,6 +545,7 @@ export interface HotelFileService {
     body: ReadableStream<Uint8Array>,
     mimeType: string,
     contentLength: number,
+    onStage?: UploadStageObserver,
   ): Promise<{ etag: string }>;
   complete(
     principal: FilePrincipal,
@@ -645,11 +649,13 @@ export function createHotelFileService(
   async function canonicalScope(
     principal: FilePrincipal,
     uploadId: string,
+    onStage?: UploadStageObserver,
   ): Promise<{
     hotelId: string | null;
     kind: "DEFAULT" | "INQUIRY" | "KNOWLEDGE";
     knowledgeId?: string;
   }> {
+    onStage?.("KNOWLEDGE_SCOPE");
     const knowledgeScope = await repository.knowledgeFileUploadScope?.({
       companyId: principal.companyId,
       sessionId: principal.sessionId,
@@ -662,6 +668,7 @@ export function createHotelFileService(
         kind: "KNOWLEDGE",
         knowledgeId: knowledgeScope.knowledgeId,
       };
+    onStage?.("INQUIRY_SCOPE");
     const inquiryHotelId = await repository.inquiryFileUploadScope?.({
       companyId: principal.companyId,
       sessionId: principal.sessionId,
@@ -671,6 +678,7 @@ export function createHotelFileService(
     if (inquiryHotelId) return { hotelId: inquiryHotelId, kind: "INQUIRY" };
     if (!repository.fileUploadScope)
       throw new FileStorageError("FILE_STORAGE_NOT_CONFIGURED");
+    onStage?.("DEFAULT_SCOPE");
     const hotelId = await repository.fileUploadScope({
       companyId: principal.companyId,
       sessionId: principal.sessionId,
@@ -683,13 +691,15 @@ export function createHotelFileService(
   async function authorize(
     principal: FilePrincipal,
     uploadId: string,
+    onStage?: UploadStageObserver,
   ): Promise<{
     hotelId: string | null;
     kind: "DEFAULT" | "INQUIRY" | "KNOWLEDGE";
     knowledgeId?: string;
     upload: AuthorizedUpload;
   }> {
-    const scope = await canonicalScope(principal, uploadId);
+    const scope = await canonicalScope(principal, uploadId, onStage);
+    onStage?.("AUTHORIZE_QUERY");
     let result;
     if (scope.kind === "KNOWLEDGE") {
       const command = repository.knowledgeFileCommand;
@@ -723,6 +733,7 @@ export function createHotelFileService(
     }
     if (result.status !== "OK")
       throw new FileStorageError("RESOURCE_NOT_FOUND");
+    onStage?.("AUTHORIZE_PARSE");
     return { ...scope, upload: authorized(result.payload) };
   }
   async function mutate(
@@ -935,10 +946,11 @@ export function createHotelFileService(
 
   return {
     close: () => repository.close(),
-    async authorizeAndPut(principal, uploadId, body, mimeType, contentLength) {
-      const { upload } = await authorize(principal, uploadId);
+    async authorizeAndPut(principal, uploadId, body, mimeType, contentLength, onStage) {
+      const { upload } = await authorize(principal, uploadId, onStage);
       if (contentLength !== upload.sizeBytes || mimeType !== upload.mimeType)
         throw new FileStorageError("FILE_INTEGRITY_MISMATCH");
+      onStage?.("R2_PUT");
       const result = await store.putReservedOriginal({
         body,
         contentLength,
