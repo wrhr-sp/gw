@@ -933,7 +933,9 @@ describe("account administration readiness contract", () => {
     expect(source).toContain(
       "onSchemaNotReady?: (checkpoint: string) => unknown;",
     );
-    expect(source).toContain("const schemaNotReady = () => {");
+    expect(source).toContain("const schemaNotReady = (diagnostics?: () => readonly string[]) => {");
+    expect(source).toContain("if (options.onSchemaNotReady && diagnostics)");
+    expect(source).toContain('typeof marker === "string" && allowed.test(marker)');
     expect(source).toContain("options.onSchemaNotReady?.(");
     expect(source).toContain('return { status: "SCHEMA_NOT_READY" } as const;');
     expect(provisionSource).toContain(
