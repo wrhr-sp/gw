@@ -620,6 +620,8 @@ try {
       "0057_common_in_app_notification_indexes",
       "0057_common_in_app_notification_indexes.sql",
     ],
+    ["0058_hotel_knowledge_bank", "0058_hotel_knowledge_bank.sql"],
+    ["0059_hotel_knowledge_attachments", "0059_hotel_knowledge_attachments.sql"],
   ] as const;
   const contractOnlyMigrations = new Set([
     "0008_remove_legacy_company_id_fallback",
@@ -687,6 +689,10 @@ try {
             (version !== "0056_common_in_app_notifications" ||
               repairLifecycleExpandPrerequisitePresent) &&
             (version !== "0057_common_in_app_notification_indexes" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0058_hotel_knowledge_bank" ||
+              repairLifecycleExpandPrerequisitePresent) &&
+            (version !== "0059_hotel_knowledge_attachments" ||
               repairLifecycleExpandPrerequisitePresent),
         );
 
@@ -891,6 +897,26 @@ try {
         select exists(select 1 from public.schema_migrations where version = ${version}) as applied
       `
       : [{ applied: false }];
+    if (version === "0058_hotel_knowledge_bank" || version === "0059_hotel_knowledge_attachments") {
+      // Earlier migrations in this invocation count: check at the execution boundary.
+      const [prerequisites] = await owner<{ ready: boolean }[]>`
+        select not exists (
+          select 1 from (values
+            ('0026_hotel_inspection_process_and_files'),
+            ('0035_hotel_inspection_review_and_file_view'),
+            ('0042_hotel_repair_lifecycle'),
+            ('0049_hotel_operational_issues')
+          ) required(version)
+          where not exists(select 1 from public.schema_migrations applied where applied.version=required.version)
+        ) and (
+          ${version !== "0059_hotel_knowledge_attachments"} or not exists (
+            select 1 from (values ('0050_hotel_daily_sales'),('0052_hotel_owner_inquiries'),('0058_hotel_knowledge_bank')) required(version)
+            where not exists(select 1 from public.schema_migrations applied where applied.version=required.version)
+          )
+        ) as ready
+      `;
+      if (!prerequisites?.ready) fail("Preview knowledge migration prerequisites are incomplete");
+    }
     if (applied[0]?.applied) continue;
     const migrationSql = await readFile(
       resolve(migrationDirectory, fileName),
@@ -2411,6 +2437,17 @@ try {
   if (!inspectionTargetChecklistState) {
     fail("Preview inspection checklist target marker state is unavailable");
   }
+  const [knowledgeState] = await owner<{ core: number; attachments: number }[]>`
+    select count(*) filter(where version='0058_hotel_knowledge_bank')::integer as core,
+           count(*) filter(where version='0059_hotel_knowledge_attachments')::integer as attachments
+      from public.schema_migrations
+  `;
+  const knowledgeRequired = contractPhase || freshBootstrap || repairLifecycleExpandPrerequisitePresent;
+  if (!knowledgeState || ![0, 1].includes(knowledgeState.core) ||
+      knowledgeState.core !== knowledgeState.attachments ||
+      (knowledgeRequired && knowledgeState.attachments !== 1)) {
+    fail("Preview knowledge migration phase is incomplete");
+  }
   const [repairLifecycleState] = await owner<
     {
       hotel_calendar_read_model_marker_count: number;
@@ -2998,7 +3035,33 @@ try {
              'hotel_calendar_accessible_hotels_v1',
              'hotel_calendar_capabilities_v1',
              'hotel_calendar_events_read_v1',
-             'hotel_calendar_visit_options_read_v1'
+             'hotel_calendar_visit_options_read_v1',
+             'hotel_knowledge_search_vector_v1',
+             'hotel_knowledge_response_search_text_v1',
+             'hotel_knowledge_append_only_v1',
+             'hotel_knowledge_session_actor_v1',
+             'hotel_knowledge_has_permission_v1',
+             'hotel_knowledge_actor_v1',
+             'hotel_knowledge_reviewer_candidates_v1',
+             'hotel_knowledge_content_v1',
+             'hotel_knowledge_personal_data_v1',
+             'hotel_knowledge_failure_audit_v1',
+             'hotel_knowledge_version_snapshot_v1',
+             'hotel_knowledge_snapshot_v1',
+             'hotel_knowledge_scope_capabilities_v1',
+             'hotel_knowledge_capabilities_v1',
+             'hotel_knowledge_read_v1',
+             'hotel_knowledge_command_v1',
+             'hotel_knowledge_feedback_v1',
+             'hotel_knowledge_reconcile_due_v1',
+             'hotel_knowledge_rls_company_guard_v1',
+             'hotel_knowledge_idempotency_begin_v1',
+             'hotel_knowledge_visible_v1',
+             'hotel_knowledge_file_parent_scope_v1',
+             'hotel_knowledge_file_scope_v1',
+             'hotel_knowledge_file_command_v1',
+             'hotel_knowledge_attachment_command_v1',
+             'hotel_knowledge_file_view_v1'
            )
            and acl.privilege_type = 'EXECUTE'
            and acl.grantee <> procedure_record.proowner
@@ -3086,6 +3149,19 @@ try {
     grant execute on function public.hotel_inquiry_auto_close_v1(integer) to ${reconcilerRole};`
         : ""
     }
+    ${knowledgeState.attachments === 1 ? `
+    grant execute on function public.hotel_knowledge_capabilities_v1(uuid,text) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_reviewer_candidates_v1(uuid,uuid,text) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_read_v1(uuid,uuid,jsonb,text) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_command_v1(uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_feedback_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_file_parent_scope_v1(uuid,uuid,text) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_file_scope_v1(uuid,uuid,text) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_file_command_v1(uuid,uuid,uuid,text,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_attachment_command_v1(uuid,uuid,integer,jsonb,text,uuid,text,text,text,text,uuid,uuid) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_file_view_v1(uuid,uuid,uuid,text,text,uuid,text,uuid,uuid,uuid) to ${apiRuntimeRole};
+    grant execute on function public.hotel_knowledge_reconcile_due_v1(integer) to ${reconcilerRole};
+    ` : ""}
     ${
       repairLifecycleState.hotel_daily_sales_marker_count === 1
         ? `grant execute on function public.hotel_daily_sales_capabilities_v1(
