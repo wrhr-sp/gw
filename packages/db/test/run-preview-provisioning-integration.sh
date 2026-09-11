@@ -943,6 +943,32 @@ insert into runtime_database_capabilities (role_name, capability)
 values ('preview_stale_runtime_capability', 'API_RUNTIME');
 SQL
 run_provision CONTRACT >/dev/null
+assert_knowledge_runtime() {
+  local runtime_url
+  runtime_url="$(node -e 'process.stdout.write(require("node:fs").readFileSync(process.argv[1],"utf8").trim())' "$API_RUNTIME_URL_FILE")"
+  psql -X -v ON_ERROR_STOP=1 -d "$runtime_url" >/dev/null <<'SQL'
+do $knowledge$
+begin
+ if (select count(*) from public.schema_migrations where version in('0058_hotel_knowledge_bank','0059_hotel_knowledge_attachments')) <> 2 then raise exception 'PREVIEW_KNOWLEDGE_MARKERS_MISSING';end if;
+ perform set_config('app.session_id','00000000-0000-4000-8000-000000000001',true);
+ if exists(select 1 from public.hotel_knowledge_file_scope_v1('00000000-0000-4000-8000-000000000001'::uuid,'00000000-0000-4000-8000-000000000001'::uuid,'local-synthetic')) then raise exception 'PREVIEW_KNOWLEDGE_EMPTY_SCOPE_INVALID';end if;
+ if has_function_privilege(current_user,'public.hotel_knowledge_reconcile_due_v1(integer)','EXECUTE') then raise exception 'PREVIEW_KNOWLEDGE_RECONCILER_PERMISSION_LEAK';end if;
+ if has_function_privilege('werehere_preview_reconciler','public.hotel_knowledge_file_scope_v1(uuid,uuid,text)','EXECUTE') then raise exception 'PREVIEW_KNOWLEDGE_API_PERMISSION_LEAK';end if;
+end $knowledge$;
+SQL
+}
+assert_knowledge_runtime
+assert_predeploy_readiness READY
+psql -X -v ON_ERROR_STOP=1 -d "$ADMIN_PREVIEW_URL" >/dev/null <<'SQL'
+grant execute on function public.hotel_knowledge_visible_v1(uuid,uuid,uuid) to public;
+grant select(company_id) on public.hotel_knowledge_attachments to werehere_preview_api_runtime;
+revoke execute on function public.hotel_knowledge_file_scope_v1(uuid,uuid,text) from werehere_preview_api_runtime;
+SQL
+assert_predeploy_readiness SCHEMA_NOT_READY
+run_provision EXPAND >/dev/null
+assert_knowledge_runtime
+assert_predeploy_readiness READY
+printf '%s\n' 'PREVIEW_KNOWLEDGE_PROVISIONING_AND_ACL_RECOVERY_OK'
 REPAIR_VISIT_TRIGGER_SECURITY_STATE="$(psql -X -v ON_ERROR_STOP=1 -At -d "$ADMIN_PREVIEW_URL" <<'SQL'
 select concat(
   (select count(*) from public.schema_migrations
