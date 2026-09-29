@@ -2500,7 +2500,7 @@ export async function probeDatabaseReadiness(
 ): Promise<DatabaseReadiness> {
   if (!databaseUrl?.trim()) return { status: "NOT_CONFIGURED" };
 
-  const schemaNotReady = (diagnostics?: () => readonly string[]) => {
+  const schemaNotReady = () => {
     const stack = new Error("SCHEMA_NOT_READY").stack ?? "";
     const caller = stack
       .split("\n")
@@ -2511,16 +2511,11 @@ export async function probeDatabaseReadiness(
       );
     const line = caller?.match(/client\.ts:(\d+):\d+/u)?.[1];
     try {
-      const report = (marker: string) => {
-        const observation = options.onSchemaNotReady?.(marker);
-        if (observation !== undefined) void Promise.resolve(observation).catch(() => undefined);
-      };
-      report(`CLIENT_${line ?? "UNKNOWN"}`);
-      if (options.onSchemaNotReady && diagnostics) {
-        const allowed = /^KNOWLEDGE_(?:(?:TABLE_COUNT|OWNER|RLS|FORCE_RLS|POLICY_COUNT|POLICY_TOTAL_COUNT|ACL|COLUMN_ACL|FUNCTION_COUNT|FUNCTION_ACL|FUNCTION_EXECUTE|INDEX|TRGM|TRIGGER|COLUMN_SHAPE|CATALOG|SOURCE)_MISMATCH|(?:CATALOG|SOURCE)_SHA256_[0-9a-f]{64}|PG_MAJOR_(?:1[0-9]|UNKNOWN)|ATTACHMENTS_(?:EXPAND|PRE_EXPAND))$/u;
-        for (const marker of diagnostics()) {
-          if (typeof marker === "string" && allowed.test(marker)) report(marker);
-        }
+      const observation = options.onSchemaNotReady?.(
+        `CLIENT_${line ?? "UNKNOWN"}`,
+      );
+      if (observation !== undefined) {
+        void Promise.resolve(observation).catch(() => undefined);
       }
     } catch {
       // Diagnostics must never alter the canonical readiness result.
@@ -3293,10 +3288,22 @@ export async function probeDatabaseReadiness(
       const knowledgeCatalogDigest = knowledgeFoundation?.knowledge_catalog_source
         ? await sourceSha256(knowledgeFoundation.knowledge_catalog_source)
         : null;
+      // PG18 adds pg_constraint rows for NOT NULL; retain exact per-engine
+      // catalogs, including validation flags, rather than stripping constraints.
+      // Both phases independently reproduced with restricted catalog readers.
+      const knowledgeServerMajor = Math.floor(
+        (knowledgeFoundation?.server_version_num ?? 0) / 10_000,
+      );
       const expectedKnowledgeCatalogDigest =
-        knowledgeAttachmentsPhase === "EXPAND"
-          ? HOTEL_KNOWLEDGE_CORE_CONTRACT_CATALOG_SHA256
-          : HOTEL_KNOWLEDGE_CORE_EXPAND_CATALOG_SHA256;
+        knowledgeServerMajor === 16
+          ? knowledgeAttachmentsPhase === "EXPAND"
+            ? "219f76050f31f5cd6b9448d26999f3baef47d34dd67a43b6d3e14fe728e53bb3"
+            : "2b80658a2baa6a8409ca0f7f42adfd7943d020d0e89f44dbe6acbc9da92448de"
+          : knowledgeServerMajor === 18
+            ? knowledgeAttachmentsPhase === "EXPAND"
+              ? HOTEL_KNOWLEDGE_CORE_CONTRACT_CATALOG_SHA256
+              : HOTEL_KNOWLEDGE_CORE_EXPAND_CATALOG_SHA256
+            : null;
       const knowledgeSourceDigest = knowledgeFoundation?.knowledge_function_source
         ? await sourceSha256(knowledgeFoundation.knowledge_function_source)
         : null;
@@ -3328,38 +3335,11 @@ export async function probeDatabaseReadiness(
         knowledgeFoundation.knowledge_pg_trgm_count !== 1 ||
         knowledgeFoundation.knowledge_trigger_count !== 3 ||
         knowledgeFoundation.knowledge_column_shape_count !== 10 ||
+        expectedKnowledgeCatalogDigest === null ||
         knowledgeCatalogDigest !== expectedKnowledgeCatalogDigest ||
         knowledgeSourceDigest !== expectedKnowledgeSourceDigest
       )
-        return schemaNotReady(() => {
-          const details: string[] = [];
-          if (knowledgeFoundation?.knowledge_table_count !== 4) details.push("KNOWLEDGE_TABLE_COUNT_MISMATCH");
-          if (knowledgeFoundation?.knowledge_owner_safe_count !== 4) details.push("KNOWLEDGE_OWNER_MISMATCH");
-          if (knowledgeFoundation?.knowledge_rls_count !== 4) details.push("KNOWLEDGE_RLS_MISMATCH");
-          if (knowledgeFoundation?.knowledge_force_rls_count !== 4) details.push("KNOWLEDGE_FORCE_RLS_MISMATCH");
-          if (knowledgeFoundation?.knowledge_policy_count !== 4) details.push("KNOWLEDGE_POLICY_COUNT_MISMATCH");
-          if (knowledgeFoundation?.knowledge_policy_total_count !== 4) details.push("KNOWLEDGE_POLICY_TOTAL_COUNT_MISMATCH");
-          if (knowledgeFoundation?.knowledge_acl_count !== 0) details.push("KNOWLEDGE_ACL_MISMATCH");
-          if (knowledgeFoundation?.knowledge_column_acl_count !== 0) details.push("KNOWLEDGE_COLUMN_ACL_MISMATCH");
-          if (knowledgeFoundation?.knowledge_function_count !== 19) details.push("KNOWLEDGE_FUNCTION_COUNT_MISMATCH");
-          if (knowledgeFoundation?.knowledge_function_acl_count !==
-          knowledgeFoundation?.knowledge_function_acl_safe_count) details.push("KNOWLEDGE_FUNCTION_ACL_MISMATCH");
-          if (knowledgeFoundation?.knowledge_function_execute_count !==
-          expectedKnowledgeExecuteCount) details.push("KNOWLEDGE_FUNCTION_EXECUTE_MISMATCH");
-          if (knowledgeFoundation?.knowledge_index_count !== 7) details.push("KNOWLEDGE_INDEX_MISMATCH");
-          if (knowledgeFoundation?.knowledge_pg_trgm_count !== 1) details.push("KNOWLEDGE_TRGM_MISMATCH");
-          if (knowledgeFoundation?.knowledge_trigger_count !== 3) details.push("KNOWLEDGE_TRIGGER_MISMATCH");
-          if (knowledgeFoundation?.knowledge_column_shape_count !== 10) details.push("KNOWLEDGE_COLUMN_SHAPE_MISMATCH");
-          if (knowledgeCatalogDigest !== expectedKnowledgeCatalogDigest) details.push("KNOWLEDGE_CATALOG_MISMATCH");
-          if (knowledgeSourceDigest !== expectedKnowledgeSourceDigest) details.push("KNOWLEDGE_SOURCE_MISMATCH");
-          details.push(`KNOWLEDGE_ATTACHMENTS_${knowledgeAttachmentsPhase}`);
-          const version = knowledgeFoundation?.server_version_num;
-          const major = typeof version === "number" && Number.isInteger(version) ? Math.floor(version / 10_000) : null;
-          details.push(`KNOWLEDGE_PG_MAJOR_${major !== null && major >= 10 && major <= 19 ? major : "UNKNOWN"}`);
-          if (knowledgeCatalogDigest) details.push(`KNOWLEDGE_CATALOG_SHA256_${knowledgeCatalogDigest}`);
-          if (knowledgeSourceDigest) details.push(`KNOWLEDGE_SOURCE_SHA256_${knowledgeSourceDigest}`);
-          return details;
-        });
+        return schemaNotReady();
     }
     if (knowledgeAttachmentsPhase === "PRE_EXPAND") {
       const [prematureKnowledgeAttachments] = await sql<
@@ -3434,6 +3414,7 @@ export async function probeDatabaseReadiness(
       ] as const;
       const [attachmentFoundation] = await sql<
         {
+          server_version_num: number;
           acl_count: number;
           catalog_source: string | null;
           column_acl_count: number;
@@ -3455,6 +3436,7 @@ export async function probeDatabaseReadiness(
         }[]
       >`
         select
+          current_setting('server_version_num')::integer as server_version_num,
           (select count(*)::integer from pg_catalog.pg_class table_record
             join pg_catalog.pg_namespace table_namespace on table_namespace.oid=table_record.relnamespace
            where table_namespace.nspname='public' and table_record.relkind='r'
@@ -3566,6 +3548,15 @@ export async function probeDatabaseReadiness(
       const attachmentSourceDigest = attachmentFoundation?.function_source
         ? await sourceSha256(attachmentFoundation.function_source)
         : null;
+      const attachmentServerMajor = Math.floor(
+        (attachmentFoundation?.server_version_num ?? 0) / 10_000,
+      );
+      const expectedAttachmentCatalogDigest =
+        attachmentServerMajor === 16
+          ? "9383de30511036a8c03e65655c18f667593ce309e3e1aca72edebff6ca3c7720"
+          : attachmentServerMajor === 18
+            ? HOTEL_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256
+            : null;
       const expectedAttachmentExecuteCount =
         options.capability === "API_RUNTIME" ? 5 : 0;
       if (
@@ -3585,7 +3576,8 @@ export async function probeDatabaseReadiness(
         attachmentFoundation.knowledge_parent_column_count !== 2 ||
         attachmentFoundation.action_constraint_count !== 1 ||
         attachmentFoundation.trigger_count !== 1 ||
-        attachmentCatalogDigest !== HOTEL_KNOWLEDGE_ATTACHMENTS_CATALOG_SHA256 ||
+        expectedAttachmentCatalogDigest === null ||
+        attachmentCatalogDigest !== expectedAttachmentCatalogDigest ||
         attachmentSourceDigest !== HOTEL_KNOWLEDGE_ATTACHMENTS_PROSRC_SHA256
       )
         return schemaNotReady();

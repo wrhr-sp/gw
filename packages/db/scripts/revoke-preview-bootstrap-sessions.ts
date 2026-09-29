@@ -76,9 +76,9 @@ async function neonIdentity(sql: postgres.Sql): Promise<{
   };
 }
 
-export async function assertPreviewBootstrapSessionRevocationLedgerReady(
+async function validatePreviewBootstrapSessionRevocationLedger(
   sql: postgres.TransactionSql,
-): Promise<void> {
+): Promise<readonly string[]> {
   await sql`lock table public.preview_bootstrap_session_revocations in access exclusive mode`;
   const columns = await sql<
     {
@@ -378,6 +378,104 @@ export async function assertPreviewBootstrapSessionRevocationLedgerReady(
     order by attribute.attname, acl.privilege_type, acl.grantor, acl.grantee
   `;
   if (columnAcl.length !== 0) fail();
+  return expectedColumnShape.map((column) => column.name);
+}
+
+function normalizedReloptions(value: string[] | null): string[] | null {
+  return value ? [...value].sort() : null;
+}
+
+async function fencePreviewBootstrapSessionRevocationLedger(
+  sql: postgres.TransactionSql,
+): Promise<void> {
+  const columns = await validatePreviewBootstrapSessionRevocationLedger(sql);
+  const tableRows = await sql<{ reloptions: string[] | null }[]>`
+    select reloptions
+    from pg_class
+    where oid = 'public.preview_bootstrap_session_revocations'::regclass
+  `;
+  if (tableRows.length !== 1) fail();
+  const beforeOptions = tableRows[0]!.reloptions;
+  const attributes = await sql<
+    { attname: string; attstattarget: number | null }[]
+  >`
+    select attname, attstattarget
+    from pg_attribute
+    where attrelid =
+      'public.preview_bootstrap_session_revocations'::regclass
+      and attnum > 0
+      and not attisdropped
+    order by attnum
+  `;
+  if (
+    attributes.length !== columns.length ||
+    attributes.some((attribute, index) => attribute.attname !== columns[index])
+  )
+    fail();
+
+  const fillfactorOption = beforeOptions?.find((option) =>
+    option.startsWith("fillfactor="),
+  );
+  const fillfactor = fillfactorOption
+    ? Number(fillfactorOption.slice("fillfactor=".length))
+    : 100;
+  if (!Number.isInteger(fillfactor) || fillfactor < 10 || fillfactor > 100)
+    fail();
+  await sql.unsafe(
+    `alter table public.preview_bootstrap_session_revocations set (fillfactor=${fillfactor})`,
+  );
+
+  for (const attribute of attributes) {
+    if (!/^[a-z_]+$/.test(attribute.attname)) fail();
+    const target =
+      attribute.attstattarget === null ? null : Number(attribute.attstattarget);
+    if (
+      target !== null &&
+      (!Number.isInteger(target) || target < -1 || target > 10_000)
+    )
+      fail();
+    await sql.unsafe(
+      target === null
+        ? `alter table public.preview_bootstrap_session_revocations alter column "${attribute.attname}" set statistics default`
+        : `alter table public.preview_bootstrap_session_revocations alter column "${attribute.attname}" set statistics ${target}`,
+    );
+  }
+  if (!fillfactorOption)
+    await sql.unsafe(
+      "alter table public.preview_bootstrap_session_revocations reset (fillfactor)",
+    );
+
+  await validatePreviewBootstrapSessionRevocationLedger(sql);
+  const afterTableRows = await sql<{ reloptions: string[] | null }[]>`
+    select reloptions
+    from pg_class
+    where oid = 'public.preview_bootstrap_session_revocations'::regclass
+  `;
+  const afterAttributes = await sql<
+    { attname: string; attstattarget: number | null }[]
+  >`
+    select attname, attstattarget
+    from pg_attribute
+    where attrelid =
+      'public.preview_bootstrap_session_revocations'::regclass
+      and attnum > 0
+      and not attisdropped
+    order by attnum
+  `;
+  if (
+    afterTableRows.length !== 1 ||
+    JSON.stringify(normalizedReloptions(afterTableRows[0]!.reloptions)) !==
+      JSON.stringify(normalizedReloptions(beforeOptions)) ||
+    JSON.stringify(afterAttributes) !== JSON.stringify(attributes)
+  )
+    fail();
+}
+
+export async function assertPreviewBootstrapSessionRevocationLedgerReady(
+  sql: postgres.TransactionSql,
+): Promise<void> {
+  await sql`lock table public.preview_bootstrap_session_revocations in access exclusive mode`;
+  await fencePreviewBootstrapSessionRevocationLedger(sql);
 }
 
 async function lockPreviewBootstrapTuple(
@@ -403,7 +501,7 @@ async function lockPreviewBootstrapTuple(
   if (identities.length !== 1) fail();
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const approvalRef = required("PREVIEW_BOOTSTRAP_APPROVAL_REF");
   const previewDatabaseUrl = required("DATABASE_URL_PREVIEW");
   const approvedDatabaseIdentityFingerprint = required(
